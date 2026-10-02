@@ -1,0 +1,26 @@
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; overscroll-behavior: none; }
+body { -webkit-tap-highlight-color: transparent; }
+#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+/* champ natif : reçoit les événements, invisible ; placé sur le prénom (le clavier mobile vise cette zone) */
+#f { position: fixed; left: 0; top: 0; width: 100%; height: 100%; margin: 0; pointer-events: none; }
+#in {
+  position: absolute; left: 7%; width: 86%; top: calc(45% - 3.5em); height: 7em;
+  box-sizing: border-box; margin: 0; padding: 0; border: 0; outline: none; border-radius: 0;
+  font: 16px/1 sans-serif; text-align: center;
+  background: transparent; color: transparent; -webkit-text-fill-color: transparent; caret-color: transparent;
+  pointer-events: auto; -webkit-appearance: none; appearance: none;
+}
+#in::selection { background: transparent; color: transparent; }
+#fallback {
+  position: fixed; left: 0; right: 0; top: 45%; transform: translateY(-50%);
+  text-align: center; color: #fff; font: 500 clamp(28px, 6vh, 64px)/1.2 'SG Garamond', serif;
+  letter-spacing: 0.45em; padding-left: 0.45em; display: none; pointer-events: none;
+}
+#back {
+  position: fixed; left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top));
+  width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+  color: #fff; opacity: 0; transition: opacity .9s ease; pointer-events: none; cursor: pointer;
+}
+#back.on { opacity: .28; pointer-events: auto; }
+#back.on:hover { opacity: .5; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
