@@ -71,4 +71,4 @@ Fond
 - Écarts assumés vs prototype : z_f fixe 14 (pas de respiration), flou continu, avance par zoom exponentiel dans la tranche (pas de translation de caméra), police locale.
 
 ## Reste
-Tout (étapes 2 → 7).
+Étapes 3 → 7. Début étape 3 : corriger le grain du fond.
