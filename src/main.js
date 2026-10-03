@@ -81,6 +81,7 @@ const bridge = createBridge(input, model, {
 });
 bridge.refresh();
 // remplissage automatique (suggestion du clavier) : le prénom arrive d'un coup → on ferme le clavier
+input.addEventListener('focus', () => input.classList.remove('rest'));
 input.addEventListener('input', (e) => {
   if (e.inputType === 'insertReplacementText' || (!e.inputType && input.value.length > 1)) setTimeout(confirmName, 120);
 });

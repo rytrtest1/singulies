@@ -20,7 +20,7 @@ body { -webkit-tap-highlight-color: transparent; }
   transition: background-color 99999s 0s, color 99999s 0s; background-clip: text; -webkit-background-clip: text;
 }
 /* prénom confirmé : le champ natif disparaît entièrement (aucun rectangle de sélection) */
-#in.rest { visibility: hidden; }
+#in.rest { opacity: 0; }   /* reste focalisable (Tab, clic) : redevient normal au focus */
 #fallback {
   position: fixed; left: 0; right: 0; top: 45%; transform: translateY(-50%);
   text-align: center; color: #fff; font: 500 clamp(28px, 6vh, 64px)/1.2 'SG Garamond', serif;
