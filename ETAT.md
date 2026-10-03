@@ -29,7 +29,18 @@
 - Zone vide : rectangle max(260×110·ui, prénom + 1,1 fs), fondu 70·ui px, lissé 1 s.
 - Caméra : parallaxe pointeur (souris) 0,12/0,08 monde, ressort ω 2,2 ζ 0,85 + oscillation lente 0,05/0,03.
 
+### Révision 3b (retour Maxence : « texte mieux dans le prototype », apparitions aléatoires, clavier iPhone)
+- **Diagnostic texte** (loupe prototype vs nôtre) : 1) lointains pâteux — avec un seul KB = 0,034, σ ≈ 1,4 px sur 10 px de corps (σ_em ∝ |1 − z/z_f| croît au loin) ; le prototype floute 6× moins au loin. 2) lettres 16 % plus petites (S 0,30). 3) interlettrage lointain trop large (0,24 em). 4) grain lissé, sans scintillement.
+- Corrigé : KB_FAR = 0,007 au-delà de z_f (KB = 0,034 en deçà) ; S = 0,356 (proto) ; interlettrage 0,07–0,15 em ; gris du prototype ; grain plancher 6 + scintillement g⁴ ; vignette 0,32.
+- **Flux continu** (nouvelle règle, CLAUDE.md mis à jour) : naissance z 30–34 seulement (fondu 4,5 s), mort seulement hors écran (ou z ≤ 2,3, au centre, déjà effacé). 55 % des naissances près du point de fuite (r < 0,13), réduit sur écran étroit, et régulé (moins de naissances centrales quand > 28 % des mots sont cachés dans la zone) → visibles stables. Noms courts pour les naissances centrales (futurs proches).
+- Zone vide : cœur (60 %) efface tous les mots ; zone entière seulement les mots > 10–20 px. Demi-largeur ≤ 0,3 W hors prénom (mobile).
+- Recouvrement : marge réduite 0,4 → 0,15 em (moins d'effacements « aléatoires »).
+- Mobile : 40 mots (34 avant). Clavier : taille CSS du canvas figée en px → plus d'étirement à l'ouverture du clavier (non vérifié sur iPhone).
+- Chiffres 1672 LEA : px>5 94,5 / px>20 8,6 / px>80 1,1 / lum 12,6 ; 62 visibles. Stationnarité (moy. 60 s) 1672 : 55,2 / 54,1 / 56,1 / 59,3 ; 390 : 24,7 / 26,9 / 26,3 / 26. Sur 3 h simulées, moyennes 10 min 54–62. Proches : moy. ≈ 4,7 (1672), ≈ 1–5 (390). FPS 18 (1672 swiftshader) / 60 (390). Tests 38/38 + 62/62.
+
 ### Ouvert
+- Proches un peu sous la cible (≈ 4,7 au lieu de 6) : contrainte du flux (un proche doit naître au centre). Plus de proches = plus de mots cachés dans la zone.
+- Option clavier : atténuer le fond quand le clavier est ouvert (proposition de Maxence) — en attente de son essai sur iPhone.
 - **Mobile + prénom long** : prénom à 28 px, mots du plan moyen proche (z≈6) ≈ 39 px → « jamais plus petit que le fond » non tenu. Options : réduire encore le fond sur mobile (lointains illisibles < 6 px), ou n'appliquer la règle qu'au plan moyen typique (z≈9 → 21 px). À trancher.
 - FPS 1672 en logiciel : à traiter étape 7 (qualité adaptative).
 - px>5 = 95 % vs 91,6 % : fond légèrement trop clair en bords (vignette réf plus marquée ?) — mineur.

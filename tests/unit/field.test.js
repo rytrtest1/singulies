@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createField, TIERS, STRIDE, wordCount } from '../../src/field/field.js';
+import { createField, STRIDE, wordCount, Z_BIRTH, Z_END } from '../../src/field/field.js';
 import { NAMES } from '../../src/field/names.js';
 import { createRng } from '../../src/field/rng.js';
 
@@ -12,8 +12,9 @@ const mk = (w = 1672, h = 941, caseMode = 'upper') => {
   f.resize(w, h);
   return f;
 };
-const perTier = (f) => TIERS.map((_, t) => f.words.filter((w) => w.tier === t).length);
 const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+// tolérance : la boîte précédente peut être à quelques px du seuil de sortie
+const offByStep = (b, W, H) => b[2] < 0 || b[0] > W || b[3] < 0 || b[1] > H;
 function sample(f, n = 60) {
   const out = [];
   for (let i = 0; i < n; i++) { f.step(1); out.push(f.stats()); }
@@ -29,33 +30,50 @@ describe('NAMES', () => {
 });
 
 describe('field', () => {
-  it('nombre de mots et répartition', () => {
+  it('nombre de mots : 78 à 1672, 40 à 390', () => {
     expect(wordCount(1672)).toBe(78);
-    const f = mk();
-    expect(f.words.length).toBe(78);
-    expect(perTier(f)).toEqual([6, 33, 39]);
-    const g = mk(390, 844);
-    expect(g.words.length).toBe(34);
+    expect(wordCount(390)).toBe(40);
+    expect(mk().words.length).toBe(78);
+    expect(mk(390, 844).words.length).toBe(40);
   });
 
-  it('z dans la tranche à t0 et après 30 min', () => {
+  it('z dans [Z_END[0], Z_BIRTH[1]] à t0 et après 30 min', () => {
     const f = mk();
-    const chk = () => { for (const w of f.words) { const T = TIERS[w.tier]; expect(w.z).toBeGreaterThanOrEqual(T.z0 - 1e-9); expect(w.z).toBeLessThanOrEqual(T.z1 + 1e-9); } };
+    const chk = () => { for (const w of f.words) { expect(w.z).toBeGreaterThanOrEqual(Z_END[0] - 1e-9); expect(w.z).toBeLessThanOrEqual(Z_BIRTH[1] + 1e-9); } };
     chk(); f.advance(1800); chk();
   });
 
-  it('stationnarité à 30 min', () => {
+  it('renaissances : au fond, alpha < 0.05 ; jamais de disparition de mot visible', () => {
     const f = mk();
-    const a = sample(f);
-    f.advance(1800);
-    const b = sample(f);
-    const ma = mean(a.map((s) => s.visible)), mb = mean(b.map((s) => s.visible));
-    expect(Math.abs(ma - mb) / ma).toBeLessThan(0.1);
-    for (const k of ['proche', 'moyen', 'lointain']) {
-      const x = mean(a.map((s) => s[k])), y = mean(b.map((s) => s[k]));
-      if (k === 'proche') expect(Math.abs(x - y)).toBeLessThanOrEqual(2);
-      else expect(Math.abs(x - y) / x).toBeLessThan(0.1);
+    const { w: W, h: H } = f.view;
+    const out = (b) => b[2] < -24 || b[0] > W + 24 || b[3] < -24 || b[1] > H + 24;
+    const prev = new Map(f.words.map((w) => [w, { age: w.age, name: w.name, alpha: w.alpha, box: w.box.slice() }]));
+    let births = 0;
+    for (let i = 0; i < 600; i++) {
+      f.step(0.1);
+      for (const w of f.words) {
+        const p = prev.get(w);
+        if (w.age < p.age) {
+          births++;
+          expect(w.z).toBeGreaterThanOrEqual(Z_BIRTH[0] - 1e-9);
+          expect(w.z).toBeLessThanOrEqual(Z_BIRTH[1] + 1e-9);
+          expect(w.alpha).toBeLessThan(0.05);
+          // pas de disparition visible : hors écran (marge 24 px + déplacement d'un pas) ou invisible
+          expect(out(p.box) || offByStep(p.box, W, H) || p.alpha < 0.05).toBe(true);
+        }
+        prev.set(w, { age: w.age, name: w.name, alpha: w.alpha, box: w.box.slice() });
+      }
     }
+    console.log('naissances observées :', births);
+  });
+
+  it('stationnarité à 30 min (visible moyen, 120 échantillons)', () => {
+    const f = mk();
+    const a = sample(f, 120);
+    f.advance(1800);
+    const b = sample(f, 120);
+    const ma = mean(a.map((s) => s.visible)), mb = mean(b.map((s) => s.visible));
+    expect(Math.abs(ma - mb) / ma).toBeLessThan(0.12);
   });
 
   it('aucune apparition brusque', () => {

@@ -1,11 +1,12 @@
-// Champ de mots (simulation CPU, sans GL) : tranches stationnaires, zoom exponentiel lent,
-// naissance/mort en fondu, zone vide autour du prénom, anti-chevauchement.
+// Champ de mots (simulation CPU, sans GL) : flux continu. Chaque mot naît petit au fond (fondu),
+// avance par zoom exponentiel lent et ne meurt qu'en quittant l'écran. La répartition par
+// tranche (≈ 8/42/50 %) émerge de la géométrie du flux et reste stationnaire.
 // La projection des lettres se fait dans le shader ; ici on ne projette que les boîtes des mots.
 import { NAMES } from './names.js';
 import { viewOf, sigmaPx, psiOf } from './camera.js';
 import { displayCase } from '../text/normalize.js';
 
-// tranches permanentes : chaque emplacement renaît dans sa tranche → répartition stationnaire
+// tranches : seulement pour mesurer la répartition (un mot les traverse toutes)
 export const TIERS = [
   { key: 'proche', z0: 2.8, z1: 4.6, share: 0.08 },
   { key: 'moyen', z0: 6, z1: 14, share: 0.42 },
@@ -13,29 +14,31 @@ export const TIERS = [
 ];
 export const ZOOM = 0.004;          // /s : z ← z·e^(−ZOOM·t)
 export const FADE_IN = 4.5;         // s
-export const FADE_OUT = 4.5;        // s, avant d'atteindre le bord proche de la tranche
+export const Z_BIRTH = [30, 34];    // naissance au fond
+export const Z_END = [2.3, 2.8];    // fin du flux (n'arrive qu'au centre, dans la zone vide : invisible)
+const CENTER_BIAS = 0.55;           // part des naissances près du point de fuite (→ futurs mots proches)
 const OCC_MAX = 0.86;               // effacement max du mot le plus lointain d'un recouvrement
 const SEP_SPEED = 1;                // px/s, profondeurs voisines
 const SEP_TAU = 1.8;                // s
 const SEP_RATIO = 1.3;              // écart de profondeur < 30 %
 const ZONE_TAU = 1.0;               // s
-const S_BASE = 0.30;                // taille monde d'un em
+const S_BASE = 0.356;               // taille monde d'un em (prototype)
 export const WARMUP = 700;          // s de champ « vécu » avant l'ouverture
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const sm = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 
-export const wordCount = (w) => Math.round(34 + 44 * clamp01((w - 390) / 610));
+export const wordCount = (w) => Math.round(40 + 38 * clamp01((w - 390) / 610));
 // écran étroit : lettres plus petites (le prénom central ne doit jamais être plus petit que le fond)
 export const fieldScale = (w, h) => Math.min(1, Math.max(0.72, w / h / 1.5));
 // interlettrage : plus d'air pour les petits mots lointains, moins pour les grands proches
-export const trackEm = (pxEm) => 0.05 + 0.19 * (1 - sm(12, 90, pxEm));
+export const trackEm = (pxEm) => 0.07 + 0.08 * (1 - sm(14, 90, pxEm));
 // gris par profondeur (prototype) ; proche plus sombre car flou, très lointain atténué
 export function grayOf(z) {
   let g;
-  if (z > 16) g = 0.17;
-  else if (z >= 8) g = 0.36 - 0.19 * (z - 8) / 8;
-  else g = 0.24 + 0.12 * clamp01((z - 2.8) / 5.2);
+  if (z > 16) g = 0.20;
+  else if (z >= 8) g = 0.44 - 0.24 * (z - 8) / 8;
+  else g = 0.26 + 0.18 * clamp01((z - 2.8) / 5.2);
   return g * (1 - 0.6 * sm(28, 34, z));
 }
 
@@ -77,35 +80,36 @@ export function createField(opts) {
   const inter = (a, b) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
   const interPad = (a, b, m) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]) + m) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]) + m);
   const offscreen = (b, m = 0) => b[2] < -m || b[0] > view.w + m || b[3] < -m || b[1] > view.h + m;
-  function zoneTarget(b) {
-    const gx = Math.max(zone.x0 - b[2], b[0] - zone.x1), gy = Math.max(zone.y0 - b[3], b[1] - zone.y1);
-    return sm(-0.25 * zone.fw, zone.fw, Math.max(gx, gy));
+  // les petits mots lointains peuvent frôler le prénom ; les plus grands s'effacent dans la zone
+  function zoneTarget(w) {
+    const b = w.box;
+    const gap = (s) => {
+      const cx = (zone.x0 + zone.x1) / 2, cy = (zone.y0 + zone.y1) / 2, hw = (zone.x1 - zone.x0) / 2 * s, hh = (zone.y1 - zone.y0) / 2 * s;
+      return Math.max(cx - hw - b[2], b[0] - cx - hw, cy - hh - b[3], b[1] - cy - hh);
+    };
+    const outer = sm(-0.25 * zone.fw, zone.fw, gap(1));          // grands mots : toute la zone
+    const inner = sm(-0.2 * zone.fw, 0.6 * zone.fw, gap(0.6));  // tous : cœur de la zone
+    return inner * (1 - (1 - outer) * sm(10, 20, w.pxEm));
   }
 
   // ---------- naissance ----------
-  function pickName(tier) {
+  function pickName(short) {
     const used = new Set(words.map((w) => w.name));
     for (let i = 0; i < 40; i++) {
       const n = rng.pick(NAMES);
       if (used.has(n)) continue;
-      if (tier === 0 && n.length > 6) continue;    // proches : mots courts (très grands à l'écran)
+      if (short && n.length > 6) continue;    // futurs mots proches : courts (très grands à l'écran)
       return n;
     }
     return rng.pick(NAMES);
   }
+  const tierOf = (z) => (z < 5.3 ? 0 : z < 15 ? 1 : 2);
 
-  function spawn(w, tier, warm) {
-    const T = TIERS[tier];
-    w.tier = tier;
-    w.name = pickName(tier);
-    w.text = displayCase(w.name, caseMode);
-    w.chars = [...w.text];
-    w.adv = w.chars.map((ch) => glyphs[ch]?.adv ?? 0.6);
-    w.advSum = w.adv.reduce((a, b) => a + b, 0);
-    w.jit = w.chars.map(() => rng.range(-0.015, 0.015));
+  // warm : état initial (profondeur quelconque, déjà visible) ; sinon naissance au fond, en fondu
+  function spawn(w, warm) {
+    w.z = warm ? Z_END[1] * Math.pow(Z_BIRTH[1] / Z_END[1], rng()) : rng.range(Z_BIRTH[0], Z_BIRTH[1]);
     w.S = S_BASE * sField * rng.range(0.9, 1.15);
     w.ink = rng.range(0.92, 1.08);
-    w.z = T.z0 * Math.pow(T.z1 / T.z0, rng());
     w.dvx = rng.range(-1, 1) * 0.01 * sField;
     w.dvy = rng.range(-1, 1) * 0.006 * sField;
     w.sx = 0; w.sy = 0; w.tsx = 0; w.tsy = 0;
@@ -113,30 +117,41 @@ export function createField(opts) {
     w.age = warm ? 1e4 : 0;
     w.box = w.box || [0, 0, 0, 0];
 
-    // meilleur de N essais : visible, hors zone vide, peu de recouvrement avec sa tranche
+    // position écran : uniforme, ou près du point de fuite (ces mots deviendront proches : noms courts)
     const { f, cx, cy } = view;
+    // écran étroit : la zone vide avale le centre ; régulation : moins de naissances centrales
+    // quand beaucoup de mots sont déjà cachés dans la zone (nombre de mots visibles stable)
+    const hidden = words.reduce((n, o) => n + (o !== w && o.zoneA != null && o.zoneA < 0.3 ? 1 : 0), 0);
+    const reg = Math.min(1.5, Math.max(0, 2 - hidden / (0.28 * words.length)));
+    const central = rng() < CENTER_BIAS * reg * Math.min(1, Math.max(0.35, view.w / view.h / 1.5));
+    w.name = pickName(central);
+    w.text = displayCase(w.name, caseMode);
+    w.chars = [...w.text];
+    w.adv = w.chars.map((ch) => glyphs[ch]?.adv ?? 0.6);
+    w.advSum = w.adv.reduce((a, b) => a + b, 0);
+    w.jit = w.chars.map(() => rng.range(-0.015, 0.015));
     let best = null;
     for (let i = 0; i < 12; i++) {
       let u, v;
-      if (tier === 0) {
-        do { u = rng.range(-0.08, 1.08); v = rng.range(-0.06, 1.06); } while (Math.abs(u - 0.5) < 0.3 && Math.abs(v - 0.5) < 0.3);
-      } else { u = rng.range(0, 1); v = rng.range(0.02, 0.98); }
+      if (central) { const a = rng() * Math.PI * 2, r = Math.sqrt(rng()) * 0.13; u = 0.5 + r * Math.cos(a); v = 0.45 + r * Math.sin(a) * view.w / view.h; }
+      else { u = rng.range(-0.02, 1.02); v = rng.range(0, 1); }
       w.X = cam.x + (u * view.w - cx) * w.z / f;
       w.Y = cam.y + (v * view.h - cy) * w.z / f;
       geom(w);
       const a = area(w.box) || 1;
-      let score = offscreen(w.box, -20) ? 10 : 0;
-      score += 3 * (1 - zoneTarget(w.box));
+      let score = offscreen(w.box, -10) ? 10 : 0;
       for (const o of words) {
-        if (o === w || o.box == null || o.alpha == null) continue;
-        score += inter(w.box, o.box) / a * (o.tier === tier ? 1 : 0.3) * (0.3 + o.alpha);
+        if (o === w || o.alpha == null) continue;
+        const near = Math.max(o.z, w.z) / Math.min(o.z, w.z) < SEP_RATIO;
+        score += inter(w.box, o.box) / a * (near ? 1 : 0.2) * (0.3 + o.alpha);
       }
       if (!best || score < best.score) best = { score, X: w.X, Y: w.Y };
     }
     w.X = best.X; w.Y = best.Y;
     geom(w);
-    w.zoneA = zoneTarget(w.box);
+    w.zoneA = zoneTarget(w);
     w.alpha = warm ? w.zoneA : 0;
+    w.tier = tierOf(w.z);
   }
 
   // ---------- dimensionnement : nombre de mots par tranche ----------
@@ -147,13 +162,8 @@ export function createField(opts) {
     ui = Math.min(1.3, Math.max(0.6, w / 1440));
     if (first) setZone(null);
     const N = wordCount(w);
-    const want = TIERS.map((T, i) => (i < TIERS.length - 1 ? Math.round(T.share * N) : 0));
-    want[TIERS.length - 1] = N - want.reduce((a, b) => a + b, 0);
-    for (let t = 0; t < TIERS.length; t++) {
-      const have = words.filter((x) => x.tier === t);
-      for (let k = have.length; k > want[t]; k--) words.splice(words.indexOf(have[k - 1]), 1);
-      for (let k = have.length; k < want[t]; k++) { const nw = {}; words.push(nw); spawn(nw, t, first); }
-    }
+    if (words.length > N) words.length = N;
+    while (words.length < N) { const nw = {}; words.push(nw); spawn(nw, first); }
     for (const x of words) geom(x);
     if (first) for (let s = 0; s < WARMUP; s += 0.5) step(0.5, true);
   }
@@ -162,7 +172,7 @@ export function createField(opts) {
   function setZone(r) {
     const kw = 260 * ui, kh = 110 * ui;
     const cx = view.cx, cy = view.cy;
-    const hw = Math.min(0.47 * view.w, Math.max(kw, r ? (r.x1 - r.x0) / 2 + r.pad : 0));
+    const hw = Math.min(0.47 * view.w, Math.max(Math.min(kw, 0.3 * view.w), r ? (r.x1 - r.x0) / 2 + r.pad : 0));
     const hh = Math.max(kh, r ? (r.y1 - r.y0) / 2 + r.pad * 0.8 : 0);
     const ccy = r ? (r.y0 + r.y1) / 2 : cy;
     zone.x0 = cx - hw; zone.x1 = cx + hw; zone.y0 = ccy - hh; zone.y1 = ccy + hh; zone.fw = 70 * ui;
@@ -180,11 +190,12 @@ export function createField(opts) {
       }
       w.age += dt;
       geom(w);
-      if (w.z <= TIERS[w.tier].z0 || offscreen(w.box, 24)) { spawn(w, w.tier, false); }
+      // mort : seulement en quittant l'écran (ou au bout du flux, au centre, déjà effacé par la zone)
+      if (offscreen(w.box, 24) || w.z <= Z_END[0]) spawn(w, false);
+      w.tier = tierOf(w.z);
       const zk = 1 - Math.exp(-dt / ZONE_TAU);
-      w.zoneA += (zoneTarget(w.box) - w.zoneA) * zk;
-      const T = TIERS[w.tier];
-      w.base = sm(0, FADE_IN, w.age) * sm(0, 1, Math.log(w.z / T.z0) / (ZOOM * FADE_OUT)) * w.zoneA;
+      w.zoneA += (zoneTarget(w) - w.zoneA) * zk;
+      w.base = sm(0, FADE_IN, w.age) * sm(Z_END[0], Z_END[1], w.z) * w.zoneA;
       w.occT = 0; w.tsx = 0; w.tsy = 0;
     }
     // loin → proche
@@ -193,8 +204,7 @@ export function createField(opts) {
       const a = order[i], aa = area(a.box) || 1;
       for (let j = i + 1; j < order.length; j++) {
         const b = order[j];            // b est plus proche que a
-        // marge ≈ 0,4 em du plus petit : deux mots qui se touchent comptent comme un recouvrement
-        const m = 0.4 * Math.min(a.pxEm, b.pxEm);
+        const m = 0.15 * Math.min(a.pxEm, b.pxEm); // petite marge : lettres collées = recouvrement
         const I = interPad(a.box, b.box, m);
         if (I > 0) a.occT = Math.max(a.occT, OCC_MAX * sm(0.01, 0.2, I / aa) * b.base);
         if (a.z / b.z < SEP_RATIO) {

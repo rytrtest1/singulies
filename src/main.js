@@ -107,6 +107,9 @@ function measure() {
   if (w === S.w && h === S.h && dpr === S.dpr) return;
   S.w = w; S.h = h; S.dpr = dpr;
   canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+  // taille CSS figée en px : quand le clavier mobile réduit la fenêtre, l'image n'est ni
+  // reconstruite ni étirée — le clavier la recouvre simplement
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
   field?.resize(w, h);
 }
 window.addEventListener('resize', measure);

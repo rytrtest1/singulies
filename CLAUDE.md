@@ -16,13 +16,13 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 ## Rendu — une seule caméra
 - Point de fuite ≈ (50 % x, 45 % y), fov ≈ 48°. Ce modèle unique pilote perspective, taille, flou, mouvement, parallaxe.
 - Chaque lettre = quad instancié projeté dans le shader. Rotation du mot ψ = κ·atan(|X|/z), κ ≈ 0,8 : l'extrémité extérieure est la plus proche, dans les 4 quadrants.
-- Flou : atlas SDF, flou continu par lettre et par image, σ_écran ∝ |1/z − 1/z_f|, **z_f fixe ≈ 14**. Jamais de niveaux discrets, jamais de pulsation de netteté, jamais d'apparition brusque (naissance/mort en fondu ≥ 4 s). Compenser la perte de luminosité du flou.
+- Flou : atlas SDF, flou continu par lettre et par image, σ_écran ∝ |1/z − 1/z_f|, **z_f fixe ≈ 14**, coefficient ≈ 5× plus faible au-delà de z_f (lointains nets, comme le prototype). Jamais de niveaux discrets, jamais de pulsation de netteté, jamais d'apparition brusque (naissance/mort en fondu ≥ 4 s). Compenser la perte de luminosité du flou.
 - Anti-chevauchement : tri loin→proche ; boîtes qui se recouvrent → le plus lointain s'efface (jusqu'à −86 %, lissé 1,2–1,8 s) ; profondeurs voisines (écart < 30 %) → poussée de séparation ≈ 1 px/s, filtrée ≈ 1,8 s.
 - Zone vide autour du prénom par fondu des mots, jamais par masque qui coupe.
 - Fond charbon granuleux (moyenne ≈ 8/255), vignette légère ; `?grain=0` → noir pur.
 
 ## Mouvement
-- Boucle infinie, composition **stationnaire** : tranches permanentes proche 2,8–4,6 (8 %), moyenne 6–14 (42 %), lointaine 16–32 (50 %). Zoom exponentiel lent ≈ 0,4 %/s dans la tranche, mort en fondu, renaissance au même plan. État initial = champ « vécu » ≈ 700 s avant ouverture. ≈ 6 mots proches visibles (premier plan insuffisant = défaut).
+- Boucle infinie, composition **stationnaire**, **flux continu** (décision Maxence 03/10) : un mot naît **seulement petit au fond** (z ≈ 30–34, fondu ≥ 4 s), avance par zoom exponentiel lent ≈ 0,4 %/s et **ne disparaît qu'en quittant l'écran**. Répartition visée proche 2,8–4,6 / moyenne 6–14 / lointaine 16–32 ≈ 8/42/50 %, obtenue par la géométrie du flux. État initial = champ « vécu » ≈ 700 s avant ouverture. ≈ 5–6 mots proches visibles (premier plan insuffisant = défaut).
 - Modes profondeur / horizontal. Bascule progressive : Tab ou double-clic ; `?mode=horizontal`.
 - Horizontal : v_monde = A·sin(k·Y + φ(t)), φ dérive lentement ; nappes gauche et droite simultanées, cisaillement doux, pas de bande rigide. v_écran = f·v/z. Sortie d'un côté → réapparition de l'autre à même profondeur.
 - Le champ écoute : à chaque frappe, léger souffle de caméra + ralentissement du courant ≈ 1 s.

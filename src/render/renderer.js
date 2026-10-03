@@ -2,7 +2,7 @@
 // et prénom central (SDF net) + curseur. 3 draw calls.
 // Toutes les ressources sont recréables (perte de contexte) à partir des données CPU.
 import { program, atlasTexture, GLSL_COMMON } from '../gl/gl.js';
-import { ZF, KB } from '../field/camera.js';
+import { ZF, KB, KB_FAR } from '../field/camera.js';
 import { STRIDE as FSTRIDE } from '../field/field.js';
 
 const BG_VS = /* glsl */`#version 300 es
@@ -27,11 +27,11 @@ float hash(vec2 p) { // grain statique, stable d'une image à l'autre
 void main() {
   vec2 frag = vec2(gl_FragCoord.x, u_res.y - gl_FragCoord.y);
   vec2 q = floor(frag / max(1.0, u_dpr));
-  float g = 0.75 * hash(q) + 0.25 * hash(floor(q / 3.0) + 71.0); // grain fin + léger grumeau
-  float c = (6.4 + 3.6 * g) / 255.0;                               // plancher ≈ 6,4, moyenne ≈ 8
+  float g = hash(q);
+  float c = (6.0 + 1.6 * g + 11.0 * g * g * g * g) / 255.0;        // plancher 6 + scintillement (proto), moyenne ≈ 9
   vec2 half_ = vec2(max(u_center.x, u_res.x - u_center.x), max(u_center.y, u_res.y - u_center.y)) * 1.41421;
   float r = length((frag - u_center) / half_);
-  float a = 0.45 * smoothstep(0.5, 1.0, r);                        // vignette légère
+  float a = 0.32 * smoothstep(0.5, 1.0, r);                        // vignette légère
   c *= (1.0 - a) * u_grain;
   o = vec4(vec3(c * u_fade), 1.0);
 }`;
@@ -90,7 +90,7 @@ uniform vec2 u_cam;                // translation caméra (monde)
 uniform float u_f, u_dpr;
 out vec2 v_uv;
 flat out float v_sig, v_aa, v_alpha, v_gray;
-const float ZF = ${ZF.toFixed(3)}, KB = ${KB.toFixed(4)};
+const float ZF = ${ZF.toFixed(3)}, KB = ${KB.toFixed(4)}, KB_FAR = ${KB_FAR.toFixed(4)};
 void main() {
   vec2 c = vec2(gl_VertexID & 1, gl_VertexID >> 1);
   vec2 e = mix(a_box.xy, a_box.zw, c);
@@ -99,7 +99,7 @@ void main() {
   vec3 P = vec3(a_w.xy - u_cam, a_w.z) + d * (a_l.x + e.x * S) + vec3(0.0, a_l.y + e.y * S, 0.0);
   float zc = max(0.5, a_w.z - sp * (a_l.x + 0.5 * (a_box.x + a_box.z) * S)); // centre de la lettre
   float pxEm = u_f * S / zc;
-  v_sig = KB * u_f * abs(1.0 / zc - 1.0 / ZF) / pxEm;   // σ en em
+  v_sig = (zc < ZF ? KB : KB_FAR) * u_f * abs(1.0 / zc - 1.0 / ZF) / pxEm;   // σ en em
   v_aa = 0.42 / (pxEm * u_dpr);                         // antialias ≈ 1 px physique, en em
   v_alpha = a_l.w; v_gray = a_x.x;
   v_uv = mix(a_uv.xy, a_uv.zw, c);
