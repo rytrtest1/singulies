@@ -218,7 +218,8 @@ window.addEventListener('pointermove', (e) => {
 document.addEventListener('pointerleave', () => { PAR.tx = 0; PAR.ty = 0; });
 // molette (ordinateur) ou glisser vertical (téléphone) : avancer / reculer dans le champ, retour doux
 // (pas de pincement : le zoom du navigateur reste disponible pour l'accessibilité)
-const addBoost = (v) => { if (!CFG.reduced) S.boost = Math.max(-1.2, Math.min(5, S.boost + v)); };
+// avance jusqu'à ×6, recul jusqu'à −4× la vitesse normale (marche arrière franche)
+const addBoost = (v) => { if (!CFG.reduced) S.boost = Math.max(-5, Math.min(5, S.boost + v)); };
 if (!CFG.wheel) {
   window.addEventListener('wheel', (e) => addBoost(e.deltaY * 0.004), { passive: true });
   // doigt vers le bas = avancer, vers le haut = reculer (un seul doigt ; à deux, c'est le zoom)
