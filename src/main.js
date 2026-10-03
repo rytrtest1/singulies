@@ -1,6 +1,7 @@
 // SINGULIÉS — écran d'accueil. Amorçage, boucle, états (saisie → validation → noir).
 import { NameModel } from './input/model.js';
 import { createBridge } from './input/bridge.js';
+import { createWheel } from './input/wheel.js';
 import { displayCase, finalName } from './text/normalize.js';
 import { getGL } from './gl/gl.js';
 import { buildAtlas } from './gl/atlas.js';
@@ -18,6 +19,7 @@ const CFG = {
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
   seed: P.has('seed') ? +P.get('seed') : undefined,
   debug: P.get('debug') === '1',
+  wheel: P.get('saisie') === 'roue',   // saisie par roue de lettres (sans clavier virtuel)
 };
 const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
@@ -43,6 +45,7 @@ const S = {
   w: 0, h: 0, dpr: 1,
   shiftY: 0, shiftV: 0,   // remontée douce au-dessus du clavier mobile
   validatedName: stored.validated ?? null,
+  capPx: 30,              // hauteur de capitale du prénom (pas de la roue)
   dim: 1,
   slowAt: -9,
 };
@@ -62,15 +65,23 @@ const bridge = createBridge(input, model, {
   onEscape: goBack,
 });
 bridge.refresh();
+const wheel = CFG.wheel ? createWheel({
+  model, reduced: CFG.reduced,
+  onChange: () => { if (S.phase === 'input') { S.typed = true; S.keyAt = S.t; } renderFallback(); },
+  onSubmit: validate, onEscape: goBack,
+  getStep: () => S.capPx * 1.6,
+}) : null;
+wheel?.enable(S.phase === 'input');
 
 function validate() {
-  if (S.phase !== 'input' || bridge.composing) return;
+  if (S.phase !== 'input' || (!wheel && bridge.composing)) return;
   const name = finalName(model.text);
   if (!name) return;
   const shown = displayCase(name, CFG.caseMode);
   S.phase = 'leaving'; S.phaseAt = S.t; S.validatedName = shown;
   saveValidated(shown);
   input.blur();
+  wheel?.enable(false);
 }
 
 function emitValidated(name, restored) {
@@ -90,7 +101,7 @@ function goBack() {
   S.phase = 'input'; S.phaseAt = S.t; S.validatedName = null;
   backEl.classList.remove('on');
   bridge.refresh();
-  input.focus({ preventScroll: true });
+  if (wheel) wheel.enable(true); else input.focus({ preventScroll: true });
 }
 backEl.addEventListener('click', goBack);
 // Échap fonctionne aussi quand le champ n'a plus le focus (écran noir)
@@ -99,7 +110,7 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.a
 // Toucher n'importe où : focus du champ (ouvre le clavier mobile, geste utilisateur)
 document.addEventListener('click', (e) => {
   if (S.phase !== 'input' || e.target === backEl || backEl.contains(e.target)) return;
-  if (document.activeElement !== input) input.focus({ preventScroll: true });
+  if (!wheel && document.activeElement !== input) input.focus({ preventScroll: true });
 });
 
 // ---------- dimensions ----------
@@ -181,7 +192,8 @@ function frame(ts) {
   const vv = window.visualViewport;
   let target = 0;
   const cx = S.w / 2, cy0 = field ? field.view.cy : S.h * 0.45;   // le prénom est au point de fuite
-  const text = displayCase(bridge.shownText, CFG.caseMode);
+  if (wheel && S.phase === 'input') wheel.update(dt);
+  const text = displayCase(wheel ? wheel.displayText : bridge.shownText, CFG.caseMode);
   const L0 = atlas ? layoutName(text, metrics, { w: S.w, h: S.h, cx, cy: cy0 }) : null;
   if (vv && L0 && document.activeElement === input) {
     const visBottom = vv.offsetTop + vv.height;
@@ -210,19 +222,25 @@ function frame(ts) {
     if (!gm) return;
     if (glyphAnim[i] == null || !S.typed) glyphAnim[i] = g.x; else glyphAnim[i] += (g.x - glyphAnim[i]) * kx;
     const x = CFG.reduced ? g.x : glyphAnim[i];
+    // roue : la lettre en cours (la dernière) suit la rotation
+    const active = wheel && S.phase === 'input' && i === L.glyphs.length - 1 && wheel.current !== ' ';
+    const dy = active ? -wheel.frac * S.capPx * 1.6 : 0;
+    const al = active ? nameFade * (1 - 0.55 * Math.min(1, Math.abs(wheel.frac) * 2)) : nameFade;
     glyphs.push({
-      box: [x + gm.x0 * g.fs, g.y + gm.y0 * g.fs, x + gm.x1 * g.fs, g.y + gm.y1 * g.fs],
-      uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: nameFade, pxEm: g.fs,
+      box: [x + gm.x0 * g.fs, g.y + dy + gm.y0 * g.fs, x + gm.x1 * g.fs, g.y + dy + gm.y1 * g.fs],
+      uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: al, pxEm: g.fs,
     });
   });
   glyphAnim.length = L.glyphs.length;
+  S.capPx = L.cap;
   // curseur : clignote tant qu'aucune touche n'a été tapée, puis disparaît définitivement
   if (CFG.debug) {   // croix au point de fuite
     const vy = field.view.cy + S.shiftY;
     glyphs.push({ box: [cx - 12, vy - 0.5, cx + 12, vy + 0.5], uv: null, alpha: 0.6, pxEm: 1 });
     glyphs.push({ box: [cx - 0.5, vy - 12, cx + 0.5, vy + 12], uv: null, alpha: 0.6, pxEm: 1 });
   }
-  if (!S.typed && S.phase === 'input') {
+  if (wheel && S.phase === 'input') drawWheel(L, glyphs, nameFade);
+  if (!wheel && !S.typed && S.phase === 'input') {
     // respiration douce (pas de clignotement sec) : 0,2 → 0,9, période 1,6 s
     const ph = (S.t - OPEN_DARK) / 1.6 * Math.PI * 2;
     const blink = CFG.reduced ? 0.8 : 0.2 + 0.7 * Math.pow(0.5 + 0.5 * Math.cos(ph), 1.6);
@@ -249,6 +267,35 @@ function frame(ts) {
     field: fl, cam: field.cam, focal: v.f * (1 + BR.p), vx: v.cx + field.offX, vy: v.cy + S.shiftY, dim: S.dim, time: S.t });
   stats.letters = fl.count;
   stats.gpuMB = +((atlas.width * atlas.height * 2 + canvas.width * canvas.height * 4 * 2) / 1048576).toFixed(1);
+}
+
+// roue : lettres voisines au-dessus / au-dessous de la lettre en cours, de plus en plus pâles et petites ;
+// l'espace est figuré par un point
+function drawWheel(L, glyphs, fade) {
+  const gap = L.cap * 1.6, fs = L.fs;
+  const cur = wheel.current;
+  const last = L.glyphs[L.glyphs.length - 1];
+  const onLetter = cur !== ' ' && last;
+  const gx = onLetter ? (glyphAnim[L.glyphs.length - 1] ?? last.x) : 0;
+  const slotX = onLetter ? gx + (atlas.glyphs[last.ch]?.adv ?? 0.6) * fs / 2 : L.cursor.x;
+  const base = onLetter ? last.y : L.lines[L.lines.length - 1].base;
+  const lowerNext = CFG.caseMode === 'lower' && wheel.count > 0;
+  for (const nb of wheel.neighbors()) {
+    if (nb.k === 0 && onLetter) continue;               // la lettre en cours est dans le prénom
+    const d = Math.abs(nb.off);
+    const a = fade * (nb.k === 0 ? 1 - 0.55 * Math.min(1, d * 2) : 0.36 * Math.pow(Math.max(0, 1 - d / 2.6), 1.5));
+    if (a < 0.01) continue;
+    const y = base + nb.off * gap, sc = nb.k === 0 ? 1 : 0.72;
+    if (nb.ch === ' ') {                                   // espace : un point
+      const r = Math.max(1.5, 0.05 * fs);
+      glyphs.push({ box: [slotX - r, y - L.cap * 0.5 - r, slotX + r, y - L.cap * 0.5 + r], uv: null, alpha: a, pxEm: 1 });
+      continue;
+    }
+    const ch = lowerNext ? nb.ch.toLowerCase() : nb.ch;
+    const gm = atlas.glyphs[ch]; if (!gm) continue;
+    const f = fs * sc, x = slotX - gm.adv * f / 2;
+    glyphs.push({ box: [x + gm.x0 * f, y + gm.y0 * f, x + gm.x1 * f, y + gm.y1 * f], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: a, pxEm: f });
+  }
 }
 
 function smooth(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
@@ -280,7 +327,7 @@ async function boot() {
     canvas.addEventListener('webglcontextrestored', () => { renderer.restore(); last = 0; if (!document.hidden) rafId = requestAnimationFrame(frame); });
   }
   if (S.phase === 'black') { S.phaseAt = 0; enterBlack(true); }
-  else if (window.matchMedia('(pointer: fine)').matches) input.focus({ preventScroll: true });
+  else if (!wheel && window.matchMedia('(pointer: fine)').matches) input.focus({ preventScroll: true });
   rafId = requestAnimationFrame(frame);
 }
 
