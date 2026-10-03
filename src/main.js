@@ -82,8 +82,21 @@ const bridge = createBridge(input, model, {
 bridge.refresh();
 // remplissage automatique (suggestion du clavier) : le prénom arrive d'un coup → on ferme le clavier
 input.addEventListener('focus', () => input.classList.remove('rest'));
+// suggestion choisie : remplissage automatique, ou mot entier inséré d'un coup par le clavier
+// (Chrome Android / Gboard : souvent une composition) → on ferme le clavier une fois la composition finie
+const TOUCH = matchMedia('(pointer: coarse)').matches;
+let pendingConfirm = false;
+const valLen = () => normalizeName(input.value).replace(/ +$/, '').length;
+let prevLen = valLen();   // prénom déjà présent (visiteur qui revient) : pas un « saut »
 input.addEventListener('input', (e) => {
-  if (e.inputType === 'insertReplacementText' || (!e.inputType && input.value.length > 1)) setTimeout(confirmName, 120);
+  const L = valLen(), jump = L - prevLen;
+  prevLen = L;
+  if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop') return;
+  if (e.inputType === 'insertReplacementText' || (!e.inputType && L > 1) || jump >= 2) pendingConfirm = true;
+  if (pendingConfirm && !bridge.composing) { pendingConfirm = false; setTimeout(confirmName, 150); }
+});
+input.addEventListener('compositionend', () => {
+  setTimeout(() => { prevLen = valLen(); if (pendingConfirm) { pendingConfirm = false; setTimeout(confirmName, 150); } }, 30);
 });
 const wheel = CFG.wheel ? createWheel({
   model, reduced: CFG.reduced,
@@ -126,6 +139,7 @@ function confirmName() {
   window.getSelection?.().removeAllRanges();
   input.blur();
   input.classList.add('rest');   // aucun rendu natif (sélection, surlignage du remplissage auto)
+  if (TOUCH) input.readOnly = true;   // téléphone : même si le champ reprend le focus, pas de clavier
 }
 // les lettres du prénom pivotent en colonne (amorce de l'acrostiche), puis on passe à la suite
 const ACRO_STEP = 0.07, ACRO_DUR = 1.1, ACRO_HOLD = 1.4;
@@ -164,7 +178,7 @@ function goBack() {
   S.phase = 'input'; S.phaseAt = S.t; S.validatedName = null; S.acro = null; S.confirmed = false;
   backEl.classList.remove('on');
   bridge.refresh();
-  input.classList.remove('rest');
+  input.classList.remove('rest'); input.readOnly = false;
   if (wheel) wheel.enable(true); else input.focus({ preventScroll: true });
 }
 backEl.addEventListener('click', goBack);
@@ -178,7 +192,7 @@ document.addEventListener('click', (e) => {
   if (S.phase !== 'input' || S.acro != null || e.target === backEl || backEl.contains(e.target)) return;
   const b = S.nameBox;
   if (S.confirmed && b && e.clientX > b[0] && e.clientX < b[2] && e.clientY > b[1] && e.clientY < b[3]) { startAcrostic(); return; }
-  if (!wheel && document.activeElement !== input) { input.classList.remove('rest'); input.focus({ preventScroll: true }); }
+  if (!wheel && document.activeElement !== input) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); }
 });
 
 // ---------- dimensions ----------
