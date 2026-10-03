@@ -1,6 +1,6 @@
 # ETAT.md — SINGULIÉS accueil
 
-## Étape courante : 4 en cours (lumière organique : première version en ligne).
+## Étape courante : 4 close (03/10). En cours : 6 (parcours). Mode horizontal (5) reporté.
 
 ## Étape 3 — fait (03/10)
 - Fichiers : `src/field/camera.js` (FOV 48°, VP 50/45 %, ZF 14 fixe, KB 0,034, κ 0,8), `src/field/field.js` (simulation CPU : tranches, zoom, fondus, zone vide, anti-chevauchement, emit → 20 floats/lettre), `src/field/names.js` (≈ 220 prénoms A–Z), `src/field/rng.js` (mulberry32, `?seed=N`). Renderer : programme FIELD (lettre = quad instancié projeté dans le VS, w = z, flou par lettre `gaussCdf(d/√(σ²+aa²))`, gain lum. ≤ +40 %). 3 draw calls (fond, champ, prénom).
@@ -67,6 +67,25 @@
 - Mouvement : dérive propre et oscillation quasi supprimées ; pas d'accès au mouvement du téléphone ; molette / glisser vertical = avancer-reculer.
 - Saisie : suggestion du prénom (autocomplete given-name) par défaut, clavier fermé après remplissage auto ; Entrée = confirmer ; toucher le prénom (ou 2e Entrée) = colonne (acrostiche) puis noir.
 - Essais : `?saisie=roue`, `?saisie=voix`. Tests : 43 unitaires, 86 e2e (agent tests : 2 bugs corrigés — repli sans WebGL2 bloqué, 2e Entrée sans focus).
+
+### Clôture étape 4 — mesures (agent mesures, seed 11, t = 12 s, SwiftShader sans GPU)
+| capture | px>5 | px>20 | px>80 | lum | visibles (P/M/L) | chev. |
+|---|---|---|---|---|---|---|
+| imageref | 91.57 | 6.36 | 0.56 | 10.26 | ≈60 | – |
+| 1672 vide | 64.27 | 0.73 | 0.01 | 6.07 | 62 (3/19/40) | 1 |
+| 1672 LEA | 63.95 | 1.37 | 0.09 | 6.26 | 62 | 2 |
+| 1672 CLEMENCE ROSE | 64.67 | 2.44 | 0.42 | 7.24 | 58 | 2 |
+| 1672 22 car. | 64.24 | 2.32 | 0.34 | 7.02 | 60 | 2 |
+| 390 LEA | 61.72 | 1.36 | 0.18 | 6.30 | 27 (0/6/21) | 0 |
+| 390 CLEMENCE ROSE | 61.76 | 2.38 | 0.78 | 7.60 | 26 | 0 |
+- Prénom : x 50 %, y 45 % partout (390 : hauteur 21 px LEA, 74 px sur 2 lignes).
+- FPS 24,3 (1672) / 60,3 (390), 3 draw calls, 16 / 6,5 Mo GPU.
+- Stationnarité (moy. 60 s, 0/10/20/30 min) 1672 : 60 / 56,9 / 58,5 / 60,7 (± 4 %) ; **390 : 30,4 / 36,2 / 20 / 26,5 (± 30 %, à corriger)** — fenêtre recadrée étroite + courant ×2. Proches : 1,4–2,8 (1672), 0–1,3 (390).
+- Minuscules OK (1672 LEA lum 6,0 ; 390 lum 6,0). Mouvement réduit : 0 mot déplacé.
+
+### Étape 6 (en cours)
+- Visiteur qui revient : lettres déjà allumées à l'arrivée (`light.prime`, sans onde), prénom confirmé (pas de clavier ; toucher le prénom → colonne). Retour (flèche/Échap) : prénom conservé et confirmé, pas de clavier sur téléphone.
+- Reste : affiner la colonne de l'acrostiche, stationnarité portrait, premier plan.
 
 ### Ouvert
 - Proches un peu sous la cible (≈ 4,7 au lieu de 6) : contrainte du flux (un proche doit naître au centre). Plus de proches = plus de mots cachés dans la zone.

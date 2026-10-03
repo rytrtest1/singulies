@@ -49,6 +49,13 @@ export function createLight({ reduced = false } = {}) {
     return kind;
   }
 
+  // visiteur qui revient : ses lettres sont déjà allumées à l'arrivée (repos, sans onde)
+  function prime(text, t) {
+    counts = {};
+    for (const ch of text) if (ch !== ' ') { counts[ch] = (counts[ch] || 0) + 1; added[ch] = t - 60; }
+    lastText = text; waves = [];
+  }
+
   // Niveau de lumière d'une lettre. dn : distance écran au prénom (0 centre → 1 coin), z : profondeur,
   // (nx, ny) : position écran normalisée (−1…1).
   function level(ch, lp, dn, z, t, nx = 0, ny = 0) {
@@ -84,5 +91,5 @@ export function createLight({ reduced = false } = {}) {
     return p * (rest * breath + pulse);
   }
 
-  return { update, level, get active() { return Object.keys(counts).length > 0 || waves.length > 0; } };
+  return { update, prime, level, get active() { return Object.keys(counts).length > 0 || waves.length > 0; } };
 }

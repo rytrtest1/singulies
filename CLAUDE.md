@@ -24,7 +24,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 
 ## Mouvement
 - Boucle infinie, composition **stationnaire**, **flux continu** (décision Maxence 03/10) : un mot naît **seulement petit au fond** (z ≈ 30–34, fondu ≥ 4 s), la caméra avance (vitesse d'approche ≈ 0,05·√(z/12) monde/s : **les mots proches défilent plus vite**, parallaxe réelle) et un mot **ne disparaît qu'en quittant l'écran**. Portrait : voir « Rendu ». Répartition visée proche 2,8–4,6 / moyenne 6–14 / lointaine 16–32 ≈ 8/42/50 %, obtenue par la géométrie du flux. État initial = champ « vécu » ≈ 700 s avant ouverture. ≈ 5–6 mots proches visibles (premier plan insuffisant = défaut).
-- Modes profondeur / horizontal. Bascule progressive : Tab ou double-clic ; `?mode=horizontal`.
+- **Mode horizontal reporté** (03/10 : pas pour le moment). Prévu : modes profondeur / horizontal, bascule progressive Tab ou double-clic, `?mode=horizontal`.
 - Horizontal : v_monde = A·sin(k·Y + φ(t)), φ dérive lentement ; nappes gauche et droite simultanées, cisaillement doux, pas de bande rigide. v_écran = f·v/z. Sortie d'un côté → réapparition de l'autre à même profondeur.
 - Le champ écoute : à chaque frappe, léger souffle de caméra + ralentissement du courant ≈ 1 s.
 - Parallaxe pointeur = translation caméra (jamais rotation seule), ressort amorti, retard ≈ 0,8 s. **Pas de demande d'accès au mouvement du téléphone** (03/10) : parallaxe à la souris seulement. **Molette (ordinateur, vers le haut = reculer, un cran ≈ ±2,2) / glisser vertical d'un doigt (téléphone, doigt vers le bas = avancer) = avancer ou reculer dans le champ**, retour doux ; `touch-action: pinch-zoom` (le zoom par pincement reste disponible). Portrait : courant ×2. Pas de dérive propre des mots ni d'oscillation de caméra notables (masquaient la perspective). Le point de fuite suit le prénom quand le clavier le fait remonter. `?debug=1` : croix au point de fuite.
@@ -51,7 +51,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - Cas à tester : « Léa » → LEA ; « Clémence-Rose123! » → CLEMENCE ROSE ; touche é réelle ; menu d'accents ; dictée ; IME ; collage de 26 lettres (tronqué à 22 + annonce vocale) ; insertion au milieu ; sélection + frappe ; effacement ; annuler/rétablir.
 - Un seul élément focalisable, **autocomplete="given-name" par défaut** (suggestion du prénom par le clavier ; `?auto=0` → off), autocorrect="off", enterkeyhint="done", font-size ≥ 16 px, pinch-zoom autorisé. **Entrée = confirmer** (clavier fermé, aucune transition) ; remplissage automatique ou mot entier inséré d'un coup par le clavier (≥ 2 lettres, hors collage ; après la fin de composition) = confirmé + clavier fermé ; sur téléphone, champ en lecture seule une fois confirmé (le clavier ne peut pas se rouvrir), levée au toucher ; une fois confirmé, le champ natif passe à opacité 0 (aucun rectangle de sélection / surlignage) en restant focalisable ; normal dès qu'il reprend le focus. Entrée ignorée pendant composition. Échap ou flèche discrète (zone 44 px) = retour, prénom conservé. Rechargement (même pendant le fondu) restaure l'état validé.
 - Clavier mobile : si le prénom serait couvert, il remonte en douceur ; variation de hauteur due au clavier = aucune reconstruction.
-- Visiteur qui revient : prénom en localStorage, lettres déjà doucement allumées à l'arrivée. Échap/flèche efface le prénom mémorisé.
+- Visiteur qui revient : prénom en localStorage, lettres déjà allumées à l'arrivée (sans onde), prénom déjà confirmé (toucher le prénom pour repartir). Échap/flèche efface le prénom mémorisé, le prénom reste affiché et confirmé (pas de clavier sur téléphone).
 
 ## Saisie alternative « roue » (`?saisie=roue`, essai 03/10 — jugée trop complexe, idée gardée ; idée « cueillir les lettres du champ » gardée aussi)
 - Pas de clavier virtuel : défilement vertical = lettre en cours (inertie, aimantation), voisines visibles au-dessus/au-dessous (pâles, plus petites), position « espace » figurée par un point ; glisser à gauche = lettre suivante, à droite = retour ; double toucher ou Entrée = valider. Ordinateur : molette, flèches, touches lettres.
@@ -87,7 +87,7 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 2. Squelette WebGL2, police, atlas SDF, fond, prénom central, saisie complète + tests.
 3. Champ de mots : caméra, perspective, flou continu, tranches stationnaires, anti-chevauchement.
 4. Lumière organique, anneau, lumière intérieure, champ qui écoute.
-5. Mode horizontal bidirectionnel + bascule.
+5. ~~Mode horizontal bidirectionnel + bascule~~ — reporté (03/10).
 6. Validation (vol des lettres), retour, restauration, visiteur qui revient, mouvement réduit, deux casses.
 7. Performance adaptative, mesures, nettoyage.
 

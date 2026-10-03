@@ -59,7 +59,7 @@ const S = {
   inviteA: 0,             // essai voix : opacité de l'invitation
   dim: 1,
   slowAt: -9,
-  confirmed: false,       // Entrée / remplissage auto : prénom confirmé, clavier fermé
+  confirmed: !!(stored.name && !stored.validated),   // Entrée / remplissage auto / visiteur qui revient : prénom confirmé
   acro: null,             // instant du passage en colonne (acrostiche)
   nameBox: null,          // boîte écran du prénom (toucher pour passer en colonne)
   boost: 0,               // avance/recul dans le champ (molette, glisser vertical)
@@ -171,11 +171,11 @@ function enterBlack(restored) {
 function goBack() {
   if (S.phase === 'input') return;
   clearStored();             // le prénom mémorisé est effacé, il reste affiché pour cette visite
-  S.phase = 'input'; S.phaseAt = S.t; S.validatedName = null; S.acro = null; S.confirmed = false;
+  S.phase = 'input'; S.phaseAt = S.t; S.validatedName = null; S.acro = null; S.confirmed = !!finalName(model.text);   // retour : prénom conservé, toucher pour repartir
   backEl.classList.remove('on');
   bridge.refresh();
   input.classList.remove('rest'); input.readOnly = false;
-  if (wheel) wheel.enable(true); else input.focus({ preventScroll: true });
+  if (wheel) wheel.enable(true); else if (!(S.confirmed && TOUCH)) input.focus({ preventScroll: true });   // téléphone : pas de clavier, toucher le prénom pour repartir
 }
 backEl.addEventListener('click', goBack);
 // Entrée quand le champ a perdu le focus (prénom confirmé, clavier fermé) : 2e Entrée = colonne
@@ -221,6 +221,7 @@ function renderFallback() {
 const PAR = { tx: 0, ty: 0, x: 0, y: 0, vx: 0, vy: 0 };
 const BR = { p: 0, v: 0 };   // souffle de caméra à chaque frappe (ressort)
 const light = createLight({ reduced: CFG.reduced });
+if (stored.name && !stored.validated) light.prime(model.text.toUpperCase(), 0);   // visiteur qui revient : déjà allumé
 window.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'mouse' || !S.w) return;
   PAR.tx = (e.clientX / S.w - 0.5) * 2; PAR.ty = (e.clientY / S.h - 0.5) * 2;
