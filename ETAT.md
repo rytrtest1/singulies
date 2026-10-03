@@ -1,6 +1,38 @@
 # ETAT.md — SINGULIÉS accueil
 
-## Étape courante : 2 terminée (squelette + saisie). Prochaine : 3 (champ de mots).
+## Étape courante : 3 terminée (champ de mots). Prochaine : 4 (lumière organique).
+
+## Étape 3 — fait (03/10)
+- Fichiers : `src/field/camera.js` (FOV 48°, VP 50/45 %, ZF 14 fixe, KB 0,034, κ 0,8), `src/field/field.js` (simulation CPU : tranches, zoom, fondus, zone vide, anti-chevauchement, emit → 20 floats/lettre), `src/field/names.js` (≈ 220 prénoms A–Z), `src/field/rng.js` (mulberry32, `?seed=N`). Renderer : programme FIELD (lettre = quad instancié projeté dans le VS, w = z, flou par lettre `gaussCdf(d/√(σ²+aa²))`, gain lum. ≤ +40 %). 3 draw calls (fond, champ, prénom).
+- Grain corrigé : plancher 6,4 + 3,6·bruit (fin 75 % + grumeau 3 px 25 %), vignette 0,45·smoothstep(0,5→1).
+- Outils : `measure.mjs --stationarity` (moyenne 60 s à 0/10/20/30 min, simulation accélérée) ; colonnes mots visibles / tranches / chevauchements. `tools/check-live.mjs` (parallaxe, perte de contexte, mouvement réduit). Tests : `tests/unit/field.test.js` (8, agent tests).
+
+### Chiffres étape 3 (seed 7, Chromium swiftshader, pas de GPU)
+| capture | px>5 | px>20 | px>80 | lum | visibles (P/M/L) | chev. |
+|---|---|---|---|---|---|---|
+| imageref | 91.57 | 6.36 | 0.56 | 10.26 | ≈60 | – |
+| 1672 vide | 95.41 | 8.92 | 0.24 | 11.17 | 73 (5/31/37) | 0 |
+| 1672 LEA | 95.39 | 9.02 | 0.32 | 11.36 | 73 | 1 |
+| 1672 CLEMENCE ROSE | 95.41 | 9.11 | 0.61 | 11.91 | 70 | 1 |
+| 1672 22 car. | 95.36 | 7.95 | 0.73 | 11.82 | 62 | 2 |
+| 390 CLEMENCE ROSE | 95.77 | 9.27 | 1.12 | 12.86 | 29 (3/12/14) | 0 |
+- Stationnarité (moy. 60 s) 1672 : 73,5 / 71,1 / 70,3 / 71,7 à 0/10/20/30 min ; 390 : 30,3 / 31,3 / 30,4 / 30,3. Proches 5,2–5,6 (desktop).
+- FPS 19 (1672, swiftshader ; 37 avant champ) / 60 (390). 3 draw calls, ≈16 Mo GPU. Préchauffage 700 s : ≈ 0,6 s CPU.
+- Perte de contexte → reprise OK (3 draw calls, 417 lettres). Mouvement réduit : 0 mot déplacé. Parallaxe : 38 % de la cible à 0,4 s, ≈ atteinte à 3 s.
+- Tests : 37/37 unitaires, 62/62 e2e.
+
+### Décisions étape 3
+- S monde 0,30 (proto 0,356) : sinon le plan moyen égale le prénom. Échelle écran étroit `fieldScale` = clamp(W/H/1,5 ; 0,72 ; 1).
+- Gris : lointain 0,17 ; 8–16 : 0,36→0,17 ; proche 0,24→0,36 (≈ 0,8 × proto) — à revoir en étape 4 avec les lettres allumées (lum moy et px>80 de la réf les incluent).
+- Naissance : z uniforme en ln z dans la tranche, meilleur de 12 positions (visible, hors zone, peu de recouvrement) ; mort au bord proche de la tranche (fondu 4,5 s) ou hors écran (invisible) → renaissance immédiate même tranche, fondu 4,5 s.
+- Recouvrement : boîtes élargies de 0,4 em du plus petit mot (mots qui se touchent = recouvrement) ; effacement ≤ 86 % pondéré par la visibilité du plus proche, τ 1,2–1,8 s par mot. Séparation 1 px/s si z_loin/z_proche < 1,3, filtre 1,8 s.
+- Zone vide : rectangle max(260×110·ui, prénom + 1,1 fs), fondu 70·ui px, lissé 1 s.
+- Caméra : parallaxe pointeur (souris) 0,12/0,08 monde, ressort ω 2,2 ζ 0,85 + oscillation lente 0,05/0,03.
+
+### Ouvert
+- **Mobile + prénom long** : prénom à 28 px, mots du plan moyen proche (z≈6) ≈ 39 px → « jamais plus petit que le fond » non tenu. Options : réduire encore le fond sur mobile (lointains illisibles < 6 px), ou n'appliquer la règle qu'au plan moyen typique (z≈9 → 21 px). À trancher.
+- FPS 1672 en logiciel : à traiter étape 7 (qualité adaptative).
+- px>5 = 95 % vs 91,6 % : fond légèrement trop clair en bords (vignette réf plus marquée ?) — mineur.
 
 ## Étape 2 — fait (03/10)
 - Fichiers : `src/main.js` (amorçage, boucle, états input→leaving→black, clavier mobile), `src/text/normalize.js`, `src/input/model.js` (modèle + undo groupé < 1 s), `src/input/bridge.js` (beforeinput/paste interceptés ; IME = aperçu puis réconciliation à compositionend ; reste → `fromNative`), `src/gl/atlas.js` (SDF EDT maison, 128 px/em, portée 48 px, R16F, distance en em, 52 glyphes → 2048×1029), `src/gl/gl.js` (+ `gaussCdf` GLSL pour le flou), `src/render/renderer.js` (fond + quads instanciés), `src/name/layout.js`, `src/app/storage.js`.
@@ -29,8 +61,7 @@
 - Rendu SDF du prénom : couverture `clamp(d+0.5)` puis `pow(.,0.8)` (préserve les déliés en clair sur sombre).
 
 ### À corriger (repéré par les mesures)
-- **Fond** : px>5 = 59 % vs 91,6 % réf → grain trop contrasté (rand³). Viser plancher ≈ 7/255 + bruit fin, moyenne ≈ 8.
-- « Jamais plus petit que le fond » : à imposer en étape 3 (taille du prénom ≥ taille des mots du plan moyen).
+- Fond : corrigé en étape 3.
 - Non vérifié : téléphones réels, Safari/iOS (IME, dictée, menu d'accents, clavier), lecteurs d'écran.
 
 ## Constantes extraites du prototype (points de départ calés à l'œil)
@@ -71,4 +102,4 @@ Fond
 - Écarts assumés vs prototype : z_f fixe 14 (pas de respiration), flou continu, avance par zoom exponentiel dans la tranche (pas de translation de caméra), police locale.
 
 ## Reste
-Étapes 3 → 7. Début étape 3 : corriger le grain du fond.
+Étapes 4 → 7. Dépôt GitHub rytrtest1/singulies : remote `origin` ajouté, push à faire par Maxence (`git push -u origin main`).

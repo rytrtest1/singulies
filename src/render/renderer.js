@@ -1,6 +1,9 @@
-// Rendu WebGL2 : fond (charbon granuleux + vignette) et prénom central (SDF net) + curseur.
+// Rendu WebGL2 : fond (charbon granuleux + vignette), champ de mots (lettres projetées, flou continu)
+// et prénom central (SDF net) + curseur. 3 draw calls.
 // Toutes les ressources sont recréables (perte de contexte) à partir des données CPU.
-import { program, atlasTexture } from '../gl/gl.js';
+import { program, atlasTexture, GLSL_COMMON } from '../gl/gl.js';
+import { ZF, KB } from '../field/camera.js';
+import { STRIDE as FSTRIDE } from '../field/field.js';
 
 const BG_VS = /* glsl */`#version 300 es
 void main() {
@@ -23,11 +26,12 @@ float hash(vec2 p) { // grain statique, stable d'une image à l'autre
 }
 void main() {
   vec2 frag = vec2(gl_FragCoord.x, u_res.y - gl_FragCoord.y);
-  float g = hash(floor(frag / max(1.0, u_dpr)));
-  float c = mix(5.0 / 255.0, g * g * g, 23.0 / 255.0);
+  vec2 q = floor(frag / max(1.0, u_dpr));
+  float g = 0.75 * hash(q) + 0.25 * hash(floor(q / 3.0) + 71.0); // grain fin + léger grumeau
+  float c = (6.4 + 3.6 * g) / 255.0;                               // plancher ≈ 6,4, moyenne ≈ 8
   vec2 half_ = vec2(max(u_center.x, u_res.x - u_center.x), max(u_center.y, u_res.y - u_center.y)) * 1.41421;
   float r = length((frag - u_center) / half_);
-  float a = 0.66 * clamp((r - 0.52) / 0.48, 0.0, 1.0);
+  float a = 0.45 * smoothstep(0.5, 1.0, r);                        // vignette légère
   c *= (1.0 - a) * u_grain;
   o = vec4(vec3(c * u_fade), 1.0);
 }`;
@@ -71,12 +75,64 @@ void main() {
   o = vec4(vec3(a), a);
 }`;
 
+// Champ : une instance par lettre, projetée dans le shader par la caméra unique.
+// Le mot tourne de ψ autour de la verticale (extrémité extérieure la plus proche).
+// Flou continu par lettre : σ_px = KB·f·|1/z − 1/ZF|, profil gaussien du bord à partir du SDF.
+const FIELD_VS = /* glsl */`#version 300 es
+layout(location=0) in vec4 a_w;    // X, Y, z (monde), ψ signé
+layout(location=1) in vec4 a_l;    // u (abscisse le long du mot), y ligne de base, S (taille d'un em), alpha
+layout(location=2) in vec4 a_uv;
+layout(location=3) in vec4 a_box;  // boîte du glyphe en em (origine = point de chasse)
+layout(location=4) in vec4 a_x;    // gris, —, —, —
+uniform vec2 u_view;               // px CSS
+uniform vec2 u_c;                  // point de fuite, px CSS
+uniform vec2 u_cam;                // translation caméra (monde)
+uniform float u_f, u_dpr;
+out vec2 v_uv;
+flat out float v_sig, v_aa, v_alpha, v_gray;
+const float ZF = ${ZF.toFixed(3)}, KB = ${KB.toFixed(4)};
+void main() {
+  vec2 c = vec2(gl_VertexID & 1, gl_VertexID >> 1);
+  vec2 e = mix(a_box.xy, a_box.zw, c);
+  float S = a_l.z, sp = sin(a_w.w);
+  vec3 d = vec3(cos(a_w.w), 0.0, -sp);
+  vec3 P = vec3(a_w.xy - u_cam, a_w.z) + d * (a_l.x + e.x * S) + vec3(0.0, a_l.y + e.y * S, 0.0);
+  float zc = max(0.5, a_w.z - sp * (a_l.x + 0.5 * (a_box.x + a_box.z) * S)); // centre de la lettre
+  float pxEm = u_f * S / zc;
+  v_sig = KB * u_f * abs(1.0 / zc - 1.0 / ZF) / pxEm;   // σ en em
+  v_aa = 0.42 / (pxEm * u_dpr);                         // antialias ≈ 1 px physique, en em
+  v_alpha = a_l.w; v_gray = a_x.x;
+  v_uv = mix(a_uv.xy, a_uv.zw, c);
+  float wz = max(P.z, 0.1);
+  vec2 scr = u_c + u_f * P.xy / wz;
+  vec2 ndc = (scr / u_view * 2.0 - 1.0) * vec2(1.0, -1.0);
+  gl_Position = vec4(ndc * wz, 0.0, wz);                 // w = z : interpolation correcte en perspective
+}`;
+
+const FIELD_FS = /* glsl */`#version 300 es
+precision highp float;
+uniform sampler2D u_atlas;
+uniform float u_fade;
+in vec2 v_uv;
+flat in float v_sig, v_aa, v_alpha, v_gray;
+out vec4 o;
+${GLSL_COMMON}
+void main() {
+  float dEm = texture(u_atlas, v_uv).r;
+  float s = sqrt(v_sig * v_sig + v_aa * v_aa);
+  float cov = gaussCdf(dEm / s);
+  float gain = 1.0 + 0.4 * smoothstep(0.0, 0.07, v_sig);  // compense la perte de luminosité du flou
+  float a = cov * v_alpha * u_fade;
+  o = vec4(vec3(a * min(1.0, v_gray * gain)), a);
+}`;
+
 const STRIDE = 12; // floats par instance
 
 export function createRenderer(canvas, gl, atlas) {
   let res = null;
   let cap = 64;
   let inst = new Float32Array(cap * STRIDE);
+  let fcap = 1024;   // lettres du champ
 
   function init() {
     const bg = program(gl, BG_VS, BG_FS);
@@ -94,14 +150,27 @@ export function createRenderer(canvas, gl, atlas) {
     }
     gl.bindVertexArray(null);
     const empty = gl.createVertexArray();
-    res = { bg, gp, tex, vao, buf, empty };
+    // champ
+    const fp = program(gl, FIELD_VS, FIELD_FS);
+    const fvao = gl.createVertexArray();
+    gl.bindVertexArray(fvao);
+    const fbuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, fbuf);
+    gl.bufferData(gl.ARRAY_BUFFER, fcap * FSTRIDE * 4, gl.DYNAMIC_DRAW);
+    for (let i = 0; i < 5; i++) {
+      gl.enableVertexAttribArray(i);
+      gl.vertexAttribPointer(i, 4, gl.FLOAT, false, FSTRIDE * 4, i * 16);
+      gl.vertexAttribDivisor(i, 1);
+    }
+    gl.bindVertexArray(null);
+    res = { bg, gp, tex, vao, buf, empty, fp, fvao, fbuf };
   }
 
   init();
 
   // inst : liste de { box:[x0,y0,x1,y1], uv:[…] | null, alpha, pxEm }
   function draw(f) {
-    if (gl.isContextLost()) return;
+    if (gl.isContextLost()) return 0;
     const { bg, gp, tex, vao, buf, empty } = res;
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.disable(gl.BLEND);
@@ -114,8 +183,38 @@ export function createRenderer(canvas, gl, atlas) {
     gl.bindVertexArray(empty);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
+    let calls = 1;
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+
+    // champ (instances déjà triées loin → proche)
+    const fl = f.field;
+    if (fl && fl.count) {
+      const { fp, fvao, fbuf } = res;
+      gl.bindBuffer(gl.ARRAY_BUFFER, fbuf);
+      if (fl.count > fcap) {
+        while (fcap < fl.count) fcap *= 2;
+        gl.bufferData(gl.ARRAY_BUFFER, fcap * FSTRIDE * 4, gl.DYNAMIC_DRAW);
+      }
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, fl.data, 0, fl.count * FSTRIDE);
+      gl.useProgram(fp.p);
+      gl.uniform2f(fp.u.u_view, f.w, f.h);
+      gl.uniform2f(fp.u.u_c, f.vx, f.vy);
+      gl.uniform2f(fp.u.u_cam, f.cam.x, f.cam.y);
+      gl.uniform1f(fp.u.u_f, f.focal);
+      gl.uniform1f(fp.u.u_dpr, f.dpr);
+      gl.uniform1f(fp.u.u_fade, f.fade);
+      gl.uniform1i(fp.u.u_atlas, 0);
+      gl.bindVertexArray(fvao);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count);
+      gl.bindVertexArray(null);
+      calls++;
+    }
+
     const list = f.glyphs;
-    if (!list.length) return;
+    if (!list.length) return calls;
     if (list.length > cap) {
       while (cap < list.length) cap *= 2;
       inst = new Float32Array(cap * STRIDE);
@@ -128,21 +227,18 @@ export function createRenderer(canvas, gl, atlas) {
       if (g.uv) inst.set(g.uv, o + 4); else inst.set([-1, -1, -1, -1], o + 4);
       inst[o + 8] = g.alpha; inst[o + 9] = g.pxEm; inst[o + 10] = 0; inst[o + 11] = 0;
     }
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.useProgram(gp.p);
     gl.uniform2f(gp.u.u_view, f.w, f.h);
     gl.uniform1f(gp.u.u_dpr, f.dpr);
     gl.uniform1f(gp.u.u_fade, f.fade);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.uniform1i(gp.u.u_atlas, 0);
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, inst, 0, list.length * STRIDE);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, list.length);
     gl.bindVertexArray(null);
+    return calls + 1;
   }
 
-  return { draw, restore: init, drawCalls: 2 };
+  return { draw, restore: init };
 }

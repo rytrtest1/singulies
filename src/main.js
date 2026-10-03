@@ -7,12 +7,15 @@ import { buildAtlas } from './gl/atlas.js';
 import { createRenderer } from './render/renderer.js';
 import { layoutName } from './name/layout.js';
 import { loadState, saveValidated, clearStored } from './app/storage.js';
+import { createField } from './field/field.js';
+import { createRng } from './field/rng.js';
 
 const P = new URLSearchParams(location.search);
 const CFG = {
   caseMode: P.get('case') === 'lower' ? 'lower' : 'upper',
   grain: P.get('grain') !== '0',
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
+  seed: P.has('seed') ? +P.get('seed') : undefined,
 };
 const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
@@ -104,15 +107,33 @@ function measure() {
   if (w === S.w && h === S.h && dpr === S.dpr) return;
   S.w = w; S.h = h; S.dpr = dpr;
   canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+  field?.resize(w, h);
 }
 window.addEventListener('resize', measure);
 window.visualViewport?.addEventListener('resize', measure);
 
 // ---------- repli sans WebGL2 : noir, saisie et validation fonctionnelles ----------
-let gl = null, renderer = null, atlas = null;
+let gl = null, renderer = null, atlas = null, field = null;
 function renderFallback() {
   if (renderer) return;
   fallbackEl.textContent = S.phase === 'input' ? displayCase(bridge.shownText, CFG.caseMode) : '';
+}
+
+// ---------- parallaxe : translation de caméra, ressort amorti (≈ 0,8 s de retard) ----------
+const PAR = { tx: 0, ty: 0, x: 0, y: 0, vx: 0, vy: 0 };
+window.addEventListener('pointermove', (e) => {
+  if (e.pointerType !== 'mouse' || !S.w) return;
+  PAR.tx = (e.clientX / S.w - 0.5) * 2; PAR.ty = (e.clientY / S.h - 0.5) * 2;
+});
+document.addEventListener('pointerleave', () => { PAR.tx = 0; PAR.ty = 0; });
+function updateCamera(dt) {
+  if (CFG.reduced) { field.cam.x = 0; field.cam.y = 0; return; }
+  const w = 2.2, z = 0.85;
+  PAR.vx += (-(PAR.x - PAR.tx) * w * w - 2 * z * w * PAR.vx) * dt; PAR.x += PAR.vx * dt;
+  PAR.vy += (-(PAR.y - PAR.ty) * w * w - 2 * z * w * PAR.vy) * dt; PAR.y += PAR.vy * dt;
+  const k = field.view ? 1 : 0;
+  field.cam.x = k * (0.12 * PAR.x + 0.05 * Math.sin(0.11 * S.t));
+  field.cam.y = k * (0.08 * PAR.y + 0.03 * Math.sin(0.083 * S.t + 1));
 }
 
 // ---------- boucle ----------
@@ -173,8 +194,16 @@ function frame(ts) {
     glyphs.push({ box: [L.cursor.x - cw / 2, L.cursor.y0, L.cursor.x + cw / 2, L.cursor.y1], uv: null, alpha: blink * nameFade, pxEm: 1 });
   }
 
-  renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs });
-  stats.drawCalls = glyphs.length ? 2 : 1;
+  // champ : zone vide autour du prénom, caméra, simulation
+  const ln = L.lines;
+  field.setZone(text.trim() ? { x0: Math.min(...ln.map((l) => l.x0)), x1: Math.max(...ln.map((l) => l.x1)), y0: L.top, y1: L.bottom, pad: 1.1 * L.fs } : null);
+  updateCamera(dt);
+  field.step(dt, !CFG.reduced);
+  const fl = field.emit();
+  const v = field.view;
+  stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs,
+    field: fl, cam: field.cam, focal: v.f, vx: v.cx, vy: v.cy });
+  stats.letters = fl.count;
   stats.gpuMB = +((atlas.width * atlas.height * 2 + canvas.width * canvas.height * 4 * 2) / 1048576).toFixed(1);
 }
 
@@ -198,6 +227,10 @@ async function boot() {
     atlas = buildAtlas('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', `"${FONT_FAMILY}", serif`, 500);
     metrics = { adv: (ch) => atlas.glyphs[ch]?.adv ?? 0.6, capHeight: atlas.capHeight };
     renderer = createRenderer(canvas, gl, atlas);
+    const t0 = performance.now();
+    field = createField({ rng: createRng(CFG.seed), caseMode: CFG.caseMode, glyphs: atlas.glyphs, capHeight: atlas.capHeight });
+    field.resize(S.w, S.h);   // inclut ≈ 700 s de champ « vécu »
+    stats.warmupMs = Math.round(performance.now() - t0);
     canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); cancelAnimationFrame(rafId); rafId = 0; });
     canvas.addEventListener('webglcontextrestored', () => { renderer.restore(); last = 0; if (!document.hidden) rafId = requestAnimationFrame(frame); });
   }
@@ -212,7 +245,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // accès de test / mesure
-const stats = { drawCalls: 0, gpuMB: 0 };
-window.__sg = { stats, model, S, CFG, get atlas() { return atlas; }, validate, goBack, get bridge() { return bridge; } };
+const stats = { drawCalls: 0, gpuMB: 0, letters: 0, warmupMs: 0 };
+window.__sg = { stats, model, S, CFG, get atlas() { return atlas; }, get field() { return field; }, validate, goBack, get bridge() { return bridge; } };
 
 boot();
