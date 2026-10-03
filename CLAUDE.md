@@ -14,19 +14,19 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - Node local = 18.16 → Vite 5.x (Vite 6+ exige Node 20).
 
 ## Rendu — une seule caméra
-- Point de fuite ≈ (50 % x, 45 % y), fov ≈ 48°. Ce modèle unique pilote perspective, taille, flou, mouvement, parallaxe.
+- Point de fuite ≈ (50 % x, 45 % y), fov ≈ 48° ; **portrait : point de fuite et prénom à 35 % (au-dessus du clavier), fov 60°, l'écran montre le centre (45 %) d'un champ plus large** — même caméra, pas d'autre réglage. Ce modèle unique pilote perspective, taille, flou, mouvement, parallaxe.
 - Chaque lettre = quad instancié projeté dans le shader. Rotation du mot ψ = κ·atan(|X|/z), κ ≈ 0,8 : l'extrémité extérieure est la plus proche, dans les 4 quadrants.
-- Flou : atlas SDF, flou continu par lettre et par image, σ_écran ∝ |1/z − 1/z_f|, **z_f fixe = 10** (prototype, sans respiration), courbe du prototype : K = 0,2·S en deçà, 0,03·S au-delà, plafond 0,11 em (décision Maxence 03/10 : le look du prototype prime). Jamais de niveaux discrets, jamais de pulsation de netteté, jamais d'apparition brusque (naissance/mort en fondu ≥ 4 s). Compenser la perte de luminosité du flou.
+- Flou : atlas SDF, flou continu par lettre et par image, σ_écran ∝ |1/z − 1/z_f|, **mise au point au fond (z_f = 34)** : plus un mot est proche, plus il est flou, progressivement (cohérence globale, 03/10) ; K = 0,034, plafond 0,11 em. Jamais de niveaux discrets, jamais de pulsation de netteté, jamais d'apparition brusque (naissance/mort en fondu ≥ 4 s). Compenser la perte de luminosité du flou.
 - Anti-chevauchement : tri loin→proche ; boîtes qui se recouvrent → le plus lointain s'efface (jusqu'à −86 %, lissé 1,2–1,8 s) ; profondeurs voisines (écart < 30 %) → poussée de séparation ≈ 1 px/s, filtrée ≈ 1,8 s.
 - Zone vide autour du prénom par fondu des mots, jamais par masque qui coupe.
 - Fond uni très sombre (6/255) + vignette du prototype ; **grain retiré** (jugé « cheap », 03/10), `?grain=1` pour le revoir ; `?grain=0` → noir pur.
 
 ## Mouvement
-- Boucle infinie, composition **stationnaire**, **flux continu** (décision Maxence 03/10) : un mot naît **seulement petit au fond** (z ≈ 30–34, fondu ≥ 4 s), la caméra avance (vitesse d'approche ≈ 0,05·√(z/12) monde/s : **les mots proches défilent plus vite**, parallaxe réelle) et un mot **ne disparaît qu'en quittant l'écran**. **Portrait** : même champ qu'en paysage (cadre virtuel 16:9), recadré au centre — aucun réglage spécifique au portrait. Répartition visée proche 2,8–4,6 / moyenne 6–14 / lointaine 16–32 ≈ 8/42/50 %, obtenue par la géométrie du flux. État initial = champ « vécu » ≈ 700 s avant ouverture. ≈ 5–6 mots proches visibles (premier plan insuffisant = défaut).
+- Boucle infinie, composition **stationnaire**, **flux continu** (décision Maxence 03/10) : un mot naît **seulement petit au fond** (z ≈ 30–34, fondu ≥ 4 s), la caméra avance (vitesse d'approche ≈ 0,05·√(z/12) monde/s : **les mots proches défilent plus vite**, parallaxe réelle) et un mot **ne disparaît qu'en quittant l'écran**. Portrait : voir « Rendu ». Répartition visée proche 2,8–4,6 / moyenne 6–14 / lointaine 16–32 ≈ 8/42/50 %, obtenue par la géométrie du flux. État initial = champ « vécu » ≈ 700 s avant ouverture. ≈ 5–6 mots proches visibles (premier plan insuffisant = défaut).
 - Modes profondeur / horizontal. Bascule progressive : Tab ou double-clic ; `?mode=horizontal`.
 - Horizontal : v_monde = A·sin(k·Y + φ(t)), φ dérive lentement ; nappes gauche et droite simultanées, cisaillement doux, pas de bande rigide. v_écran = f·v/z. Sortie d'un côté → réapparition de l'autre à même profondeur.
 - Le champ écoute : à chaque frappe, léger souffle de caméra + ralentissement du courant ≈ 1 s.
-- Parallaxe pointeur = translation caméra (jamais rotation seule), ressort amorti, retard ≈ 0,8 s.
+- Parallaxe pointeur = translation caméra (jamais rotation seule), ressort amorti, retard ≈ 0,8 s. Téléphone : parallaxe à l'inclinaison (autorisation iOS au premier toucher), position de repos qui suit lentement.
 - `prefers-reduced-motion` : image fixe, ondes en simples fondus, pas de parallaxe.
 
 ## Lumière — organique, jamais copié-collé

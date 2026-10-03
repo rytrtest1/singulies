@@ -31,7 +31,7 @@ function stats(png) {
     const i = (y * w + x) * 4, L = lum(data[i], data[i + 1], data[i + 2]);
     sum += L; if (L > 5) n5++; if (L > 20) n20++; if (L > 80) n80++;
     // boîte du prénom : pixels très clairs dans la bande centrale
-    if (L > 200 && x > w * 0.35 && x < w * 0.65 && y > h * 0.38 && y < h * 0.52) {
+    if (L > 200 && x > w * 0.35 && x < w * 0.65 && y > h * 0.25 && y < h * 0.55) {
       bx0 = Math.min(bx0, x); bx1 = Math.max(bx1, x); by0 = Math.min(by0, y); by1 = Math.max(by1, y);
     }
   }

@@ -114,6 +114,8 @@ function measure() {
   // reconstruite ni étirée — le clavier la recouvre simplement
   canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
   field?.resize(w, h);
+  // champ natif centré sur le prénom (le clavier mobile vise cette zone)
+  input.style.top = `calc(${(field ? field.view.cy / h : 0.45) * 100}% - 3.5em)`;
 }
 window.addEventListener('resize', measure);
 window.visualViewport?.addEventListener('resize', measure);
@@ -134,6 +136,24 @@ window.addEventListener('pointermove', (e) => {
   PAR.tx = (e.clientX / S.w - 0.5) * 2; PAR.ty = (e.clientY / S.h - 0.5) * 2;
 });
 document.addEventListener('pointerleave', () => { PAR.tx = 0; PAR.ty = 0; });
+// téléphone : parallaxe à l'inclinaison (orientation relative à une position de repos qui suit lentement)
+let tilt = null;
+function onOrient(e) {
+  if (e.gamma == null || e.beta == null) return;
+  if (!tilt) tilt = { g: e.gamma, b: e.beta };
+  tilt.g += (e.gamma - tilt.g) * 0.004; tilt.b += (e.beta - tilt.b) * 0.004;
+  PAR.tx = Math.max(-1, Math.min(1, (e.gamma - tilt.g) / 15));
+  PAR.ty = Math.max(-1, Math.min(1, (e.beta - tilt.b) / 15));
+}
+let tiltAsked = false;
+function enableTilt() {   // iOS : autorisation demandée au premier toucher (geste utilisateur requis)
+  if (tiltAsked || CFG.reduced || !window.DeviceOrientationEvent) return;
+  tiltAsked = true;
+  const D = window.DeviceOrientationEvent;
+  if (typeof D.requestPermission === 'function') D.requestPermission().then((r) => { if (r === 'granted') window.addEventListener('deviceorientation', onOrient); }).catch(() => {});
+  else window.addEventListener('deviceorientation', onOrient);
+}
+if (matchMedia('(pointer: coarse)').matches) document.addEventListener('touchend', enableTilt, { once: true });
 function updateCamera(dt) {
   if (CFG.reduced) { field.cam.x = 0; field.cam.y = 0; return; }
   const w = 2.2, z = 0.85;
@@ -158,7 +178,7 @@ function frame(ts) {
   // remontée au-dessus du clavier (visualViewport) — ressort amorti
   const vv = window.visualViewport;
   let target = 0;
-  const cx = S.w / 2, cy0 = S.h * 0.45;
+  const cx = S.w / 2, cy0 = field ? field.view.cy : S.h * 0.45;   // le prénom est au point de fuite
   const text = displayCase(bridge.shownText, CFG.caseMode);
   const L0 = atlas ? layoutName(text, metrics, { w: S.w, h: S.h, cx, cy: cy0 }) : null;
   if (vv && L0 && document.activeElement === input) {
@@ -246,6 +266,7 @@ async function boot() {
     const t0 = performance.now();
     field = createField({ rng: createRng(CFG.seed), caseMode: CFG.caseMode, glyphs: atlas.glyphs, capHeight: atlas.capHeight });
     field.resize(S.w, S.h);   // inclut ≈ 700 s de champ « vécu »
+    input.style.top = `calc(${(field.view.cy / S.h) * 100}% - 3.5em)`;
     stats.warmupMs = Math.round(performance.now() - t0);
     canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); cancelAnimationFrame(rafId); rafId = 0; });
     canvas.addEventListener('webglcontextrestored', () => { renderer.restore(); last = 0; if (!document.hidden) rafId = requestAnimationFrame(frame); });

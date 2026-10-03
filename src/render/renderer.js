@@ -34,6 +34,7 @@ void main() {
   float r = length((frag - u_center) / half_);
   float a = 0.66 * clamp((r - 0.52) / 0.48, 0.0, 1.0);
   c *= (1.0 - a) * min(u_grain, 1.0);
+  c += (hash(frag + 31.7) - 0.5) / 255.0 * step(0.5, u_grain);   // tramage ±½ niveau : pas de bandes dans la vignette
   o = vec4(vec3(c * u_fade), 1.0);
 }`;
 

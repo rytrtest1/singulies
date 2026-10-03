@@ -4,7 +4,7 @@
 // tranche (≈ 8/42/50 %) émerge de la géométrie du flux et reste stationnaire.
 // La projection des lettres se fait dans le shader ; ici on ne projette que les boîtes des mots.
 import { NAMES } from './names.js';
-import { viewOf, sigmaPx, psiOf } from './camera.js';
+import { viewOf, sigmaPx, psiOf, FOV, FOV_PORTRAIT, VP, VP_PORTRAIT_Y } from './camera.js';
 import { displayCase } from '../text/normalize.js';
 import { letterParams } from './light.js';
 
@@ -15,7 +15,8 @@ export const TIERS = [
   { key: 'lointain', z0: 16, z1: 32, share: 0.50 },
 ];
 export const SPEED = 0.05;          // avance de la caméra, monde/s (prototype) : z ← z − SPEED·t
-export const ASPECT = 16 / 9;       // cadre virtuel paysage ; en portrait on n'en voit que le centre
+export const ASPECT = 16 / 9;       // cadre virtuel paysage (écrans presque carrés)
+export const PORTRAIT_SHOW = 0.45;  // portrait : l'écran montre 45 % de la largeur du champ simulé
 export const FADE_IN = 4.5;         // s
 export const Z_BIRTH = [30, 34];    // naissance au fond
 export const Z_END = [2.3, 2.8];    // fin du flux (n'arrive qu'au centre, dans la zone vide : invisible)
@@ -160,9 +161,11 @@ export function createField(opts) {
   // ---------- dimensionnement : nombre de mots par tranche ----------
   function resize(w, h) {
     const first = !view;
-    // portrait : même champ qu'en paysage (cadre virtuel ASPECT), recadré au centre
-    const vw = Math.max(w, h * ASPECT);
-    view = viewOf(vw, h);
+    // paysage : cadre virtuel ASPECT ; portrait : même caméra, champ de vision 60° et point de fuite
+    // à 35 % (au-dessus du clavier), l'écran montrant le centre d'un champ ≈ 2,2× plus large
+    const portrait = w < h;
+    const vw = portrait ? w / PORTRAIT_SHOW : Math.max(w, h * ASPECT);
+    view = viewOf(vw, h, portrait ? FOV_PORTRAIT : FOV, portrait ? VP_PORTRAIT_Y : VP[1]);
     offX = (w - vw) / 2; realW = w;
     ui = Math.min(1.3, Math.max(0.6, vw / 1440));
     if (first) setZone(null);
