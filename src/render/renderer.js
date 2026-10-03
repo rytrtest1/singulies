@@ -101,6 +101,7 @@ flat out vec2 v_uvEm;              // uv par em
 const float ZF = ${ZF.toFixed(3)}, KB = ${KB.toFixed(4)}, KB_FAR = ${KB_FAR.toFixed(4)};
 vec2 proj(vec3 P) { return u_c + u_f * P.xy / max(P.z, 0.1); }
 uniform float u_time;
+uniform float u_trailOn, u_focus;   // modes de lumière : traînée (+ déformation), mise au point
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vnoise(vec2 p) {
   vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
@@ -133,13 +134,15 @@ void main() {
   vec2 loc = vec2((e.x - ecx) * cp * (u_pass == 1 ? 0.85 : 1.0), h);
   // déformation organique (lettres allumées seulement) : plis lents + ondes qui remontent,
   // presque nulle au cœur de la lettre, plus libre vers les extrémités
-  float W = smoothstep(0.05, 0.4, a_x.y);
+  float W = smoothstep(0.05, 0.4, a_x.y) * u_trailOn;
   float ah = abs(h);
   float fold = fbm(vec2(h * 1.1 + sd, t * 0.45 * fr)) + 0.45 * fbm(vec2(h * 2.6 - t * 0.9 * fr, sd + 7.0));
   loc.x += W * fold * (0.06 + 0.55 * pow(ah, 1.2));
   loc.y += W * fbm(vec2(h * 1.7 + t * 0.3 * fr, sd + 11.0)) * 0.25 * ah;
   vec2 scr = sc + mat2(cos(g), sin(g), -sin(g), cos(g)) * loc * k;
   float sig = (zc < ZF ? KB : KB_FAR) * u_f * abs(1.0 / zc - 1.0 / ZF) / k;
+  // mise au point : une lettre allumée devient nette, son mot reste flou
+  sig *= 1.0 - 0.88 * u_focus * smoothstep(0.05, 0.45, a_x.y);
   v_sig = min(sig, ${BLUR_EM.toFixed(3)});                    // σ en em (plafond = atlas pré-flouté)
   v_aa = 0.42 / (k * u_dpr);                                 // antialias ≈ 1 px physique, en em
   v_alpha = a_l.w; v_gray = a_x.x; v_L = a_x.y; v_str = a_x.z; v_seed = a_y.x;
@@ -151,7 +154,7 @@ void main() {
 const FIELD_FS = /* glsl */`#version 300 es
 precision highp float;
 uniform sampler2D u_atlas, u_blur;
-uniform float u_fade, u_dim, u_time;
+uniform float u_fade, u_dim, u_time, u_inner;
 uniform highp int u_pass;
 in vec2 v_uv;
 in float v_ty;
@@ -193,7 +196,16 @@ void main() {
   if (v_sig <= S_MID) c = soft(dEm, v_sig);
   else c = mix(soft(dEm, S_MID), texture(u_blur, v_uv).r, (v_sig - S_MID) / (S_MAX - S_MID)); // vers le vrai flou pré-calculé
   float a = c * v_alpha * u_fade;
-  o = vec4(vec3(a * min(1.0, v_gray * u_dim + v_L)), a);  // allumée : s'ajoute au gris éteint
+  // lumière intérieure : une clarté lente circule dans la lettre (bruit en coordonnées de la lettre)
+  float Lc = v_L;
+  if (u_inner > 0.5 && v_L > 0.0) {
+    vec2 le = (v_uv - v_rect.xy) / v_uvEm;                   // position dans le glyphe (em)
+    float sd = fract(v_seed * 0.0137) * 97.0, fr = 0.7 + 0.6 * fract(v_seed * 0.31);
+    float n = fbm(le * 2.2 + vec2(sd, sd * 0.7) + vec2(0.17, -0.11) * u_time * fr)
+            + 0.5 * fbm(le * 4.5 - vec2(-0.05, 0.21) * u_time * fr + sd);
+    Lc = v_L * clamp(0.55 + 1.4 * n, 0.15, 1.6);
+  }
+  o = vec4(vec3(a * min(1.0, v_gray * u_dim + Lc)), a);  // allumée : s'ajoute au gris éteint
 }`;
 
 const STRIDE = 12; // floats par instance
@@ -279,6 +291,10 @@ export function createRenderer(canvas, gl, atlas) {
       gl.uniform1f(fp.u.u_fade, f.fade);
       gl.uniform1f(fp.u.u_dim, f.dim ?? 1);
       gl.uniform1f(fp.u.u_time, (f.time ?? 0) % 1000);
+      const lm = f.lightMode || { trail: true };
+      gl.uniform1f(fp.u.u_trailOn, lm.trail ? 1 : 0);
+      gl.uniform1f(fp.u.u_focus, lm.focus ? 1 : 0);
+      gl.uniform1f(fp.u.u_inner, lm.inner ? 1 : 0);
       gl.uniform1i(fp.u.u_atlas, 0);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, res.btex);
@@ -288,7 +304,7 @@ export function createRenderer(canvas, gl, atlas) {
       gl.bindVertexArray(fvao);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 34, fl.count);   // bandes de 16 segments
       calls++;
-      if (f.litCount) {          // traînées des lettres allumées (même tampon, passage additif)
+      if (f.litCount && (!f.lightMode || f.lightMode.trail)) {          // traînées des lettres allumées (même tampon, passage additif)
         gl.uniform1i(fp.u.u_pass, 1);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 34, fl.count);   // 16 segments
         calls++;
