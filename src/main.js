@@ -34,9 +34,9 @@ const backEl = document.getElementById('back');
 const live = document.getElementById('live');
 const fallbackEl = document.getElementById('fallback');
 input.setAttribute('autocapitalize', CFG.caseMode === 'lower' ? 'words' : 'characters');
-// essai ?saisie=auto : le champ se déclare « prénom » → le clavier du téléphone (ou le navigateur)
-// propose le prénom de la fiche contact / du remplissage automatique ; un toucher le remplit
-if (new URLSearchParams(location.search).get('saisie') === 'auto') {
+// le champ se déclare « prénom » → le clavier du téléphone (ou le navigateur) propose le prénom de la
+// fiche contact / du remplissage automatique ; un toucher le remplit (désactivable : ?auto=0)
+if (P.get('auto') !== '0') {
   input.setAttribute('autocomplete', 'given-name');
   input.setAttribute('name', 'given-name');
   document.getElementById('f').setAttribute('autocomplete', 'on');
@@ -59,6 +59,10 @@ const S = {
   inviteA: 0,             // essai voix : opacité de l'invitation
   dim: 1,
   slowAt: -9,
+  confirmed: false,       // Entrée / remplissage auto : prénom confirmé, clavier fermé
+  acro: null,             // instant du passage en colonne (acrostiche)
+  nameBox: null,          // boîte écran du prénom (toucher pour passer en colonne)
+  boost: 0,               // avance/recul dans le champ (molette, glisser vertical)
 };
 
 let announceTimer = 0;
@@ -71,15 +75,19 @@ function announce(msg) {
 const bridge = createBridge(input, model, {
   caseMode: CFG.caseMode,
   announce,
-  onChange: () => { if (S.phase === 'input') { S.typed = true; S.keyAt = S.t; } renderFallback(); },
-  onSubmit: validate,
+  onChange: () => { if (S.phase === 'input') { S.typed = true; S.keyAt = S.t; S.confirmed = false; } renderFallback(); },
+  onSubmit: () => submitName(),
   onEscape: goBack,
 });
 bridge.refresh();
+// remplissage automatique (suggestion du clavier) : le prénom arrive d'un coup → on ferme le clavier
+input.addEventListener('input', (e) => {
+  if (e.inputType === 'insertReplacementText' || (!e.inputType && input.value.length > 1)) setTimeout(confirmName, 120);
+});
 const wheel = CFG.wheel ? createWheel({
   model, reduced: CFG.reduced,
   onChange: () => { if (S.phase === 'input') { S.typed = true; S.keyAt = S.t; } renderFallback(); },
-  onSubmit: validate, onEscape: goBack,
+  onSubmit: () => submitName(), onEscape: goBack,
   getStep: () => S.capPx * 1.6,
 }) : null;
 wheel?.enable(S.phase === 'input');
@@ -102,6 +110,25 @@ if (voice) {
   input.addEventListener('beforeinput', () => { if (!S.voiceTyped) { S.voiceTyped = true; voice.stop(); } }, true);   // on écrit : le micro est rendu
 }
 const spec = new Float32Array(24);   // spectre lissé (moitié ; dessiné en miroir)
+
+// Entrée : 1re fois = confirmer (clavier fermé, rien d'autre) ; ensuite = passage en colonne
+function submitName() {
+  if (S.phase !== 'input' || S.acro != null || (!wheel && bridge.composing)) return;
+  if (!finalName(model.text)) return;
+  if (!S.confirmed) confirmName(); else startAcrostic();
+}
+function confirmName() {
+  if (S.phase !== 'input' || S.acro != null || !finalName(model.text)) return;
+  S.confirmed = true; S.typed = true;
+  input.blur();
+}
+// les lettres du prénom pivotent en colonne (amorce de l'acrostiche), puis on passe à la suite
+const ACRO_STEP = 0.07, ACRO_DUR = 1.1, ACRO_HOLD = 1.4;
+function startAcrostic() {
+  if (S.phase !== 'input' || S.acro != null || !finalName(model.text)) return;
+  S.acro = S.t; S.confirmed = true;
+  input.blur(); wheel?.enable(false); voice?.stop();
+}
 
 function validate() {
   if (S.phase !== 'input' || (!wheel && bridge.composing)) return;
@@ -129,18 +156,22 @@ function enterBlack(restored) {
 function goBack() {
   if (S.phase === 'input') return;
   clearStored();             // le prénom mémorisé est effacé, il reste affiché pour cette visite
-  S.phase = 'input'; S.phaseAt = S.t; S.validatedName = null;
+  S.phase = 'input'; S.phaseAt = S.t; S.validatedName = null; S.acro = null; S.confirmed = false;
   backEl.classList.remove('on');
   bridge.refresh();
   if (wheel) wheel.enable(true); else input.focus({ preventScroll: true });
 }
 backEl.addEventListener('click', goBack);
+// Entrée quand le champ a perdu le focus (prénom confirmé, clavier fermé) : 2e Entrée = colonne
+window.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.defaultPrevented && !wheel && S.confirmed && document.activeElement !== input) { e.preventDefault(); submitName(); } });
 // Échap fonctionne aussi quand le champ n'a plus le focus (écran noir)
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.activeElement !== input) goBack(); });
 
 // Toucher n'importe où : focus du champ (ouvre le clavier mobile, geste utilisateur)
 document.addEventListener('click', (e) => {
-  if (S.phase !== 'input' || e.target === backEl || backEl.contains(e.target)) return;
+  if (S.phase !== 'input' || S.acro != null || e.target === backEl || backEl.contains(e.target)) return;
+  const b = S.nameBox;
+  if (S.confirmed && b && e.clientX > b[0] && e.clientX < b[2] && e.clientY > b[1] && e.clientY < b[3]) { startAcrostic(); return; }
   if (!wheel && document.activeElement !== input) input.focus({ preventScroll: true });
 });
 
@@ -179,25 +210,17 @@ window.addEventListener('pointermove', (e) => {
   PAR.tx = (e.clientX / S.w - 0.5) * 2; PAR.ty = (e.clientY / S.h - 0.5) * 2;
 });
 document.addEventListener('pointerleave', () => { PAR.tx = 0; PAR.ty = 0; });
-// téléphone : parallaxe à l'inclinaison (orientation relative à une position de repos qui suit lentement)
-let tilt = null;
-function onOrient(e) {
-  if (e.gamma == null || e.beta == null) return;
-  if (!tilt) tilt = { g: e.gamma, b: e.beta };
-  tilt.g += (e.gamma - tilt.g) * 0.004; tilt.b += (e.beta - tilt.b) * 0.004;
-  // sens inversé (demande de Maxence) : la caméra part du côté opposé à l'inclinaison
-  PAR.tx = -Math.max(-1, Math.min(1, (e.gamma - tilt.g) / 15));
-  PAR.ty = -Math.max(-1, Math.min(1, (e.beta - tilt.b) / 15));
+// molette (ordinateur) ou glisser vertical (téléphone) : avancer / reculer dans le champ, retour doux
+// (pas de pincement : le zoom du navigateur reste disponible pour l'accessibilité)
+const addBoost = (v) => { if (!CFG.reduced) S.boost = Math.max(-1.2, Math.min(5, S.boost + v)); };
+if (!CFG.wheel) {
+  window.addEventListener('wheel', (e) => addBoost(e.deltaY * 0.004), { passive: true });
+  let drag = null;
+  window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') drag = { y: e.clientY, id: e.pointerId }; });
+  window.addEventListener('pointermove', (e) => { if (drag && e.pointerId === drag.id) { addBoost((drag.y - e.clientY) * 0.012); drag.y = e.clientY; } });
+  const end = (e) => { if (drag && e.pointerId === drag.id) drag = null; };
+  window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
 }
-let tiltAsked = false;
-function enableTilt() {   // iOS : autorisation demandée au premier toucher (geste utilisateur requis)
-  if (tiltAsked || CFG.reduced || !window.DeviceOrientationEvent) return;
-  tiltAsked = true;
-  const D = window.DeviceOrientationEvent;
-  if (typeof D.requestPermission === 'function') D.requestPermission().then((r) => { if (r === 'granted') window.addEventListener('deviceorientation', onOrient); }).catch(() => {});
-  else window.addEventListener('deviceorientation', onOrient);
-}
-if (matchMedia('(pointer: coarse)').matches) document.addEventListener('touchend', enableTilt, { once: true });
 function updateCamera(dt) {
   if (CFG.reduced) { field.cam.x = 0; field.cam.y = 0; return; }
   const w = 2.2, z = 0.85;
@@ -235,7 +258,10 @@ function frame(ts) {
   else { const k = 30, c = 2 * Math.sqrt(k) * 0.95; S.shiftV += ((target - S.shiftY) * k - c * S.shiftV) * dt; S.shiftY += S.shiftV * dt; }
   input.style.transform = `translateY(${S.shiftY.toFixed(1)}px)`;
 
-  if (!renderer) { renderFallback(); return; }
+  if (!renderer) {   // sans WebGL2 : la colonne n'est pas dessinée, mais la validation doit aboutir
+    if (S.acro != null && S.phase === 'input' && S.t - S.acro > (Math.max(1, finalName(model.text).length) - 1) * ACRO_STEP + ACRO_DUR + ACRO_HOLD) validate();
+    renderFallback(); return;
+  }
   const cy = cy0 + S.shiftY;
 
   // fondus : ouverture, départ, retour
@@ -248,11 +274,21 @@ function frame(ts) {
   const L = layoutName(text, metrics, { w: S.w, h: S.h, cx, cy });
   const glyphs = [];
   const kx = 1 - Math.exp(-dt / 0.07);
+  const acro = S.acro != null ? acrostic(L, text, cx, cy) : null;
   L.glyphs.forEach((g, i) => {
     const gm = atlas.glyphs[g.ch];
     if (!gm) return;
-    if (glyphAnim[i] == null || !S.typed) glyphAnim[i] = g.x; else glyphAnim[i] += (g.x - glyphAnim[i]) * kx;
-    const x = CFG.reduced ? g.x : glyphAnim[i];
+    if (glyphAnim[i] == null || !S.typed) glyphAnim[i] = g.x; else if (!acro) glyphAnim[i] += (g.x - glyphAnim[i]) * kx;
+    let x = CFG.reduced ? g.x : glyphAnim[i];
+    if (acro) {   // trajectoire courbe vers la colonne, retard propre à chaque lettre
+      const tg = acro.pos[i], x0 = x, y0 = g.y;
+      const u = CFG.reduced ? smooth(0, 0.3, S.t - S.acro) : easeInOut(Math.min(1, Math.max(0, (S.t - S.acro - i * ACRO_STEP) / ACRO_DUR)));
+      const mx = (x0 + tg.x) / 2 + (tg.y - y0) * 0.22, my = (y0 + tg.y) / 2 - (tg.x - x0) * 0.22;
+      x = (1 - u) * (1 - u) * x0 + 2 * u * (1 - u) * mx + u * u * tg.x;
+      const yy = (1 - u) * (1 - u) * y0 + 2 * u * (1 - u) * my + u * u * tg.y;
+      glyphs.push({ box: [x + gm.x0 * g.fs, yy + gm.y0 * g.fs, x + gm.x1 * g.fs, yy + gm.y1 * g.fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: nameFade, pxEm: g.fs });
+      return;
+    }
     // roue : la lettre en cours (la dernière) suit la rotation
     const active = wheel && S.phase === 'input' && i === L.glyphs.length - 1 && wheel.current !== ' ';
     const dy = active ? -wheel.frac * S.capPx * 1.6 : 0;
@@ -264,6 +300,8 @@ function frame(ts) {
   });
   glyphAnim.length = L.glyphs.length;
   S.capPx = L.cap;
+  S.nameBox = L.glyphs.length ? [Math.min(...L.lines.map((l) => l.x0)) - 30, L.top - 30, Math.max(...L.lines.map((l) => l.x1)) + 30, L.bottom + 30] : null;
+  if (acro && S.phase === 'input' && S.t - S.acro > (L.glyphs.length - 1) * ACRO_STEP + ACRO_DUR + ACRO_HOLD) validate();
   // curseur : clignote tant qu'aucune touche n'a été tapée, puis disparaît définitivement
   if (CFG.debug) {   // croix au point de fuite
     const vy = field.view.cy + S.shiftY;
@@ -273,7 +311,7 @@ function frame(ts) {
   if (wheel && S.phase === 'input') drawWheel(L, glyphs, nameFade);
   if (voice && S.phase === 'input') drawVoice(L, glyphs, nameFade, dt, text);
   const voiceHidesCursor = voice && !S.voiceTyped && (voice.state === 'idle' || voice.state === 'asking' || voice.state === 'listening');
-  if (!wheel && !voiceHidesCursor && !S.typed && S.phase === 'input') {
+  if (!wheel && !voiceHidesCursor && !S.typed && !S.confirmed && S.phase === 'input') {
     // respiration douce (pas de clignotement sec) : 0,2 → 0,9, période 1,6 s
     const ph = (S.t - OPEN_DARK) / 1.6 * Math.PI * 2;
     const blink = CFG.reduced ? 0.8 : 0.2 + 0.7 * Math.pow(0.5 + 0.5 * Math.cos(ph), 1.6);
@@ -289,11 +327,13 @@ function frame(ts) {
 
   // champ : zone vide autour du prénom, caméra, simulation
   const ln = L.lines;
-  field.setZone(text.trim() ? { x0: Math.min(...ln.map((l) => l.x0)), x1: Math.max(...ln.map((l) => l.x1)), y0: L.top, y1: L.bottom, pad: 1.1 * L.fs } : null);
+  if (acro) field.setZone(acro.box);
+  else field.setZone(text.trim() ? { x0: Math.min(...ln.map((l) => l.x0)), x1: Math.max(...ln.map((l) => l.x1)), y0: L.top, y1: L.bottom, pad: 1.1 * L.fs } : null);
   updateCamera(dt);
   // lettres éteintes ≈ −38 % tant qu'un prénom est saisi (prototype : 0,62, lissage 2,5/s)
   S.dim += ((text.trim() ? 0.62 : 1) - S.dim) * (1 - Math.exp(-dt * 2.5));
-  field.step(dt, !CFG.reduced, speed);
+  S.boost *= Math.exp(-dt / 1.1);
+  field.step(dt, !CFG.reduced, speed * (1 + S.boost));
   const fl = field.emit(light, S.t, { x: cx, y: cy });
   const v = field.view;
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs,
@@ -366,6 +406,18 @@ function drawVoice(L, glyphs, fade, dt, text) {
   }
 }
 
+// colonne de l'acrostiche : une lettre par ligne, centrée ; un espace = demi-ligne
+function acrostic(L, text, cx, cy) {
+  const row = L.cap * 1.5, fs = L.fs, t = text.replace(/ +$/, '');
+  const rows = [];
+  let y = 0;
+  for (const ch of t) { if (ch === ' ') { y += row * 0.6; continue; } rows.push({ ch, y }); y += row; }
+  const H = y - row, top = cy - H / 2 + L.cap / 2;
+  const pos = rows.map((r) => ({ x: cx - (atlas.glyphs[r.ch]?.adv ?? 0.6) * fs / 2, y: top + r.y }));
+  return { pos, box: { x0: cx - fs * 0.6, x1: cx + fs * 0.6, y0: top - L.cap, y1: top + H + L.cap * 0.3, pad: 1.1 * fs } };
+}
+const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+
 function smooth(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 
 // ---------- amorçage ----------
@@ -406,6 +458,6 @@ document.addEventListener('visibilitychange', () => {
 
 // accès de test / mesure
 const stats = { drawCalls: 0, gpuMB: 0, letters: 0, warmupMs: 0 };
-window.__sg = { stats, model, S, CFG, get atlas() { return atlas; }, get field() { return field; }, get voice() { return voice; }, validate, goBack, get bridge() { return bridge; } };
+window.__sg = { stats, model, S, CFG, get atlas() { return atlas; }, get field() { return field; }, get voice() { return voice; }, validate, submitName, startAcrostic, goBack, get bridge() { return bridge; } };
 
 boot();

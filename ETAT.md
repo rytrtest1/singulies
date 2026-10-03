@@ -61,6 +61,13 @@
 - Retenu : propagation lente de l'arrière vers l'avant (≈ 5–6 s, bord irrégulier) ; lettre allumée = mise au point (σ × 0,12) + lumière intérieure (fbm en coordonnées du glyphe, graine propre). 3 draw calls, 27 img/s (1672 logiciel) / 60 (390).
 - Chiffres seed 11 (repos, t = 12 s) : 1672 LEA px>5 61,1 / px>20 1,6 / px>80 0,28 / lum 6,4 ; 22 car. px>80 1,19 / lum 7,9 ; 390 CLEMENCE ROSE px>80 1,37 / lum 8,9. Visibles 51–60 (1672), 28–29 (390). Tests 38/38.
 
+### Itérations 03/10 (suite) — voir CLAUDE.md pour les règles à jour
+- Flou : mise au point au fond (z_f 34, K 0,055), sans gain de luminosité (fondu net ↔ atlas pré-flouté). Luminosité croissante avec la profondeur.
+- Portrait = champ du paysage recadré, prénom au milieu, plus petit/resserré. Curseur effilé qui respire.
+- Mouvement : dérive propre et oscillation quasi supprimées ; pas d'accès au mouvement du téléphone ; molette / glisser vertical = avancer-reculer.
+- Saisie : suggestion du prénom (autocomplete given-name) par défaut, clavier fermé après remplissage auto ; Entrée = confirmer ; toucher le prénom (ou 2e Entrée) = colonne (acrostiche) puis noir.
+- Essais : `?saisie=roue`, `?saisie=voix`. Tests : 43 unitaires, 86 e2e (agent tests : 2 bugs corrigés — repli sans WebGL2 bloqué, 2e Entrée sans focus).
+
 ### Ouvert
 - Proches un peu sous la cible (≈ 4,7 au lieu de 6) : contrainte du flux (un proche doit naître au centre). Plus de proches = plus de mots cachés dans la zone.
 - Option clavier : atténuer le fond quand le clavier est ouvert (proposition de Maxence) — en attente de son essai sur iPhone.

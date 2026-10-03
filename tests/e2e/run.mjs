@@ -121,8 +121,9 @@ await run('Validation / Échap', async (p) => {
     window.onNameValidated = (n) => window.__cb.push(n);
     window.addEventListener('singulies:name-validated', (e) => window.__ev.push(e.detail));
   });
-  await p.keyboard.type('Léa'); await p.keyboard.press('Enter');
-  await sleep(200);
+  await p.keyboard.type('Léa'); await p.keyboard.press('Enter'); await sleep(100);
+  await p.focus('#in'); await p.keyboard.press('Enter'); // 2e Entrée : colonne puis validation
+  await p.waitForFunction(() => window.__sg.S.phase === 'leaving' || window.__sg.S.phase === 'black', null, { timeout: 15000 });
   const early = await p.evaluate(() => ({ ev: window.__ev.length, phase: window.__sg.S.phase }));
   await p.waitForFunction(() => window.__ev.length > 0, null, { timeout: 15000 });
   const r = await p.evaluate(() => ({ ev: window.__ev, cb: window.__cb, phase: window.__sg.S.phase, ls: localStorage.getItem('singulies.name') }));
@@ -135,8 +136,8 @@ await run('Validation / Échap', async (p) => {
   out.push(same('Échap: phase', 'input', e.phase), same('Échap: prénom conservé', 'LEA', e.text), same('Échap: localStorage effacé', null, e.ls));
   return out;
 });
-await run('Rechargement 0,3 s après Entrée', async (p) => {
-  await p.keyboard.type('Léa'); await p.keyboard.press('Enter'); await sleep(300);
+await run('Rechargement 0,3 s après validation', async (p) => {
+  await p.keyboard.type('Léa'); await p.evaluate(() => window.__sg.validate()); await sleep(300);
   await p.reload();
   await p.waitForFunction(() => window.__sg && window.__sg.atlas, null, { timeout: 30000 });
   await sleep(300);
@@ -151,11 +152,11 @@ await run('Accessibilité du champ', async (p) => {
     const i = document.getElementById('in');
     const foc = [...document.querySelectorAll('a[href],button,input,select,textarea,[tabindex],[contenteditable]')].filter((e) => e.tabIndex >= 0 && !e.disabled);
     const vp = document.querySelector('meta[name=viewport]').content;
-    return { n: foc.length, id: foc[0]?.id, ac: i.getAttribute('autocomplete'), acr: i.getAttribute('autocorrect'), eh: i.getAttribute('enterkeyhint'), fs: parseFloat(getComputedStyle(i).fontSize), vp };
+    return { n: foc.length, id: foc[0]?.id, ac: i.getAttribute('autocomplete'), fac: i.form?.getAttribute('autocomplete'), acr: i.getAttribute('autocorrect'), eh: i.getAttribute('enterkeyhint'), fs: parseFloat(getComputedStyle(i).fontSize), vp };
   });
   await p.keyboard.press('Tab'); await p.keyboard.press('Tab');
   const act = await p.evaluate(() => document.activeElement.id);
-  return [same('éléments focalisables', 1, r.n), same('lequel', 'in', r.id), same('Tab x2 reste sur #in', 'in', act), same('autocomplete', 'off', r.ac), same('autocorrect', 'off', r.acr),
+  return [same('éléments focalisables', 1, r.n), same('lequel', 'in', r.id), same('Tab x2 reste sur #in', 'in', act), same('autocomplete par défaut', 'given-name', r.ac), same('form autocomplete', 'on', r.fac), same('autocorrect', 'off', r.acr),
     same('enterkeyhint', 'done', r.eh), same('font-size >= 16', true, r.fs >= 16), same('viewport sans user-scalable/maximum-scale', false, /user-scalable|maximum-scale/i.test(r.vp))];
 });
 await run('?case=lower', async (p) => {
@@ -166,7 +167,7 @@ await run('Sans WebGL2', async (p) => {
   await p.keyboard.type('Léa'); await sleep(150);
   const fb = await p.evaluate(() => ({ t: document.getElementById('fallback').textContent, d: getComputedStyle(document.getElementById('fallback')).display, atlas: !!window.__sg.atlas }));
   await p.evaluate(() => { window.__ev = []; window.addEventListener('singulies:name-validated', (e) => window.__ev.push(e.detail)); });
-  await p.keyboard.press('Enter');
+  await p.keyboard.press('Enter'); await sleep(100); await p.focus('#in'); await p.keyboard.press('Enter');
   await p.waitForFunction(() => window.__ev.length > 0, null, { timeout: 15000 });
   const ph = await p.evaluate(() => ({ phase: window.__sg.S.phase, name: window.__ev[0].name }));
   return [same('pas d\'atlas', false, fb.atlas), same('#fallback affiché', 'block', fb.d), same('#fallback texte', 'LEA', fb.t), same('validation: nom', 'LEA', ph.name), same('phase', 'black', ph.phase)];
@@ -174,6 +175,63 @@ await run('Sans WebGL2', async (p) => {
   const o = HTMLCanvasElement.prototype.getContext;
   HTMLCanvasElement.prototype.getContext = function (t, ...a) { return t === 'webgl2' ? null : o.call(this, t, ...a); };
 } });
+
+const flags = (p) => p.evaluate(() => ({ conf: window.__sg.S.confirmed, foc: document.activeElement === document.getElementById('in'), phase: window.__sg.S.phase, acro: window.__sg.S.acro != null, text: window.__sg.model.text }));
+await run('autocomplete=off avec ?auto=0', async (p) => {
+  return [same('autocomplete', 'off', await p.evaluate(() => document.getElementById('in').getAttribute('autocomplete')))];
+}, { query: '?auto=0' });
+await run('Entrée = confirmer', async (p) => {
+  await p.keyboard.type('Léa'); await p.keyboard.press('Enter'); await sleep(300);
+  const a = await flags(p);
+  await p.keyboard.type('B'); // champ défocalisé : refocaliser puis frapper
+  await p.focus('#in'); await p.keyboard.type('B'); await sleep(100);
+  const b = await flags(p);
+  return [same('confirmé', true, a.conf), same('champ non focalisé', false, a.foc), same('phase input', 'input', a.phase), same('pas d\'acro', false, a.acro),
+    same('frappe après confirmation: confirmed false', false, b.conf), same('texte', 'LEAB', b.text)];
+});
+await run('2x Entrée -> acro puis black', async (p) => {
+  await p.keyboard.type('Lea'); await p.keyboard.press('Enter'); await sleep(200);
+  await p.focus('#in'); await p.keyboard.press('Enter'); await sleep(200);
+  const a = await flags(p);
+  await p.waitForFunction(() => window.__sg.S.phase === 'black', null, { timeout: 12000 });
+  return [same('acro démarré', true, a.acro), same('phase encore input', 'input', a.phase), same('phase black', 'black', (await flags(p)).phase)];
+});
+await run('2e Entrée sans focus (desktop, champ défocalisé par la confirmation)', async (p) => {
+  await p.keyboard.type('Lea'); await p.keyboard.press('Enter'); await sleep(300);
+  await p.keyboard.press('Enter'); await sleep(300);
+  return [same('acro démarré', true, (await flags(p)).acro)];
+});
+await run('Clic dans nameBox -> acro', async (p) => {
+  await p.keyboard.type('Lea'); await p.keyboard.press('Enter'); await sleep(500);
+  const box = await p.evaluate(() => window.__sg.S.nameBox);
+  await p.mouse.click((box[0] + box[2]) / 2, (box[1] + box[3]) / 2); await sleep(200);
+  const a = await flags(p);
+  return [same('nameBox défini', true, !!box), same('acro', true, a.acro)];
+});
+await run('Clic hors du prénom après confirmation', async (p) => {
+  await p.keyboard.type('Lea'); await p.keyboard.press('Enter'); await sleep(500);
+  await p.mouse.click(8, 8); await sleep(200);
+  const a = await flags(p);
+  return [same('champ refocalisé', true, a.foc), same('pas d\'acro', false, a.acro), same('phase input', 'input', a.phase)];
+});
+await run('Remplissage auto simulé', async (p) => {
+  await p.evaluate(() => {
+    const i = document.getElementById('in');
+    i.value = 'Clémence-Rose'; i.setSelectionRange(13, 13);
+    i.dispatchEvent(new InputEvent('input', { inputType: 'insertReplacementText', bubbles: true }));
+  });
+  await sleep(500);
+  const a = await flags(p); const v = await st(p);
+  return [same('texte', 'CLEMENCE ROSE', a.text), same('natif', 'CLEMENCE ROSE', v.val), same('confirmé', true, a.conf), same('champ non focalisé', false, a.foc), same('phase input', 'input', a.phase)];
+});
+await run('Entrée pendant IME ignorée', async (p, c) => {
+  await p.keyboard.type('Lea');
+  const cdp = await c.newCDPSession(p);
+  await cdp.send('Input.imeSetComposition', { text: 'e', selectionStart: 1, selectionEnd: 1 }); await sleep(100);
+  await p.keyboard.press('Enter'); await sleep(200);
+  const a = await flags(p);
+  return [same('non confirmé', false, a.conf), same('pas d\'acro', false, a.acro)];
+});
 
 await browser.close(); await server.close();
 

@@ -27,7 +27,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - Modes profondeur / horizontal. Bascule progressive : Tab ou double-clic ; `?mode=horizontal`.
 - Horizontal : v_monde = A·sin(k·Y + φ(t)), φ dérive lentement ; nappes gauche et droite simultanées, cisaillement doux, pas de bande rigide. v_écran = f·v/z. Sortie d'un côté → réapparition de l'autre à même profondeur.
 - Le champ écoute : à chaque frappe, léger souffle de caméra + ralentissement du courant ≈ 1 s.
-- Parallaxe pointeur = translation caméra (jamais rotation seule), ressort amorti, retard ≈ 0,8 s. Téléphone : parallaxe à l'inclinaison, **sens inversé** (la caméra part du côté opposé), autorisation iOS au premier toucher, position de repos qui suit lentement. Pas de dérive propre des mots ni d'oscillation de caméra notables (masquaient la perspective). Le point de fuite suit le prénom quand le clavier le fait remonter. `?debug=1` : croix au point de fuite.
+- Parallaxe pointeur = translation caméra (jamais rotation seule), ressort amorti, retard ≈ 0,8 s. **Pas de demande d'accès au mouvement du téléphone** (03/10) : parallaxe à la souris seulement. **Molette (ordinateur) / glisser vertical (téléphone) = avancer ou reculer dans le champ**, retour doux (pas de pincement : le zoom du navigateur reste disponible). Pas de dérive propre des mots ni d'oscillation de caméra notables (masquaient la perspective). Le point de fuite suit le prénom quand le clavier le fait remonter. `?debug=1` : croix au point de fuite.
 - `prefers-reduced-motion` : image fixe, ondes en simples fondus, pas de parallaxe.
 
 ## Lumière — organique, jamais copié-collé
@@ -49,7 +49,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - 22 caractères max, pas d'espace en tête, espaces multiples fusionnés.
 - Modèle interne (texte, curseur, sélection) = source de vérité ; le champ natif ne fait que recevoir les événements. Jamais de réécriture pendant une composition IME ; normaliser à la fin.
 - Cas à tester : « Léa » → LEA ; « Clémence-Rose123! » → CLEMENCE ROSE ; touche é réelle ; menu d'accents ; dictée ; IME ; collage de 26 lettres (tronqué à 22 + annonce vocale) ; insertion au milieu ; sélection + frappe ; effacement ; annuler/rétablir.
-- Un seul élément focalisable, autocomplete="off", autocorrect="off", enterkeyhint="done", font-size ≥ 16 px, pinch-zoom autorisé. Entrée valide (ignorée pendant composition). Échap ou flèche discrète (zone 44 px) = retour, prénom conservé. Rechargement (même pendant le fondu) restaure l'état validé.
+- Un seul élément focalisable, **autocomplete="given-name" par défaut** (suggestion du prénom par le clavier ; `?auto=0` → off), autocorrect="off", enterkeyhint="done", font-size ≥ 16 px, pinch-zoom autorisé. **Entrée = confirmer** (clavier fermé, aucune transition) ; remplissage automatique = confirmé + clavier fermé. Entrée ignorée pendant composition. Échap ou flèche discrète (zone 44 px) = retour, prénom conservé. Rechargement (même pendant le fondu) restaure l'état validé.
 - Clavier mobile : si le prénom serait couvert, il remonte en douceur ; variation de hauteur due au clavier = aucune reconstruction.
 - Visiteur qui revient : prénom en localStorage, lettres déjà doucement allumées à l'arrivée. Échap/flèche efface le prénom mémorisé.
 
@@ -61,11 +61,12 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - Invitation « DIS OU ECRIS TON PRENOM » (seul texte d'interface, exception voulue par Maxence ; sans accent affiché). Micro demandé à son apparition seulement. Refus → l'invitation s'efface, le curseur apparaît. Accord → spectre audio en direct (traits fins en miroir, analyse locale) ; le prénom dit s'écrit (« je m'appelle… » retiré, 3 mots max). Taper au clavier coupe la voix et rend le micro.
 - **La reconnaissance vocale du navigateur passe par les serveurs d'Apple/Google** : contraire à « zéro appel réseau », à trancher avant toute mise en production.
 
-## Suggestion du prénom (`?saisie=auto`, essai 03/10)
-- Impossible de lire l'identité depuis le navigateur. Le champ se déclare `autocomplete="given-name"` : le clavier du téléphone (fiche contact) ou le navigateur propose le prénom, un toucher le remplit (la page ne le voit qu'après ce toucher : pas d'affichage grisé possible avant).
+## Suggestion du prénom (par défaut depuis le 03/10)
+- Impossible de lire l'identité depuis le navigateur. Le champ se déclare `autocomplete="given-name"` : le clavier du téléphone (fiche contact) ou le navigateur propose le prénom, un toucher le remplit, le clavier se ferme (la page ne voit le prénom qu'après ce toucher : pas d'affichage grisé possible avant).
 
 ## Validation
-- Les lettres allumées quittent leurs prénoms et volent vers leur place dans le prénom central (≈ 1,5 s, trajectoires courbes, retard propre), puis fondu au noir.
+- **Passage à la suite** (03/10, à affiner) : une fois le prénom confirmé, **toucher le prénom (ou Entrée à nouveau) fait pivoter ses lettres en colonne** (amorce de l'acrostiche : trajectoires courbes, retard propre 0,07 s/lettre, 1,1 s), tenue 1,4 s, puis fondu au noir.
+- (Idée initiale, non faite : les lettres allumées du fond volent vers le prénom central.)
 - Sortie : `window.onNameValidated(name)` + événement `singulies:name-validated`, sans réseau. Ensuite écran noir.
 
 ## Performance

@@ -193,7 +193,8 @@ export function createField(opts) {
     const { f } = view;
     for (const w of words) {
       if (motion) {
-        w.z -= SPEED * Math.sqrt(w.z / 12) * speed * dt;   // ∝ √z : parallaxe nette (proche ≈ 3× plus rapide à l'écran) sans vider le premier plan
+        w.z -= SPEED * Math.sqrt(w.z / 12) * speed * dt;   // ∝ √z : parallaxe nette (proche ≈ 3× plus rapide à l’écran) sans vider le premier plan
+        if (w.z > Z_BIRTH[1] + 1) w.z = Z_BIRTH[1] + 1;        // recul (molette) : pas au-delà du fond
         w.X += (w.dvx * speed + w.sx * w.z / f) * dt;
         w.Y += (w.dvy * speed + w.sy * w.z / f) * dt;
       }
