@@ -100,8 +100,17 @@ flat out vec4 v_rect;              // rectangle uv du glyphe
 flat out vec2 v_uvEm;              // uv par em
 const float ZF = ${ZF.toFixed(3)}, KB = ${KB.toFixed(4)}, KB_FAR = ${KB_FAR.toFixed(4)};
 vec2 proj(vec3 P) { return u_c + u_f * P.xy / max(P.z, 0.1); }
+uniform float u_time;
+float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(h21(i), h21(i + vec2(1, 0)), u.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), u.x), u.y);
+}
+float fbm(vec2 p) { float a = 0.5, r = 0.0; for (int i = 0; i < 3; i++) { r += a * vnoise(p); p = p * 2.03 + 17.1; a *= 0.5; } return r - 0.44; }
+const float TRAIL_SEG = 16.0;      // la traînée est une bande de 16 segments, chacun déplacé par le bruit
 void main() {
   vec2 c = vec2(gl_VertexID & 1, gl_VertexID >> 1);
+  if (u_pass == 1) c.y /= TRAIL_SEG;
   float S = a_l.z, cp = cos(a_w.w), sp = sin(a_w.w);
   vec3 d = vec3(cp, 0.0, -sp);
   float ecx = 0.5 * (a_box.x + a_box.z);                    // centre horizontal du glyphe (em)
@@ -117,8 +126,17 @@ void main() {
   if (u_pass == 1) {
     // traînée : copie floue étirée le long d'un axe parti de la verticale, sans étalement horizontal
     if (a_x.y < 0.15 || a_x.z < 1.02) { gl_Position = vec4(2.0, 2.0, 0.0, 1.0); return; }
-    float th = a_x.w;
-    vec2 tl = vec2((e.x - ecx) * cp * 0.85, (e.y + a_l.y / S) * a_x.z) * k;
+    // aurore : la bande entière se plie, ondule et respire (bruit lent, graine et vitesse propres) ;
+    // ancrée sur la lettre, de plus en plus libre vers les extrémités
+    float sd = fract(a_y.x * 0.0137) * 97.0, fr = 0.7 + 0.6 * fract(a_y.x * 0.31), t = u_time;
+    float yv = c.y * 2.0 - 1.0, ay = abs(yv);
+    float th = a_x.w + 0.45 * fbm(vec2(t * 0.22 * fr, sd));                         // l'axe lui-même vacille
+    float str = a_x.z * (1.0 + 0.6 * fbm(vec2(sd + 3.0, t * 0.18 * fr)));              // longueur qui respire
+    vec2 tl = vec2((e.x - ecx) * cp * 0.85, (e.y + a_l.y / S) * str) * k;
+    float fold = fbm(vec2(yv * 0.9 + sd, t * 0.45 * fr)) * 1.9                       // grands plis du rideau
+               + fbm(vec2(yv * 2.3 - t * 0.9 * fr, sd + 7.0)) * 0.8;                 // ondes qui remontent
+    tl.x += fold * (0.08 + 0.92 * ay) * k;
+    tl.y += fbm(vec2(yv * 1.7 + t * 0.3 * fr, sd + 11.0)) * 0.6 * ay * k;            // étirement inégal
     scr = sc + mat2(cos(th), sin(th), -sin(th), cos(th)) * tl;
   }
   float sig = (zc < ZF ? KB : KB_FAR) * u_f * abs(1.0 / zc - 1.0 / ZF) / k;
@@ -164,15 +182,15 @@ void main() {
     float y = v_ty * 2.0 - 1.0, ay = abs(y), t = u_time, sd = fract(v_seed * 0.0137) * 97.0;
     float fr = 0.7 + 0.6 * fract(v_seed * 0.31);              // vitesse propre
     float xl = (v_uv.x - 0.5 * (v_rect.x + v_rect.z)) / v_uvEm.x; // abscisse dans la lettre (em)
-    float bend = fbm(vec2(y * 1.3 + sd, t * 0.16 * fr)) * 0.5 * (0.15 + 0.85 * ay);        // courbure d'ensemble
-    float twist = fbm(vec2(y * 3.4 - t * 0.35 * fr, xl * 1.7 + sd)) * 0.22 * ay;             // torsion locale
+    float bend = 0.0;                                                                       // (courbure : géométrie, VS)
+    float twist = fbm(vec2(y * 3.4 - t * 0.7 * fr, xl * 1.7 + sd)) * 0.3 * ay;               // torsion locale
     float slide = fbm(vec2(xl * 1.3 + sd * 2.0, y * 1.8 + t * 0.11 * fr)) * 0.18 * ay;        // étirement inégal
     vec2 uv = v_uv + vec2((bend + twist) * v_uvEm.x, slide * v_uvEm.y);
     uv = clamp(uv, v_rect.xy, v_rect.zw);
     float ext = (y < 0.0 ? 0.8 : 0.95) + 0.35 * fbm(vec2(sd + (y < 0.0 ? 5.0 : 0.0), t * 0.09 * fr)); // longueur vivante
     float env = 1.0 - smoothstep(0.25 * ext, ext, ay);
-    float glow = 0.7 + 0.8 * fbm(vec2(y * 2.2 - t * 0.25 * fr, sd + xl));                   // éclat irrégulier
-    float a = texture(u_blur, uv).r * env * glow * clamp(v_L - 0.15, 0.0, 1.0) * 0.6 * v_alpha * u_fade;
+    float glow = max(0.0, 0.75 + 1.5 * fbm(vec2(y * 1.8 - t * 0.9 * fr, sd + xl * 0.5)));  // vagues d'éclat qui parcourent la traînée
+    float a = texture(u_blur, uv).r * env * glow * clamp(v_L - 0.1, 0.0, 1.0) * 0.95 * v_alpha * u_fade;
     o = vec4(vec3(a), 0.0);                                  // additif
     return;
   }
@@ -278,7 +296,7 @@ export function createRenderer(canvas, gl, atlas) {
       calls++;
       if (f.litCount) {          // traînées des lettres allumées (même tampon, passage additif)
         gl.uniform1i(fp.u.u_pass, 1);
-        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 34, fl.count);   // 16 segments
         calls++;
       }
       gl.bindVertexArray(null);

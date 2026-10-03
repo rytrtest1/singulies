@@ -264,7 +264,7 @@ export function createField(opts) {
           if (L > 0.01) {
             litCount++;
             // traînée : part de la verticale, penche vers l'extérieur (±50°), longueur ∝ distance × intensité
-            stretch = 1.5 + 3.4 * lp.trail * dn * L;
+            stretch = 2.6 + 7.5 * lp.trail * (0.3 + dn) * L;
             theta = 0.87 * Math.max(-1, Math.min(1, (lx - cx) / hw)) + 0.06 * Math.sin(lp.sf * t + lp.sp);
           }
         }
