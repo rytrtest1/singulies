@@ -35,10 +35,10 @@ const sm = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (
 export const wordCount = (w) => Math.round(40 + 38 * clamp01((w - 390) / 610));
 // interlettrage : plus d'air pour les petits mots lointains, moins pour les grands proches
 export const trackEm = (pxEm) => 0.08 + 0.06 * (1 - sm(14, 90, pxEm)); // ≈ 0,1 em du prototype
-// gris par profondeur (prototype) ; proche plus sombre car flou, très lointain atténué
+// gris par profondeur : le fond est le plus lumineux, l'avant-plan le plus sombre (proche discret,
+// le prénom central reste prioritaire) ; atténuation à la naissance, tout au fond
 export function grayOf(z) {
-  // courbe du prototype
-  const g = z > 16 ? 0.20 : z > 8 ? 0.20 + 0.24 * sm(16, 8, z) : 0.44 - 0.18 * sm(8, 3.4, z);
+  const g = 0.10 + 0.26 * sm(3, 24, z);
   return g * (1 - 0.6 * sm(28, 34, z));
 }
 

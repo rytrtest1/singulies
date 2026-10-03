@@ -18,6 +18,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - Chaque lettre = quad instancié projeté dans le shader. Rotation du mot ψ = κ·atan(|X|/z), κ ≈ 0,8 : l'extrémité extérieure est la plus proche, dans les 4 quadrants.
 - Flou : atlas SDF, flou continu par lettre et par image, σ_écran ∝ |1/z − 1/z_f|, **mise au point au fond (z_f = 34)** : plus un mot est proche, plus il est flou, progressivement (cohérence globale, 03/10) ; K = 0,055, plafond 0,11 em. **Jamais de gain de luminosité dû au flou** : fondu entre lettre nette et vrai flou pré-calculé (03/10). Jamais de niveaux discrets, jamais de pulsation de netteté, jamais d'apparition brusque (naissance/mort en fondu ≥ 4 s).
 - Anti-chevauchement : tri loin→proche ; boîtes qui se recouvrent → le plus lointain s'efface (jusqu'à −86 %, lissé 1,2–1,8 s) ; profondeurs voisines (écart < 30 %) → poussée de séparation ≈ 1 px/s, filtrée ≈ 1,8 s.
+- **Luminosité croissante avec la profondeur** : avant-plan le plus sombre, fond le plus clair (gris 0,10 → 0,36 ; repos des allumées 0,36 → 0,55), 03/10.
 - Zone vide autour du prénom par fondu des mots, jamais par masque qui coupe.
 - Fond uni très sombre (6/255) + vignette du prototype ; **grain retiré** (jugé « cheap », 03/10), `?grain=1` pour le revoir ; `?grain=0` → noir pur.
 

@@ -78,8 +78,8 @@ export function createLight({ reduced = false } = {}) {
       pulse += tau < att ? sm(0, att, tau) : Math.exp(-(tau - att) / dec);
     }
     pulse *= 0.8 * lp.inten * (1 - 0.35 * k);
-    // anneau de résonance : repos plus vif près du prénom (hors zone vide → anneau), plus faible au loin
-    const rest = (0.55 - 0.13 * sm(12, 20, z)) * (0.5 + 0.5 * (1 - sm(0.25, 1, dn)));
+    // anneau de résonance : repos plus vif près du prénom (hors zone vide → anneau)
+    const rest = (0.36 + 0.19 * sm(4, 20, z)) * (0.5 + 0.5 * (1 - sm(0.25, 1, dn)));   // proches plus sombres, fond plus clair
     const breath = reduced ? 1 : 1 + 0.1 * Math.sin(lp.f1 * t + lp.p1) + 0.07 * Math.sin(lp.f2 * t + lp.p2);
     return p * (rest * breath + pulse);
   }
