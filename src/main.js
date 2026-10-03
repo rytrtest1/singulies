@@ -221,12 +221,12 @@ document.addEventListener('pointerleave', () => { PAR.tx = 0; PAR.ty = 0; });
 const addBoost = (v) => { if (!CFG.reduced) S.boost = Math.max(-1.2, Math.min(5, S.boost + v)); };
 if (!CFG.wheel) {
   window.addEventListener('wheel', (e) => addBoost(e.deltaY * 0.004), { passive: true });
-  // doigt vers le haut = avancer, vers le bas = reculer (un seul doigt ; à deux, c'est le zoom)
+  // doigt vers le bas = avancer, vers le haut = reculer (un seul doigt ; à deux, c'est le zoom)
   let ty = null;
   window.addEventListener('touchstart', (e) => { ty = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
   window.addEventListener('touchmove', (e) => {
     if (ty == null || e.touches.length !== 1) { ty = null; return; }
-    const y = e.touches[0].clientY; addBoost((ty - y) * 0.025); ty = y;
+    const y = e.touches[0].clientY; addBoost((y - ty) * 0.025); ty = y;
   }, { passive: true });
   window.addEventListener('touchend', () => { ty = null; }, { passive: true });
 }
