@@ -123,6 +123,7 @@ export function createField(opts) {
     w.dvy = rng.range(-1, 1) * 0.0006 * sField;
     w.sx = 0; w.sy = 0; w.tsx = 0; w.tsy = 0;
     w.occ = 0; w.occT = 0; w.tauOcc = rng.range(1.2, 1.8);
+    w.occL = null;          // effacement par lettre (recouvrement), alloué à la première mesure
     w.age = warm ? 1e4 : 0;
     w.box = w.box || [0, 0, 0, 0];
 
@@ -218,6 +219,19 @@ export function createField(opts) {
     w.zoneA = zoneTarget(w); w.age = 1e4;
   }
 
+  function letterSpans(w) {
+    const n = w.chars.length;
+    if (!w.occL || w.occL.length !== n) { w.occL = new Float32Array(n); w.occLT = new Float32Array(n); w.lcx = new Float32Array(n); w.lhw = new Float32Array(n); }
+    const bw = w.box[2] - w.box[0], span = 2 * w.half || 1;
+    let pen = -w.half;
+    for (let i = 0; i < n; i++) {
+      const a = w.adv[i] * w.S;
+      w.lcx[i] = w.box[0] + (pen + w.half + a / 2) / span * bw;
+      w.lhw[i] = a / 2 / span * bw;
+      pen += (w.adv[i] + w.track) * w.S;
+    }
+  }
+
   // ---------- pas de simulation ----------
   // speed : facteur du courant (le champ ralentit un instant à chaque frappe)
   // lat : intensité des nappes latérales (0…1) ; adv : avance de la caméra (0…1)
@@ -256,13 +270,27 @@ export function createField(opts) {
     }
     // loin → proche
     order = words.slice().sort((a, b) => b.z - a.z);
+    for (const w of words) letterSpans(w);
     for (let i = 0; i < order.length; i++) {
-      const a = order[i], aa = area(a.box) || 1;
+      const a = order[i];
+      const occT = a.occLT;
+      occT.fill(0);
       for (let j = i + 1; j < order.length; j++) {
         const b = order[j];            // b est plus proche que a
         const m = 0.6 * Math.min(a.pxEm, b.pxEm);  // marge : l'effacement commence avant le contact (les courants font se croiser les mots)
         const I = interPad(a.box, b.box, m);
-        if (I > 0) a.occT = Math.max(a.occT, OCC_MAX * sm(0.01, 0.2, I / aa) * b.base);
+        if (I > 0 && b.base > 0.02) {
+          // seules les lettres recouvertes s'effacent, avec un bord doux (distance du centre de la lettre au mot proche)
+          const ey = Math.max(b.box[1] - (a.box[1] + a.box[3]) / 2, (a.box[1] + a.box[3]) / 2 - b.box[3]);
+          const ah = (a.box[3] - a.box[1]) / 2, fy = 1 - sm(-ah * 0.2, ah + m, ey);
+          if (fy > 0) for (let k = 0; k < occT.length; k++) {
+            const lx = a.lcx[k], lw = a.lhw[k];
+            const ex = Math.max(b.box[0] - lx, lx - b.box[2]);          // < 0 : centre de la lettre sous le mot proche
+            const fx = 1 - sm(-lw * 0.6, lw + m, ex);
+            const v = OCC_MAX * b.base * fx * fy;
+            if (v > occT[k]) occT[k] = v;
+          }
+        }
         if (a.z / b.z < SEP_RATIO) {
           if (I > 0 && a.base > 0.05 && b.base > 0.05) {
             let dx = (a.box[0] + a.box[2] - b.box[0] - b.box[2]) / 2, dy = (a.box[1] + a.box[3] - b.box[1] - b.box[3]) / 2;
@@ -277,8 +305,12 @@ export function createField(opts) {
       const l = Math.hypot(w.tsx, w.tsy);
       if (l > SEP_SPEED * 1.5) { w.tsx *= SEP_SPEED * 1.5 / l; w.tsy *= SEP_SPEED * 1.5 / l; }
       w.sx += (w.tsx - w.sx) * sk; w.sy += (w.tsy - w.sy) * sk;
-      w.occ += (w.occT - w.occ) * (1 - Math.exp(-dt / w.tauOcc));
-      w.alpha = w.base * (1 - w.occ);
+      // lissage par lettre : on se recouvre / se découvre progressivement (≈ 0,6–0,9 s)
+      const ko = 1 - Math.exp(-dt / (w.tauOcc * 0.5));
+      let sum = 0;
+      for (let k = 0; k < w.occL.length; k++) { w.occL[k] += (w.occLT[k] - w.occL[k]) * ko; sum += w.occL[k]; }
+      w.occ = sum / (w.occL.length || 1);
+      w.alpha = w.base * (1 - w.occ);           // moyenne (mesures) ; le rendu utilise l'effacement de chaque lettre
     }
   }
 
@@ -292,14 +324,14 @@ export function createField(opts) {
     const lit = light && light.active;
     const cx = c ? c.x - offX : view.cx, cy = c ? c.y : view.cy, hw = realW / 2, hh = view.h / 2;
     for (const w of order) {
-      if (w.alpha < 0.004 || offReal(w.box)) continue;
+      if (w.base < 0.004 || offReal(w.box)) continue;
       if ((n + w.chars.length) * STRIDE > buf.length) { const nb = new Float32Array(buf.length * 2); nb.set(buf); buf = nb; }
       const gray = grayOf(w.z) * w.ink;
       let pen = -w.half;
       for (let i = 0; i < w.chars.length; i++) {
         const g = glyphs[w.chars[i]], o = n * STRIDE;
         buf[o] = w.X; buf[o + 1] = w.Y; buf[o + 2] = w.z; buf[o + 3] = w.psi;
-        buf[o + 4] = pen; buf[o + 5] = (w.jit[i] + 0.5 * capHeight) * w.S; buf[o + 6] = w.S; buf[o + 7] = w.alpha;
+        buf[o + 4] = pen; buf[o + 5] = (w.jit[i] + 0.5 * capHeight) * w.S; buf[o + 6] = w.S; buf[o + 7] = w.base * (1 - (w.occL ? w.occL[i] : 0));
         buf[o + 8] = g.u0; buf[o + 9] = g.v0; buf[o + 10] = g.u1; buf[o + 11] = g.v1;
         buf[o + 12] = g.x0; buf[o + 13] = g.y0; buf[o + 14] = g.x1; buf[o + 15] = g.y1;
         let L = 0;
@@ -325,10 +357,17 @@ export function createField(opts) {
     const vis = words.filter((w) => w.alpha > 0.1 && !offReal(w.box));
     const byTier = TIERS.map((_, t) => vis.filter((w) => w.tier === t).length);
     let overlaps = 0;
-    const net = vis.filter((w) => w.alpha > 0.3);
+    const net = vis.filter((w) => w.base > 0.3).sort((a, b) => b.z - a.z);
     for (let i = 0; i < net.length; i++) for (let j = i + 1; j < net.length; j++) {
-      const I = inter(net[i].box, net[j].box);
-      if (I > 0.05 * Math.min(area(net[i].box), area(net[j].box))) overlaps++;
+      const a = net[i], b = net[j];               // b plus proche
+      if (!inter(a.box, b.box) || !a.occL) continue;
+      let hit = false;
+      for (let k = 0; k < a.occL.length && !hit; k++) {
+        if (a.base * (1 - a.occL[k]) <= 0.3) continue;
+        const l0 = a.lcx[k] - a.lhw[k], l1 = a.lcx[k] + a.lhw[k];
+        hit = l1 > b.box[0] && l0 < b.box[2] && a.box[3] > b.box[1] && a.box[1] < b.box[3];
+      }
+      if (hit) overlaps++;
     }
     return { t: +time.toFixed(1), total: words.length, visible: vis.length, proche: byTier[0], moyen: byTier[1], lointain: byTier[2], overlaps };
   }

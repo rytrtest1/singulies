@@ -97,7 +97,7 @@ describe('field', () => {
     const { data, count } = f.emit();
     const view = f.view;
     const off = (b) => b[2] < 0 || b[0] > view.w || b[3] < 0 || b[1] > view.h;
-    const exp = f.words.filter((w) => w.alpha >= 0.004 && !off(w.box)).reduce((s, w) => s + w.chars.length, 0);
+    const exp = f.words.filter((w) => w.base >= 0.004 && !off(w.box)).reduce((s, w) => s + w.chars.length, 0);
     expect(count).toBe(exp);
     expect(count).toBeGreaterThan(0);
     for (let i = 1; i < count; i++) expect(data[i * STRIDE + 2]).toBeLessThanOrEqual(data[(i - 1) * STRIDE + 2] + 1e-6);
