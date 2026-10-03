@@ -87,19 +87,17 @@ layout(location=1) in vec4 a_l;    // u (abscisse le long du mot), y ligne de ba
 layout(location=2) in vec4 a_uv;
 layout(location=3) in vec4 a_box;  // boîte du glyphe en em (origine = point de chasse)
 layout(location=4) in vec4 a_x;    // gris, lumière L, étirement de traînée, angle de traînée
-layout(location=5) in vec4 a_y;    // graine propre (aurore), —, —, —
+layout(location=5) in vec4 a_y;    // graine propre (déformation de la traînée), —, —, —
 uniform vec2 u_view;               // px CSS
 uniform vec2 u_c;                  // point de fuite, px CSS
 uniform vec2 u_cam;                // translation caméra (monde)
 uniform float u_f, u_dpr;
 uniform highp int u_pass;          // 0 lettres, 1 traînées
-uniform float u_trailOnly;
 out vec2 v_uv;
-out vec2 v_tc;                     // traînée : (travers, long de l'axe) en em, 0 = centre de la lettre
-flat out float v_len;              // longueur de la traînée (em)
+out float v_ty;                    // position le long de la traînée (0…1)
 flat out float v_sig, v_aa, v_alpha, v_gray, v_L, v_str, v_seed;
 flat out vec4 v_rect;              // rectangle uv du glyphe
-flat out float v_uvx;              // uv par em (horizontal)
+flat out vec2 v_uvEm;              // uv par em
 const float ZF = ${ZF.toFixed(3)}, KB = ${KB.toFixed(4)}, KB_FAR = ${KB_FAR.toFixed(4)};
 vec2 proj(vec3 P) { return u_c + u_f * P.xy / max(P.z, 0.1); }
 void main() {
@@ -119,21 +117,15 @@ void main() {
   if (u_pass == 1) {
     // traînée : copie floue étirée le long d'un axe parti de la verticale, sans étalement horizontal
     if (a_x.y < 0.15 || a_x.z < 1.02) { gl_Position = vec4(2.0, 2.0, 0.0, 1.0); return; }
-    // flamme : quad propre, aligné sur un axe parti de la verticale (penché de θ vers l'extérieur)
-    float th = a_x.w, len = 0.9 * a_x.z;
-    vec2 ax = vec2(sin(th), -cos(th)), px = vec2(cos(th), sin(th));
-    float y0 = u_trailOnly > 0.5 ? -1.1 : -0.5, hw = 0.6 + 0.25 * len;
-    vec2 q = vec2(mix(-hw, hw, c.x), mix(y0, len + 0.25, c.y));
-    vec2 cen = sc + mat2(cos(g), sin(g), -sin(g), cos(g)) * vec2(0.0, (a_l.y / S - 0.33) * k); // centre optique de la lettre
-    scr = cen + (px * q.x + ax * q.y) * k;
-    v_tc = q; v_len = len;
+    float th = a_x.w;
+    vec2 tl = vec2((e.x - ecx) * cp * 0.85, (e.y + a_l.y / S) * a_x.z) * k;
+    scr = sc + mat2(cos(th), sin(th), -sin(th), cos(th)) * tl;
   }
   float sig = (zc < ZF ? KB : KB_FAR) * u_f * abs(1.0 / zc - 1.0 / ZF) / k;
   v_sig = min(sig, ${BLUR_EM.toFixed(3)});                    // σ en em (plafond = atlas pré-flouté)
   v_aa = 0.42 / (k * u_dpr);                                 // antialias ≈ 1 px physique, en em
   v_alpha = a_l.w; v_gray = a_x.x; v_L = a_x.y; v_str = a_x.z; v_seed = a_y.x;
-  v_rect = a_uv; v_uvx = (a_uv.z - a_uv.x) / (a_box.z - a_box.x);
-  if (u_pass == 0) { v_tc = vec2(0.0); v_len = 1.0; }
+  v_ty = c.y; v_rect = a_uv; v_uvEm = (a_uv.zw - a_uv.xy) / (a_box.zw - a_box.xy);
   v_uv = mix(a_uv.xy, a_uv.zw, c);
   gl_Position = vec4((scr / u_view * 2.0 - 1.0) * vec2(1.0, -1.0), 0.0, 1.0);
 }`;
@@ -141,14 +133,13 @@ void main() {
 const FIELD_FS = /* glsl */`#version 300 es
 precision highp float;
 uniform sampler2D u_atlas, u_blur;
-uniform float u_fade, u_dim, u_time, u_trailOnly;
+uniform float u_fade, u_dim, u_time;
 uniform highp int u_pass;
 in vec2 v_uv;
-in vec2 v_tc;
-flat in float v_len;
+in float v_ty;
 flat in float v_sig, v_aa, v_alpha, v_gray, v_L, v_str, v_seed;
 flat in vec4 v_rect;
-flat in float v_uvx;
+flat in vec2 v_uvEm;
 out vec4 o;
 ${GLSL_COMMON}
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
@@ -156,7 +147,7 @@ float vnoise(vec2 p) {
   vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
   return mix(mix(h21(i), h21(i + vec2(1, 0)), u.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), u.x), u.y);
 }
-float fbm(vec2 p) { float a = 0.5, r = 0.0; for (int i = 0; i < 3; i++) { r += a * vnoise(p); p = p * 2.03 + 17.1; a *= 0.5; } return r; }
+float fbm(vec2 p) { float a = 0.5, r = 0.0; for (int i = 0; i < 3; i++) { r += a * vnoise(p); p = p * 2.03 + 17.1; a *= 0.5; } return r - 0.44; } // ≈ −0,44…0,44
 const float S_MID = 0.045, S_MAX = ${BLUR_EM.toFixed(3)};
 // flou analytique : cœur net + halo (aspect du prototype), à σ donné
 float soft(float dEm, float sig) {
@@ -167,24 +158,21 @@ float soft(float dEm, float sig) {
 }
 void main() {
   if (u_pass == 1) {
-    // flamme sous le vent : ligne médiane qui se courbe (bruit lent advecté le long de l'axe),
-    // contour turbulent, langues qui se détachent vers la pointe, scintillement — graine propre
-    float t = u_time, sd = fract(v_seed * 0.0137) * 97.0, len = v_len;
-    vec2 q = v_tc;
-    float s = clamp(q.y / len, 0.0, 1.0);
-    float bend = (fbm(vec2(q.y * 0.9 - t * 0.35, sd)) - 0.44) * 1.3 * pow(s, 1.1) * len * 0.4;
-    float warp = (fbm(vec2(q.x * 2.4 + sd, q.y * 2.2 - t * 0.9)) - 0.44) * 0.55 * (0.25 + s);
-    float x = q.x - bend - warp;
-    float mask = u_trailOnly;
-    float w = mix(mix(0.22, 0.42, mask), 0.04, pow(s, 0.75));
-    float core = exp(-x * x / (2.0 * w * w));
-    float tongues = smoothstep(0.28, 0.62, fbm(vec2(x * 3.1 + sd, q.y * 1.8 - t * 1.25)) + 0.4 * (1.0 - s));
-    float flick = 0.55 + 0.65 * fbm(vec2(q.x * 1.4 + sd * 3.0, q.y * 3.2 - t * 1.7));
-    float tip = 1.0 - smoothstep(0.5, 1.0, s);
-    float base = mask > 0.5 ? smoothstep(-1.1, -0.6, q.y) : smoothstep(-0.45, 0.1, q.y);
-    float dens = core * tongues * flick * tip * base;
-    float far = 1.0 - 0.75 * smoothstep(0.05, 0.11, v_sig);   // proches très flous : flamme discrète (pas de nuage)
-    float a = dens * far * clamp(v_L - 0.15, 0.0, 1.0) * mix(0.5, 0.95, mask) * v_alpha * u_fade;
+    // traînée floue de la lettre, déformée par un bruit lent (pas de sinus réguliers) :
+    // courbure, torsion, étirement inégal, longueur et éclat qui varient — graine propre,
+    // ancrée sur la lettre, de plus en plus libre vers les extrémités
+    float y = v_ty * 2.0 - 1.0, ay = abs(y), t = u_time, sd = fract(v_seed * 0.0137) * 97.0;
+    float fr = 0.7 + 0.6 * fract(v_seed * 0.31);              // vitesse propre
+    float xl = (v_uv.x - 0.5 * (v_rect.x + v_rect.z)) / v_uvEm.x; // abscisse dans la lettre (em)
+    float bend = fbm(vec2(y * 1.3 + sd, t * 0.16 * fr)) * 0.5 * (0.15 + 0.85 * ay);        // courbure d'ensemble
+    float twist = fbm(vec2(y * 3.4 - t * 0.35 * fr, xl * 1.7 + sd)) * 0.22 * ay;             // torsion locale
+    float slide = fbm(vec2(xl * 1.3 + sd * 2.0, y * 1.8 + t * 0.11 * fr)) * 0.18 * ay;        // étirement inégal
+    vec2 uv = v_uv + vec2((bend + twist) * v_uvEm.x, slide * v_uvEm.y);
+    uv = clamp(uv, v_rect.xy, v_rect.zw);
+    float ext = (y < 0.0 ? 0.8 : 0.95) + 0.35 * fbm(vec2(sd + (y < 0.0 ? 5.0 : 0.0), t * 0.09 * fr)); // longueur vivante
+    float env = 1.0 - smoothstep(0.25 * ext, ext, ay);
+    float glow = 0.7 + 0.8 * fbm(vec2(y * 2.2 - t * 0.25 * fr, sd + xl));                   // éclat irrégulier
+    float a = texture(u_blur, uv).r * env * glow * clamp(v_L - 0.15, 0.0, 1.0) * 0.6 * v_alpha * u_fade;
     o = vec4(vec3(a), 0.0);                                  // additif
     return;
   }
@@ -193,10 +181,7 @@ void main() {
   if (v_sig <= S_MID) c = soft(dEm, v_sig);
   else c = mix(soft(dEm, S_MID), texture(u_blur, v_uv).r, (v_sig - S_MID) / (S_MAX - S_MID)); // vers le vrai flou pré-calculé
   float a = c * v_alpha * u_fade;
-  // allumée : s'ajoute au gris éteint ; mode masque : la lettre allumée devient une silhouette noire
-  float lit = clamp(v_L * 2.5, 0.0, 1.0) * u_trailOnly;
-  float col = mix(min(1.0, v_gray * u_dim + v_L), 0.0, lit);
-  o = vec4(vec3(a * col), a);
+  o = vec4(vec3(a * min(1.0, v_gray * u_dim + v_L)), a);  // allumée : s'ajoute au gris éteint
 }`;
 
 const STRIDE = 12; // floats par instance
@@ -282,18 +267,20 @@ export function createRenderer(canvas, gl, atlas) {
       gl.uniform1f(fp.u.u_fade, f.fade);
       gl.uniform1f(fp.u.u_dim, f.dim ?? 1);
       gl.uniform1f(fp.u.u_time, (f.time ?? 0) % 1000);
-      gl.uniform1f(fp.u.u_trailOnly, f.trailOnly ? 1 : 0);
       gl.uniform1i(fp.u.u_atlas, 0);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, res.btex);
       gl.uniform1i(fp.u.u_blur, 1);
       gl.activeTexture(gl.TEXTURE0);
+      gl.uniform1i(fp.u.u_pass, 0);
       gl.bindVertexArray(fvao);
-      const drawPass = (pass) => { gl.uniform1i(fp.u.u_pass, pass); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count); calls++; };
-      // flammes additives ; en mode masque elles passent d'abord, la lettre noire les découpe
-      if (f.trailOnly && f.litCount) drawPass(1);
-      drawPass(0);
-      if (!f.trailOnly && f.litCount) drawPass(1);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count);
+      calls++;
+      if (f.litCount) {          // traînées des lettres allumées (même tampon, passage additif)
+        gl.uniform1i(fp.u.u_pass, 1);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count);
+        calls++;
+      }
       gl.bindVertexArray(null);
     }
 

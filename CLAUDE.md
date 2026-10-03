@@ -35,7 +35,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - Paramètres par lettre tirés à la naissance : retard, attaque ≈ 0,5–1,4 s, décroissance ≈ 1,4–6 s (lent, décision Maxence 03/10), intensité, souffle de repos (2 sinus non synchronisés : phase+fréquence), longueur de traînée. Aucune animation identique.
 - Propagation : front lent **de l'arrière-plan vers l'avant-plan** (≈ 5–6 s du fond au premier plan), bord irrégulier par bruit spatial doux, petit retard propre par lettre. Après l'onde, descente progressive vers le repos, sans chute.
 - Effacement : extinction du plus loin vers le centre, durée propre 0,25–0,6 s.
-- Traînée : direction partant de la verticale, inclinée vers l'extérieur selon la position (±50° max), longueur ∝ distance au centre × intensité. **Ondule comme une aurore boréale**, chaque traînée indépendante (phase, vitesse propres), bandes de lumière qui la parcourent. Pas d'étalement horizontal. Pas de halo sur le prénom central. Essai `?lumiere=trainee` : lumière portée surtout par la traînée.
+- Traînée : direction partant de la verticale, inclinée vers l'extérieur selon la position (±50° max), longueur ∝ distance au centre × intensité. Copie floue étirée de la lettre, **déformée par un bruit lent** (courbure, torsion, étirement inégal, longueur et éclat vivants), graine propre par lettre. Pas de sinus réguliers, pas de flamme procédurale (jugé cheap, 03/10). Pas d'étalement horizontal. Pas de halo sur le prénom central.
 
 ## Texte
 - Aucun accent, nulle part. Uniquement A–Z. Tiret → espace ; apostrophes et tout autre caractère supprimés.
