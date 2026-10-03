@@ -92,6 +92,8 @@
 - Mesure (1672, 2 s) : 14 mots vers la droite, 22 vers la gauche ; proches ≈ 34 px/s, lointains 4–16 px/s ; profondeur inchangée ; Tab → retour profondeur en ≈ 3 s.
 - Limites v1 : en horizontal, plus de naissances ni d'avance (composition figée en profondeur) ; double toucher sur téléphone = aussi ouverture du clavier.
 
+- v2 (03/10) : nappes 2× plus lentes (A 0,12) ; **mélange par défaut** (avance + nappes, renaissance au fond) ; Tab/double-clic font défiler mélange → profondeur → horizontal. Stationnarité mélange 1672 (moy. 60 s) : 62,7 / 59,9 / 63,6 / 61,4 ; proches 1,5–5,4.
+
 ### Ouvert
 - Proches un peu sous la cible (≈ 4,7 au lieu de 6) : contrainte du flux (un proche doit naître au centre). Plus de proches = plus de mots cachés dans la zone.
 - Option clavier : atténuer le fond quand le clavier est ouvert (proposition de Maxence) — en attente de son essai sur iPhone.

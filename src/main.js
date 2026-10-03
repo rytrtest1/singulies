@@ -9,7 +9,7 @@ import { buildAtlas } from './gl/atlas.js';
 import { createRenderer } from './render/renderer.js';
 import { layoutName } from './name/layout.js';
 import { loadState, saveValidated, clearStored } from './app/storage.js';
-import { createField } from './field/field.js';
+import { createField, MODES } from './field/field.js';
 import { createRng } from './field/rng.js';
 import { createLight } from './field/light.js';
 
@@ -20,7 +20,7 @@ const CFG = {
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
   seed: P.has('seed') ? +P.get('seed') : undefined,
   debug: P.get('debug') === '1',
-  mode: P.get('mode') === 'horizontal' ? 'horizontal' : 'profondeur',
+  mode: ['profondeur', 'horizontal'].includes(P.get('mode')) ? P.get('mode') : 'melange',   // défaut : mélange
   wheel: P.get('saisie') === 'roue',   // saisie par roue de lettres (sans clavier virtuel)
   voice: P.get('saisie') === 'voix',   // « dis ou écris ton prénom » (essai)
 };
@@ -64,9 +64,10 @@ const S = {
   acro: null,             // instant du passage en colonne (acrostiche)
   nameBox: null,          // boîte écran du prénom (toucher pour passer en colonne)
   boost: 0,               // avance/recul dans le champ (molette, glisser vertical)
-  modeT: P.get('mode') === 'horizontal' ? 1 : 0,   // mode visé : 0 profondeur, 1 horizontal
-  mh: P.get('mode') === 'horizontal' ? 1 : 0,      // mode courant (bascule progressive)
+  lat: 0, adv: 1,         // nappes latérales / avance (bascule progressive vers le mode visé ; initialisés ci-dessous)
 };
+
+[S.lat, S.adv] = MODES[CFG.mode];
 
 let announceTimer = 0;
 function announce(msg) {
@@ -194,8 +195,9 @@ document.addEventListener('click', (e) => {
   if (!wheel && document.activeElement !== input) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); }
 });
 
-// bascule profondeur ↔ horizontal : Tab ou double-clic (progressive)
-function toggleMode() { S.modeT = S.modeT > 0.5 ? 0 : 1; }
+// bascule mélange → profondeur → horizontal : Tab ou double-clic (progressive)
+const MODE_ORDER = ['melange', 'profondeur', 'horizontal'];
+function toggleMode() { CFG.mode = MODE_ORDER[(MODE_ORDER.indexOf(CFG.mode) + 1) % MODE_ORDER.length]; }
 window.addEventListener('keydown', (e) => { if (e.key === 'Tab' && !e.altKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleMode(); } });
 document.addEventListener('dblclick', (e) => { if (S.acro == null && !wheel) toggleMode(); });
 
@@ -364,8 +366,9 @@ function frame(ts) {
   S.dim += ((text.trim() ? 0.62 : 1) - S.dim) * (1 - Math.exp(-dt * 2.5));
   S.boost *= Math.exp(-dt / 1.1);
   const portraitSpeed = S.w < S.h ? 2 : 1;   // portrait : on ne voit qu'une partie du champ, le flux paraît lent
-  S.mh += (S.modeT - S.mh) * (CFG.reduced ? 1 : 1 - Math.exp(-dt * 1.2));   // bascule progressive
-  field.step(dt, !CFG.reduced, speed * portraitSpeed * (1 + S.boost), S.mh);
+  { const [lt, at] = MODES[CFG.mode], k = CFG.reduced ? 1 : 1 - Math.exp(-dt * 1.2);   // bascule progressive
+    S.lat += (lt - S.lat) * k; S.adv += (at - S.adv) * k; }
+  field.step(dt, !CFG.reduced, speed * portraitSpeed * (1 + S.boost), S.lat, S.adv);
   const fl = field.emit(light, S.t, { x: cx, y: cy });
   const v = field.view;
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs,
