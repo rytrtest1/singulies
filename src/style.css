@@ -1,4 +1,6 @@
 html, body { margin: 0; height: 100%; background: #000; overflow: hidden; overscroll-behavior: none; }
+/* le glisser d'un doigt appartient à la page (avancer / reculer) ; le zoom par pincement reste permis */
+html, body, #c { touch-action: pinch-zoom; }
 body { -webkit-tap-highlight-color: transparent; }
 #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 /* champ natif : reçoit les événements, invisible ; placé sur le prénom (le clavier mobile vise cette zone) */
@@ -11,6 +13,14 @@ body { -webkit-tap-highlight-color: transparent; }
   pointer-events: auto; -webkit-appearance: none; appearance: none;
 }
 #in::selection { background: transparent; color: transparent; }
+/* remplissage automatique : jamais de fond ni de surlignage natif */
+#in:-webkit-autofill, #in:-webkit-autofill:focus, #in:autofill {
+  -webkit-text-fill-color: transparent; caret-color: transparent;
+  -webkit-box-shadow: 0 0 0 1000px transparent inset; box-shadow: none;
+  transition: background-color 99999s 0s, color 99999s 0s; background-clip: text; -webkit-background-clip: text;
+}
+/* prénom confirmé : le champ natif disparaît entièrement (aucun rectangle de sélection) */
+#in.rest { visibility: hidden; }
 #fallback {
   position: fixed; left: 0; right: 0; top: 45%; transform: translateY(-50%);
   text-align: center; color: #fff; font: 500 clamp(28px, 6vh, 64px)/1.2 'SG Garamond', serif;

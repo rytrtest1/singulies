@@ -120,7 +120,11 @@ function submitName() {
 function confirmName() {
   if (S.phase !== 'input' || S.acro != null || !finalName(model.text)) return;
   S.confirmed = true; S.typed = true;
+  const n = input.value.length;
+  try { input.setSelectionRange(n, n); } catch { /* */ }
+  window.getSelection?.().removeAllRanges();
   input.blur();
+  input.classList.add('rest');   // aucun rendu natif (sélection, surlignage du remplissage auto)
 }
 // les lettres du prénom pivotent en colonne (amorce de l'acrostiche), puis on passe à la suite
 const ACRO_STEP = 0.07, ACRO_DUR = 1.1, ACRO_HOLD = 1.4;
@@ -159,6 +163,7 @@ function goBack() {
   S.phase = 'input'; S.phaseAt = S.t; S.validatedName = null; S.acro = null; S.confirmed = false;
   backEl.classList.remove('on');
   bridge.refresh();
+  input.classList.remove('rest');
   if (wheel) wheel.enable(true); else input.focus({ preventScroll: true });
 }
 backEl.addEventListener('click', goBack);
@@ -172,7 +177,7 @@ document.addEventListener('click', (e) => {
   if (S.phase !== 'input' || S.acro != null || e.target === backEl || backEl.contains(e.target)) return;
   const b = S.nameBox;
   if (S.confirmed && b && e.clientX > b[0] && e.clientX < b[2] && e.clientY > b[1] && e.clientY < b[3]) { startAcrostic(); return; }
-  if (!wheel && document.activeElement !== input) input.focus({ preventScroll: true });
+  if (!wheel && document.activeElement !== input) { input.classList.remove('rest'); input.focus({ preventScroll: true }); }
 });
 
 // ---------- dimensions ----------
@@ -215,11 +220,14 @@ document.addEventListener('pointerleave', () => { PAR.tx = 0; PAR.ty = 0; });
 const addBoost = (v) => { if (!CFG.reduced) S.boost = Math.max(-1.2, Math.min(5, S.boost + v)); };
 if (!CFG.wheel) {
   window.addEventListener('wheel', (e) => addBoost(e.deltaY * 0.004), { passive: true });
-  let drag = null;
-  window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') drag = { y: e.clientY, id: e.pointerId }; });
-  window.addEventListener('pointermove', (e) => { if (drag && e.pointerId === drag.id) { addBoost((drag.y - e.clientY) * 0.012); drag.y = e.clientY; } });
-  const end = (e) => { if (drag && e.pointerId === drag.id) drag = null; };
-  window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
+  // doigt vers le haut = avancer, vers le bas = reculer (un seul doigt ; à deux, c'est le zoom)
+  let ty = null;
+  window.addEventListener('touchstart', (e) => { ty = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
+  window.addEventListener('touchmove', (e) => {
+    if (ty == null || e.touches.length !== 1) { ty = null; return; }
+    const y = e.touches[0].clientY; addBoost((ty - y) * 0.025); ty = y;
+  }, { passive: true });
+  window.addEventListener('touchend', () => { ty = null; }, { passive: true });
 }
 function updateCamera(dt) {
   if (CFG.reduced) { field.cam.x = 0; field.cam.y = 0; return; }
@@ -333,7 +341,8 @@ function frame(ts) {
   // lettres éteintes ≈ −38 % tant qu'un prénom est saisi (prototype : 0,62, lissage 2,5/s)
   S.dim += ((text.trim() ? 0.62 : 1) - S.dim) * (1 - Math.exp(-dt * 2.5));
   S.boost *= Math.exp(-dt / 1.1);
-  field.step(dt, !CFG.reduced, speed * (1 + S.boost));
+  const portraitSpeed = S.w < S.h ? 2 : 1;   // portrait : on ne voit qu'une partie du champ, le flux paraît lent
+  field.step(dt, !CFG.reduced, speed * portraitSpeed * (1 + S.boost));
   const fl = field.emit(light, S.t, { x: cx, y: cy });
   const v = field.view;
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs,
