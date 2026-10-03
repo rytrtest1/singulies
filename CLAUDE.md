@@ -43,7 +43,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - Majuscules par défaut ; `?case=lower` → capitale initiale (Lea, Chloe). Le fond suit la casse.
 - ≈ 200 prénoms courants en France, origines variées, sans accents.
 - Interlettrage variable : plus d'air pour les petits mots lointains, moins pour les grands proches.
-- Prénom central : net, jamais plus petit que le fond, 2 lignes max (coupure aux espaces), ≥ 28 px mobile, interlettrage ≈ 0,45 em. Curseur : trait fin accordé à la typographie (≈ 0,028 em), de la ligne de base à un peu au-dessus des capitales, extrémités effilées, au milieu de l'interlettrage ; respiration douce (pas de clignotement sec) tant qu'aucune touche n'a été tapée, puis disparaît définitivement.
+- Prénom central : net, 2 lignes max (coupure aux espaces), ≥ 28 px mobile, interlettrage ≈ 0,45 em. **Portrait : plus petit et resserré** (capitale ≈ 5,5 % de la largeur, largeur ≤ 72 %, sauf si cela couperait un mot). Curseur : trait fin accordé à la typographie (≈ 0,028 em), de la ligne de base à un peu au-dessus des capitales, extrémités effilées, au milieu de l'interlettrage ; respiration douce (pas de clignotement sec) tant qu'aucune touche n'a été tapée, puis disparaît définitivement.
 
 ## Saisie (zéro erreur)
 - 22 caractères max, pas d'espace en tête, espaces multiples fusionnés.
@@ -53,7 +53,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - Clavier mobile : si le prénom serait couvert, il remonte en douceur ; variation de hauteur due au clavier = aucune reconstruction.
 - Visiteur qui revient : prénom en localStorage, lettres déjà doucement allumées à l'arrivée. Échap/flèche efface le prénom mémorisé.
 
-## Saisie alternative « roue » (`?saisie=roue`, essai 03/10)
+## Saisie alternative « roue » (`?saisie=roue`, essai 03/10 — jugée trop complexe, idée gardée ; idée « cueillir les lettres du champ » gardée aussi)
 - Pas de clavier virtuel : défilement vertical = lettre en cours (inertie, aimantation), voisines visibles au-dessus/au-dessous (pâles, plus petites), position « espace » figurée par un point ; glisser à gauche = lettre suivante, à droite = retour ; double toucher ou Entrée = valider. Ordinateur : molette, flèches, touches lettres.
 - Avant le premier toucher, la roue tourne lentement seule (invitation) sans rien écrire dans le modèle. Le texte va dans le même modèle (même validation, même lumière).
 

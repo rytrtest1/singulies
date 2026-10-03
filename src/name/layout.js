@@ -7,6 +7,9 @@ export const MIN_PX = 28;
 const SPACE_EM = 0.3;
 const CAP_FRAC = 0.04;          // hauteur de capitale = 4 % de la hauteur d'écran (prototype)
 const MAX_W_FRAC = 0.86;
+// portrait : prénom plus petit et plus resserré vers le centre
+const CAP_FRAC_PORTRAIT_W = 0.055; // hauteur de capitale = 5,5 % de la largeur
+const MAX_W_FRAC_PORTRAIT = 0.72;
 
 // adv(ch) → chasse en em
 function lineWidth(str, adv, tr) {
@@ -31,10 +34,22 @@ function bestTwoLines(text, adv, tr, midword) {
 
 // text : chaîne d'affichage ; m : { adv(ch), capHeight } ; vp : { w, h, cx, cy }
 export function layoutName(text, m, vp) {
+  // portrait : largeur resserrée, sauf si cela obligerait à couper un mot (on reprend alors la largeur normale)
+  if (vp.w < vp.h) {
+    const r = layoutCore(text, m, vp, MAX_W_FRAC_PORTRAIT);
+    const t = text.replace(/ +$/, '');
+    const midword = r.lines.length === 2 && r.lines[0].text + r.lines[1].text === t;
+    if (!midword || !t.includes(' ')) return r;
+  }
+  return layoutCore(text, m, vp, MAX_W_FRAC);
+}
+
+function layoutCore(text, m, vp, maxWFrac) {
   const t = text.replace(/ +$/, ''); // l'espace final en cours de frappe ne décentre pas
   const capH = m.capHeight;
-  const baseFs = Math.max(MIN_PX, (CAP_FRAC * vp.h) / capH);
-  const maxW = MAX_W_FRAC * vp.w;
+  const portrait = vp.w < vp.h;
+  const baseFs = Math.max(MIN_PX, ((portrait ? CAP_FRAC_PORTRAIT_W * vp.w : CAP_FRAC * vp.h)) / capH);
+  const maxW = maxWFrac * vp.w;
 
   let lines = [t], tr = TRACK, fs = baseFs;
   if (t.length) {
