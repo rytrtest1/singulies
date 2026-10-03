@@ -107,10 +107,12 @@ float vnoise(vec2 p) {
   return mix(mix(h21(i), h21(i + vec2(1, 0)), u.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), u.x), u.y);
 }
 float fbm(vec2 p) { float a = 0.5, r = 0.0; for (int i = 0; i < 3; i++) { r += a * vnoise(p); p = p * 2.03 + 17.1; a *= 0.5; } return r - 0.44; }
-const float TRAIL_SEG = 16.0;      // la traînée est une bande de 16 segments, chacun déplacé par le bruit
+const float TRAIL_SEG = 16.0;      // lettres et traînées : bandes de 16 segments, chacun déplacé par le bruit
 void main() {
+  // les deux passages dessinent une bande de 16 segments : la lettre allumée et sa traînée
+  // se déforment par le MÊME champ (fonction de la hauteur h en em autour du centre de la lettre)
   vec2 c = vec2(gl_VertexID & 1, gl_VertexID >> 1);
-  if (u_pass == 1) c.y /= TRAIL_SEG;
+  c.y /= TRAIL_SEG;
   float S = a_l.z, cp = cos(a_w.w), sp = sin(a_w.w);
   vec3 d = vec3(cp, 0.0, -sp);
   float ecx = 0.5 * (a_box.x + a_box.z);                    // centre horizontal du glyphe (em)
@@ -121,24 +123,22 @@ void main() {
   float g = atan(dir.y, dir.x);                              // pente locale de la ligne de base
   float k = u_f * S / zc;                                    // px CSS par em
   vec2 e = mix(a_box.xy, a_box.zw, c);
-  vec2 loc = vec2((e.x - ecx) * cp, e.y + a_l.y / S) * k;
-  vec2 scr = sc + mat2(cos(g), sin(g), -sin(g), cos(g)) * loc;
+  float sd = fract(a_y.x * 0.0137) * 97.0, fr = 0.7 + 0.6 * fract(a_y.x * 0.31), t = u_time;
+  float str = 1.0;
   if (u_pass == 1) {
-    // traînée : copie floue étirée le long d'un axe parti de la verticale, sans étalement horizontal
-    if (a_x.y < 0.15 || a_x.z < 1.02) { gl_Position = vec4(2.0, 2.0, 0.0, 1.0); return; }
-    // aurore : la bande entière se plie, ondule et respire (bruit lent, graine et vitesse propres) ;
-    // ancrée sur la lettre, de plus en plus libre vers les extrémités
-    float sd = fract(a_y.x * 0.0137) * 97.0, fr = 0.7 + 0.6 * fract(a_y.x * 0.31), t = u_time;
-    float yv = c.y * 2.0 - 1.0, ay = abs(yv);
-    float th = a_x.w + 0.45 * fbm(vec2(t * 0.22 * fr, sd));                         // l'axe lui-même vacille
-    float str = a_x.z * (1.0 + 0.6 * fbm(vec2(sd + 3.0, t * 0.18 * fr)));              // longueur qui respire
-    vec2 tl = vec2((e.x - ecx) * cp * 0.85, (e.y + a_l.y / S) * str) * k;
-    float fold = fbm(vec2(yv * 0.9 + sd, t * 0.45 * fr)) * 1.9                       // grands plis du rideau
-               + fbm(vec2(yv * 2.3 - t * 0.9 * fr, sd + 7.0)) * 0.8;                 // ondes qui remontent
-    tl.x += fold * (0.08 + 0.92 * ay) * k;
-    tl.y += fbm(vec2(yv * 1.7 + t * 0.3 * fr, sd + 11.0)) * 0.6 * ay * k;            // étirement inégal
-    scr = sc + mat2(cos(th), sin(th), -sin(th), cos(th)) * tl;
+    if (a_x.y < 0.15) { gl_Position = vec4(2.0, 2.0, 0.0, 1.0); return; }
+    str = a_x.z * (1.0 + 0.15 * fbm(vec2(sd + 3.0, t * 0.18 * fr)));   // traînée courte qui respire
   }
+  float h = (e.y + a_l.y / S) * str;                        // hauteur (em) depuis le centre de la lettre
+  vec2 loc = vec2((e.x - ecx) * cp * (u_pass == 1 ? 0.85 : 1.0), h);
+  // déformation organique (lettres allumées seulement) : plis lents + ondes qui remontent,
+  // presque nulle au cœur de la lettre, plus libre vers les extrémités
+  float W = smoothstep(0.05, 0.4, a_x.y);
+  float ah = abs(h);
+  float fold = fbm(vec2(h * 1.1 + sd, t * 0.45 * fr)) + 0.45 * fbm(vec2(h * 2.6 - t * 0.9 * fr, sd + 7.0));
+  loc.x += W * fold * (0.06 + 0.55 * pow(ah, 1.2));
+  loc.y += W * fbm(vec2(h * 1.7 + t * 0.3 * fr, sd + 11.0)) * 0.25 * ah;
+  vec2 scr = sc + mat2(cos(g), sin(g), -sin(g), cos(g)) * loc * k;
   float sig = (zc < ZF ? KB : KB_FAR) * u_f * abs(1.0 / zc - 1.0 / ZF) / k;
   v_sig = min(sig, ${BLUR_EM.toFixed(3)});                    // σ en em (plafond = atlas pré-flouté)
   v_aa = 0.42 / (k * u_dpr);                                 // antialias ≈ 1 px physique, en em
@@ -181,16 +181,10 @@ void main() {
     // ancrée sur la lettre, de plus en plus libre vers les extrémités
     float y = v_ty * 2.0 - 1.0, ay = abs(y), t = u_time, sd = fract(v_seed * 0.0137) * 97.0;
     float fr = 0.7 + 0.6 * fract(v_seed * 0.31);              // vitesse propre
-    float xl = (v_uv.x - 0.5 * (v_rect.x + v_rect.z)) / v_uvEm.x; // abscisse dans la lettre (em)
-    float bend = 0.0;                                                                       // (courbure : géométrie, VS)
-    float twist = fbm(vec2(y * 3.4 - t * 0.7 * fr, xl * 1.7 + sd)) * 0.3 * ay;               // torsion locale
-    float slide = fbm(vec2(xl * 1.3 + sd * 2.0, y * 1.8 + t * 0.11 * fr)) * 0.18 * ay;        // étirement inégal
-    vec2 uv = v_uv + vec2((bend + twist) * v_uvEm.x, slide * v_uvEm.y);
-    uv = clamp(uv, v_rect.xy, v_rect.zw);
-    float ext = (y < 0.0 ? 0.8 : 0.95) + 0.35 * fbm(vec2(sd + (y < 0.0 ? 5.0 : 0.0), t * 0.09 * fr)); // longueur vivante
-    float env = 1.0 - smoothstep(0.25 * ext, ext, ay);
-    float glow = max(0.0, 0.75 + 1.5 * fbm(vec2(y * 1.8 - t * 0.9 * fr, sd + xl * 0.5)));  // vagues d'éclat qui parcourent la traînée
-    float a = texture(u_blur, uv).r * env * glow * clamp(v_L - 0.1, 0.0, 1.0) * 0.95 * v_alpha * u_fade;
+    // forme portée par la géométrie (même déformation que la lettre) ; éclat discret qui respire
+    float env = 1.0 - smoothstep(0.45, 1.0, ay);
+    float glow = 0.9 + 0.25 * fbm(vec2(y * 1.2 - t * 0.25 * fr, sd));
+    float a = texture(u_blur, v_uv).r * env * glow * 0.42 * smoothstep(0.15, 0.6, min(v_L, 0.6)) * v_alpha * u_fade;
     o = vec4(vec3(a), 0.0);                                  // additif
     return;
   }
@@ -292,7 +286,7 @@ export function createRenderer(canvas, gl, atlas) {
       gl.activeTexture(gl.TEXTURE0);
       gl.uniform1i(fp.u.u_pass, 0);
       gl.bindVertexArray(fvao);
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 34, fl.count);   // bandes de 16 segments
       calls++;
       if (f.litCount) {          // traînées des lettres allumées (même tampon, passage additif)
         gl.uniform1i(fp.u.u_pass, 1);
