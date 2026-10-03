@@ -42,7 +42,7 @@ void main() {
 const GLYPH_VS = /* glsl */`#version 300 es
 layout(location=0) in vec4 a_box;    // x0,y0,x1,y1 en px CSS
 layout(location=1) in vec4 a_uv;     // u0,v0,u1,v1 (u0 < 0 : rectangle plein)
-layout(location=2) in vec4 a_p;      // alpha, px CSS par em, —, —
+layout(location=2) in vec4 a_p;      // alpha, px CSS par em, effilement des extrémités (rectangle), —
 uniform vec2 u_view;                 // taille CSS
 out vec2 v_uv; out vec2 v_px; flat out vec4 v_box; flat out vec4 v_p; flat out float v_rect;
 void main() {
@@ -67,6 +67,10 @@ void main() {
   if (v_rect > 0.5) {
     vec2 d = min(v_px - v_box.xy, v_box.zw - v_px) * u_dpr;
     cov = clamp(d.x + 0.5, 0.0, 1.0) * clamp(d.y + 0.5, 0.0, 1.0);
+    if (v_p.z > 0.0) {                         // extrémités effilées (curseur)
+      float fy = (v_px.y - v_box.y) / (v_box.w - v_box.y);
+      cov *= smoothstep(0.0, v_p.z, fy) * smoothstep(0.0, v_p.z, 1.0 - fy);
+    }
   } else {
     float dEm = texture(u_atlas, v_uv).r;
     float dPx = dEm * v_p.y * u_dpr;           // distance en px physiques
@@ -267,7 +271,7 @@ export function createRenderer(canvas, gl, atlas) {
       const g = list[i], o = i * STRIDE;
       inst.set(g.box, o);
       if (g.uv) inst.set(g.uv, o + 4); else inst.set([-1, -1, -1, -1], o + 4);
-      inst[o + 8] = g.alpha; inst[o + 9] = g.pxEm; inst[o + 10] = 0; inst[o + 11] = 0;
+      inst[o + 8] = g.alpha; inst[o + 9] = g.pxEm; inst[o + 10] = g.taper || 0; inst[o + 11] = 0;
     }
     gl.useProgram(gp.p);
     gl.uniform2f(gp.u.u_view, f.w, f.h);

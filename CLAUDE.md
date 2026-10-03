@@ -14,7 +14,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - Node local = 18.16 → Vite 5.x (Vite 6+ exige Node 20).
 
 ## Rendu — une seule caméra
-- Point de fuite ≈ (50 % x, 45 % y), fov ≈ 48° ; **portrait : point de fuite et prénom à 35 % (au-dessus du clavier), fov 60°, l'écran montre le centre (45 %) d'un champ plus large** — même caméra, pas d'autre réglage. Ce modèle unique pilote perspective, taille, flou, mouvement, parallaxe.
+- Point de fuite ≈ (50 % x, 45 % y), fov ≈ 48° ; **portrait = exactement le champ du paysage (16:9) recadré au centre, prénom au milieu** (03/10). Ce modèle unique pilote perspective, taille, flou, mouvement, parallaxe.
 - Chaque lettre = quad instancié projeté dans le shader. Rotation du mot ψ = κ·atan(|X|/z), κ ≈ 0,8 : l'extrémité extérieure est la plus proche, dans les 4 quadrants.
 - Flou : atlas SDF, flou continu par lettre et par image, σ_écran ∝ |1/z − 1/z_f|, **mise au point au fond (z_f = 34)** : plus un mot est proche, plus il est flou, progressivement (cohérence globale, 03/10) ; K = 0,055, plafond 0,11 em. **Jamais de gain de luminosité dû au flou** : fondu entre lettre nette et vrai flou pré-calculé (03/10). Jamais de niveaux discrets, jamais de pulsation de netteté, jamais d'apparition brusque (naissance/mort en fondu ≥ 4 s).
 - Anti-chevauchement : tri loin→proche ; boîtes qui se recouvrent → le plus lointain s'efface (jusqu'à −86 %, lissé 1,2–1,8 s) ; profondeurs voisines (écart < 30 %) → poussée de séparation ≈ 1 px/s, filtrée ≈ 1,8 s.
@@ -43,7 +43,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - Majuscules par défaut ; `?case=lower` → capitale initiale (Lea, Chloe). Le fond suit la casse.
 - ≈ 200 prénoms courants en France, origines variées, sans accents.
 - Interlettrage variable : plus d'air pour les petits mots lointains, moins pour les grands proches.
-- Prénom central : net, jamais plus petit que le fond, 2 lignes max (coupure aux espaces), ≥ 28 px mobile, interlettrage ≈ 0,45 em. Curseur 1,5 px × ≈ 2× hauteur de capitale, clignote tant qu'aucune touche n'a été tapée, puis disparaît définitivement.
+- Prénom central : net, jamais plus petit que le fond, 2 lignes max (coupure aux espaces), ≥ 28 px mobile, interlettrage ≈ 0,45 em. Curseur : trait fin accordé à la typographie (≈ 0,028 em), de la ligne de base à un peu au-dessus des capitales, extrémités effilées, au milieu de l'interlettrage ; respiration douce (pas de clignotement sec) tant qu'aucune touche n'a été tapée, puis disparaît définitivement.
 
 ## Saisie (zéro erreur)
 - 22 caractères max, pas d'espace en tête, espaces multiples fusionnés.

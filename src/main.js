@@ -223,10 +223,11 @@ function frame(ts) {
     glyphs.push({ box: [cx - 0.5, vy - 12, cx + 0.5, vy + 12], uv: null, alpha: 0.6, pxEm: 1 });
   }
   if (!S.typed && S.phase === 'input') {
-    const ph = (S.t - OPEN_DARK) % 1.1;
-    const blink = CFG.reduced ? 1 : smooth(0, 0.12, ph) * (1 - smooth(0.55, 0.67, ph));
-    const cw = 1.5;
-    glyphs.push({ box: [L.cursor.x - cw / 2, L.cursor.y0, L.cursor.x + cw / 2, L.cursor.y1], uv: null, alpha: blink * nameFade, pxEm: 1 });
+    // respiration douce (pas de clignotement sec) : 0,2 → 0,9, période 1,6 s
+    const ph = (S.t - OPEN_DARK) / 1.6 * Math.PI * 2;
+    const blink = CFG.reduced ? 0.8 : 0.2 + 0.7 * Math.pow(0.5 + 0.5 * Math.cos(ph), 1.6);
+    const cw = L.cursor.w;
+    glyphs.push({ box: [L.cursor.x - cw / 2, L.cursor.y0, L.cursor.x + cw / 2, L.cursor.y1], uv: null, alpha: blink * nameFade, pxEm: 1, taper: 0.22 });
   }
 
   // lumière : diff du prénom → ondes / extinctions ; le champ écoute (souffle + ralentissement)

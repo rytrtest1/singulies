@@ -71,8 +71,10 @@ export function layoutName(text, m, vp) {
     out.lines.push({ text: l, x0: vp.cx - w / 2, x1: vp.cx + w / 2, base });
   });
   const last = out.lines[out.lines.length - 1];
-  const endX = t.length ? last.x1 + tr * fs * 0.85 : vp.cx;
-  out.cursor = { x: endX, y0: last.base - 1.5 * cap, y1: last.base + 0.5 * cap };
+  // curseur : au milieu de l'interlettrage qui suit la dernière lettre, de la ligne de base
+  // à un peu au-dessus des capitales (légers débords effilés)
+  const endX = t.length ? last.x1 + tr * fs * 0.5 : vp.cx;
+  out.cursor = { x: endX, y0: last.base - 1.32 * cap, y1: last.base + 0.22 * cap, w: Math.max(1, 0.028 * fs) };
   out.top = out.lines[0].base - cap;
   out.bottom = last.base + cap * 0.35;
   return out;

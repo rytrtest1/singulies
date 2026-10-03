@@ -2,10 +2,8 @@
 // Monde : X à droite, Y vers le bas, z = profondeur devant la caméra.
 // Écran : x = cx + f·(X − Cx)/z ; y = cy + f·(Y − Cy)/z.
 
-export const FOV = 48 * Math.PI / 180;   // champ vertical (paysage)
-export const FOV_PORTRAIT = 60 * Math.PI / 180;
-export const VP = [0.5, 0.45];          // point de fuite (fraction d'écran), paysage
-export const VP_PORTRAIT_Y = 0.35;      // portrait : au-dessus du clavier
+export const FOV = 48 * Math.PI / 180;   // champ vertical
+export const VP = [0.5, 0.45];          // point de fuite (fraction d'écran)
 // flou : une seule règle, la caméra fait la mise au point au fond du champ (ZF = 34) :
 // plus un mot est proche, plus il est flou, progressivement. σ_px = KB·f·|1/z − 1/ZF|
 export const ZF = 34;
