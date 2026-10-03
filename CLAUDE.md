@@ -57,6 +57,10 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - Pas de clavier virtuel : défilement vertical = lettre en cours (inertie, aimantation), voisines visibles au-dessus/au-dessous (pâles, plus petites), position « espace » figurée par un point ; glisser à gauche = lettre suivante, à droite = retour ; double toucher ou Entrée = valider. Ordinateur : molette, flèches, touches lettres.
 - Avant le premier toucher, la roue tourne lentement seule (invitation) sans rien écrire dans le modèle. Le texte va dans le même modèle (même validation, même lumière).
 
+## Saisie à la voix (`?saisie=voix`, essai 03/10)
+- Invitation « DIS OU ECRIS TON PRENOM » (seul texte d'interface, exception voulue par Maxence ; sans accent affiché). Micro demandé à son apparition seulement. Refus → l'invitation s'efface, le curseur apparaît. Accord → spectre audio en direct (traits fins en miroir, analyse locale) ; le prénom dit s'écrit (« je m'appelle… » retiré, 3 mots max). Taper au clavier coupe la voix et rend le micro.
+- **La reconnaissance vocale du navigateur passe par les serveurs d'Apple/Google** : contraire à « zéro appel réseau », à trancher avant toute mise en production.
+
 ## Validation
 - Les lettres allumées quittent leurs prénoms et volent vers leur place dans le prénom central (≈ 1,5 s, trajectoires courbes, retard propre), puis fondu au noir.
 - Sortie : `window.onNameValidated(name)` + événement `singulies:name-validated`, sans réseau. Ensuite écran noir.

@@ -2,7 +2,8 @@
 import { NameModel } from './input/model.js';
 import { createBridge } from './input/bridge.js';
 import { createWheel } from './input/wheel.js';
-import { displayCase, finalName } from './text/normalize.js';
+import { createVoice } from './input/voice.js';
+import { displayCase, finalName, normalizeName } from './text/normalize.js';
 import { getGL } from './gl/gl.js';
 import { buildAtlas } from './gl/atlas.js';
 import { createRenderer } from './render/renderer.js';
@@ -20,6 +21,7 @@ const CFG = {
   seed: P.has('seed') ? +P.get('seed') : undefined,
   debug: P.get('debug') === '1',
   wheel: P.get('saisie') === 'roue',   // saisie par roue de lettres (sans clavier virtuel)
+  voice: P.get('saisie') === 'voix',   // « dis ou écris ton prénom » (essai)
 };
 const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
@@ -46,6 +48,8 @@ const S = {
   shiftY: 0, shiftV: 0,   // remontée douce au-dessus du clavier mobile
   validatedName: stored.validated ?? null,
   capPx: 30,              // hauteur de capitale du prénom (pas de la roue)
+  voiceTyped: false,      // essai voix : l'utilisateur a choisi d'écrire
+  inviteA: 0,             // essai voix : opacité de l'invitation
   dim: 1,
   slowAt: -9,
 };
@@ -73,6 +77,25 @@ const wheel = CFG.wheel ? createWheel({
 }) : null;
 wheel?.enable(S.phase === 'input');
 
+// ---------- voix (essai) : le prénom dit s'écrit dans le modèle ----------
+const INVITE = 'DIS OU ECRIS TON PRENOM';   // aucun accent affiché (règle du projet)
+const voice = CFG.voice ? createVoice({
+  onText: (t) => {
+    if (S.phase !== 'input' || S.voiceTyped) return;     // dès qu'on tape au clavier, la voix n'écrit plus
+    const n = normalizeName(t);
+    if (!n || n === model.text) return;
+    model.replace(0, model.text.length, n, { kind: 'edit' });
+    bridge.refresh();
+    S.typed = true; S.keyAt = S.t; renderFallback();
+  },
+}) : null;
+if (voice) {
+  const g = () => voice.gesture();
+  document.addEventListener('pointerdown', g); window.addEventListener('keydown', g);
+  input.addEventListener('beforeinput', () => { if (!S.voiceTyped) { S.voiceTyped = true; voice.stop(); } }, true);   // on écrit : le micro est rendu
+}
+const spec = new Float32Array(24);   // spectre lissé (moitié ; dessiné en miroir)
+
 function validate() {
   if (S.phase !== 'input' || (!wheel && bridge.composing)) return;
   const name = finalName(model.text);
@@ -82,6 +105,7 @@ function validate() {
   saveValidated(shown);
   input.blur();
   wheel?.enable(false);
+  voice?.stop();
 }
 
 function emitValidated(name, restored) {
@@ -240,7 +264,9 @@ function frame(ts) {
     glyphs.push({ box: [cx - 0.5, vy - 12, cx + 0.5, vy + 12], uv: null, alpha: 0.6, pxEm: 1 });
   }
   if (wheel && S.phase === 'input') drawWheel(L, glyphs, nameFade);
-  if (!wheel && !S.typed && S.phase === 'input') {
+  if (voice && S.phase === 'input') drawVoice(L, glyphs, nameFade, dt, text);
+  const voiceHidesCursor = voice && !S.voiceTyped && (voice.state === 'idle' || voice.state === 'asking' || voice.state === 'listening');
+  if (!wheel && !voiceHidesCursor && !S.typed && S.phase === 'input') {
     // respiration douce (pas de clignotement sec) : 0,2 → 0,9, période 1,6 s
     const ph = (S.t - OPEN_DARK) / 1.6 * Math.PI * 2;
     const blink = CFG.reduced ? 0.8 : 0.2 + 0.7 * Math.pow(0.5 + 0.5 * Math.cos(ph), 1.6);
@@ -298,6 +324,41 @@ function drawWheel(L, glyphs, fade) {
   }
 }
 
+// voix : invitation discrète, puis spectre en direct (traits fins effilés, en miroir) à la place du curseur
+function drawVoice(L, glyphs, fade, dt, text) {
+  const empty = !text.trim();
+  // l'autorisation n'est demandée qu'à l'apparition de l'invitation
+  if (voice.state === 'idle' && S.t > OPEN_DARK + 1.4) voice.start();
+  const showInvite = empty && !S.voiceTyped && voice.state !== 'denied' && voice.state !== 'unsupported';
+  S.inviteA += ((showInvite ? 1 : 0) - S.inviteA) * (1 - Math.exp(-dt * 2.2));
+  const cap = L.cap, base = L.lines[0].base, cx = S.w / 2;
+  if (S.inviteA > 0.01) {
+    const f = Math.max(12, L.fs * 0.36), tr = 0.42;
+    let w = 0; for (const ch of INVITE) w += (ch === ' ' ? 0.3 : (atlas.glyphs[ch]?.adv ?? 0.6)) + tr;
+    let x = cx - (w - tr) * f / 2;
+    const y = base - cap * (voice.state === 'listening' ? 2.6 : 0.5);   // au-dessus du spectre quand on écoute
+    for (const ch of INVITE) {
+      const gm = atlas.glyphs[ch];
+      if (gm) glyphs.push({ box: [x + gm.x0 * f, y + gm.y0 * f, x + gm.x1 * f, y + gm.y1 * f], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: 0.55 * S.inviteA * fade, pxEm: f });
+      x += ((ch === ' ' ? 0.3 : (gm?.adv ?? 0.6)) + tr) * f;
+    }
+  }
+  if (voice.state !== 'listening' || S.voiceTyped) return;
+  const lv = voice.levels(spec.length);
+  for (let i = 0; i < spec.length; i++) {
+    const v = lv ? lv[i] : 0, k = v > spec[i] ? 18 : 5;            // attaque rapide, retombée douce
+    spec[i] += (v - spec[i]) * (1 - Math.exp(-dt * k));
+  }
+  const n = spec.length, step = Math.max(4, L.fs * 0.17), wBar = Math.max(1, 0.028 * L.fs);
+  const yc = empty ? base - cap * 0.5 : L.bottom + cap * 1.4;          // sous le prénom une fois qu'il s'écrit
+  for (let j = -(n - 1); j <= n - 1; j++) {
+    const i = Math.abs(j), win = Math.pow(1 - i / n, 0.7);
+    const hh = cap * (0.06 + 1.5 * spec[i] * win) * (empty ? 1 : 0.6);
+    const x = cx + j * step;
+    glyphs.push({ box: [x - wBar / 2, yc - hh, x + wBar / 2, yc + hh], uv: null, alpha: (0.25 + 0.6 * win) * fade * (empty ? 1 : 0.6), pxEm: 1, taper: 0.35 });
+  }
+}
+
 function smooth(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 
 // ---------- amorçage ----------
@@ -338,6 +399,6 @@ document.addEventListener('visibilitychange', () => {
 
 // accès de test / mesure
 const stats = { drawCalls: 0, gpuMB: 0, letters: 0, warmupMs: 0 };
-window.__sg = { stats, model, S, CFG, get atlas() { return atlas; }, get field() { return field; }, validate, goBack, get bridge() { return bridge; } };
+window.__sg = { stats, model, S, CFG, get atlas() { return atlas; }, get field() { return field; }, get voice() { return voice; }, validate, goBack, get bridge() { return bridge; } };
 
 boot();
