@@ -1,6 +1,6 @@
 # SINGULIÉS — écran d'accueil (phase visuel + interaction)
 
-Périmètre : ouverture de la page → saisie du prénom → validation → écran noir. **Hors périmètre** : serveur, enregistrement, RGPD.
+Périmètre : ouverture de la page → saisie du prénom → validation → écran noir. **Hors périmètre** : serveur, enregistrement, RGPD. **Phase de tests : RGPD et appels réseau des essais (voix) non pris en compte pour l'instant** (03/10).
 Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni la référence en entier (constantes déjà extraites dans ETAT.md).
 
 ## Ressources (`ressources/`)
@@ -60,6 +60,9 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 ## Saisie à la voix (`?saisie=voix`, essai 03/10)
 - Invitation « DIS OU ECRIS TON PRENOM » (seul texte d'interface, exception voulue par Maxence ; sans accent affiché). Micro demandé à son apparition seulement. Refus → l'invitation s'efface, le curseur apparaît. Accord → spectre audio en direct (traits fins en miroir, analyse locale) ; le prénom dit s'écrit (« je m'appelle… » retiré, 3 mots max). Taper au clavier coupe la voix et rend le micro.
 - **La reconnaissance vocale du navigateur passe par les serveurs d'Apple/Google** : contraire à « zéro appel réseau », à trancher avant toute mise en production.
+
+## Suggestion du prénom (`?saisie=auto`, essai 03/10)
+- Impossible de lire l'identité depuis le navigateur. Le champ se déclare `autocomplete="given-name"` : le clavier du téléphone (fiche contact) ou le navigateur propose le prénom, un toucher le remplit (la page ne le voit qu'après ce toucher : pas d'affichage grisé possible avant).
 
 ## Validation
 - Les lettres allumées quittent leurs prénoms et volent vers leur place dans le prénom central (≈ 1,5 s, trajectoires courbes, retard propre), puis fondu au noir.

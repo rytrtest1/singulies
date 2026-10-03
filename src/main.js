@@ -34,6 +34,13 @@ const backEl = document.getElementById('back');
 const live = document.getElementById('live');
 const fallbackEl = document.getElementById('fallback');
 input.setAttribute('autocapitalize', CFG.caseMode === 'lower' ? 'words' : 'characters');
+// essai ?saisie=auto : le champ se déclare « prénom » → le clavier du téléphone (ou le navigateur)
+// propose le prénom de la fiche contact / du remplissage automatique ; un toucher le remplit
+if (new URLSearchParams(location.search).get('saisie') === 'auto') {
+  input.setAttribute('autocomplete', 'given-name');
+  input.setAttribute('name', 'given-name');
+  document.getElementById('f').setAttribute('autocomplete', 'on');
+}
 
 // ---------- état ----------
 const stored = loadState();
