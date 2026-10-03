@@ -67,13 +67,12 @@ describe('field', () => {
     console.log('naissances observées :', births);
   });
 
-  it('stationnarité à 30 min (visible moyen, fenêtres de 5 min)', () => {
+  it('stationnarité : chaque fenêtre de 5 min à ± 10 % de la moyenne sur 30 min', () => {
     const f = mk();
-    const a = sample(f, 300);
-    f.advance(1800);
-    const b = sample(f, 300);
-    const ma = mean(a.map((s) => s.visible)), mb = mean(b.map((s) => s.visible));
-    expect(Math.abs(ma - mb) / ma).toBeLessThan(0.12);
+    const w = [];
+    for (let k = 0; k < 6; k++) w.push(mean(sample(f, 300).map((s) => s.visible)));
+    const m = mean(w);
+    for (const x of w) expect(Math.abs(x - m) / m).toBeLessThan(0.1);
   });
 
   it('aucune apparition brusque', () => {
