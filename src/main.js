@@ -221,7 +221,8 @@ document.addEventListener('pointerleave', () => { PAR.tx = 0; PAR.ty = 0; });
 // avance jusqu'à ×6, recul jusqu'à −4× la vitesse normale (marche arrière franche)
 const addBoost = (v) => { if (!CFG.reduced) S.boost = Math.max(-5, Math.min(5, S.boost + v)); };
 if (!CFG.wheel) {
-  window.addEventListener('wheel', (e) => addBoost(e.deltaY * 0.004), { passive: true });
+  // molette vers le bas = avancer, vers le haut = reculer (un cran ≈ ±1,2 : un seul cran suffit à reculer)
+  window.addEventListener('wheel', (e) => addBoost(Math.max(-2, Math.min(2, e.deltaY * (e.deltaMode === 1 ? 0.4 : 0.012)))), { passive: true });
   // doigt vers le bas = avancer, vers le haut = reculer (un seul doigt ; à deux, c'est le zoom)
   let ty = null;
   window.addEventListener('touchstart', (e) => { ty = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
