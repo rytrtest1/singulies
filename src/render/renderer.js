@@ -81,7 +81,7 @@ void main() {
 // pente locale de la ligne de base et comprimé horizontalement par cos ψ — pas de cisaillement.
 // Flou continu : σ_px = K·f·|1/z − 1/ZF| (K proche / K lointain = courbe du prototype),
 // plafonné à 0,11 em ; cœur net + halo (aspect du prototype), puis fondu continu vers l'atlas pré-flouté.
-// Lumière : une lettre allumée devient nette (mise au point) et une clarté lente circule en elle.
+// Lumière : une clarté lente circule dans la lettre allumée.
 const NOISE = /* glsl */`
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vnoise(vec2 p) {
@@ -122,7 +122,6 @@ void main() {
   vec2 loc = vec2((e.x - ecx) * cp, e.y + a_l.y / S) * k;
   vec2 scr = sc + mat2(cos(g), sin(g), -sin(g), cos(g)) * loc;
   float sig = (zc < ZF ? KB : KB_FAR) * u_f * abs(1.0 / zc - 1.0 / ZF) / k;
-  sig *= 1.0 - 0.88 * smoothstep(0.05, 0.45, a_x.y);         // mise au point : la lettre allumée devient nette
   v_sig = min(sig, ${BLUR_EM.toFixed(3)});                    // σ en em (plafond = atlas pré-flouté)
   v_aa = 0.42 / (k * u_dpr);                                 // antialias ≈ 1 px physique, en em
   v_alpha = a_l.w; v_gray = a_x.x; v_L = a_x.y; v_seed = a_y.x;
