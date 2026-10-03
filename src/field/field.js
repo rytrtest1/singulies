@@ -19,13 +19,13 @@ export const SPEED = 0.05;          // avance de la caméra, monde/s (prototype)
 export const H_AMP = 0.12;          // monde/s
 export const H_K = 0.85;            // rad par unité monde (en Y)
 // modes : [nappes latérales, avance de la caméra]
-export const MODES = { melange: [1, 1], profondeur: [0, 1], horizontal: [1, 0] };
+export const MODES = { melange: [0.35, 1], profondeur: [0, 1], horizontal: [1, 0] };   // mélange : courants doux, l'avance reste lisible
 export const ASPECT = 16 / 9;       // cadre virtuel paysage ; en portrait on n'en voit que le centre
 export const FADE_IN = 4.5;         // s
 export const Z_BIRTH = [30, 34];    // naissance au fond
 export const Z_END = [2.3, 2.8];    // fin du flux (n'arrive qu'au centre, dans la zone vide : invisible)
 const CENTER_BIAS = 0.4;            // part des naissances près du point de fuite (→ futurs mots proches)
-const OCC_MAX = 0.86;               // effacement max du mot le plus lointain d'un recouvrement
+const OCC_MAX = 0.92;               // effacement max du mot le plus lointain d'un recouvrement
 const SEP_SPEED = 1;                // px/s, profondeurs voisines
 const SEP_TAU = 1.8;                // s
 const SEP_RATIO = 1.3;              // écart de profondeur < 30 %
@@ -36,7 +36,7 @@ export const WARMUP = 700;          // s de champ « vécu » avant l'ouverture
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const sm = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 
-export const wordCount = (w) => Math.round(40 + 38 * clamp01((w - 390) / 610));
+export const wordCount = (w) => Math.round(46 + 46 * clamp01((w - 390) / 610));   // 92 en paysage (l'effacement anticipé des recouvrements en éteint davantage)
 // interlettrage : plus d'air pour les petits mots lointains, moins pour les grands proches
 export const trackEm = (pxEm) => 0.08 + 0.06 * (1 - sm(14, 90, pxEm)); // ≈ 0,1 em du prototype
 // gris par profondeur : le fond est le plus lumineux, l'avant-plan le plus sombre (proche discret,
@@ -201,6 +201,23 @@ export function createField(opts) {
     geom(w);
   }
 
+  // recul : un mot rentre par un bord (juste hors champ), à une profondeur moyenne ou proche,
+  // déjà « vécu » (pleinement visible une fois entré) — l'inverse d'une sortie
+  function enterFromEdge(w) {
+    spawn(w, true);
+    const { f, cx, cy } = view;
+    w.z = 3.2 * Math.pow(18 / 3.2, rng());
+    const side = rng();
+    let xs, ys;
+    geom(w);
+    const bw = w.box[2] - w.box[0], bh = w.box[3] - w.box[1];
+    if (side < 0.7) { xs = rng() < 0.5 ? -10 - bw / 2 : view.w + 10 + bw / 2; ys = rng.range(0, view.h); }
+    else { xs = rng.range(0, view.w); ys = rng() < 0.5 ? -10 - bh / 2 : view.h + 10 + bh / 2; }
+    w.X = cam.x + (xs - cx) * w.z / f; w.Y = cam.y + (ys - cy) * w.z / f;
+    geom(w);
+    w.zoneA = zoneTarget(w); w.age = 1e4;
+  }
+
   // ---------- pas de simulation ----------
   // speed : facteur du courant (le champ ralentit un instant à chaque frappe)
   // lat : intensité des nappes latérales (0…1) ; adv : avance de la caméra (0…1)
@@ -212,18 +229,24 @@ export function createField(opts) {
     for (const w of words) {
       if (motion) {
         w.z -= SPEED * Math.sqrt(w.z / 12) * speed * adv * dt;   // ∝ √z : parallaxe nette (proche ≈ 3× plus rapide à l’écran) sans vider le premier plan
-        if (w.z > Z_BIRTH[1] + 1) w.z = Z_BIRTH[1] + 1;        // recul (molette) : pas au-delà du fond
         const vh = lat * H_AMP * Math.sin(H_K * w.Y + phase) * speed;   // à l'écran : f·v/z (proches plus rapides)
         w.X += (w.dvx * speed + w.sx * w.z / f + vh) * dt;
         w.Y += (w.dvy * speed + w.sy * w.z / f) * dt;
       }
-      w.age += dt;
+      // recul = le temps remonte : l'âge décroît (un mot proche de sa naissance s'efface comme il était venu)
+      const rev = motion && speed * adv < 0;
+      w.age += rev ? -dt * Math.min(1, -speed * adv) : dt;
       geom(w);
       // mort : seulement en quittant l'écran (ou au bout du flux, au centre, déjà effacé par la zone) ;
       // en horizontal pur (sans avance), un mot sorti par un côté réapparaît de l'autre, à la même profondeur ;
       // dès que la caméra avance (profondeur, mélange), il renaît au fond comme dans le flux
       const vOff = w.box[3] < -24 || w.box[1] > view.h + 24;
-      if (w.z <= Z_END[0] || (offscreen(w.box, 24) && (vOff || adv > 0.1))) spawn(w, false);
+      if (rev) {
+        // à rebours : revenu au fond (ou avant sa naissance) → il « ressort » par un bord, comme s'il revenait
+        // après être sorti ; hors champ, les mots ne meurent pas (ils sont en train de rentrer)
+        if (w.z >= Z_BIRTH[1] || w.age <= 0) enterFromEdge(w);
+      }
+      else if (w.z <= Z_END[0] || (offscreen(w.box, 24) && (vOff || adv > 0.1))) spawn(w, false);
       else if (offscreen(w.box, 24)) wrap(w);
       w.tier = tierOf(w.z);
       const zk = 1 - Math.exp(-dt / ZONE_TAU);
@@ -237,7 +260,7 @@ export function createField(opts) {
       const a = order[i], aa = area(a.box) || 1;
       for (let j = i + 1; j < order.length; j++) {
         const b = order[j];            // b est plus proche que a
-        const m = 0.15 * Math.min(a.pxEm, b.pxEm); // petite marge : lettres collées = recouvrement
+        const m = 0.6 * Math.min(a.pxEm, b.pxEm);  // marge : l'effacement commence avant le contact (les courants font se croiser les mots)
         const I = interPad(a.box, b.box, m);
         if (I > 0) a.occT = Math.max(a.occT, OCC_MAX * sm(0.01, 0.2, I / aa) * b.base);
         if (a.z / b.z < SEP_RATIO) {
