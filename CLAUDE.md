@@ -64,6 +64,9 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 ## Suggestion du prénom (par défaut depuis le 03/10)
 - Impossible de lire l'identité depuis le navigateur. Le champ se déclare `autocomplete="given-name"` : le clavier du téléphone (fiche contact) ou le navigateur propose le prénom, un toucher le remplit, le clavier se ferme (la page ne voit le prénom qu'après ce toucher : pas d'affichage grisé possible avant).
 
+## Idées pour plus tard (ne pas faire sans demande)
+- **Son de frappe** (03/10 : non pour le moment). Le jour où il y aura du son : sur remplissage automatique, ne pas remplir le prénom d'un coup — le mémoriser, puis le **taper lettre par lettre à la place de l'utilisateur, avec un bruit de frappe**.
+
 ## Validation
 - **Passage à la suite** (03/10, à affiner) : une fois le prénom confirmé, **toucher le prénom (ou Entrée à nouveau) fait pivoter ses lettres en colonne** (amorce de l'acrostiche : trajectoires courbes, retard propre 0,07 s/lettre, 1,1 s), tenue 1,4 s, puis fondu au noir.
 - (Idée initiale, non faite : les lettres allumées du fond volent vers le prénom central.)
