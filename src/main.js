@@ -9,11 +9,12 @@ import { layoutName } from './name/layout.js';
 import { loadState, saveValidated, clearStored } from './app/storage.js';
 import { createField } from './field/field.js';
 import { createRng } from './field/rng.js';
+import { createLight } from './field/light.js';
 
 const P = new URLSearchParams(location.search);
 const CFG = {
   caseMode: P.get('case') === 'lower' ? 'lower' : 'upper',
-  grain: P.get('grain') !== '0',
+  grain: P.get('grain') === '0' ? 0 : P.get('grain') === '1' ? 2 : 1,   // 0 noir pur, 1 fond uni (défaut), 2 grain
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
   seed: P.has('seed') ? +P.get('seed') : undefined,
 };
@@ -42,6 +43,7 @@ const S = {
   shiftY: 0, shiftV: 0,   // remontée douce au-dessus du clavier mobile
   validatedName: stored.validated ?? null,
   dim: 1,
+  slowAt: -9,
 };
 
 let announceTimer = 0;
@@ -125,6 +127,8 @@ function renderFallback() {
 
 // ---------- parallaxe : translation de caméra, ressort amorti (≈ 0,8 s de retard) ----------
 const PAR = { tx: 0, ty: 0, x: 0, y: 0, vx: 0, vy: 0 };
+const BR = { p: 0, v: 0 };   // souffle de caméra à chaque frappe (ressort)
+const light = createLight({ reduced: CFG.reduced });
 window.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'mouse' || !S.w) return;
   PAR.tx = (e.clientX / S.w - 0.5) * 2; PAR.ty = (e.clientY / S.h - 0.5) * 2;
@@ -198,17 +202,23 @@ function frame(ts) {
     glyphs.push({ box: [L.cursor.x - cw / 2, L.cursor.y0, L.cursor.x + cw / 2, L.cursor.y1], uv: null, alpha: blink * nameFade, pxEm: 1 });
   }
 
+  // lumière : diff du prénom → ondes / extinctions ; le champ écoute (souffle + ralentissement)
+  const kind = light.update(bridge.shownText.toUpperCase(), S.t);
+  if (kind && S.phase === 'input' && !CFG.reduced) { BR.v += kind > 0 ? 0.015 : 0.008; S.slowAt = S.t; }
+  { const w = 2.2, z = 0.85; BR.v += (-BR.p * w * w - 2 * z * w * BR.v) * dt; BR.p += BR.v * dt; }
+  const speed = 1 - 0.65 * (1 - smooth(0, 1.1, S.t - S.slowAt));
+
   // champ : zone vide autour du prénom, caméra, simulation
   const ln = L.lines;
   field.setZone(text.trim() ? { x0: Math.min(...ln.map((l) => l.x0)), x1: Math.max(...ln.map((l) => l.x1)), y0: L.top, y1: L.bottom, pad: 1.1 * L.fs } : null);
   updateCamera(dt);
   // lettres éteintes ≈ −38 % tant qu'un prénom est saisi (prototype : 0,62, lissage 2,5/s)
   S.dim += ((text.trim() ? 0.62 : 1) - S.dim) * (1 - Math.exp(-dt * 2.5));
-  field.step(dt, !CFG.reduced);
-  const fl = field.emit();
+  field.step(dt, !CFG.reduced, speed);
+  const fl = field.emit(light, S.t, { x: cx, y: cy });
   const v = field.view;
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs,
-    field: fl, cam: field.cam, focal: v.f, vx: v.cx, vy: v.cy, dim: S.dim });
+    field: fl, cam: field.cam, focal: v.f * (1 + BR.p), vx: v.cx + field.offX, vy: v.cy, dim: S.dim, litCount: field.litCount });
   stats.letters = fl.count;
   stats.gpuMB = +((atlas.width * atlas.height * 2 + canvas.width * canvas.height * 4 * 2) / 1048576).toFixed(1);
 }

@@ -30,11 +30,11 @@ describe('NAMES', () => {
 });
 
 describe('field', () => {
-  it('nombre de mots : 78 à 1672, 40 à 390', () => {
+  it('nombre de mots : 78 à 1672, portrait = cadre paysage recadré (78)', () => {
     expect(wordCount(1672)).toBe(78);
     expect(wordCount(390)).toBe(40);
     expect(mk().words.length).toBe(78);
-    expect(mk(390, 844).words.length).toBe(40);
+    expect(mk(390, 844).words.length).toBe(78);
   });
 
   it('z dans [Z_END[0], Z_BIRTH[1]] à t0 et après 30 min', () => {

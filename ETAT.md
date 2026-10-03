@@ -1,6 +1,6 @@
 # ETAT.md — SINGULIÉS accueil
 
-## Étape courante : 3 terminée (champ de mots). Prochaine : 4 (lumière organique).
+## Étape courante : 4 en cours (lumière organique : première version en ligne).
 
 ## Étape 3 — fait (03/10)
 - Fichiers : `src/field/camera.js` (FOV 48°, VP 50/45 %, ZF 14 fixe, KB 0,034, κ 0,8), `src/field/field.js` (simulation CPU : tranches, zoom, fondus, zone vide, anti-chevauchement, emit → 20 floats/lettre), `src/field/names.js` (≈ 220 prénoms A–Z), `src/field/rng.js` (mulberry32, `?seed=N`). Renderer : programme FIELD (lettre = quad instancié projeté dans le VS, w = z, flou par lettre `gaussCdf(d/√(σ²+aa²))`, gain lum. ≤ +40 %). 3 draw calls (fond, champ, prénom).
@@ -45,6 +45,16 @@
 - Régulation des naissances centrales durcie (3 − 2,5·cachés/cible) : visibles moy. 60 s à 0/10/20/30 min = 59,4 / 56,9 / 57,3 / 58 (1672), 27,1 / 26,6 / 27 / 30 (390). Répartition moyen/lointain fluctue (29↔14 moyens) : effet de cohortes du flux.
 - Chiffres 1672 LEA (seed 11) : px>5 64,4 / px>20 10,7 / px>80 0,08 / lum 10,5 ; 60 visibles, 1 chevauchement. px>5 bas = grain du proto (référence 91,6).
 - Tests 38/38 (fenêtre de stationnarité du test : 5 min).
+
+### Étape 4 (en cours) + retours mouvement / portrait / grain (03/10)
+- `src/field/light.js` : diff du prénom → onde par frappe (retard 0,05 + 0,65·dist + 0,35·profondeur + propre), attaque/décroissance/intensité propres, repos 0,55→0,42 selon z × anneau (0,5 + 0,5·(1 − sm(0,25, 1, dist))) × souffle 2 sinus ; retrait = extinction du plus loin vers le centre (0,25–0,6 s). Paramètres par lettre tirés à la naissance du mot (`letterParams`).
+- Rendu : allumée = gris éteint (×0,62) + L ; traînée = passage additif (atlas pré-flouté) étiré 1,5 + 3,4·longueur·dist·L, incliné vers l'extérieur ±50°, balancement propre, largeur ×0,75. 4 draw calls.
+- Le champ écoute : souffle de caméra (ressort sur f, +0,015 ajout / +0,008 effacement) et courant ralenti à 35 % puis retour en 1,1 s.
+- **Mouvement** (retour Maxence : deux mots au même endroit mais à profondeurs différentes bougeaient pareil — c'est le propre d'un zoom exponentiel) : caméra qui avance, vitesse ∝ √z (vraie parallaxe ≈ 3× proche/lointain ; à vitesse constante, les proches tombaient à ≈ 1 visible).
+- **Portrait** : réglages portrait supprimés (`fieldScale`, nombre de mots selon la largeur) ; cadre virtuel 16:9 recadré au centre.
+- **Grain** retiré par défaut (`?grain=1`).
+- Chiffres 1672 (seed 11, repos) : LEA px>5 64,4 / px>20 3,4 / px>80 0,46 / lum 7,6 ; CLEMENCE ROSE lum 9,3 / px>80 1,24. Stationnarité 1672 : 59,1 / 60,9 / 57,8 / 60,5 ; 390 : 28,5 / 25,4 / 24,3 / 32,8 (± 15 % : petite fenêtre recadrée). Proches ≈ 0,7–3 (1672), ≈ 0 en portrait. FPS 21,7 (1672 logiciel). Tests 38/38 + 62/62.
+- Reste étape 4 : réglage fin (intensités, anneau, longueur des traînées), mouvement réduit à vérifier visuellement, mesure du rapport allumé/éteint.
 
 ### Ouvert
 - Proches un peu sous la cible (≈ 4,7 au lieu de 6) : contrainte du flux (un proche doit naître au centre). Plus de proches = plus de mots cachés dans la zone.

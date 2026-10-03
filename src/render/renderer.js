@@ -29,11 +29,11 @@ void main() {
   vec2 frag = vec2(gl_FragCoord.x, u_res.y - gl_FragCoord.y);
   // fond du prototype : #050505 + grain rand³ (alpha 23/255) au px CSS, vignette 52 % → 0,66
   float g = hash(floor(frag / max(1.0, u_dpr)));
-  float c = mix(5.0 / 255.0, g * g * g, 23.0 / 255.0);
+  float c = u_grain > 1.5 ? mix(5.0 / 255.0, g * g * g, 23.0 / 255.0) : 6.0 / 255.0; // grain seulement sur demande
   vec2 half_ = vec2(max(u_center.x, u_res.x - u_center.x), max(u_center.y, u_res.y - u_center.y)) * 1.41421;
   float r = length((frag - u_center) / half_);
   float a = 0.66 * clamp((r - 0.52) / 0.48, 0.0, 1.0);
-  c *= (1.0 - a) * u_grain;
+  c *= (1.0 - a) * min(u_grain, 1.0);
   o = vec4(vec3(c * u_fade), 1.0);
 }`;
 
@@ -86,13 +86,14 @@ layout(location=0) in vec4 a_w;    // X, Y, z (monde), ψ signé
 layout(location=1) in vec4 a_l;    // u (abscisse le long du mot), y ligne de base, S (taille d'un em), alpha
 layout(location=2) in vec4 a_uv;
 layout(location=3) in vec4 a_box;  // boîte du glyphe en em (origine = point de chasse)
-layout(location=4) in vec4 a_x;    // gris, —, —, —
+layout(location=4) in vec4 a_x;    // gris, lumière L, étirement de traînée, angle de traînée
 uniform vec2 u_view;               // px CSS
 uniform vec2 u_c;                  // point de fuite, px CSS
 uniform vec2 u_cam;                // translation caméra (monde)
 uniform float u_f, u_dpr;
+uniform highp int u_pass;          // 0 lettres, 1 traînées
 out vec2 v_uv;
-flat out float v_sig, v_aa, v_alpha, v_gray;
+flat out float v_sig, v_aa, v_alpha, v_gray, v_L, v_str;
 const float ZF = ${ZF.toFixed(3)}, KB = ${KB.toFixed(4)}, KB_FAR = ${KB_FAR.toFixed(4)};
 vec2 proj(vec3 P) { return u_c + u_f * P.xy / max(P.z, 0.1); }
 void main() {
@@ -109,10 +110,17 @@ void main() {
   vec2 e = mix(a_box.xy, a_box.zw, c);
   vec2 loc = vec2((e.x - ecx) * cp, e.y + a_l.y / S) * k;
   vec2 scr = sc + mat2(cos(g), sin(g), -sin(g), cos(g)) * loc;
+  if (u_pass == 1) {
+    // traînée : copie floue étirée le long d'un axe parti de la verticale, sans étalement horizontal
+    if (a_x.y < 0.15 || a_x.z < 1.02) { gl_Position = vec4(2.0, 2.0, 0.0, 1.0); return; }
+    float th = a_x.w;
+    vec2 tl = vec2((e.x - ecx) * cp * 0.75, (e.y + a_l.y / S) * a_x.z) * k;
+    scr = sc + mat2(cos(th), sin(th), -sin(th), cos(th)) * tl;
+  }
   float sig = (zc < ZF ? KB : KB_FAR) * u_f * abs(1.0 / zc - 1.0 / ZF) / k;
   v_sig = min(sig, ${BLUR_EM.toFixed(3)});                    // σ en em (plafond = atlas pré-flouté)
   v_aa = 0.42 / (k * u_dpr);                                 // antialias ≈ 1 px physique, en em
-  v_alpha = a_l.w; v_gray = a_x.x;
+  v_alpha = a_l.w; v_gray = a_x.x; v_L = a_x.y; v_str = a_x.z;
   v_uv = mix(a_uv.xy, a_uv.zw, c);
   gl_Position = vec4((scr / u_view * 2.0 - 1.0) * vec2(1.0, -1.0), 0.0, 1.0);
 }`;
@@ -121,8 +129,9 @@ const FIELD_FS = /* glsl */`#version 300 es
 precision highp float;
 uniform sampler2D u_atlas, u_blur;
 uniform float u_fade, u_dim;
+uniform highp int u_pass;
 in vec2 v_uv;
-flat in float v_sig, v_aa, v_alpha, v_gray;
+flat in float v_sig, v_aa, v_alpha, v_gray, v_L, v_str;
 out vec4 o;
 ${GLSL_COMMON}
 const float S_MID = 0.045, S_MAX = ${BLUR_EM.toFixed(3)};
@@ -134,12 +143,17 @@ float soft(float dEm, float sig) {
   return mix(halo, core, wc);
 }
 void main() {
+  if (u_pass == 1) {
+    float a = texture(u_blur, v_uv).r * clamp(v_L - 0.15, 0.0, 1.0) * 0.55 * v_alpha * u_fade;
+    o = vec4(vec3(a), 0.0);                                  // additif
+    return;
+  }
   float dEm = texture(u_atlas, v_uv).r;
   float c;
   if (v_sig <= S_MID) c = soft(dEm, v_sig);
   else c = mix(soft(dEm, S_MID), texture(u_blur, v_uv).r, (v_sig - S_MID) / (S_MAX - S_MID)); // vers le vrai flou pré-calculé
   float a = c * v_alpha * u_fade;
-  o = vec4(vec3(a * min(1.0, v_gray * u_dim)), a);
+  o = vec4(vec3(a * min(1.0, v_gray * u_dim + v_L)), a);  // allumée : s'ajoute au gris éteint
 }`;
 
 const STRIDE = 12; // floats par instance
@@ -195,7 +209,7 @@ export function createRenderer(canvas, gl, atlas) {
     gl.uniform2f(bg.u.u_res, canvas.width, canvas.height);
     gl.uniform1f(bg.u.u_dpr, f.dpr);
     gl.uniform2f(bg.u.u_center, f.cx * f.dpr, f.cy * f.dpr);
-    gl.uniform1f(bg.u.u_grain, f.grain ? 1 : 0);
+    gl.uniform1f(bg.u.u_grain, f.grain);
     gl.uniform1f(bg.u.u_fade, f.fade);
     gl.bindVertexArray(empty);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -229,10 +243,16 @@ export function createRenderer(canvas, gl, atlas) {
       gl.bindTexture(gl.TEXTURE_2D, res.btex);
       gl.uniform1i(fp.u.u_blur, 1);
       gl.activeTexture(gl.TEXTURE0);
+      gl.uniform1i(fp.u.u_pass, 0);
       gl.bindVertexArray(fvao);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count);
-      gl.bindVertexArray(null);
       calls++;
+      if (f.litCount) {          // traînées des lettres allumées (même tampon, passage additif)
+        gl.uniform1i(fp.u.u_pass, 1);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count);
+        calls++;
+      }
+      gl.bindVertexArray(null);
     }
 
     const list = f.glyphs;

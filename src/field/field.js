@@ -1,10 +1,12 @@
 // Champ de mots (simulation CPU, sans GL) : flux continu. Chaque mot naît petit au fond (fondu),
-// avance par zoom exponentiel lent et ne meurt qu'en quittant l'écran. La répartition par
+// la caméra avance à vitesse constante (les mots proches défilent plus vite : vraie parallaxe)
+// et un mot ne meurt qu'en quittant l'écran. La répartition par
 // tranche (≈ 8/42/50 %) émerge de la géométrie du flux et reste stationnaire.
 // La projection des lettres se fait dans le shader ; ici on ne projette que les boîtes des mots.
 import { NAMES } from './names.js';
 import { viewOf, sigmaPx, psiOf } from './camera.js';
 import { displayCase } from '../text/normalize.js';
+import { letterParams } from './light.js';
 
 // tranches : seulement pour mesurer la répartition (un mot les traverse toutes)
 export const TIERS = [
@@ -12,11 +14,12 @@ export const TIERS = [
   { key: 'moyen', z0: 6, z1: 14, share: 0.42 },
   { key: 'lointain', z0: 16, z1: 32, share: 0.50 },
 ];
-export const ZOOM = 0.004;          // /s : z ← z·e^(−ZOOM·t)
+export const SPEED = 0.05;          // avance de la caméra, monde/s (prototype) : z ← z − SPEED·t
+export const ASPECT = 16 / 9;       // cadre virtuel paysage ; en portrait on n'en voit que le centre
 export const FADE_IN = 4.5;         // s
 export const Z_BIRTH = [30, 34];    // naissance au fond
 export const Z_END = [2.3, 2.8];    // fin du flux (n'arrive qu'au centre, dans la zone vide : invisible)
-const CENTER_BIAS = 0.55;           // part des naissances près du point de fuite (→ futurs mots proches)
+const CENTER_BIAS = 0.4;            // part des naissances près du point de fuite (→ futurs mots proches)
 const OCC_MAX = 0.86;               // effacement max du mot le plus lointain d'un recouvrement
 const SEP_SPEED = 1;                // px/s, profondeurs voisines
 const SEP_TAU = 1.8;                // s
@@ -29,8 +32,6 @@ const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const sm = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 
 export const wordCount = (w) => Math.round(40 + 38 * clamp01((w - 390) / 610));
-// écran étroit : lettres plus petites (le prénom central ne doit jamais être plus petit que le fond)
-export const fieldScale = (w, h) => Math.min(1, Math.max(0.72, w / h / 1.5));
 // interlettrage : plus d'air pour les petits mots lointains, moins pour les grands proches
 export const trackEm = (pxEm) => 0.08 + 0.06 * (1 - sm(14, 90, pxEm)); // ≈ 0,1 em du prototype
 // gris par profondeur (prototype) ; proche plus sombre car flou, très lointain atténué
@@ -47,7 +48,8 @@ export function createField(opts) {
   const { rng, caseMode, glyphs, capHeight } = opts;
   const lower = caseMode === 'lower';
   const yTop = -(0.5 * capHeight + 0.05), yBot = 0.5 * capHeight + (lower ? 0.25 : 0.05);
-  let view = null, sField = 1, ui = 1;
+  let view = null, ui = 1, offX = 0, realW = 0;
+  const sField = 1;
   const cam = { x: 0, y: 0 };
   const zone = { x0: 0, y0: 0, x1: 0, y1: 0, fw: 70 };
   const words = [];
@@ -78,6 +80,8 @@ export function createField(opts) {
   const inter = (a, b) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
   const interPad = (a, b, m) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]) + m) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]) + m);
   const offscreen = (b, m = 0) => b[2] < -m || b[0] > view.w + m || b[3] < -m || b[1] > view.h + m;
+  // hors de l'écran réel (portrait : seule la bande centrale du cadre virtuel est visible)
+  const offReal = (b) => b[2] < -offX || b[0] > realW - offX || b[3] < 0 || b[1] > view.h;
   // les petits mots lointains peuvent frôler le prénom ; les plus grands s'effacent dans la zone
   function zoneTarget(w) {
     const b = w.box;
@@ -121,13 +125,14 @@ export function createField(opts) {
     // quand beaucoup de mots sont déjà cachés dans la zone (nombre de mots visibles stable)
     const hidden = words.reduce((n, o) => n + (o !== w && o.zoneA != null && o.zoneA < 0.3 ? 1 : 0), 0);
     const reg = Math.min(1.5, Math.max(0, 3 - 2.5 * hidden / (0.28 * words.length)));
-    const central = rng() < CENTER_BIAS * reg * Math.min(1, Math.max(0.35, view.w / view.h / 1.5));
+    const central = rng() < CENTER_BIAS * reg;
     w.name = pickName(central);
     w.text = displayCase(w.name, caseMode);
     w.chars = [...w.text];
     w.adv = w.chars.map((ch) => glyphs[ch]?.adv ?? 0.6);
     w.advSum = w.adv.reduce((a, b) => a + b, 0);
     w.jit = w.chars.map(() => rng.range(-0.015, 0.015));
+    w.lp = w.chars.map(() => letterParams(rng));
     let best = null;
     for (let i = 0; i < 12; i++) {
       let u, v;
@@ -155,11 +160,13 @@ export function createField(opts) {
   // ---------- dimensionnement : nombre de mots par tranche ----------
   function resize(w, h) {
     const first = !view;
-    view = viewOf(w, h);
-    sField = fieldScale(w, h);
-    ui = Math.min(1.3, Math.max(0.6, w / 1440));
+    // portrait : même champ qu'en paysage (cadre virtuel ASPECT), recadré au centre
+    const vw = Math.max(w, h * ASPECT);
+    view = viewOf(vw, h);
+    offX = (w - vw) / 2; realW = w;
+    ui = Math.min(1.3, Math.max(0.6, vw / 1440));
     if (first) setZone(null);
-    const N = wordCount(w);
+    const N = wordCount(vw);
     if (words.length > N) words.length = N;
     while (words.length < N) { const nw = {}; words.push(nw); spawn(nw, first); }
     for (const x of words) geom(x);
@@ -168,6 +175,7 @@ export function createField(opts) {
 
   // zone vide autour du prénom (rectangle px) ; null → zone de repos (prénom vide)
   function setZone(r) {
+    if (r) r = { ...r, x0: r.x0 - offX, x1: r.x1 - offX };   // px écran réel → cadre virtuel
     const kw = 260 * ui, kh = 110 * ui;
     const cx = view.cx, cy = view.cy;
     const hw = Math.min(0.47 * view.w, Math.max(Math.min(kw, 0.3 * view.w), r ? (r.x1 - r.x0) / 2 + r.pad : 0));
@@ -177,14 +185,15 @@ export function createField(opts) {
   }
 
   // ---------- pas de simulation ----------
-  function step(dt, motion = true) {
+  // speed : facteur du courant (le champ ralentit un instant à chaque frappe)
+  function step(dt, motion = true, speed = 1) {
     time += dt;
     const { f } = view;
     for (const w of words) {
       if (motion) {
-        w.z *= Math.exp(-ZOOM * dt);
-        w.X += (w.dvx + w.sx * w.z / f) * dt;
-        w.Y += (w.dvy + w.sy * w.z / f) * dt;
+        w.z -= SPEED * Math.sqrt(w.z / 12) * speed * dt;   // ∝ √z : parallaxe nette (proche ≈ 3× plus rapide à l'écran) sans vider le premier plan
+        w.X += (w.dvx * speed + w.sx * w.z / f) * dt;
+        w.Y += (w.dvy * speed + w.sy * w.z / f) * dt;
       }
       w.age += dt;
       geom(w);
@@ -225,11 +234,16 @@ export function createField(opts) {
   }
 
   // ---------- instances (une par lettre), triées loin → proche ----------
+  // light (optionnel) : createLight() ; t : temps ; c : centre du prénom (px)
   let buf = new Float32Array(1024 * STRIDE);
-  function emit() {
+  let litCount = 0;
+  function emit(light, t = 0, c = null) {
     let n = 0;
+    litCount = 0;
+    const lit = light && light.active;
+    const cx = c ? c.x - offX : view.cx, cy = c ? c.y : view.cy, hw = realW / 2, hh = view.h / 2;
     for (const w of order) {
-      if (w.alpha < 0.004 || offscreen(w.box)) continue;
+      if (w.alpha < 0.004 || offReal(w.box)) continue;
       if ((n + w.chars.length) * STRIDE > buf.length) { const nb = new Float32Array(buf.length * 2); nb.set(buf); buf = nb; }
       const gray = grayOf(w.z) * w.ink;
       let pen = -w.half;
@@ -239,7 +253,22 @@ export function createField(opts) {
         buf[o + 4] = pen; buf[o + 5] = (w.jit[i] + 0.5 * capHeight) * w.S; buf[o + 6] = w.S; buf[o + 7] = w.alpha;
         buf[o + 8] = g.u0; buf[o + 9] = g.v0; buf[o + 10] = g.u1; buf[o + 11] = g.v1;
         buf[o + 12] = g.x0; buf[o + 13] = g.y0; buf[o + 14] = g.x1; buf[o + 15] = g.y1;
-        buf[o + 16] = gray; buf[o + 17] = 0; buf[o + 18] = 0; buf[o + 19] = 0;
+        let L = 0, stretch = 1, theta = 0;
+        if (lit) {
+          // position écran approximative de la lettre (pour l'onde, l'anneau et la traînée)
+          const fx = (pen + w.half + 0.5 * w.adv[i] * w.S) / (2 * w.half || 1);
+          const lx = w.box[0] + fx * (w.box[2] - w.box[0]), ly = (w.box[1] + w.box[3]) / 2;
+          const dn = Math.min(1, Math.hypot((lx - cx) / hw, (ly - cy) / hh) / Math.SQRT2);
+          const lp = w.lp[i];
+          L = light.level(w.chars[i], lp, dn, w.z, t);
+          if (L > 0.01) {
+            litCount++;
+            // traînée : part de la verticale, penche vers l'extérieur (±50°), longueur ∝ distance × intensité
+            stretch = 1.5 + 3.4 * lp.trail * dn * L;
+            theta = 0.87 * Math.max(-1, Math.min(1, (lx - cx) / hw)) + 0.06 * Math.sin(lp.sf * t + lp.sp);
+          }
+        }
+        buf[o + 16] = gray; buf[o + 17] = L; buf[o + 18] = stretch; buf[o + 19] = theta;
         pen += (w.adv[i] + w.track) * w.S;
         n++;
       }
@@ -249,7 +278,7 @@ export function createField(opts) {
 
   // ---------- mesures ----------
   function stats() {
-    const vis = words.filter((w) => w.alpha > 0.1 && !offscreen(w.box));
+    const vis = words.filter((w) => w.alpha > 0.1 && !offReal(w.box));
     const byTier = TIERS.map((_, t) => vis.filter((w) => w.tier === t).length);
     let overlaps = 0;
     const net = vis.filter((w) => w.alpha > 0.3);
@@ -262,5 +291,5 @@ export function createField(opts) {
 
   function advance(seconds, dt = 0.5) { for (let s = 0; s < seconds; s += dt) step(dt, true); }
 
-  return { resize, step, emit, setZone, stats, advance, cam, words, get view() { return view; }, get zone() { return zone; } };
+  return { resize, step, emit, setZone, stats, advance, cam, words, get view() { return view; }, get zone() { return zone; }, get litCount() { return litCount; }, get offX() { return offX; } };
 }
