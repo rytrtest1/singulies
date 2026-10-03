@@ -19,7 +19,7 @@ export const SPEED = 0.05;          // avance de la caméra, monde/s (prototype)
 export const H_AMP = 0.12;          // monde/s
 export const H_K = 0.85;            // rad par unité monde (en Y)
 // modes : [nappes latérales, avance de la caméra]
-export const MODES = { melange: [0.35, 1], profondeur: [0, 1], horizontal: [1, 0] };   // mélange : courants doux, l'avance reste lisible
+export const MODES = { melange: [0.2, 1], profondeur: [0, 1], horizontal: [1, 0] };   // mélange : courants doux, l'avance reste lisible
 export const ASPECT = 16 / 9;       // cadre virtuel paysage ; en portrait on n'en voit que le centre
 export const FADE_IN = 4.5;         // s
 export const Z_BIRTH = [30, 34];    // naissance au fond

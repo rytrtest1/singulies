@@ -239,17 +239,18 @@ window.addEventListener('pointermove', (e) => {
 document.addEventListener('pointerleave', () => { PAR.tx = 0; PAR.ty = 0; });
 // molette (ordinateur) ou glisser vertical (téléphone) : avancer / reculer dans le champ, retour doux
 // (pas de pincement : le zoom du navigateur reste disponible pour l'accessibilité)
-// avance jusqu'à ×6, recul jusqu'à −4× la vitesse normale (marche arrière franche)
-const addBoost = (v) => { if (!CFG.reduced) S.boost = Math.max(-5, Math.min(5, S.boost + v)); };
+// un seul facteur pour l'avance ET les courants latéraux (accélération proportionnelle) :
+// jusqu'à ×16 en avant, ×−10 en arrière
+const addBoost = (v) => { if (!CFG.reduced) S.boost = Math.max(-11, Math.min(15, S.boost + v)); };
 if (!CFG.wheel) {
   // molette vers le bas = avancer, vers le haut = reculer (un cran ≈ ±2,2 : un seul cran fait nettement reculer)
-  window.addEventListener('wheel', (e) => addBoost(Math.max(-2.5, Math.min(2.5, e.deltaY * (e.deltaMode === 1 ? 0.7 : 0.022)))), { passive: true });
+  window.addEventListener('wheel', (e) => addBoost(Math.max(-5, Math.min(5, e.deltaY * (e.deltaMode === 1 ? 1.4 : 0.045)))), { passive: true });
   // doigt vers le bas = avancer, vers le haut = reculer (un seul doigt ; à deux, c'est le zoom)
   let ty = null;
   window.addEventListener('touchstart', (e) => { ty = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
   window.addEventListener('touchmove', (e) => {
     if (ty == null || e.touches.length !== 1) { ty = null; return; }
-    const y = e.touches[0].clientY; addBoost((y - ty) * 0.025); ty = y;
+    const y = e.touches[0].clientY; addBoost((y - ty) * 0.06); ty = y;
   }, { passive: true });
   window.addEventListener('touchend', () => { ty = null; }, { passive: true });
 }
@@ -364,7 +365,7 @@ function frame(ts) {
   updateCamera(dt);
   // lettres éteintes ≈ −38 % tant qu'un prénom est saisi (prototype : 0,62, lissage 2,5/s)
   S.dim += ((text.trim() ? 0.62 : 1) - S.dim) * (1 - Math.exp(-dt * 2.5));
-  S.boost *= Math.exp(-dt / 1.1);
+  S.boost *= Math.exp(-dt / 1.3);
   const portraitSpeed = S.w < S.h ? 2 : 1;   // portrait : on ne voit qu'une partie du champ, le flux paraît lent
   { const [lt, at] = MODES[CFG.mode], k = CFG.reduced ? 1 : 1 - Math.exp(-dt * 1.2);   // bascule progressive
     S.lat += (lt - S.lat) * k; S.adv += (at - S.adv) * k; }
