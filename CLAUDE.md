@@ -68,9 +68,19 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - **Son de frappe** (03/10 : non pour le moment). Le jour où il y aura du son : sur remplissage automatique, ne pas remplir le prénom d'un coup — le mémoriser, puis le **taper lettre par lettre à la place de l'utilisateur, avec un bruit de frappe**.
 
 ## Validation
-- **Passage à la suite** (03/10, à affiner) : une fois le prénom confirmé, **toucher le prénom (ou Entrée à nouveau) fait pivoter ses lettres en colonne** (amorce de l'acrostiche : trajectoires courbes, retard propre 0,07 s/lettre, 1,1 s), tenue 1,4 s, puis fondu au noir.
-- (Idée initiale, non faite : les lettres allumées du fond volent vers le prénom central.)
-- Sortie : `window.onNameValidated(name)` + événement `singulies:name-validated`, sans réseau. Ensuite écran noir.
+- **Passage à la suite** (04/10) : on ne devine jamais comment continuer — soit c'est évident, soit c'est automatique. Une fois le prénom confirmé : petit signe discret sous le prénom (flèche ou symbole) = aller à la suite ; **sans toucher pendant 10 s → passage automatique**. Retour en arrière toujours possible (flèche discrète).
+- **Transition** : les lettres allumées du fond voyagent jusqu'au prénom central et s'y superposent (elles le « rechargent »), le champ s'éteint petit à petit autour ; puis le prénom remonte dans la partie supérieure, **toujours horizontal**, et le jeu de cartes apparaît dessous, au centre.
+- La **colonne de l'acrostiche est réservée à la fin** (enveloppe, l'objet) — plus utilisée ici.
+- Sortie : `window.onNameValidated(name)` + événement `singulies:name-validated`, sans réseau.
+
+## Scène 2 — les cartes questions (04/10, plan en cours)
+- Pratique réelle : on tire **une** carte ; si elle ne plaît pas, on en tire une autre, jusqu'à satisfaction ; sinon thème libre ; sinon improvisation depuis le prénom. (Pas de « tirer 3, garder 1 ».)
+- On voit le paquet au centre. **Toucher le paquet = piocher** (la carte se retourne, question visible). **Toucher la carte = la défausser.** Flèche discrète = retour.
+- **Thème libre = carte vierge noire avec un curseur** : on peut écrire beaucoup, le texte ne dépasse jamais le cadre du texte des cartes questions (glisser pour voir la suite).
+- **Improvisation = « passer »**, puis une courte confirmation (« rien à dire ? j'improviserai avec ton prénom », formulation à affiner). Jamais écrire « champ libre » ni « surprends-moi ».
+- Casse : **questions et textes en minuscules, avec tous les accents et la ponctuation, sans aucune majuscule**. Seuls les prénoms (et éventuellement les indications courtes comme PASSER, et SINGULIES) sont en majuscules.
+- Fabrication (hybride retenu) : une carte 3D dans la caméra du champ (épaisseur, vrai retournement). **Dos = scan pro d'une vraie carte** ; gaufrage = logo SS-cœur extrudé à une hauteur cohérente avec un gaufrage de papier, **très discret et élégant, comme en vrai** (lumière rasante). Masque du logo tiré d'une image haute résolution (pas besoin de vectoriel).
+- Texte : question déjà écrite (pas de frappe lettre par lettre pour l'instant). **Blanc, pas parfait** : encre blanche au papier carbone, comme les vraies cartes. Taille et mise en page = celles des vraies cartes (échantillon fourni par Maxence). Frappes organiques : atlas de vraies frappes scannées (variantes par lettre), jamais deux lettres identiques.
 
 ## Performance
 - Qualité adaptative : budget dépassé → baisser la résolution, puis le nombre de mots. Pause onglet caché. Reconstruction propre après perte de contexte WebGL.
