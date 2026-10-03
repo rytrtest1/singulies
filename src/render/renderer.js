@@ -87,13 +87,17 @@ layout(location=1) in vec4 a_l;    // u (abscisse le long du mot), y ligne de ba
 layout(location=2) in vec4 a_uv;
 layout(location=3) in vec4 a_box;  // boîte du glyphe en em (origine = point de chasse)
 layout(location=4) in vec4 a_x;    // gris, lumière L, étirement de traînée, angle de traînée
+layout(location=5) in vec4 a_y;    // graine propre (aurore), —, —, —
 uniform vec2 u_view;               // px CSS
 uniform vec2 u_c;                  // point de fuite, px CSS
 uniform vec2 u_cam;                // translation caméra (monde)
 uniform float u_f, u_dpr;
 uniform highp int u_pass;          // 0 lettres, 1 traînées
 out vec2 v_uv;
-flat out float v_sig, v_aa, v_alpha, v_gray, v_L, v_str;
+out float v_ty;                    // position le long de la traînée (0…1)
+flat out float v_sig, v_aa, v_alpha, v_gray, v_L, v_str, v_seed;
+flat out vec4 v_rect;              // rectangle uv du glyphe
+flat out float v_uvx;              // uv par em (horizontal)
 const float ZF = ${ZF.toFixed(3)}, KB = ${KB.toFixed(4)}, KB_FAR = ${KB_FAR.toFixed(4)};
 vec2 proj(vec3 P) { return u_c + u_f * P.xy / max(P.z, 0.1); }
 void main() {
@@ -114,13 +118,14 @@ void main() {
     // traînée : copie floue étirée le long d'un axe parti de la verticale, sans étalement horizontal
     if (a_x.y < 0.15 || a_x.z < 1.02) { gl_Position = vec4(2.0, 2.0, 0.0, 1.0); return; }
     float th = a_x.w;
-    vec2 tl = vec2((e.x - ecx) * cp * 0.75, (e.y + a_l.y / S) * a_x.z) * k;
+    vec2 tl = vec2((e.x - ecx) * cp * 0.85, (e.y + a_l.y / S) * a_x.z) * k;
     scr = sc + mat2(cos(th), sin(th), -sin(th), cos(th)) * tl;
   }
   float sig = (zc < ZF ? KB : KB_FAR) * u_f * abs(1.0 / zc - 1.0 / ZF) / k;
   v_sig = min(sig, ${BLUR_EM.toFixed(3)});                    // σ en em (plafond = atlas pré-flouté)
   v_aa = 0.42 / (k * u_dpr);                                 // antialias ≈ 1 px physique, en em
-  v_alpha = a_l.w; v_gray = a_x.x; v_L = a_x.y; v_str = a_x.z;
+  v_alpha = a_l.w; v_gray = a_x.x; v_L = a_x.y; v_str = a_x.z; v_seed = a_y.x;
+  v_ty = c.y; v_rect = a_uv; v_uvx = (a_uv.z - a_uv.x) / (a_box.z - a_box.x);
   v_uv = mix(a_uv.xy, a_uv.zw, c);
   gl_Position = vec4((scr / u_view * 2.0 - 1.0) * vec2(1.0, -1.0), 0.0, 1.0);
 }`;
@@ -128,10 +133,13 @@ void main() {
 const FIELD_FS = /* glsl */`#version 300 es
 precision highp float;
 uniform sampler2D u_atlas, u_blur;
-uniform float u_fade, u_dim;
+uniform float u_fade, u_dim, u_time, u_trailOnly;
 uniform highp int u_pass;
 in vec2 v_uv;
-flat in float v_sig, v_aa, v_alpha, v_gray, v_L, v_str;
+in float v_ty;
+flat in float v_sig, v_aa, v_alpha, v_gray, v_L, v_str, v_seed;
+flat in vec4 v_rect;
+flat in float v_uvx;
 out vec4 o;
 ${GLSL_COMMON}
 const float S_MID = 0.045, S_MAX = ${BLUR_EM.toFixed(3)};
@@ -144,7 +152,18 @@ float soft(float dEm, float sig) {
 }
 void main() {
   if (u_pass == 1) {
-    float a = texture(u_blur, v_uv).r * clamp(v_L - 0.15, 0.0, 1.0) * 0.55 * v_alpha * u_fade;
+    // aurore : la traînée ondule (2 sinus le long de l'axe, phases et vitesses propres)
+    // et des bandes de lumière la parcourent ; ancrée sur la lettre, libre aux extrémités
+    float y = v_ty * 2.0 - 1.0, t = u_time, ph = v_seed;
+    float fr = 0.7 + 0.6 * fract(ph * 0.137);                // vitesse propre
+    float sway = 0.10 * sin(2.6 * y + 0.55 * fr * t + ph) + 0.05 * sin(6.1 * y - 0.9 * fr * t + ph * 1.7);
+    sway *= 0.25 + 0.75 * abs(y);
+    vec2 uv = v_uv + vec2(sway * v_uvx, 0.0);
+    uv.x = clamp(uv.x, v_rect.x, v_rect.z);
+    float bands = 0.6 + 0.4 * sin(4.5 * y - 0.8 * fr * t + ph * 2.3) * sin(1.9 * y + 0.35 * t + ph);
+    float env = 1.0 - smoothstep(0.3, 1.0, abs(y));
+    float gain = mix(0.55, 1.1, u_trailOnly);
+    float a = texture(u_blur, uv).r * bands * env * clamp(v_L - 0.15, 0.0, 1.0) * gain * v_alpha * u_fade;
     o = vec4(vec3(a), 0.0);                                  // additif
     return;
   }
@@ -153,7 +172,7 @@ void main() {
   if (v_sig <= S_MID) c = soft(dEm, v_sig);
   else c = mix(soft(dEm, S_MID), texture(u_blur, v_uv).r, (v_sig - S_MID) / (S_MAX - S_MID)); // vers le vrai flou pré-calculé
   float a = c * v_alpha * u_fade;
-  o = vec4(vec3(a * min(1.0, v_gray * u_dim + v_L)), a);  // allumée : s'ajoute au gris éteint
+  o = vec4(vec3(a * min(1.0, v_gray * u_dim + v_L * mix(1.0, 0.3, u_trailOnly))), a);  // allumée : s'ajoute au gris éteint
 }`;
 
 const STRIDE = 12; // floats par instance
@@ -188,7 +207,7 @@ export function createRenderer(canvas, gl, atlas) {
     const fbuf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, fbuf);
     gl.bufferData(gl.ARRAY_BUFFER, fcap * FSTRIDE * 4, gl.DYNAMIC_DRAW);
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       gl.enableVertexAttribArray(i);
       gl.vertexAttribPointer(i, 4, gl.FLOAT, false, FSTRIDE * 4, i * 16);
       gl.vertexAttribDivisor(i, 1);
@@ -238,6 +257,8 @@ export function createRenderer(canvas, gl, atlas) {
       gl.uniform1f(fp.u.u_dpr, f.dpr);
       gl.uniform1f(fp.u.u_fade, f.fade);
       gl.uniform1f(fp.u.u_dim, f.dim ?? 1);
+      gl.uniform1f(fp.u.u_time, (f.time ?? 0) % 1000);
+      gl.uniform1f(fp.u.u_trailOnly, f.trailOnly ? 1 : 0);
       gl.uniform1i(fp.u.u_atlas, 0);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, res.btex);

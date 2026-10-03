@@ -32,10 +32,10 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 ## Lumière — organique, jamais copié-collé
 - Seules les lettres saisies s'allument (un prénom identique en fond est OK). Rapport allumé/éteint ≈ 3–4, maintenu après l'onde ; lettres éteintes ≈ −40 % tant qu'un prénom est saisi.
 - Anneau de résonance : niveau de repos des allumées décroît avec la distance au prénom central ; les plus vifs forment un anneau autour.
-- Paramètres par lettre tirés à la naissance : retard, attaque 90–260 ms, décroissance 0,7–2,3 s, intensité, souffle de repos (2 sinus non synchronisés : phase+fréquence), longueur de traînée. Aucune animation identique.
-- Profondeur : lointain = plus tard, plus doux, plus long. Onde depuis le centre (retard ∝ distance écran). Après l'onde, descente progressive vers le repos, sans chute.
+- Paramètres par lettre tirés à la naissance : retard, attaque ≈ 0,5–1,4 s, décroissance ≈ 1,4–6 s (lent, décision Maxence 03/10), intensité, souffle de repos (2 sinus non synchronisés : phase+fréquence), longueur de traînée. Aucune animation identique.
+- Propagation : front lent **de l'arrière-plan vers l'avant-plan** (≈ 5–6 s du fond au premier plan), bord irrégulier par bruit spatial doux, petit retard propre par lettre. Après l'onde, descente progressive vers le repos, sans chute.
 - Effacement : extinction du plus loin vers le centre, durée propre 0,25–0,6 s.
-- Traînée : direction partant de la verticale, inclinée vers l'extérieur selon la position (±50° max), longueur ∝ distance au centre × intensité, balancement lent propre. Pas d'étalement horizontal. Pas de halo sur le prénom central.
+- Traînée : direction partant de la verticale, inclinée vers l'extérieur selon la position (±50° max), longueur ∝ distance au centre × intensité. **Ondule comme une aurore boréale**, chaque traînée indépendante (phase, vitesse propres), bandes de lumière qui la parcourent. Pas d'étalement horizontal. Pas de halo sur le prénom central. Essai `?lumiere=trainee` : lumière portée surtout par la traînée.
 
 ## Texte
 - Aucun accent, nulle part. Uniquement A–Z. Tiret → espace ; apostrophes et tout autre caractère supprimés.

@@ -1,6 +1,7 @@
 // Lumière organique : seules les lettres saisies s'allument dans le champ.
-// Événements (ajout / retrait d'une lettre) → onde depuis le centre, puis repos qui respire ;
-// retrait → extinction du plus loin vers le centre. Chaque lettre a ses propres paramètres
+// Ajout d'une lettre → front de lumière lent qui part du fond et avance vers l'avant-plan,
+// bord irrégulier (bruit spatial doux), puis repos qui respire ; retrait → extinction du plus
+// loin vers le centre. Chaque lettre a ses propres paramètres
 // (tirés à la naissance du mot) : aucune animation identique.
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -19,6 +20,7 @@ export function letterParams(rng) {
     trail: rng.range(0.7, 1.3),       // longueur de traînée
     sf: TAU * rng.range(0.03, 0.08), sp: rng.range(0, TAU),   // balancement de la traînée
     off: rng.range(0.25, 0.6),        // durée d'extinction (s)
+    seed: rng.range(0, 1000),         // phase propre de l'aurore (traînée)
   };
 }
 
@@ -49,15 +51,20 @@ export function createLight({ reduced = false } = {}) {
     return kind;
   }
 
-  // Niveau de lumière d'une lettre. dn : distance écran au prénom (0 centre → 1 coin), z : profondeur.
-  function level(ch, lp, dn, z, t) {
+  // Niveau de lumière d'une lettre. dn : distance écran au prénom (0 centre → 1 coin), z : profondeur,
+  // (nx, ny) : position écran normalisée (−1…1).
+  function level(ch, lp, dn, z, t, nx = 0, ny = 0) {
     const C = ch.toUpperCase();
-    const k = sm(10, 30, z);                          // lointain : plus tard, plus doux, plus long
-    const delay = 0.05 + 0.65 * dn + 0.35 * k + lp.d;
-    const att = lp.att * (1 + 0.6 * k), dec = lp.dec * (1 + 0.5 * k);
+    const k = sm(10, 30, z);
+    // propagation : front qui part du fond (z ≈ 34) et atteint l'avant-plan en ≈ 5 s ;
+    // le bord du front ondule (bruit spatial lent) et chaque lettre a son petit retard propre
+    const zeta = clamp01(Math.log(z / 2.8) / Math.log(34 / 2.8));        // 0 proche → 1 fond
+    const noise = 0.5 + 0.28 * Math.sin(2.3 * nx + 1.7 * ny + 0.6) + 0.22 * Math.sin(-1.9 * nx + 2.9 * ny + 2.1);
+    const delay = 0.3 + 4.2 * Math.pow(1 - zeta, 1.2) + 1.1 * noise + 2 * lp.d;
+    const att = lp.att * 5.5, dec = lp.dec * 2 * (1 + 0.3 * k);             // lent : 0,5–1,4 s / 1,4–6 s
     let p = 0;
     if (counts[C]) {
-      p = reduced ? sm(0, 0.6, t - added[C] - 0.3 * dn) : sm(0, att * 1.5, t - added[C] - delay);
+      p = reduced ? sm(0, 1.2, t - added[C] - 0.5 * (1 - zeta)) : sm(0, att * 1.5, t - added[C] - delay);
     } else if (removed[C] != null) {
       // extinction : du plus loin vers le centre
       const since = t - removed[C] - 0.45 * (1 - dn) - 0.5 * lp.d;

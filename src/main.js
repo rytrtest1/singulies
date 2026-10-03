@@ -17,6 +17,7 @@ const CFG = {
   grain: P.get('grain') === '0' ? 0 : P.get('grain') === '1' ? 2 : 1,   // 0 noir pur, 1 fond uni (défaut), 2 grain
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
   seed: P.has('seed') ? +P.get('seed') : undefined,
+  trailOnly: P.get('lumiere') === 'trainee',   // essai : la lumière portée seulement par la traînée
 };
 const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
@@ -218,7 +219,7 @@ function frame(ts) {
   const fl = field.emit(light, S.t, { x: cx, y: cy });
   const v = field.view;
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs,
-    field: fl, cam: field.cam, focal: v.f * (1 + BR.p), vx: v.cx + field.offX, vy: v.cy, dim: S.dim, litCount: field.litCount });
+    field: fl, cam: field.cam, focal: v.f * (1 + BR.p), vx: v.cx + field.offX, vy: v.cy, dim: S.dim, litCount: field.litCount, time: S.t, trailOnly: CFG.trailOnly });
   stats.letters = fl.count;
   stats.gpuMB = +((atlas.width * atlas.height * 2 + canvas.width * canvas.height * 4 * 2) / 1048576).toFixed(1);
 }

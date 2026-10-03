@@ -41,7 +41,7 @@ export function grayOf(z) {
   return g * (1 - 0.6 * sm(28, 34, z));
 }
 
-export const STRIDE = 20; // floats par lettre instanciée
+export const STRIDE = 24; // floats par lettre instanciée
 
 // opts : { rng, caseMode, glyphs (atlas.glyphs), capHeight }
 export function createField(opts) {
@@ -260,7 +260,7 @@ export function createField(opts) {
           const lx = w.box[0] + fx * (w.box[2] - w.box[0]), ly = (w.box[1] + w.box[3]) / 2;
           const dn = Math.min(1, Math.hypot((lx - cx) / hw, (ly - cy) / hh) / Math.SQRT2);
           const lp = w.lp[i];
-          L = light.level(w.chars[i], lp, dn, w.z, t);
+          L = light.level(w.chars[i], lp, dn, w.z, t, (lx - cx) / hw, (ly - cy) / hh);
           if (L > 0.01) {
             litCount++;
             // traînée : part de la verticale, penche vers l'extérieur (±50°), longueur ∝ distance × intensité
@@ -269,6 +269,7 @@ export function createField(opts) {
           }
         }
         buf[o + 16] = gray; buf[o + 17] = L; buf[o + 18] = stretch; buf[o + 19] = theta;
+        buf[o + 20] = w.lp[i].seed; buf[o + 21] = 0; buf[o + 22] = 0; buf[o + 23] = 0;
         pen += (w.adv[i] + w.track) * w.S;
         n++;
       }
