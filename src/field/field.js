@@ -145,7 +145,12 @@ export function createField(opts) {
     for (let i = 0; i < 12; i++) {
       let u, v;
       if (central) { const a = rng() * Math.PI * 2, r = Math.sqrt(rng()) * 0.13; u = 0.5 + r * Math.cos(a); v = 0.45 + r * Math.sin(a) * view.w / view.h; }
-      else { u = rng.range(-0.02, 1.02); v = rng.range(0, 1); }
+      else {
+        // point de fuite à 45 % : la zone du haut est plus petite et ses mots en sortent plus vite ;
+        // 58 % des naissances au-dessus → autant de mots visibles en haut qu'en bas (mesuré)
+        const vp = view.cy / view.h;
+        u = rng.range(-0.02, 1.02); v = rng() < 0.58 ? rng.range(0, vp) : rng.range(vp, 1);
+      }
       w.X = cam.x + (u * view.w - cx) * w.z / f;
       w.Y = cam.y + (v * view.h - cy) * w.z / f;
       geom(w);
