@@ -32,13 +32,11 @@ export const wordCount = (w) => Math.round(40 + 38 * clamp01((w - 390) / 610));
 // écran étroit : lettres plus petites (le prénom central ne doit jamais être plus petit que le fond)
 export const fieldScale = (w, h) => Math.min(1, Math.max(0.72, w / h / 1.5));
 // interlettrage : plus d'air pour les petits mots lointains, moins pour les grands proches
-export const trackEm = (pxEm) => 0.07 + 0.08 * (1 - sm(14, 90, pxEm));
+export const trackEm = (pxEm) => 0.08 + 0.06 * (1 - sm(14, 90, pxEm)); // ≈ 0,1 em du prototype
 // gris par profondeur (prototype) ; proche plus sombre car flou, très lointain atténué
 export function grayOf(z) {
-  let g;
-  if (z > 16) g = 0.20;
-  else if (z >= 8) g = 0.44 - 0.24 * (z - 8) / 8;
-  else g = 0.26 + 0.18 * clamp01((z - 2.8) / 5.2);
+  // courbe du prototype
+  const g = z > 16 ? 0.20 : z > 8 ? 0.20 + 0.24 * sm(16, 8, z) : 0.44 - 0.18 * sm(8, 3.4, z);
   return g * (1 - 0.6 * sm(28, 34, z));
 }
 
@@ -122,7 +120,7 @@ export function createField(opts) {
     // écran étroit : la zone vide avale le centre ; régulation : moins de naissances centrales
     // quand beaucoup de mots sont déjà cachés dans la zone (nombre de mots visibles stable)
     const hidden = words.reduce((n, o) => n + (o !== w && o.zoneA != null && o.zoneA < 0.3 ? 1 : 0), 0);
-    const reg = Math.min(1.5, Math.max(0, 2 - hidden / (0.28 * words.length)));
+    const reg = Math.min(1.5, Math.max(0, 3 - 2.5 * hidden / (0.28 * words.length)));
     const central = rng() < CENTER_BIAS * reg * Math.min(1, Math.max(0.35, view.w / view.h / 1.5));
     w.name = pickName(central);
     w.text = displayCase(w.name, caseMode);

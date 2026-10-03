@@ -54,7 +54,7 @@ export function buildAtlas(chars, family, weight = 500) {
     if (x + g.w > W) { x = 0; y += rowH; rowH = 0; }
     g.x = x; g.y = y; x += g.w; rowH = Math.max(rowH, g.h);
   }
-  const H = y + rowH;
+  const H = Math.ceil((y + rowH) / 4) * 4; // multiple de 4 : l'atlas flou (¼) couvre exactement la même étendue
   const data = new Float32Array(W * H).fill(-R / EM);
 
   const maxW = Math.max(...metr.map((g) => g.w)), maxH = Math.max(...metr.map((g) => g.h));
@@ -92,5 +92,33 @@ export function buildAtlas(chars, family, weight = 500) {
       x0: -(pad + g.l) / EM, y0: -(pad + g.a) / EM, x1: (w - pad - g.l) / EM, y1: (h - pad - g.a) / EM,
     };
   }
-  return { width: W, height: H, data, glyphs, capHeight, xHeight, radiusEm: R / EM };
+  return { width: W, height: H, data, glyphs, capHeight, xHeight, radiusEm: R / EM, blur: blurAtlas(data, W, H) };
+}
+
+// Atlas pré-flouté (couverture, σ = BLUR_EM), au ¼ de résolution : niveau de flou maximal du prototype.
+// Le shader le mélange en continu avec le flou analytique (aucun palier visible).
+export const BLUR_EM = 0.11;
+function blurAtlas(sdf, W, H) {
+  const bw = W / 4, bh = H / 4, EM = ATLAS_EM;
+  const a = new Float32Array(bw * bh), t = new Float32Array(bw * bh);
+  for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) {
+    let s = 0;
+    for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) s += Math.min(1, Math.max(0, sdf[(y * 4 + j) * W + x * 4 + i] * EM + 0.5));
+    a[y * bw + x] = s / 16;
+  }
+  const sg = BLUR_EM * EM / 4, r = Math.ceil(sg * 3), k = [];
+  let n = 0;
+  for (let i = -r; i <= r; i++) { const v = Math.exp(-i * i / (2 * sg * sg)); k.push(v); n += v; }
+  for (let i = 0; i < k.length; i++) k[i] /= n;
+  for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) {
+    let s = 0;
+    for (let i = -r; i <= r; i++) { const xx = x + i; if (xx >= 0 && xx < bw) s += a[y * bw + xx] * k[i + r]; }
+    t[y * bw + x] = s;
+  }
+  for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) {
+    let s = 0;
+    for (let i = -r; i <= r; i++) { const yy = y + i; if (yy >= 0 && yy < bh) s += t[yy * bw + x] * k[i + r]; }
+    a[y * bw + x] = s;
+  }
+  return { width: bw, height: bh, data: a };
 }

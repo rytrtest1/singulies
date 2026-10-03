@@ -67,11 +67,11 @@ describe('field', () => {
     console.log('naissances observées :', births);
   });
 
-  it('stationnarité à 30 min (visible moyen, 120 échantillons)', () => {
+  it('stationnarité à 30 min (visible moyen, fenêtres de 5 min)', () => {
     const f = mk();
-    const a = sample(f, 120);
+    const a = sample(f, 300);
     f.advance(1800);
-    const b = sample(f, 120);
+    const b = sample(f, 300);
     const ma = mean(a.map((s) => s.visible)), mb = mean(b.map((s) => s.visible));
     expect(Math.abs(ma - mb) / ma).toBeLessThan(0.12);
   });

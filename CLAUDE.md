@@ -16,7 +16,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 ## Rendu — une seule caméra
 - Point de fuite ≈ (50 % x, 45 % y), fov ≈ 48°. Ce modèle unique pilote perspective, taille, flou, mouvement, parallaxe.
 - Chaque lettre = quad instancié projeté dans le shader. Rotation du mot ψ = κ·atan(|X|/z), κ ≈ 0,8 : l'extrémité extérieure est la plus proche, dans les 4 quadrants.
-- Flou : atlas SDF, flou continu par lettre et par image, σ_écran ∝ |1/z − 1/z_f|, **z_f fixe ≈ 14**, coefficient ≈ 5× plus faible au-delà de z_f (lointains nets, comme le prototype). Jamais de niveaux discrets, jamais de pulsation de netteté, jamais d'apparition brusque (naissance/mort en fondu ≥ 4 s). Compenser la perte de luminosité du flou.
+- Flou : atlas SDF, flou continu par lettre et par image, σ_écran ∝ |1/z − 1/z_f|, **z_f fixe = 10** (prototype, sans respiration), courbe du prototype : K = 0,2·S en deçà, 0,03·S au-delà, plafond 0,11 em (décision Maxence 03/10 : le look du prototype prime). Jamais de niveaux discrets, jamais de pulsation de netteté, jamais d'apparition brusque (naissance/mort en fondu ≥ 4 s). Compenser la perte de luminosité du flou.
 - Anti-chevauchement : tri loin→proche ; boîtes qui se recouvrent → le plus lointain s'efface (jusqu'à −86 %, lissé 1,2–1,8 s) ; profondeurs voisines (écart < 30 %) → poussée de séparation ≈ 1 px/s, filtrée ≈ 1,8 s.
 - Zone vide autour du prénom par fondu des mots, jamais par masque qui coupe.
 - Fond charbon granuleux (moyenne ≈ 8/255), vignette légère ; `?grain=0` → noir pur.

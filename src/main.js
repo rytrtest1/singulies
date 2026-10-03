@@ -41,6 +41,7 @@ const S = {
   w: 0, h: 0, dpr: 1,
   shiftY: 0, shiftV: 0,   // remontée douce au-dessus du clavier mobile
   validatedName: stored.validated ?? null,
+  dim: 1,
 };
 
 let announceTimer = 0;
@@ -201,11 +202,13 @@ function frame(ts) {
   const ln = L.lines;
   field.setZone(text.trim() ? { x0: Math.min(...ln.map((l) => l.x0)), x1: Math.max(...ln.map((l) => l.x1)), y0: L.top, y1: L.bottom, pad: 1.1 * L.fs } : null);
   updateCamera(dt);
+  // lettres éteintes ≈ −38 % tant qu'un prénom est saisi (prototype : 0,62, lissage 2,5/s)
+  S.dim += ((text.trim() ? 0.62 : 1) - S.dim) * (1 - Math.exp(-dt * 2.5));
   field.step(dt, !CFG.reduced);
   const fl = field.emit();
   const v = field.view;
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs,
-    field: fl, cam: field.cam, focal: v.f, vx: v.cx, vy: v.cy });
+    field: fl, cam: field.cam, focal: v.f, vx: v.cx, vy: v.cy, dim: S.dim });
   stats.letters = fl.count;
   stats.gpuMB = +((atlas.width * atlas.height * 2 + canvas.width * canvas.height * 4 * 2) / 1048576).toFixed(1);
 }

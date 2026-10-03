@@ -4,11 +4,11 @@
 
 export const FOV = 48 * Math.PI / 180;   // champ vertical
 export const VP = [0.5, 0.45];          // point de fuite (fraction d'écran)
-export const ZF = 14;                    // plan de netteté, fixe
-// flou : σ_px = K·f·|1/z − 1/ZF|, K plus faible au-delà du plan net (sinon les petits mots
-// lointains, majoritaires, deviennent pâteux : σ ≈ 1,4 px sur 10 px de corps)
-export const KB = 0.034;                 // en deçà de ZF (proches)
-export const KB_FAR = 0.007;             // au-delà de ZF (lointains)
+export const ZF = 10;                    // plan de netteté, fixe (prototype, sans respiration)
+// flou : σ_px = K·f·|1/z − 1/ZF| — exactement la courbe du prototype (σ_em = 0,2·(1 − z/ZF) en deçà,
+// 0,03·(z/ZF − 1) au-delà) écrite en continu : K = 0,2·S et 0,03·S (S = 0,356)
+export const KB = 0.0712;                // en deçà de ZF (proches : flou fort, fantomatique)
+export const KB_FAR = 0.0107;            // au-delà de ZF (lointains)
 export const KAPPA = 0.8;                // rotation du mot ψ = κ·atan(|X|/z)
 export const PSI_MAX = 0.8;
 

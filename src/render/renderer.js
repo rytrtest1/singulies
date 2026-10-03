@@ -4,6 +4,7 @@
 import { program, atlasTexture, GLSL_COMMON } from '../gl/gl.js';
 import { ZF, KB, KB_FAR } from '../field/camera.js';
 import { STRIDE as FSTRIDE } from '../field/field.js';
+import { BLUR_EM } from '../gl/atlas.js';
 
 const BG_VS = /* glsl */`#version 300 es
 void main() {
@@ -26,12 +27,12 @@ float hash(vec2 p) { // grain statique, stable d'une image à l'autre
 }
 void main() {
   vec2 frag = vec2(gl_FragCoord.x, u_res.y - gl_FragCoord.y);
-  vec2 q = floor(frag / max(1.0, u_dpr));
-  float g = hash(q);
-  float c = (6.0 + 1.6 * g + 11.0 * g * g * g * g) / 255.0;        // plancher 6 + scintillement (proto), moyenne ≈ 9
+  // fond du prototype : #050505 + grain rand³ (alpha 23/255) au px CSS, vignette 52 % → 0,66
+  float g = hash(floor(frag / max(1.0, u_dpr)));
+  float c = mix(5.0 / 255.0, g * g * g, 23.0 / 255.0);
   vec2 half_ = vec2(max(u_center.x, u_res.x - u_center.x), max(u_center.y, u_res.y - u_center.y)) * 1.41421;
   float r = length((frag - u_center) / half_);
-  float a = 0.32 * smoothstep(0.5, 1.0, r);                        // vignette légère
+  float a = 0.66 * clamp((r - 0.52) / 0.48, 0.0, 1.0);
   c *= (1.0 - a) * u_grain;
   o = vec4(vec3(c * u_fade), 1.0);
 }`;
@@ -75,9 +76,11 @@ void main() {
   o = vec4(vec3(a), a);
 }`;
 
-// Champ : une instance par lettre, projetée dans le shader par la caméra unique.
-// Le mot tourne de ψ autour de la verticale (extrémité extérieure la plus proche).
-// Flou continu par lettre : σ_px = KB·f·|1/z − 1/ZF|, profil gaussien du bord à partir du SDF.
+// Champ : une instance par lettre, placée par la caméra unique (centre de la lettre projeté).
+// Comme le prototype : la lettre reste un « sprite » face caméra, tourné rigidement selon la
+// pente locale de la ligne de base et comprimé horizontalement par cos ψ — pas de cisaillement.
+// Flou continu : σ_px = K·f·|1/z − 1/ZF| (K proche / K lointain = courbe du prototype),
+// plafonné à 0,11 em ; cœur net + halo (aspect du prototype), puis fondu continu vers l'atlas pré-flouté.
 const FIELD_VS = /* glsl */`#version 300 es
 layout(location=0) in vec4 a_w;    // X, Y, z (monde), ψ signé
 layout(location=1) in vec4 a_l;    // u (abscisse le long du mot), y ligne de base, S (taille d'un em), alpha
@@ -91,39 +94,52 @@ uniform float u_f, u_dpr;
 out vec2 v_uv;
 flat out float v_sig, v_aa, v_alpha, v_gray;
 const float ZF = ${ZF.toFixed(3)}, KB = ${KB.toFixed(4)}, KB_FAR = ${KB_FAR.toFixed(4)};
+vec2 proj(vec3 P) { return u_c + u_f * P.xy / max(P.z, 0.1); }
 void main() {
   vec2 c = vec2(gl_VertexID & 1, gl_VertexID >> 1);
+  float S = a_l.z, cp = cos(a_w.w), sp = sin(a_w.w);
+  vec3 d = vec3(cp, 0.0, -sp);
+  float ecx = 0.5 * (a_box.x + a_box.z);                    // centre horizontal du glyphe (em)
+  vec3 Pc = vec3(a_w.xy - u_cam, a_w.z) + d * (a_l.x + ecx * S);
+  float zc = max(0.5, Pc.z);
+  vec2 sc = proj(Pc);
+  vec2 dir = proj(Pc + d * 0.5 * S) - proj(Pc - d * 0.5 * S);
+  float g = atan(dir.y, dir.x);                              // pente locale de la ligne de base
+  float k = u_f * S / zc;                                    // px CSS par em
   vec2 e = mix(a_box.xy, a_box.zw, c);
-  float S = a_l.z, sp = sin(a_w.w);
-  vec3 d = vec3(cos(a_w.w), 0.0, -sp);
-  vec3 P = vec3(a_w.xy - u_cam, a_w.z) + d * (a_l.x + e.x * S) + vec3(0.0, a_l.y + e.y * S, 0.0);
-  float zc = max(0.5, a_w.z - sp * (a_l.x + 0.5 * (a_box.x + a_box.z) * S)); // centre de la lettre
-  float pxEm = u_f * S / zc;
-  v_sig = (zc < ZF ? KB : KB_FAR) * u_f * abs(1.0 / zc - 1.0 / ZF) / pxEm;   // σ en em
-  v_aa = 0.42 / (pxEm * u_dpr);                         // antialias ≈ 1 px physique, en em
+  vec2 loc = vec2((e.x - ecx) * cp, e.y + a_l.y / S) * k;
+  vec2 scr = sc + mat2(cos(g), sin(g), -sin(g), cos(g)) * loc;
+  float sig = (zc < ZF ? KB : KB_FAR) * u_f * abs(1.0 / zc - 1.0 / ZF) / k;
+  v_sig = min(sig, ${BLUR_EM.toFixed(3)});                    // σ en em (plafond = atlas pré-flouté)
+  v_aa = 0.42 / (k * u_dpr);                                 // antialias ≈ 1 px physique, en em
   v_alpha = a_l.w; v_gray = a_x.x;
   v_uv = mix(a_uv.xy, a_uv.zw, c);
-  float wz = max(P.z, 0.1);
-  vec2 scr = u_c + u_f * P.xy / wz;
-  vec2 ndc = (scr / u_view * 2.0 - 1.0) * vec2(1.0, -1.0);
-  gl_Position = vec4(ndc * wz, 0.0, wz);                 // w = z : interpolation correcte en perspective
+  gl_Position = vec4((scr / u_view * 2.0 - 1.0) * vec2(1.0, -1.0), 0.0, 1.0);
 }`;
 
 const FIELD_FS = /* glsl */`#version 300 es
 precision highp float;
-uniform sampler2D u_atlas;
-uniform float u_fade;
+uniform sampler2D u_atlas, u_blur;
+uniform float u_fade, u_dim;
 in vec2 v_uv;
 flat in float v_sig, v_aa, v_alpha, v_gray;
 out vec4 o;
 ${GLSL_COMMON}
+const float S_MID = 0.045, S_MAX = ${BLUR_EM.toFixed(3)};
+// flou analytique : cœur net + halo (aspect du prototype), à σ donné
+float soft(float dEm, float sig) {
+  float wc = 0.45 * (1.0 - smoothstep(0.03, S_MID, sig));
+  float halo = gaussCdf(dEm / sqrt(1.56 * sig * sig + v_aa * v_aa));
+  float core = gaussCdf(dEm / sqrt(0.2 * sig * sig + v_aa * v_aa));
+  return mix(halo, core, wc);
+}
 void main() {
   float dEm = texture(u_atlas, v_uv).r;
-  float s = sqrt(v_sig * v_sig + v_aa * v_aa);
-  float cov = gaussCdf(dEm / s);
-  float gain = 1.0 + 0.4 * smoothstep(0.0, 0.07, v_sig);  // compense la perte de luminosité du flou
-  float a = cov * v_alpha * u_fade;
-  o = vec4(vec3(a * min(1.0, v_gray * gain)), a);
+  float c;
+  if (v_sig <= S_MID) c = soft(dEm, v_sig);
+  else c = mix(soft(dEm, S_MID), texture(u_blur, v_uv).r, (v_sig - S_MID) / (S_MAX - S_MID)); // vers le vrai flou pré-calculé
+  float a = c * v_alpha * u_fade;
+  o = vec4(vec3(a * min(1.0, v_gray * u_dim)), a);
 }`;
 
 const STRIDE = 12; // floats par instance
@@ -138,6 +154,7 @@ export function createRenderer(canvas, gl, atlas) {
     const bg = program(gl, BG_VS, BG_FS);
     const gp = program(gl, GLYPH_VS, GLYPH_FS);
     const tex = atlasTexture(gl, atlas);
+    const btex = atlasTexture(gl, atlas.blur);
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     const buf = gl.createBuffer();
@@ -163,7 +180,7 @@ export function createRenderer(canvas, gl, atlas) {
       gl.vertexAttribDivisor(i, 1);
     }
     gl.bindVertexArray(null);
-    res = { bg, gp, tex, vao, buf, empty, fp, fvao, fbuf };
+    res = { bg, gp, tex, btex, vao, buf, empty, fp, fvao, fbuf };
   }
 
   init();
@@ -206,7 +223,12 @@ export function createRenderer(canvas, gl, atlas) {
       gl.uniform1f(fp.u.u_f, f.focal);
       gl.uniform1f(fp.u.u_dpr, f.dpr);
       gl.uniform1f(fp.u.u_fade, f.fade);
+      gl.uniform1f(fp.u.u_dim, f.dim ?? 1);
       gl.uniform1i(fp.u.u_atlas, 0);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, res.btex);
+      gl.uniform1i(fp.u.u_blur, 1);
+      gl.activeTexture(gl.TEXTURE0);
       gl.bindVertexArray(fvao);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count);
       gl.bindVertexArray(null);

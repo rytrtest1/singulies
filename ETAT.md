@@ -38,6 +38,14 @@
 - Mobile : 40 mots (34 avant). Clavier : taille CSS du canvas figée en px → plus d'étirement à l'ouverture du clavier (non vérifié sur iPhone).
 - Chiffres 1672 LEA : px>5 94,5 / px>20 8,6 / px>80 1,1 / lum 12,6 ; 62 visibles. Stationnarité (moy. 60 s) 1672 : 55,2 / 54,1 / 56,1 / 59,3 ; 390 : 24,7 / 26,9 / 26,3 / 26. Sur 3 h simulées, moyennes 10 min 54–62. Proches : moy. ≈ 4,7 (1672), ≈ 1–5 (390). FPS 18 (1672 swiftshader) / 60 (390). Tests 38/38 + 62/62.
 
+### Révision 3c — retour au look du prototype (Maxence : « le HTML d'avant est beaucoup mieux »)
+- Diagnostic à la loupe ×3 : le **dessin des lettres** (SDF) est équivalent au prototype (graisse, netteté). Les écarts venaient de : 1) **pas de lettres allumées** (le prototype démarre avec LEA déjà saisi : lettres blanches + reste à 62 %) → étape 4 ; 2) **proches trop nets et trop lumineux** (prototype : σ 0,11 em, fantomatiques) ; 3) **cisaillement** : nos lettres étaient des quads 3D (verticales droites, ligne de base inclinée → effet italique) alors que le prototype tourne chaque lettre rigidement ; 4) **grain** du prototype (#050505 + rand³ 23/255, vignette 0,66) remplacé à tort ; 5) aspect « cœur net + halo » du mélange de sprites du prototype.
+- Fait : ZF = 10, K proche 0,0712 / lointain 0,0107 (= courbe du proto en continu), plafond 0,11 em ; lettres = sprites placés par la caméra, rotation rigide selon la pente locale de la ligne de base, compression cos ψ ; flou = cœur + halo analytiques jusqu'à 0,045 em puis fondu continu vers un atlas pré-flouté σ 0,11 em (¼ résolution, 512×258) ; gris du proto (courbes smoothstep) ; atténuation des éteintes 0,62 quand un prénom est saisi ; fond et vignette du proto ; interlettrage 0,08–0,14 em.
+- Essai abandonné : vrai flou à 12–16 échantillons → 6 img/s en 1672 (logiciel). Atlas pré-flouté : 19 / 60 img/s (identique à avant).
+- Régulation des naissances centrales durcie (3 − 2,5·cachés/cible) : visibles moy. 60 s à 0/10/20/30 min = 59,4 / 56,9 / 57,3 / 58 (1672), 27,1 / 26,6 / 27 / 30 (390). Répartition moyen/lointain fluctue (29↔14 moyens) : effet de cohortes du flux.
+- Chiffres 1672 LEA (seed 11) : px>5 64,4 / px>20 10,7 / px>80 0,08 / lum 10,5 ; 60 visibles, 1 chevauchement. px>5 bas = grain du proto (référence 91,6).
+- Tests 38/38 (fenêtre de stationnarité du test : 5 min).
+
 ### Ouvert
 - Proches un peu sous la cible (≈ 4,7 au lieu de 6) : contrainte du flux (un proche doit naître au centre). Plus de proches = plus de mots cachés dans la zone.
 - Option clavier : atténuer le fond quand le clavier est ouvert (proposition de Maxence) — en attente de son essai sur iPhone.
