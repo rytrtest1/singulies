@@ -30,7 +30,7 @@ describe('NAMES', () => {
 });
 
 describe('field', () => {
-  it('nombre de mots : 78 à 1672, portrait = champ 2,2× plus large que l'écran (70)', () => {
+  it('nombre de mots : 78 à 1672, portrait = champ 2,2× plus large que l’écran (70)', () => {
     expect(wordCount(1672)).toBe(78);
     expect(wordCount(390)).toBe(40);
     expect(mk().words.length).toBe(78);
