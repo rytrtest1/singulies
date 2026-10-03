@@ -1,6 +1,11 @@
 # ETAT.md — SINGULIÉS accueil
 
-## Étape courante : 4 close (03/10). En cours : 6 (parcours). Mode horizontal (5) : v1 faite.
+## Point de reprise (fin de session 03/10)
+- **En ligne** : rytrtest1.github.io/singulies (GitHub Pages, push sur `origin main` = déploiement). Règles à jour : `CLAUDE.md` (fait foi, plus récent que l'historique ci-dessous).
+- **Fait** : étapes 2–4, 5 (mode horizontal v1 ; défaut = mélange avance + courants lents), 6 en partie (Entrée = confirmer, toucher le prénom → colonne de l'acrostiche → noir ; visiteur qui revient ; retour). Point de fuite et prénom à 50 %. Recouvrements par lettre. Suggestion du prénom (autocomplete given-name) + clavier fermé après sélection (Safari, Chrome Android). Molette / glisser = avancer-reculer (recul = le temps remonte). Icône SS blanc sur noir.
+- **Prochaine étape décidée** : concevoir le passage vers la scène suivante (**les cartes questions**). Proposition retenue en discussion : piste A — le champ s'éteint, la colonne du prénom glisse à gauche et reste comme fil rouge, 3 cartes noires (logo SS gaufré) arrivent du fond, on en retourne une (question tapée à la machine), on garde ou on repioche. Questions encore ouvertes : reprendre les 73 questions (`Downloads/singulies-questions.json`) ? police machine à écrire (OFL, ex. Courier Prime) ? « champ libre » et « surprends-moi » sans texte ? son de frappe ? → rédiger une section « scène 2 » dans CLAUDE.md, plan avant code (méthode, étape 1).
+- **En attente** : étape 7 (qualité adaptative, stationnarité en portrait 20–36 mots, peu de mots proches en portrait, tri des essais `?saisie=roue` / `?saisie=voix`) ; test sans consigne à 5 personnes sur mobile.
+- **Tests** : `npm test` (43), `npm run test:e2e` (86) ; ne publier que si tout passe. Mesures : `tools/measure.mjs` (agent mesures), `tools/check-live.mjs`.
 
 ## Étape 3 — fait (03/10)
 - Fichiers : `src/field/camera.js` (FOV 48°, VP 50/45 %, ZF 14 fixe, KB 0,034, κ 0,8), `src/field/field.js` (simulation CPU : tranches, zoom, fondus, zone vide, anti-chevauchement, emit → 20 floats/lettre), `src/field/names.js` (≈ 220 prénoms A–Z), `src/field/rng.js` (mulberry32, `?seed=N`). Renderer : programme FIELD (lettre = quad instancié projeté dans le VS, w = z, flou par lettre `gaussCdf(d/√(σ²+aa²))`, gain lum. ≤ +40 %). 3 draw calls (fond, champ, prénom).
@@ -175,4 +180,4 @@ Fond
 - Écarts assumés vs prototype : z_f fixe 14 (pas de respiration), flou continu, avance par zoom exponentiel dans la tranche (pas de translation de caméra), police locale.
 
 ## Reste
-Étapes 4 → 7. Dépôt GitHub rytrtest1/singulies : remote `origin` ajouté, push à faire par Maxence (`git push -u origin main`).
+Voir « Point de reprise » en tête de fichier.
