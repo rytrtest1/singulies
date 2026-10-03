@@ -24,8 +24,8 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 
 ## Mouvement
 - Boucle infinie, composition **stationnaire**, **flux continu** (décision Maxence 03/10) : un mot naît **seulement petit au fond** (z ≈ 30–34, fondu ≥ 4 s), la caméra avance (vitesse d'approche ≈ 0,05·√(z/12) monde/s : **les mots proches défilent plus vite**, parallaxe réelle) et un mot **ne disparaît qu'en quittant l'écran**. Portrait : voir « Rendu ». Répartition visée proche 2,8–4,6 / moyenne 6–14 / lointaine 16–32 ≈ 8/42/50 %, obtenue par la géométrie du flux. État initial = champ « vécu » ≈ 700 s avant ouverture. ≈ 5–6 mots proches visibles (premier plan insuffisant = défaut).
-- **Mode horizontal reporté** (03/10 : pas pour le moment). Prévu : modes profondeur / horizontal, bascule progressive Tab ou double-clic, `?mode=horizontal`.
-- Horizontal : v_monde = A·sin(k·Y + φ(t)), φ dérive lentement ; nappes gauche et droite simultanées, cisaillement doux, pas de bande rigide. v_écran = f·v/z. Sortie d'un côté → réapparition de l'autre à même profondeur.
+- Modes profondeur / horizontal (v1 03/10). Bascule progressive (taux 1,2/s) : Tab ou double-clic ; `?mode=horizontal`.
+- Horizontal : v_monde = A·sin(k·Y + φ(t)) (A = 0,26 monde/s, k = 0,85, φ = 0,06·t + 0,8·sin(0,011·t)) ; en horizontal la profondeur est figée (pas d'avance de caméra) ; nappes gauche et droite simultanées, cisaillement doux, pas de bande rigide. v_écran = f·v/z. Sortie d'un côté → réapparition de l'autre à même profondeur.
 - Le champ écoute : à chaque frappe, léger souffle de caméra + ralentissement du courant ≈ 1 s.
 - Parallaxe pointeur = translation caméra (jamais rotation seule), ressort amorti, retard ≈ 0,8 s. **Pas de demande d'accès au mouvement du téléphone** (03/10) : parallaxe à la souris seulement. **Molette (ordinateur, vers le haut = reculer, un cran ≈ ±2,2) / glisser vertical d'un doigt (téléphone, doigt vers le bas = avancer) = avancer ou reculer dans le champ**, retour doux ; `touch-action: pinch-zoom` (le zoom par pincement reste disponible). Portrait : courant ×2. Pas de dérive propre des mots ni d'oscillation de caméra notables (masquaient la perspective). Le point de fuite suit le prénom quand le clavier le fait remonter. `?debug=1` : croix au point de fuite.
 - `prefers-reduced-motion` : image fixe, ondes en simples fondus, pas de parallaxe.
@@ -87,7 +87,7 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 2. Squelette WebGL2, police, atlas SDF, fond, prénom central, saisie complète + tests.
 3. Champ de mots : caméra, perspective, flou continu, tranches stationnaires, anti-chevauchement.
 4. Lumière organique, anneau, lumière intérieure, champ qui écoute.
-5. ~~Mode horizontal bidirectionnel + bascule~~ — reporté (03/10).
+5. Mode horizontal bidirectionnel + bascule (v1 faite 03/10).
 6. Validation (vol des lettres), retour, restauration, visiteur qui revient, mouvement réduit, deux casses.
 7. Performance adaptative, mesures, nettoyage.
 

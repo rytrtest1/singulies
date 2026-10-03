@@ -1,6 +1,6 @@
 # ETAT.md — SINGULIÉS accueil
 
-## Étape courante : 4 close (03/10). En cours : 6 (parcours). Mode horizontal (5) reporté.
+## Étape courante : 4 close (03/10). En cours : 6 (parcours). Mode horizontal (5) : v1 faite.
 
 ## Étape 3 — fait (03/10)
 - Fichiers : `src/field/camera.js` (FOV 48°, VP 50/45 %, ZF 14 fixe, KB 0,034, κ 0,8), `src/field/field.js` (simulation CPU : tranches, zoom, fondus, zone vide, anti-chevauchement, emit → 20 floats/lettre), `src/field/names.js` (≈ 220 prénoms A–Z), `src/field/rng.js` (mulberry32, `?seed=N`). Renderer : programme FIELD (lettre = quad instancié projeté dans le VS, w = z, flou par lettre `gaussCdf(d/√(σ²+aa²))`, gain lum. ≤ +40 %). 3 draw calls (fond, champ, prénom).
@@ -86,6 +86,11 @@
 ### Étape 6 (en cours)
 - Visiteur qui revient : lettres déjà allumées à l'arrivée (`light.prime`, sans onde), prénom confirmé (pas de clavier ; toucher le prénom → colonne). Retour (flèche/Échap) : prénom conservé et confirmé, pas de clavier sur téléphone.
 - Reste : affiner la colonne de l'acrostiche, stationnarité portrait, premier plan.
+
+### Étape 5 — mode horizontal v1 (03/10)
+- `field.step(dt, motion, speed, mh)` : mh 0 profondeur → 1 horizontal (mélange progressif). Horizontal : vx = A·sin(k·Y + φ(t)), z figé, sortie latérale → retour par l'autre bord à même profondeur/hauteur (`wrap`). Bascule : Tab, double-clic, `?mode=horizontal`.
+- Mesure (1672, 2 s) : 14 mots vers la droite, 22 vers la gauche ; proches ≈ 34 px/s, lointains 4–16 px/s ; profondeur inchangée ; Tab → retour profondeur en ≈ 3 s.
+- Limites v1 : en horizontal, plus de naissances ni d'avance (composition figée en profondeur) ; double toucher sur téléphone = aussi ouverture du clavier.
 
 ### Ouvert
 - Proches un peu sous la cible (≈ 4,7 au lieu de 6) : contrainte du flux (un proche doit naître au centre). Plus de proches = plus de mots cachés dans la zone.

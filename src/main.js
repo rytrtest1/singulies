@@ -20,6 +20,7 @@ const CFG = {
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
   seed: P.has('seed') ? +P.get('seed') : undefined,
   debug: P.get('debug') === '1',
+  mode: P.get('mode') === 'horizontal' ? 'horizontal' : 'profondeur',
   wheel: P.get('saisie') === 'roue',   // saisie par roue de lettres (sans clavier virtuel)
   voice: P.get('saisie') === 'voix',   // « dis ou écris ton prénom » (essai)
 };
@@ -63,6 +64,8 @@ const S = {
   acro: null,             // instant du passage en colonne (acrostiche)
   nameBox: null,          // boîte écran du prénom (toucher pour passer en colonne)
   boost: 0,               // avance/recul dans le champ (molette, glisser vertical)
+  modeT: P.get('mode') === 'horizontal' ? 1 : 0,   // mode visé : 0 profondeur, 1 horizontal
+  mh: P.get('mode') === 'horizontal' ? 1 : 0,      // mode courant (bascule progressive)
 };
 
 let announceTimer = 0;
@@ -190,6 +193,11 @@ document.addEventListener('click', (e) => {
   if (S.confirmed && b && e.clientX > b[0] && e.clientX < b[2] && e.clientY > b[1] && e.clientY < b[3]) { startAcrostic(); return; }
   if (!wheel && document.activeElement !== input) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); }
 });
+
+// bascule profondeur ↔ horizontal : Tab ou double-clic (progressive)
+function toggleMode() { S.modeT = S.modeT > 0.5 ? 0 : 1; }
+window.addEventListener('keydown', (e) => { if (e.key === 'Tab' && !e.altKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleMode(); } });
+document.addEventListener('dblclick', (e) => { if (S.acro == null && !wheel) toggleMode(); });
 
 // ---------- dimensions ----------
 function measure() {
@@ -356,7 +364,8 @@ function frame(ts) {
   S.dim += ((text.trim() ? 0.62 : 1) - S.dim) * (1 - Math.exp(-dt * 2.5));
   S.boost *= Math.exp(-dt / 1.1);
   const portraitSpeed = S.w < S.h ? 2 : 1;   // portrait : on ne voit qu'une partie du champ, le flux paraît lent
-  field.step(dt, !CFG.reduced, speed * portraitSpeed * (1 + S.boost));
+  S.mh += (S.modeT - S.mh) * (CFG.reduced ? 1 : 1 - Math.exp(-dt * 1.2));   // bascule progressive
+  field.step(dt, !CFG.reduced, speed * portraitSpeed * (1 + S.boost), S.mh);
   const fl = field.emit(light, S.t, { x: cx, y: cy });
   const v = field.view;
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs,
@@ -462,7 +471,7 @@ async function boot() {
     metrics = { adv: (ch) => atlas.glyphs[ch]?.adv ?? 0.6, capHeight: atlas.capHeight };
     renderer = createRenderer(canvas, gl, atlas);
     const t0 = performance.now();
-    field = createField({ rng: createRng(CFG.seed), caseMode: CFG.caseMode, glyphs: atlas.glyphs, capHeight: atlas.capHeight });
+    field = createField({ rng: createRng(CFG.seed), caseMode: CFG.caseMode, glyphs: atlas.glyphs, capHeight: atlas.capHeight, mode: CFG.mode });
     field.resize(S.w, S.h);   // inclut ≈ 700 s de champ « vécu »
     input.style.top = `calc(${(field.view.cy / S.h) * 100}% - 3.5em)`;
     stats.warmupMs = Math.round(performance.now() - t0);

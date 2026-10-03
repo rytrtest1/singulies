@@ -15,6 +15,9 @@ export const TIERS = [
   { key: 'lointain', z0: 16, z1: 32, share: 0.50 },
 ];
 export const SPEED = 0.05;          // avance de la caméra, monde/s (prototype) : z ← z − SPEED·t
+// mode horizontal : nappes latérales v = A·sin(k·Y + φ(t)) (gauche et droite à la fois, cisaillement doux)
+export const H_AMP = 0.26;          // monde/s
+export const H_K = 0.85;            // rad par unité monde (en Y)
 export const ASPECT = 16 / 9;       // cadre virtuel paysage ; en portrait on n'en voit que le centre
 export const FADE_IN = 4.5;         // s
 export const Z_BIRTH = [30, 34];    // naissance au fond
@@ -172,7 +175,7 @@ export function createField(opts) {
     if (words.length > N) words.length = N;
     while (words.length < N) { const nw = {}; words.push(nw); spawn(nw, first); }
     for (const x of words) geom(x);
-    if (first) for (let s = 0; s < WARMUP; s += 0.5) step(0.5, true);
+    if (first) for (let s = 0; s < WARMUP; s += 0.5) step(0.5, true, 1, opts.mode === 'horizontal' ? 1 : 0);
   }
 
   // zone vide autour du prénom (rectangle px) ; null → zone de repos (prénom vide)
@@ -186,22 +189,37 @@ export function createField(opts) {
     zone.x0 = cx - hw; zone.x1 = cx + hw; zone.y0 = ccy - hh; zone.y1 = ccy + hh; zone.fw = 70 * ui;
   }
 
+  // mode horizontal : passage d'un bord à l'autre (juste hors champ, même profondeur, même hauteur)
+  function wrap(w) {
+    const { f, cx } = view, bw = w.box[2] - w.box[0];
+    const toLeft = w.box[0] > view.w;               // sorti à droite → revient par la gauche
+    const xs = toLeft ? -20 - bw / 2 : view.w + 20 + bw / 2;
+    w.X = cam.x + (xs - cx) * w.z / f;
+    geom(w);
+  }
+
   // ---------- pas de simulation ----------
   // speed : facteur du courant (le champ ralentit un instant à chaque frappe)
-  function step(dt, motion = true, speed = 1) {
+  // mh : 0 = profondeur (la caméra avance), 1 = horizontal (nappes latérales), entre les deux : mélange
+  function step(dt, motion = true, speed = 1, mh = 0) {
     time += dt;
     const { f } = view;
+    const phase = 0.06 * time + 0.8 * Math.sin(0.011 * time);   // φ dérive lentement : les nappes se déplacent
     for (const w of words) {
       if (motion) {
-        w.z -= SPEED * Math.sqrt(w.z / 12) * speed * dt;   // ∝ √z : parallaxe nette (proche ≈ 3× plus rapide à l’écran) sans vider le premier plan
+        w.z -= SPEED * Math.sqrt(w.z / 12) * speed * (1 - mh) * dt;   // ∝ √z : parallaxe nette (proche ≈ 3× plus rapide à l’écran) sans vider le premier plan
         if (w.z > Z_BIRTH[1] + 1) w.z = Z_BIRTH[1] + 1;        // recul (molette) : pas au-delà du fond
-        w.X += (w.dvx * speed + w.sx * w.z / f) * dt;
+        const vh = mh * H_AMP * Math.sin(H_K * w.Y + phase) * speed;   // à l'écran : f·v/z (proches plus rapides)
+        w.X += (w.dvx * speed + w.sx * w.z / f + vh) * dt;
         w.Y += (w.dvy * speed + w.sy * w.z / f) * dt;
       }
       w.age += dt;
       geom(w);
-      // mort : seulement en quittant l'écran (ou au bout du flux, au centre, déjà effacé par la zone)
-      if (offscreen(w.box, 24) || w.z <= Z_END[0]) spawn(w, false);
+      // mort : seulement en quittant l'écran (ou au bout du flux, au centre, déjà effacé par la zone) ;
+      // en mode horizontal, un mot sorti par un côté réapparaît de l'autre, à la même profondeur
+      const vOff = w.box[3] < -24 || w.box[1] > view.h + 24;
+      if (w.z <= Z_END[0] || (offscreen(w.box, 24) && (vOff || mh <= 0.5))) spawn(w, false);
+      else if (offscreen(w.box, 24)) wrap(w);
       w.tier = tierOf(w.z);
       const zk = 1 - Math.exp(-dt / ZONE_TAU);
       w.zoneA += (zoneTarget(w) - w.zoneA) * zk;
