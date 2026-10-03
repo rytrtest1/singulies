@@ -97,6 +97,9 @@
 ### Recouvrements par lettre (03/10)
 - Effacement calculé par lettre (centre/demi-largeur écran de chaque lettre vs boîte du mot plus proche, bords doux), lissé par lettre. Mesure « chevauchements » = une lettre encore nette (alpha > 0,3) sous la boîte d'un mot proche net : 1,8–4,3 (1672). Visibles 63–67. FPS 27 (1672) / 60 (390).
 
+### Point de fuite au centre (03/10)
+- À 45 % : autant de densité en haut qu'en bas mais 22 % de surface en plus en bas → plus de mots en bas. Une correction des naissances (58 % en haut) a été essayée puis retirée (« pas de bricolage ») : point de fuite et prénom à 50 %. Mesure 12 tirages × 10 min : mots proches haut/bas 0,99, surface haut/bas 0,97 (par tirage : 0,6–2,2, d'où des impressions trompeuses sur une courte durée). Prénom mesuré à 50 / 49,9 %.
+
 ### Ouvert
 - Proches un peu sous la cible (≈ 4,7 au lieu de 6) : contrainte du flux (un proche doit naître au centre). Plus de proches = plus de mots cachés dans la zone.
 - Option clavier : atténuer le fond quand le clavier est ouvert (proposition de Maxence) — en attente de son essai sur iPhone.

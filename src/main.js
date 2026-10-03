@@ -215,7 +215,7 @@ function measure() {
   canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
   field?.resize(w, h);
   // champ natif centré sur le prénom (le clavier mobile vise cette zone)
-  input.style.top = `calc(${(field ? field.view.cy / h : 0.45) * 100}% - 3.5em)`;
+  input.style.top = `calc(${(field ? field.view.cy / h : 0.5) * 100}% - 3.5em)`;
 }
 window.addEventListener('resize', measure);
 window.visualViewport?.addEventListener('resize', measure);
@@ -278,7 +278,7 @@ function frame(ts) {
   // remontée au-dessus du clavier (visualViewport) — ressort amorti
   const vv = window.visualViewport;
   let target = 0;
-  const cx = S.w / 2, cy0 = field ? field.view.cy : S.h * 0.45;   // le prénom est au point de fuite
+  const cx = S.w / 2, cy0 = field ? field.view.cy : S.h * 0.5;   // le prénom est au point de fuite
   if (wheel && S.phase === 'input') wheel.update(dt);
   const text = displayCase(wheel ? wheel.displayText : bridge.shownText, CFG.caseMode);
   const L0 = atlas ? layoutName(text, metrics, { w: S.w, h: S.h, cx, cy: cy0 }) : null;

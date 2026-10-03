@@ -3,7 +3,7 @@
 // Écran : x = cx + f·(X − Cx)/z ; y = cy + f·(Y − Cy)/z.
 
 export const FOV = 48 * Math.PI / 180;   // champ vertical
-export const VP = [0.5, 0.45];          // point de fuite (fraction d'écran)
+export const VP = [0.5, 0.5];           // point de fuite au centre de l'écran (le prénom aussi)
 // flou : une seule règle, la caméra fait la mise au point au fond du champ (ZF = 34) :
 // plus un mot est proche, plus il est flou, progressivement. σ_px = KB·f·|1/z − 1/ZF|
 export const ZF = 34;
