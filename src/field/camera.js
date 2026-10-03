@@ -9,8 +9,8 @@ export const VP_PORTRAIT_Y = 0.35;      // portrait : au-dessus du clavier
 // flou : une seule règle, la caméra fait la mise au point au fond du champ (ZF = 34) :
 // plus un mot est proche, plus il est flou, progressivement. σ_px = KB·f·|1/z − 1/ZF|
 export const ZF = 34;
-export const KB = 0.034;
-export const KB_FAR = 0.034;             // (au-delà du plan net : naissance uniquement)
+export const KB = 0.055;
+export const KB_FAR = 0.055;             // (au-delà du plan net : naissance uniquement)
 export const KAPPA = 0.8;                // rotation du mot ψ = κ·atan(|X|/z)
 export const PSI_MAX = 0.8;
 

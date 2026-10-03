@@ -113,8 +113,10 @@ export function createField(opts) {
     w.z = warm ? Z_END[1] * Math.pow(Z_BIRTH[1] / Z_END[1], rng()) : rng.range(Z_BIRTH[0], Z_BIRTH[1]);
     w.S = S_BASE * sField * rng.range(0.9, 1.15);
     w.ink = rng.range(0.92, 1.08);
-    w.dvx = rng.range(-1, 1) * 0.01 * sField;
-    w.dvy = rng.range(-1, 1) * 0.006 * sField;
+    // dérive propre très faible : plus rapide que le flux de perspective près du centre, elle
+    // donnait l'impression que les mots ne partent pas du point de fuite
+    w.dvx = rng.range(-1, 1) * 0.001 * sField;
+    w.dvy = rng.range(-1, 1) * 0.0006 * sField;
     w.sx = 0; w.sy = 0; w.tsx = 0; w.tsy = 0;
     w.occ = 0; w.occT = 0; w.tauOcc = rng.range(1.2, 1.8);
     w.age = warm ? 1e4 : 0;

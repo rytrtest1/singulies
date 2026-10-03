@@ -81,7 +81,7 @@ void main() {
 // Comme le prototype : la lettre reste un « sprite » face caméra, tourné rigidement selon la
 // pente locale de la ligne de base et comprimé horizontalement par cos ψ — pas de cisaillement.
 // Flou continu : σ_px = K·f·|1/z − 1/ZF| (K proche / K lointain = courbe du prototype),
-// plafonné à 0,11 em ; cœur net + halo (aspect du prototype), puis fondu continu vers l'atlas pré-flouté.
+// plafonné à 0,11 em ; fondu continu entre lettre nette et atlas pré-flouté (sans gain de luminosité).
 // Lumière : une clarté lente circule dans la lettre allumée.
 const NOISE = /* glsl */`
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
@@ -141,19 +141,13 @@ flat in vec2 v_uv0, v_uvEm;
 out vec4 o;
 ${GLSL_COMMON}
 ${NOISE}
-const float S_MID = 0.045, S_MAX = ${BLUR_EM.toFixed(3)};
-// flou analytique : cœur net + halo (aspect du prototype), à σ donné
-float soft(float dEm, float sig) {
-  float wc = 0.45 * (1.0 - smoothstep(0.03, S_MID, sig));
-  float halo = gaussCdf(dEm / sqrt(1.56 * sig * sig + v_aa * v_aa));
-  float core = gaussCdf(dEm / sqrt(0.2 * sig * sig + v_aa * v_aa));
-  return mix(halo, core, wc);
-}
+const float S_SHARP = 0.015, S_MAX = ${BLUR_EM.toFixed(3)};
 void main() {
+  // flou sans gain de luminosité : fondu entre la lettre nette et sa version réellement floutée
+  // (atlas pré-calculé, même quantité de lumière) — jamais d'épaississement des traits fins
   float dEm = texture(u_atlas, v_uv).r;
-  float c;
-  if (v_sig <= S_MID) c = soft(dEm, v_sig);
-  else c = mix(soft(dEm, S_MID), texture(u_blur, v_uv).r, (v_sig - S_MID) / (S_MAX - S_MID)); // vers le vrai flou pré-calculé
+  float sharp = gaussCdf(dEm / sqrt(min(v_sig, S_SHARP) * min(v_sig, S_SHARP) + v_aa * v_aa));
+  float c = mix(sharp, texture(u_blur, v_uv).r, clamp((v_sig - S_SHARP) / (S_MAX - S_SHARP), 0.0, 1.0));
   float a = c * v_alpha * u_fade;
   // lumière intérieure : une clarté lente circule dans la lettre allumée (bruit en coordonnées du glyphe)
   float Lc = v_L;

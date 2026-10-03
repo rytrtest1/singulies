@@ -17,6 +17,7 @@ const CFG = {
   grain: P.get('grain') === '0' ? 0 : P.get('grain') === '1' ? 2 : 1,   // 0 noir pur, 1 fond uni (défaut), 2 grain
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
   seed: P.has('seed') ? +P.get('seed') : undefined,
+  debug: P.get('debug') === '1',
 };
 const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
@@ -142,8 +143,9 @@ function onOrient(e) {
   if (e.gamma == null || e.beta == null) return;
   if (!tilt) tilt = { g: e.gamma, b: e.beta };
   tilt.g += (e.gamma - tilt.g) * 0.004; tilt.b += (e.beta - tilt.b) * 0.004;
-  PAR.tx = Math.max(-1, Math.min(1, (e.gamma - tilt.g) / 15));
-  PAR.ty = Math.max(-1, Math.min(1, (e.beta - tilt.b) / 15));
+  // sens inversé (demande de Maxence) : la caméra part du côté opposé à l'inclinaison
+  PAR.tx = -Math.max(-1, Math.min(1, (e.gamma - tilt.g) / 15));
+  PAR.ty = -Math.max(-1, Math.min(1, (e.beta - tilt.b) / 15));
 }
 let tiltAsked = false;
 function enableTilt() {   // iOS : autorisation demandée au premier toucher (geste utilisateur requis)
@@ -160,8 +162,8 @@ function updateCamera(dt) {
   PAR.vx += (-(PAR.x - PAR.tx) * w * w - 2 * z * w * PAR.vx) * dt; PAR.x += PAR.vx * dt;
   PAR.vy += (-(PAR.y - PAR.ty) * w * w - 2 * z * w * PAR.vy) * dt; PAR.y += PAR.vy * dt;
   const k = field.view ? 1 : 0;
-  field.cam.x = k * (0.12 * PAR.x + 0.05 * Math.sin(0.11 * S.t));
-  field.cam.y = k * (0.08 * PAR.y + 0.03 * Math.sin(0.083 * S.t + 1));
+  field.cam.x = k * (0.12 * PAR.x + 0.012 * Math.sin(0.11 * S.t));
+  field.cam.y = k * (0.08 * PAR.y + 0.008 * Math.sin(0.083 * S.t + 1));
 }
 
 // ---------- boucle ----------
@@ -215,6 +217,11 @@ function frame(ts) {
   });
   glyphAnim.length = L.glyphs.length;
   // curseur : clignote tant qu'aucune touche n'a été tapée, puis disparaît définitivement
+  if (CFG.debug) {   // croix au point de fuite
+    const vy = field.view.cy + S.shiftY;
+    glyphs.push({ box: [cx - 12, vy - 0.5, cx + 12, vy + 0.5], uv: null, alpha: 0.6, pxEm: 1 });
+    glyphs.push({ box: [cx - 0.5, vy - 12, cx + 0.5, vy + 12], uv: null, alpha: 0.6, pxEm: 1 });
+  }
   if (!S.typed && S.phase === 'input') {
     const ph = (S.t - OPEN_DARK) % 1.1;
     const blink = CFG.reduced ? 1 : smooth(0, 0.12, ph) * (1 - smooth(0.55, 0.67, ph));
@@ -238,7 +245,7 @@ function frame(ts) {
   const fl = field.emit(light, S.t, { x: cx, y: cy });
   const v = field.view;
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs,
-    field: fl, cam: field.cam, focal: v.f * (1 + BR.p), vx: v.cx + field.offX, vy: v.cy, dim: S.dim, time: S.t });
+    field: fl, cam: field.cam, focal: v.f * (1 + BR.p), vx: v.cx + field.offX, vy: v.cy + S.shiftY, dim: S.dim, time: S.t });
   stats.letters = fl.count;
   stats.gpuMB = +((atlas.width * atlas.height * 2 + canvas.width * canvas.height * 4 * 2) / 1048576).toFixed(1);
 }
