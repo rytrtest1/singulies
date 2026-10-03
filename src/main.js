@@ -75,29 +75,25 @@ function announce(msg) {
 const bridge = createBridge(input, model, {
   caseMode: CFG.caseMode,
   announce,
-  onChange: () => { if (S.phase === 'input') { S.typed = true; S.keyAt = S.t; S.confirmed = false; } renderFallback(); },
+  onChange: (info) => { if (S.phase === 'input') { S.typed = true; S.keyAt = S.t; S.confirmed = false; detectSuggestion(info); } renderFallback(); },
   onSubmit: () => submitName(),
   onEscape: goBack,
 });
 bridge.refresh();
 // remplissage automatique (suggestion du clavier) : le prénom arrive d'un coup → on ferme le clavier
 input.addEventListener('focus', () => input.classList.remove('rest'));
-// suggestion choisie : remplissage automatique, ou mot entier inséré d'un coup par le clavier
-// (Chrome Android / Gboard : souvent une composition) → on ferme le clavier une fois la composition finie
+// suggestion choisie (remplissage automatique Safari, mot entier inséré par le clavier sur Chrome
+// Android…) : un seul critère, quel que soit le navigateur — le prénom gagne ≥ 2 lettres d'un coup
+// (hors collage, hors aperçu de composition) → on ferme le clavier
 const TOUCH = matchMedia('(pointer: coarse)').matches;
-let pendingConfirm = false;
-const valLen = () => normalizeName(input.value).replace(/ +$/, '').length;
-let prevLen = valLen();   // prénom déjà présent (visiteur qui revient) : pas un « saut »
-input.addEventListener('input', (e) => {
-  const L = valLen(), jump = L - prevLen;
-  prevLen = L;
-  if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop') return;
-  if (e.inputType === 'insertReplacementText' || (!e.inputType && L > 1) || jump >= 2) pendingConfirm = true;
-  if (pendingConfirm && !bridge.composing) { pendingConfirm = false; setTimeout(confirmName, 150); }
-});
-input.addEventListener('compositionend', () => {
-  setTimeout(() => { prevLen = valLen(); if (pendingConfirm) { pendingConfirm = false; setTimeout(confirmName, 150); } }, 30);
-});
+let lastLen = finalName(model.text).length;
+function detectSuggestion(info) {
+  const src = info?.source || '';
+  if (src === 'composition') return;                       // aperçu : on juge à la fin de la composition
+  const L = finalName(model.text).length, jump = L - lastLen;
+  lastLen = L;
+  if (jump >= 2 && !/paste|Paste|Drop/.test(src)) setTimeout(confirmName, 150);
+}
 const wheel = CFG.wheel ? createWheel({
   model, reduced: CFG.reduced,
   onChange: () => { if (S.phase === 'input') { S.typed = true; S.keyAt = S.t; } renderFallback(); },
