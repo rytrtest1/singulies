@@ -81,39 +81,34 @@ void main() {
 // pente locale de la ligne de base et comprimé horizontalement par cos ψ — pas de cisaillement.
 // Flou continu : σ_px = K·f·|1/z − 1/ZF| (K proche / K lointain = courbe du prototype),
 // plafonné à 0,11 em ; cœur net + halo (aspect du prototype), puis fondu continu vers l'atlas pré-flouté.
-const FIELD_VS = /* glsl */`#version 300 es
-layout(location=0) in vec4 a_w;    // X, Y, z (monde), ψ signé
-layout(location=1) in vec4 a_l;    // u (abscisse le long du mot), y ligne de base, S (taille d'un em), alpha
-layout(location=2) in vec4 a_uv;
-layout(location=3) in vec4 a_box;  // boîte du glyphe en em (origine = point de chasse)
-layout(location=4) in vec4 a_x;    // gris, lumière L, étirement de traînée, angle de traînée
-layout(location=5) in vec4 a_y;    // graine propre (déformation de la traînée), —, —, —
-uniform vec2 u_view;               // px CSS
-uniform vec2 u_c;                  // point de fuite, px CSS
-uniform vec2 u_cam;                // translation caméra (monde)
-uniform float u_f, u_dpr;
-uniform highp int u_pass;          // 0 lettres, 1 traînées
-out vec2 v_uv;
-out float v_ty;                    // position le long de la traînée (0…1)
-flat out float v_sig, v_aa, v_alpha, v_gray, v_L, v_str, v_seed;
-flat out vec4 v_rect;              // rectangle uv du glyphe
-flat out vec2 v_uvEm;              // uv par em
-const float ZF = ${ZF.toFixed(3)}, KB = ${KB.toFixed(4)}, KB_FAR = ${KB_FAR.toFixed(4)};
-vec2 proj(vec3 P) { return u_c + u_f * P.xy / max(P.z, 0.1); }
-uniform float u_time;
-uniform float u_trailOn, u_focus;   // modes de lumière : traînée (+ déformation), mise au point
+// Lumière : une lettre allumée devient nette (mise au point) et une clarté lente circule en elle.
+const NOISE = /* glsl */`
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vnoise(vec2 p) {
   vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
   return mix(mix(h21(i), h21(i + vec2(1, 0)), u.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), u.x), u.y);
 }
-float fbm(vec2 p) { float a = 0.5, r = 0.0; for (int i = 0; i < 3; i++) { r += a * vnoise(p); p = p * 2.03 + 17.1; a *= 0.5; } return r - 0.44; }
-const float TRAIL_SEG = 16.0;      // lettres et traînées : bandes de 16 segments, chacun déplacé par le bruit
+float fbm(vec2 p) { float a = 0.5, r = 0.0; for (int i = 0; i < 3; i++) { r += a * vnoise(p); p = p * 2.03 + 17.1; a *= 0.5; } return r - 0.44; } // ≈ −0,44…0,44
+`;
+
+const FIELD_VS = /* glsl */`#version 300 es
+layout(location=0) in vec4 a_w;    // X, Y, z (monde), ψ signé
+layout(location=1) in vec4 a_l;    // u (abscisse le long du mot), y ligne de base, S (taille d'un em), alpha
+layout(location=2) in vec4 a_uv;
+layout(location=3) in vec4 a_box;  // boîte du glyphe en em (origine = point de chasse)
+layout(location=4) in vec4 a_x;    // gris, lumière L, —, —
+layout(location=5) in vec4 a_y;    // graine propre (lumière intérieure), —, —, —
+uniform vec2 u_view;               // px CSS
+uniform vec2 u_c;                  // point de fuite, px CSS
+uniform vec2 u_cam;                // translation caméra (monde)
+uniform float u_f, u_dpr;
+out vec2 v_uv;
+flat out float v_sig, v_aa, v_alpha, v_gray, v_L, v_seed;
+flat out vec2 v_uv0, v_uvEm;       // coin uv du glyphe, uv par em
+const float ZF = ${ZF.toFixed(3)}, KB = ${KB.toFixed(4)}, KB_FAR = ${KB_FAR.toFixed(4)};
+vec2 proj(vec3 P) { return u_c + u_f * P.xy / max(P.z, 0.1); }
 void main() {
-  // les deux passages dessinent une bande de 16 segments : la lettre allumée et sa traînée
-  // se déforment par le MÊME champ (fonction de la hauteur h en em autour du centre de la lettre)
   vec2 c = vec2(gl_VertexID & 1, gl_VertexID >> 1);
-  c.y /= TRAIL_SEG;
   float S = a_l.z, cp = cos(a_w.w), sp = sin(a_w.w);
   vec3 d = vec3(cp, 0.0, -sp);
   float ecx = 0.5 * (a_box.x + a_box.z);                    // centre horizontal du glyphe (em)
@@ -124,51 +119,28 @@ void main() {
   float g = atan(dir.y, dir.x);                              // pente locale de la ligne de base
   float k = u_f * S / zc;                                    // px CSS par em
   vec2 e = mix(a_box.xy, a_box.zw, c);
-  float sd = fract(a_y.x * 0.0137) * 97.0, fr = 0.7 + 0.6 * fract(a_y.x * 0.31), t = u_time;
-  float str = 1.0;
-  if (u_pass == 1) {
-    if (a_x.y < 0.15) { gl_Position = vec4(2.0, 2.0, 0.0, 1.0); return; }
-    str = a_x.z * (1.0 + 0.15 * fbm(vec2(sd + 3.0, t * 0.18 * fr)));   // traînée courte qui respire
-  }
-  float h = (e.y + a_l.y / S) * str;                        // hauteur (em) depuis le centre de la lettre
-  vec2 loc = vec2((e.x - ecx) * cp * (u_pass == 1 ? 0.85 : 1.0), h);
-  // déformation organique (lettres allumées seulement) : plis lents + ondes qui remontent,
-  // presque nulle au cœur de la lettre, plus libre vers les extrémités
-  float W = smoothstep(0.05, 0.4, a_x.y) * u_trailOn;
-  float ah = abs(h);
-  float fold = fbm(vec2(h * 1.1 + sd, t * 0.45 * fr)) + 0.45 * fbm(vec2(h * 2.6 - t * 0.9 * fr, sd + 7.0));
-  loc.x += W * fold * (0.06 + 0.55 * pow(ah, 1.2));
-  loc.y += W * fbm(vec2(h * 1.7 + t * 0.3 * fr, sd + 11.0)) * 0.25 * ah;
-  vec2 scr = sc + mat2(cos(g), sin(g), -sin(g), cos(g)) * loc * k;
+  vec2 loc = vec2((e.x - ecx) * cp, e.y + a_l.y / S) * k;
+  vec2 scr = sc + mat2(cos(g), sin(g), -sin(g), cos(g)) * loc;
   float sig = (zc < ZF ? KB : KB_FAR) * u_f * abs(1.0 / zc - 1.0 / ZF) / k;
-  // mise au point : une lettre allumée devient nette, son mot reste flou
-  sig *= 1.0 - 0.88 * u_focus * smoothstep(0.05, 0.45, a_x.y);
+  sig *= 1.0 - 0.88 * smoothstep(0.05, 0.45, a_x.y);         // mise au point : la lettre allumée devient nette
   v_sig = min(sig, ${BLUR_EM.toFixed(3)});                    // σ en em (plafond = atlas pré-flouté)
   v_aa = 0.42 / (k * u_dpr);                                 // antialias ≈ 1 px physique, en em
-  v_alpha = a_l.w; v_gray = a_x.x; v_L = a_x.y; v_str = a_x.z; v_seed = a_y.x;
-  v_ty = c.y; v_rect = a_uv; v_uvEm = (a_uv.zw - a_uv.xy) / (a_box.zw - a_box.xy);
+  v_alpha = a_l.w; v_gray = a_x.x; v_L = a_x.y; v_seed = a_y.x;
   v_uv = mix(a_uv.xy, a_uv.zw, c);
+  v_uv0 = a_uv.xy; v_uvEm = (a_uv.zw - a_uv.xy) / (a_box.zw - a_box.xy);
   gl_Position = vec4((scr / u_view * 2.0 - 1.0) * vec2(1.0, -1.0), 0.0, 1.0);
 }`;
 
 const FIELD_FS = /* glsl */`#version 300 es
 precision highp float;
 uniform sampler2D u_atlas, u_blur;
-uniform float u_fade, u_dim, u_time, u_inner;
-uniform highp int u_pass;
+uniform float u_fade, u_dim, u_time;
 in vec2 v_uv;
-in float v_ty;
-flat in float v_sig, v_aa, v_alpha, v_gray, v_L, v_str, v_seed;
-flat in vec4 v_rect;
-flat in vec2 v_uvEm;
+flat in float v_sig, v_aa, v_alpha, v_gray, v_L, v_seed;
+flat in vec2 v_uv0, v_uvEm;
 out vec4 o;
 ${GLSL_COMMON}
-float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
-float vnoise(vec2 p) {
-  vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
-  return mix(mix(h21(i), h21(i + vec2(1, 0)), u.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), u.x), u.y);
-}
-float fbm(vec2 p) { float a = 0.5, r = 0.0; for (int i = 0; i < 3; i++) { r += a * vnoise(p); p = p * 2.03 + 17.1; a *= 0.5; } return r - 0.44; } // ≈ −0,44…0,44
+${NOISE}
 const float S_MID = 0.045, S_MAX = ${BLUR_EM.toFixed(3)};
 // flou analytique : cœur net + halo (aspect du prototype), à σ donné
 float soft(float dEm, float sig) {
@@ -178,28 +150,15 @@ float soft(float dEm, float sig) {
   return mix(halo, core, wc);
 }
 void main() {
-  if (u_pass == 1) {
-    // traînée floue de la lettre, déformée par un bruit lent (pas de sinus réguliers) :
-    // courbure, torsion, étirement inégal, longueur et éclat qui varient — graine propre,
-    // ancrée sur la lettre, de plus en plus libre vers les extrémités
-    float y = v_ty * 2.0 - 1.0, ay = abs(y), t = u_time, sd = fract(v_seed * 0.0137) * 97.0;
-    float fr = 0.7 + 0.6 * fract(v_seed * 0.31);              // vitesse propre
-    // forme portée par la géométrie (même déformation que la lettre) ; éclat discret qui respire
-    float env = 1.0 - smoothstep(0.45, 1.0, ay);
-    float glow = 0.9 + 0.25 * fbm(vec2(y * 1.2 - t * 0.25 * fr, sd));
-    float a = texture(u_blur, v_uv).r * env * glow * 0.42 * smoothstep(0.15, 0.6, min(v_L, 0.6)) * v_alpha * u_fade;
-    o = vec4(vec3(a), 0.0);                                  // additif
-    return;
-  }
   float dEm = texture(u_atlas, v_uv).r;
   float c;
   if (v_sig <= S_MID) c = soft(dEm, v_sig);
   else c = mix(soft(dEm, S_MID), texture(u_blur, v_uv).r, (v_sig - S_MID) / (S_MAX - S_MID)); // vers le vrai flou pré-calculé
   float a = c * v_alpha * u_fade;
-  // lumière intérieure : une clarté lente circule dans la lettre (bruit en coordonnées de la lettre)
+  // lumière intérieure : une clarté lente circule dans la lettre allumée (bruit en coordonnées du glyphe)
   float Lc = v_L;
-  if (u_inner > 0.5 && v_L > 0.0) {
-    vec2 le = (v_uv - v_rect.xy) / v_uvEm;                   // position dans le glyphe (em)
+  if (v_L > 0.0) {
+    vec2 le = (v_uv - v_uv0) / v_uvEm;                       // position dans le glyphe (em)
     float sd = fract(v_seed * 0.0137) * 97.0, fr = 0.7 + 0.6 * fract(v_seed * 0.31);
     float n = fbm(le * 2.2 + vec2(sd, sd * 0.7) + vec2(0.17, -0.11) * u_time * fr)
             + 0.5 * fbm(le * 4.5 - vec2(-0.05, 0.21) * u_time * fr + sd);
@@ -291,24 +250,14 @@ export function createRenderer(canvas, gl, atlas) {
       gl.uniform1f(fp.u.u_fade, f.fade);
       gl.uniform1f(fp.u.u_dim, f.dim ?? 1);
       gl.uniform1f(fp.u.u_time, (f.time ?? 0) % 1000);
-      const lm = f.lightMode || { trail: true };
-      gl.uniform1f(fp.u.u_trailOn, lm.trail ? 1 : 0);
-      gl.uniform1f(fp.u.u_focus, lm.focus ? 1 : 0);
-      gl.uniform1f(fp.u.u_inner, lm.inner ? 1 : 0);
       gl.uniform1i(fp.u.u_atlas, 0);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, res.btex);
       gl.uniform1i(fp.u.u_blur, 1);
       gl.activeTexture(gl.TEXTURE0);
-      gl.uniform1i(fp.u.u_pass, 0);
       gl.bindVertexArray(fvao);
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 34, fl.count);   // bandes de 16 segments
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count);
       calls++;
-      if (f.litCount && (!f.lightMode || f.lightMode.trail)) {          // traînées des lettres allumées (même tampon, passage additif)
-        gl.uniform1i(fp.u.u_pass, 1);
-        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 34, fl.count);   // 16 segments
-        calls++;
-      }
       gl.bindVertexArray(null);
     }
 

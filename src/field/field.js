@@ -253,22 +253,16 @@ export function createField(opts) {
         buf[o + 4] = pen; buf[o + 5] = (w.jit[i] + 0.5 * capHeight) * w.S; buf[o + 6] = w.S; buf[o + 7] = w.alpha;
         buf[o + 8] = g.u0; buf[o + 9] = g.v0; buf[o + 10] = g.u1; buf[o + 11] = g.v1;
         buf[o + 12] = g.x0; buf[o + 13] = g.y0; buf[o + 14] = g.x1; buf[o + 15] = g.y1;
-        let L = 0, stretch = 1, theta = 0;
+        let L = 0;
         if (lit) {
-          // position écran approximative de la lettre (pour l'onde, l'anneau et la traînée)
+          // position écran approximative de la lettre (propagation de la lumière, anneau)
           const fx = (pen + w.half + 0.5 * w.adv[i] * w.S) / (2 * w.half || 1);
           const lx = w.box[0] + fx * (w.box[2] - w.box[0]), ly = (w.box[1] + w.box[3]) / 2;
           const dn = Math.min(1, Math.hypot((lx - cx) / hw, (ly - cy) / hh) / Math.SQRT2);
-          const lp = w.lp[i];
-          L = light.level(w.chars[i], lp, dn, w.z, t, (lx - cx) / hw, (ly - cy) / hh);
-          if (L > 0.01) {
-            litCount++;
-            // traînée : part de la verticale, penche vers l'extérieur (±50°), longueur ∝ distance × intensité
-            stretch = 1.3 + 0.35 * lp.trail * (0.5 + dn);   // dépasse à peine de la lettre
-            theta = 0.87 * Math.max(-1, Math.min(1, (lx - cx) / hw)) + 0.06 * Math.sin(lp.sf * t + lp.sp);
-          }
+          L = light.level(w.chars[i], w.lp[i], dn, w.z, t, (lx - cx) / hw, (ly - cy) / hh);
+          if (L > 0.01) litCount++;
         }
-        buf[o + 16] = gray; buf[o + 17] = L; buf[o + 18] = stretch; buf[o + 19] = theta;
+        buf[o + 16] = gray; buf[o + 17] = L; buf[o + 18] = 0; buf[o + 19] = 0;
         buf[o + 20] = w.lp[i].seed; buf[o + 21] = 0; buf[o + 22] = 0; buf[o + 23] = 0;
         pen += (w.adv[i] + w.track) * w.S;
         n++;

@@ -17,10 +17,8 @@ export function letterParams(rng) {
     inten: rng.range(0.65, 1),        // intensité de l'onde
     f1: TAU * rng.range(0.06, 0.16), p1: rng.range(0, TAU),   // souffle de repos : 2 sinus
     f2: TAU * rng.range(0.17, 0.31), p2: rng.range(0, TAU),   // non synchronisés
-    trail: rng.range(0.7, 1.3),       // longueur de traînée
-    sf: TAU * rng.range(0.03, 0.08), sp: rng.range(0, TAU),   // balancement de la traînée
     off: rng.range(0.25, 0.6),        // durée d'extinction (s)
-    seed: rng.range(0, 1000),         // phase propre de l'aurore (traînée)
+    seed: rng.range(0, 1000),         // graine de la lumière intérieure
   };
 }
 

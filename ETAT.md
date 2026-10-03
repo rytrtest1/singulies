@@ -56,6 +56,11 @@
 - Chiffres 1672 (seed 11, repos) : LEA px>5 64,4 / px>20 3,4 / px>80 0,46 / lum 7,6 ; CLEMENCE ROSE lum 9,3 / px>80 1,24. Stationnarité 1672 : 59,1 / 60,9 / 57,8 / 60,5 ; 390 : 28,5 / 25,4 / 24,3 / 32,8 (± 15 % : petite fenêtre recadrée). Proches ≈ 0,7–3 (1672), ≈ 0 en portrait. FPS 21,7 (1672 logiciel). Tests 38/38 + 62/62.
 - Reste étape 4 : réglage fin (intensités, anneau, longueur des traînées), mouvement réduit à vérifier visuellement, mesure du rapport allumé/éteint.
 
+### Étape 4 — itérations lumière (03/10)
+- Essais successifs abandonnés : traînée copie floue (« copier-coller »), aurore à sinus, flamme procédurale (« cheap »), mode masque, traînée en bande déformée + lettre déformée (« trop d'effort pour peu de résultat »).
+- Retenu : propagation lente de l'arrière vers l'avant (≈ 5–6 s, bord irrégulier) ; lettre allumée = mise au point (σ × 0,12) + lumière intérieure (fbm en coordonnées du glyphe, graine propre). 3 draw calls, 27 img/s (1672 logiciel) / 60 (390).
+- Chiffres seed 11 (repos, t = 12 s) : 1672 LEA px>5 61,1 / px>20 1,6 / px>80 0,28 / lum 6,4 ; 22 car. px>80 1,19 / lum 7,9 ; 390 CLEMENCE ROSE px>80 1,37 / lum 8,9. Visibles 51–60 (1672), 28–29 (390). Tests 38/38.
+
 ### Ouvert
 - Proches un peu sous la cible (≈ 4,7 au lieu de 6) : contrainte du flux (un proche doit naître au centre). Plus de proches = plus de mots cachés dans la zone.
 - Option clavier : atténuer le fond quand le clavier est ouvert (proposition de Maxence) — en attente de son essai sur iPhone.

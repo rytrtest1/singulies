@@ -32,10 +32,10 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 ## Lumière — organique, jamais copié-collé
 - Seules les lettres saisies s'allument (un prénom identique en fond est OK). Rapport allumé/éteint ≈ 3–4, maintenu après l'onde ; lettres éteintes ≈ −40 % tant qu'un prénom est saisi.
 - Anneau de résonance : niveau de repos des allumées décroît avec la distance au prénom central ; les plus vifs forment un anneau autour.
-- Paramètres par lettre tirés à la naissance : retard, attaque ≈ 0,5–1,4 s, décroissance ≈ 1,4–6 s (lent, décision Maxence 03/10), intensité, souffle de repos (2 sinus non synchronisés : phase+fréquence), longueur de traînée. Aucune animation identique.
+- Paramètres par lettre tirés à la naissance : retard, attaque ≈ 0,5–1,4 s, décroissance ≈ 1,4–6 s (lent, décision Maxence 03/10), intensité, souffle de repos (2 sinus non synchronisés : phase+fréquence), graine de la lumière intérieure.
 - Propagation : front lent **de l'arrière-plan vers l'avant-plan** (≈ 5–6 s du fond au premier plan), bord irrégulier par bruit spatial doux, petit retard propre par lettre. Après l'onde, descente progressive vers le repos, sans chute.
 - Effacement : extinction du plus loin vers le centre, durée propre 0,25–0,6 s.
-- Traînée : direction partant de la verticale, inclinée vers l'extérieur selon la position (±50° max), longueur ∝ distance au centre × intensité. Copie floue de la lettre, **courte** (dépasse à peine), éclat discret (pas de flash) ; **la lettre allumée et sa traînée se déforment par le même champ de bruit** (bandes de 16 segments, plis lents + ondes, graine propre), quasi nul au cœur de la lettre. Pas de sinus réguliers, pas de flamme procédurale (jugé cheap, 03/10). Pas d'étalement horizontal. Pas de halo sur le prénom central.
+- **Pas de traînée ni de déformation par lettre** (abandonnées 03/10 : trop d'effort pour peu de résultat). Une lettre allumée **devient nette** (mise au point, σ × 0,12) et **une clarté lente circule à l'intérieur** (bruit en coordonnées du glyphe). Pas de halo sur le prénom central.
 
 ## Texte
 - Aucun accent, nulle part. Uniquement A–Z. Tiret → espace ; apostrophes et tout autre caractère supprimés.
@@ -73,7 +73,7 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 1. Lecture, compréhension, plan, risques. Pas de code avant accord.
 2. Squelette WebGL2, police, atlas SDF, fond, prénom central, saisie complète + tests.
 3. Champ de mots : caméra, perspective, flou continu, tranches stationnaires, anti-chevauchement.
-4. Lumière organique, anneau, traînée, champ qui écoute.
+4. Lumière organique, anneau, mise au point + lumière intérieure, champ qui écoute.
 5. Mode horizontal bidirectionnel + bascule.
 6. Validation (vol des lettres), retour, restauration, visiteur qui revient, mouvement réduit, deux casses.
 7. Performance adaptative, mesures, nettoyage.
