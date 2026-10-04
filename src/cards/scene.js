@@ -16,7 +16,7 @@ export const LOOK = {
   // (ou la souris, ou le doigt en repli) fait tourner la direction (pas de lumière de reflet : grisait les cartes) ;
   // la carte retournée projette son ombre douce sur le paquet ; les bords cassés accrochent la lumière.
   light: 0.111, lightR: 400, env: 0.28, albedo: 0.029, exposure: 0.74, lightAz: 0.67, lightR0: 1.0, lightZ: 210, tiltAmp: 1.45,
-  lightMode: 3, elevAmp: 0.45, flashZ: 70, cardTilt: 0.2, lightVar: 0.35, sway: 0.018, spot: 0.12,
+  lightMode: 1, elevAmp: 0.45, flashZ: 70, cardTilt: 0.2, lightVar: 0.6, sway: 0.018, spot: 0.12,
   h: 0.19, b: 1.32, crease: 0, fiber: 0.06, foot: 0.76, footW: 0.165, parallax: 0,
   rough: 0.64, spec: 3.1, sheen: 0, glint: 0.35, edge: 3, grain: 1.25, diffRough: 0.65, envSpec: 0.32, toe: 0.0078,
   nameFlat: 0.42,   // prénom à plat (gris en retrait) ; 0 → prénom en relief (nameAlb, nameRelief…)
@@ -125,16 +125,17 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   //   0 orbite : la lampe tourne autour de la carte active (l'angle des ombres change, sur 360°)
   //   1 orbite + hauteur : idem, et incliner vers soi / vers l'avant rend la lumière rasante / zénithale
   //   2 lampe de poche : la lampe est tenue au-dessus de la scène, sous le doigt / la souris, assez basse
-  //   3 cartes qui s'inclinent (défaut, 04/10) : les cartes penchent vers la souris / le mouvement du téléphone
-  //     (le paquet d'un bloc, autour de sa base ; la carte vierge de son côté) ; la lampe ne varie qu'un peu
-  //     (lightVar). Dans toutes les manières, les cartes respirent très lentement au repos (sway).
+  //   3 lampe presque fixe (comme 0, ampleur lightVar seulement)
+  // Dans toutes les manières, les cartes s'inclinent aussi vers la souris / le mouvement du téléphone (le paquet
+  // d'un bloc, la carte vierge de son côté ; cardTilt) et respirent très lentement au repos (sway).
+  // Défaut (04/10) : manière 1 (préférée de Maxence) à 60 % d'ampleur + cartes inclinées.
   // tilt : décalage normalisé [-1, 1] (x à droite, y en haut), fourni par la page.
   const tilt = { x: 0, y: 0 }, ts = { x: 0, y: 0 };   // ts : inclinaison lissée (≈ 0,35 s)
   const lp = { x: Math.cos(L.lightAz), y: Math.sin(L.lightAz), vx: 0, vy: 0 };
   function stepLight(dt) {
     const kk = Math.min(1, dt * 3); ts.x += (tilt.x - ts.x) * kk; ts.y += (tilt.y - ts.y) * kk;
     const m = L.lightMode | 0;
-    const s3 = m === 3 ? L.lightVar : 1, ax = tilt.x * s3, ay = (m === 1 ? 0 : tilt.y) * s3;
+    const ax = tilt.x * L.lightVar, ay = (m === 1 ? 0 : tilt.y) * L.lightVar;
     let tx = Math.cos(L.lightAz) + L.tiltAmp * ax, ty = Math.sin(L.lightAz) + L.tiltAmp * ay;
     const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
     const w = 2.2, z = 0.85;
@@ -169,12 +170,12 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       lightPos = [ts.x / 0.7 * lay.Ww, act.y + ts.y / 0.7 * lay.Hw, zf];
       light *= (zf * zf) / (D0 * D0) / Math.sin(el0);
     } else {
-      const el = m === 1 ? Math.min(1.35, Math.max(0.18, el0 + ts.y * L.elevAmp)) : el0;
+      const el = m === 1 ? Math.min(1.35, Math.max(0.18, el0 + ts.y * L.elevAmp * L.lightVar)) : el0;
       lightPos = [act.x + lp.x / ln * D0 * Math.cos(el), act.y + lp.y / ln * D0 * Math.cos(el), D0 * Math.sin(el)];
       light *= Math.sin(el0) / Math.sin(el);        // même éclairement du papier quelle que soit la hauteur
     }
     // cartes qui s'inclinent (manière 3)
-    const crx = m === 3 ? -ts.y * L.cardTilt : 0, cry = m === 3 ? ts.x * L.cardTilt : 0;
+    const crx = -ts.y * L.cardTilt, cry = ts.x * L.cardTilt;   // les cartes s'inclinent dans toutes les manières
     // inclinaison d'un groupe autour d'un pivot (+ respiration lente, propre à chaque groupe)
     const group = (px, py, ph) => {
       const rx = crx + L.sway * Math.sin(t * 0.61 + ph), ry = cry + L.sway * 1.2 * Math.sin(t * 0.47 + ph * 1.7);
