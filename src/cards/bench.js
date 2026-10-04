@@ -1,7 +1,8 @@
 // Banc d'essai d'une carte (page de développement, non publiée) : rendu à côté de la photo redressée.
 //   /banc-carte.html            dos, cadrage « photo » (vue de dessus, quasi orthographique)
 //   #ref=IMG_0066               autre photo de référence ; #noref : rendu seul ; #noui : sans réglages
-// Glisser = incliner la carte ; F = retourner ; R = référence ; les réglages sont gardés dans l'adresse.
+// Molette = zoom vers le curseur ; glisser = se déplacer (zoomé) ou incliner (Maj + glisser, ou sans zoom) ;
+// double-clic = vue d'ensemble ; F = retourner ; R = référence ; les réglages sont gardés dans l'adresse.
 import { createCardRenderer, M4, CARD } from './cardRenderer.js';
 import { loadTypeFont, makeInkMap } from './ink.js';
 import QUESTIONS from './questions.json';
@@ -11,7 +12,7 @@ const DEF = {
   lightAz: -25, lightEl: 35, lightDist: 220, light: 0.025, lightR: 60, env: 0.03, albedo: 0.05, exposure: 1.0,
   h: 0.5, b: 1.0, crease: 0.3, fiber: 0.03, foot: 0.4, footW: 0.12,
   rough: 0.45, spec: 3, sheen: 0.3, glint: 2, edge: 1.0, grain: 3, diffRough: 0.25, inkAlb: 2.0, inkPress: 0.04, inkWear: 0.15, inkThr: 0.4, inkVar: 1, inkPaper: 5, q: 33, seed: 1, wx: 0.25, wy: -0.12, wt: 0.1,
-  lx: -0.9, ly: 0.3, lsx: 1, lsy: 1.09, rx: 0, ry: 0, fov: 8,
+  lx: -0.9, ly: 0.3, lsx: 1, lsy: 1.09, rx: 0, ry: 0, fov: 8, zoom: 1, panX: 0, panY: 0,
 };
 const RANGES = {
   lightAz: [-180, 180, 1], lightEl: [3, 90, 1], lightDist: [80, 1500, 10], light: [0, 0.3, 0.001], lightR: [1, 200, 1],
@@ -75,12 +76,32 @@ document.getElementById('tref').onclick = tref;
 document.getElementById('reset').onclick = () => { history.replaceState(null, '', '#'); location.reload(); };
 addEventListener('keydown', e => { if (e.key === 'f') flip(); if (e.key === 'r') tref(); });
 
-// glisser = incliner
+// zoom et déplacement : mm par pixel CSS au plan de la carte
+const mmPerPx = () => {
+  const aspect = canvas.clientWidth / canvas.clientHeight;
+  return 2 * Math.max(CARD.h / 2, CARD.w / 2 / aspect) / S.zoom / canvas.clientHeight;
+};
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect(), mx = e.clientX - r.left - r.width / 2, my = e.clientY - r.top - r.height / 2;
+  const before = mmPerPx();
+  S.zoom = Math.min(20, Math.max(1, S.zoom * Math.exp(-e.deltaY * 0.0015)));
+  const after = mmPerPx();
+  S.panX += mx * (before - after); S.panY -= my * (before - after);
+  if (S.zoom === 1) { S.panX = 0; S.panY = 0; }
+  saveHash();
+}, { passive: false });
+canvas.addEventListener('dblclick', () => { S.zoom = 1; S.panX = 0; S.panY = 0; saveHash(); });
 let drag = null;
-canvas.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY, S.rx, S.ry]; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointerdown', e => {
+  drag = { x: e.clientX, y: e.clientY, rx: S.rx, ry: S.ry, px: S.panX, py: S.panY, tilt: e.shiftKey || S.zoom <= 1.01 };
+  canvas.setPointerCapture(e.pointerId);
+});
 canvas.addEventListener('pointermove', e => {
   if (!drag) return;
-  S.ry = drag[3] + (e.clientX - drag[0]) * 0.008; S.rx = drag[2] + (e.clientY - drag[1]) * 0.008;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (drag.tilt) { S.ry = drag.ry + dx * 0.008; S.rx = drag.rx + dy * 0.008; }
+  else { const k = mmPerPx(); S.panX = drag.px - dx * k; S.panY = drag.py + dy * k; }
 });
 canvas.addEventListener('pointerup', () => { drag = null; saveHash(); });
 
@@ -101,8 +122,9 @@ function frame() {
   const fov = S.fov * Math.PI / 180, aspect = W / H;
   const halfH = Math.max(CARD.h / 2, CARD.w / 2 / aspect);
   const dist = halfH / Math.tan(fov / 2);
-  const eye = [0, 0, dist];
-  const vp = M4.mul(M4.perspective(fov, aspect, dist * 0.5, dist * 2), M4.lookAt(eye, [0, 0, 0], [0, 1, 0]));
+  const dz = dist / S.zoom;
+  const eye = [S.panX, S.panY, dz];
+  const vp = M4.mul(M4.perspective(fov, aspect, dz * 0.3, dz * 3), M4.lookAt(eye, [S.panX, S.panY, 0], [0, 1, 0]));
   const az = S.lightAz * Math.PI / 180, el = S.lightEl * Math.PI / 180;
   const lightPos = [S.lightDist * Math.cos(el) * Math.cos(az), S.lightDist * Math.cos(el) * Math.sin(az), S.lightDist * Math.sin(el)];
   ensureInk();
