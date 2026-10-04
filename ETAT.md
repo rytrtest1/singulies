@@ -231,3 +231,9 @@ Voir « Point de reprise » en tête de fichier.
 - Réponse sortie dessous : le focus (inclinaison, lumière) reste sur elle.
 - Fin de scène (donner / PASSER) : la réponse se glisse sous la question (paire, 1 s), la paire s’éloigne dans le noir (1,9 s), le paquet s’efface, le prénom s’allume lettre à lettre, fondu ; événement à 3,3 s.
 - Reste : vérification iPhone réel.
+
+## 04/10 — Scène 2 v10 : trois choix
+- Carte réponse sous le paquet (reste en place quand on repioche). La question esquisse le glissement de côté (2 fois, après 5 s sans frappe) ; coin corné statique.
+- « passer cette étape » au milieu (improvisation) ; carte vierge en bas, « expression libre » au-dessus (police machine) → monte, on écrit ; toucher la question = revenir.
+- Fins : réponse = paire qui s'éloigne ; expression libre = la carte seule ; passer = le paquet s'éloigne (plus de rectangle noir).
+- Tests 43/43 et 86/86. Non vérifié : iPhone réel (clavier à l'ouverture de la carte vierge).
