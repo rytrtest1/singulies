@@ -14,15 +14,18 @@ export const LOOK = {
   // téléphone) dont le pointeur choisit la direction ; éclairage doux de face pour l'encre ; pied de courbe
   // qui écrase les noirs du papier. Frappe de la scène moins variée qu'au banc (lisible). Mesures : ETAT.md.
   light: 0.066, lightR: 160, env: 0.25, albedo: 0.025, exposure: 1.0, lightAz: 1.99, lightR0: 1.0, lightZ: 210,
-  h: 0.5, b: 1.0, crease: 0.3, fiber: 0.03, foot: 0.4, footW: 0.12, parallax: 0,
-  rough: 0.45, spec: 0.8, sheen: 0.15, glint: 2, edge: 1.0, grain: 3, diffRough: 0.25, envSpec: 0.02, toe: 0.0068,
-  inkAlb: 2.6, inkPress: 0.04, inkWear: 0.7, inkThr: 0.33, inkVar: 0.6, inkPaper: 5, inkOrg: 0.7,
+  h: 0.5, b: 1.0, crease: 0.3, fiber: 0.012, foot: 0.4, footW: 0.12, parallax: 0,
+  rough: 0.45, spec: 0.8, sheen: 0.15, glint: 0.35, edge: 1.0, grain: 1.8, diffRough: 0.25, envSpec: 0.02, toe: 0.0068,
+  inkAlb: 1.5, inkPress: 0.04, inkWear: 0.7, inkThr: 0.37, inkVar: 0.6, inkPaper: 5, inkOrg: 0.7,
 };
 const FOV = 26 * Math.PI / 180;
 const TILT = 0.3;                  // la caméra regarde un peu d'en haut : les cartes fuient légèrement
 const STACK = 12;                   // cartes visibles dans la pile
 const PITCH = 0.27;                 // épaisseur d'une carte dans la pile (mm)
-const DRAW_T = 1.05, DISCARD_T = 0.75, REDRAW_DELAY = 0.12;
+const DRAW_T = 1.3, DISCARD_T = 0.9;
+const REDRAW_DELAY = DISCARD_T * 0.88;   // la suivante ne part qu'une fois la place libre au-dessus du paquet
+const FLIP_H = CARD.w / 2 + 7;          // hauteur de retournement : la demi-carte qui plonge ne touche jamais le paquet
+const sstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
 
 const ease = u => u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
 const easeIn = u => u * u * u;
@@ -72,16 +75,20 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
 
   function poseAt(c, t) {
     if (c.kind === 'draw') {
-      const u = clamp01((t - c.t0) / DRAW_T), e = ease(u), a = c.from, b = facePose(c.v);
-      const lift = Math.sin(Math.PI * e);
+      // on soulève la carte (assez haut pour qu'en tournant sa moitié ne touche pas le paquet), on la
+      // retourne en l'air, puis on la repose, question visible, sur le paquet
+      const u = clamp01((t - c.t0) / DRAW_T), a = c.from, b = facePose(c.v);
+      const up = sstep(0, 0.36, u), down = sstep(0.64, 1, u), e = ease(u);
       return {
-        x: a.x + (b.x - a.x) * e - lift * 6, y: a.y + (b.y - a.y) * e + lift * 8, z: a.z + (b.z - a.z) * e + lift * 22,
-        rx: -lift * 0.25, ry: Math.PI * ease(clamp01(u * 1.15 - 0.05)), rz: a.rz + (b.rz - a.rz) * e,
+        x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e + 4 * (up - down),
+        z: a.z + FLIP_H * (up - down) + (b.z - a.z) * down,
+        rx: -0.1 * (up - down), ry: Math.PI * sstep(0.24, 0.76, u), rz: a.rz + (b.rz - a.rz) * e,
       };
     }
     if (c.kind === 'discard') {
-      const u = clamp01((t - c.t0) / DISCARD_T), e = easeIn(u), a = c.from;
-      return { x: a.x - e * lay.Ww * 0.9, y: a.y - e * 18, z: a.z + Math.sin(Math.PI * u) * 12, rx: 0, ry: Math.PI, rz: a.rz + e * 0.35 };
+      // la carte glisse hors du cadre en accélérant, à peine soulevée, en pivotant un peu
+      const u = clamp01((t - c.t0) / DISCARD_T), e = Math.pow(u, 2.2), a = c.from;
+      return { x: a.x - e * (lay.Ww / 2 + CARD.w * 1.1), y: a.y - 10 * u, z: a.z + 3 * sstep(0, 0.3, u), rx: 0, ry: Math.PI, rz: a.rz + 0.28 * e };
     }
     return facePose(c.v);
   }

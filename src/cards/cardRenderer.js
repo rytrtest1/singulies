@@ -179,9 +179,9 @@ vec2 parallax(vec2 p0, float s, vec3 Vt) {
 }
 vec2 paperUV(vec2 p) {
   float c = cos(uPaperXf.z), s = sin(uPaperXf.z);
-  // la carte ne lit que les 88 % centraux de la photo du papier (le décalage propre à chaque carte,
-  // ±2,5 mm, ne sort jamais de l'image : pas de bord étiré, pas de bande unie)
-  vec2 q = (mat2(c, s, -s, c) * p) * 0.88 + uPaperXf.xy;
+  // la carte ne lit que les 70 % centraux de la photo du papier, agrandis (grain plus large, moins
+  // « plastique ») ; le décalage propre à chaque carte (±2,5 mm) ne sort jamais de l'image
+  vec2 q = (mat2(c, s, -s, c) * p) * 0.7 + uPaperXf.xy;
   return vec2(q.x / uCard.x + 0.5, 0.5 - q.y / uCard.y);
 }
 // grain : seul le détail fin (fibres) est amplifié, pas les nuages du papier
