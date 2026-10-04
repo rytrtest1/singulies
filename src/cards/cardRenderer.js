@@ -41,23 +41,31 @@ function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
 function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
 function norm(a) { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }
 
-// ---------- maillage : deux faces en grille (pour le gondolage) + tranche ----------
-function cardMesh(nx = 72, ny = 44, seg = 12) {
-  const { w, h, r, t } = CARD, v = [];
-  const push = (x, y, z, nx_, ny_, nz, f) => v.push(x, y, z, nx_, ny_, nz, f);
-  // point de grille ramené dans le rectangle arrondi (coins projetés sur l'arc)
-  const fit = (x, y) => {
+// ---------- maillage indexé : deux faces en grille + tranche ----------
+// Pas de 0,2 mm sur la zone du logo (le gaufrage y déforme réellement la feuille : il dépasse de la
+// tranche vu de profil), 2 mm ailleurs (gondolage seulement).
+function axis(half, dense, fine, coarse) {
+  const out = [];
+  for (let x = -half; x < -dense - 1e-6; x += coarse) out.push(x);
+  for (let x = -dense; x < dense - 1e-6; x += fine) out.push(x);
+  for (let x = dense; x < half - 1e-6; x += coarse) out.push(x);
+  out.push(half);
+  return out;
+}
+function cardMesh(seg = 12) {
+  const { w, h, r, t } = CARD, v = [], idx = [];
+  const fit = (x, y) => {   // point de grille ramené dans le rectangle arrondi (coins projetés sur l'arc)
     const cx = w / 2 - r, cy = h / 2 - r, qx = Math.abs(x) - cx, qy = Math.abs(y) - cy;
     if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy); if (l > r) return [Math.sign(x) * (cx + qx * r / l), Math.sign(y) * (cy + qy * r / l)]; }
     return [x, y];
   };
-  const G = [];
-  for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) G.push(fit(-w / 2 + w * i / nx, -h / 2 + h * j / ny));
+  const xs = axis(w / 2, 22, 0.2, 2), ys = axis(h / 2, 23, 0.2, 2), nx = xs.length, ny = ys.length;
   for (const [z, s, f] of [[t / 2, 1, 0], [-t / 2, -1, 1]]) {      // 0 = dos (+z), 1 = recto (−z)
-    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
-      const a = G[j * (nx + 1) + i], b = G[j * (nx + 1) + i + 1], c = G[(j + 1) * (nx + 1) + i + 1], d = G[(j + 1) * (nx + 1) + i];
-      const tri = s > 0 ? [a, b, c, a, c, d] : [a, c, b, a, d, c];
-      for (const p of tri) push(p[0], p[1], z, 0, 0, s, f);
+    const base = v.length / 7;
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const [x, y] = fit(xs[i], ys[j]); v.push(x, y, z, 0, 0, s, f); }
+    for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+      const a = base + j * nx + i, b = a + 1, c = a + nx + 1, d = a + nx;
+      if (s > 0) idx.push(a, b, c, a, c, d); else idx.push(a, c, b, a, d, c);
     }
   }
   const ol = [];
@@ -65,18 +73,18 @@ function cardMesh(nx = 72, ny = 44, seg = 12) {
   for (const [cx, cy, a0] of corners) for (let i = 0; i <= seg; i++) {
     const a = (a0 + 0.5 * i / seg) * Math.PI; ol.push([cx + r * Math.cos(a), cy + r * Math.sin(a), Math.cos(a), Math.sin(a)]);
   }
-  // côtés droits subdivisés (le gondolage les courbe aussi)
-  const edge = [];
+  const edge = [];   // côtés droits subdivisés (le gondolage les courbe aussi)
   for (let k = 0; k < ol.length; k++) {
     const a = ol[k], b = ol[(k + 1) % ol.length], n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 1.5));
     for (let i = 0; i < n; i++) { const u = i / n; edge.push([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u, a[3] + (b[3] - a[3]) * u]); }
   }
-  for (let i = 0; i < edge.length; i++) {                         // 2 = tranche
-    const a = edge[i], b = edge[(i + 1) % edge.length];
-    push(a[0], a[1], t / 2, a[2], a[3], 0, 2); push(a[0], a[1], -t / 2, a[2], a[3], 0, 2); push(b[0], b[1], t / 2, b[2], b[3], 0, 2);
-    push(b[0], b[1], t / 2, b[2], b[3], 0, 2); push(a[0], a[1], -t / 2, a[2], a[3], 0, 2); push(b[0], b[1], -t / 2, b[2], b[3], 0, 2);
+  const e0 = v.length / 7;                                         // 2 = tranche
+  for (const p of edge) { v.push(p[0], p[1], t / 2, p[2], p[3], 0, 2); v.push(p[0], p[1], -t / 2, p[2], p[3], 0, 2); }
+  for (let i = 0; i < edge.length; i++) {
+    const a = e0 + 2 * i, b = e0 + 2 * ((i + 1) % edge.length);
+    idx.push(a, a + 1, b, b, a + 1, b + 1);
   }
-  return new Float32Array(v);
+  return { verts: new Float32Array(v), indices: new Uint32Array(idx) };
 }
 
 const VS = /* glsl */`#version 300 es
@@ -86,16 +94,30 @@ layout(location=2) in float aFace;
 uniform mat4 uVP, uModel;
 uniform vec2 uCard;
 uniform vec3 uWarp;          // gondolage (mm) : courbure en x, en y, torsion
+uniform sampler2D uLogo;
+uniform float uLogoSq, uLogoRange, uH, uB, uFoot, uFootW;
+uniform vec2 uLogoOff, uLogoScale;
 out vec3 vWorld, vT, vB, vN; out vec2 vMM; flat out int vFace;
+// même profil que le shader de surface, pied un peu adouci (le maillage a un pas de 0,2 mm)
+float gaufrage(vec2 p) {
+  vec2 uv = (p - uLogoOff) / (uLogoSq * uLogoScale) + 0.5; uv.y = 1.0 - uv.y;
+  if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return 0.0;
+  float d = textureLod(uLogo, uv, 0.0).r * min(uLogoScale.x, uLogoScale.y);
+  float fw = max(uFootW, 0.22);
+  float a = clamp(-d / fw, 0.0, 1.0), b = clamp(-d / uB, 0.0, 1.0);
+  return uH * (uFoot * a * a * (3.0 - 2.0 * a) + (1.0 - uFoot) * b * b * (3.0 - 2.0 * b));
+}
 void main() {
   vec2 q = 2.0 * aPos.xy / uCard;
   float z = uWarp.x * q.x * q.x + uWarp.y * q.y * q.y + uWarp.z * q.x * q.y;
   float dzx = (2.0 * uWarp.x * q.x + uWarp.z * q.y) * 2.0 / uCard.x;
   float dzy = (2.0 * uWarp.y * q.y + uWarp.z * q.x) * 2.0 / uCard.y;
-  vec3 p = aPos + vec3(0.0, 0.0, z);
+  int f = int(aFace + 0.5);
+  // la feuille entière est poussée vers le dos : bosse au dos, creux au recto (même déplacement)
+  float g = f == 2 ? 0.0 : gaufrage(aPos.xy);
+  vec3 p = aPos + vec3(0.0, 0.0, z + g);
   vec3 T = normalize(vec3(1.0, 0.0, dzx)), B = normalize(vec3(0.0, 1.0, dzy));
   vec3 Nu = normalize(cross(T, B));
-  int f = int(aFace + 0.5);
   vec3 N = f == 0 ? Nu : f == 1 ? -Nu : normalize(vec3(aNor.xy, -dot(aNor.xy, vec2(dzx, dzy))));
   mat3 m = mat3(uModel);
   vec4 w = uModel * vec4(p, 1.0);
@@ -344,13 +366,16 @@ export async function createCardRenderer(gl, base = './') {
   const vao = gl.createVertexArray(), vbo = gl.createBuffer();
   gl.bindVertexArray(vao);
   gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-  gl.bufferData(gl.ARRAY_BUFFER, mesh, gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, mesh.verts, gl.STATIC_DRAW);
+  const ibo = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 12);
   gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
   gl.bindVertexArray(null);
   const paperTex = imageTexture(gl, paperImg), logoTex = await logoTexture(gl, logoImg);
-  const count = mesh.length / 7;
+  const count = mesh.indices.length;
 
   // params : éclairage + matière ; card : { model, logoOff, paperXf }
   function draw(vp, eye, params, card) {
@@ -373,7 +398,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, card.ink || null); gl.uniform1i(u.uInk, 2);
     gl.uniform1f(u.uHasInk, card.ink ? 1 : 0);
     gl.bindVertexArray(vao);
-    gl.drawArrays(gl.TRIANGLES, 0, count);
+    gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);
   }
   // carte d'encre (canvas) → texture R8 avec mipmaps ; à libérer avec freeInk quand la carte quitte la scène

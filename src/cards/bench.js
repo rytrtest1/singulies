@@ -11,7 +11,7 @@ import QUESTIONS from './questions.json';
 const DEF = {
   lightAz: -25, lightEl: 35, lightDist: 220, light: 0.025, lightR: 60, env: 0.03, albedo: 0.05, exposure: 1.0,
   h: 0.5, b: 1.0, crease: 0.3, fiber: 0.03, foot: 0.4, footW: 0.12,
-  rough: 0.45, spec: 3, sheen: 0.3, glint: 2, edge: 1.0, grain: 3, diffRough: 0.25, parallax: 1, inkAlb: 2.0, inkPress: 0.04, inkWear: 1.4, inkThr: 0.38, inkVar: 1.5, inkPaper: 15, inkOrg: 0.95, q: 33, seed: 1, wx: 0.25, wy: -0.12, wt: 0.1,
+  rough: 0.45, spec: 3, sheen: 0.3, glint: 2, edge: 1.0, grain: 3, diffRough: 0.25, parallax: 0, inkAlb: 2.0, inkPress: 0.04, inkWear: 1.4, inkThr: 0.38, inkVar: 1.5, inkPaper: 15, inkOrg: 0.95, q: 33, seed: 1, wx: 0.25, wy: -0.12, wt: 0.1,
   lx: -0.9, ly: 0.3, lsx: 1, lsy: 1.09, rx: 0, ry: 0, fov: 8, zoom: 1, panX: 0, panY: 0,
 };
 const RANGES = {
