@@ -16,7 +16,7 @@ export const LOOK = {
   // (ou la souris, ou le doigt en repli) fait tourner la direction (pas de lumière de reflet : grisait les cartes) ;
   // la carte retournée projette son ombre douce sur le paquet ; les bords cassés accrochent la lumière.
   light: 0.111, lightR: 400, env: 0.28, albedo: 0.029, exposure: 0.74, lightAz: 0.67, lightR0: 1.0, lightZ: 210, tiltAmp: 1.45,
-  lightMode: 1, elevAmp: 0.45, flashZ: 70, cardTilt: 0.2, lightVar: 0.6, sway: 0.018, spot: 0.12,
+  lightMode: 1, elevAmp: 0.45, flashZ: 70, cardTilt: 0.2, lightVar: 0.6, sway: 0.06, spot: 0.12,
   h: 0.19, b: 1.32, crease: 0, fiber: 0.06, foot: 0.76, footW: 0.165, parallax: 0,
   rough: 0.64, spec: 3.1, sheen: 0, glint: 0.35, edge: 3, grain: 1.25, diffRough: 0.65, envSpec: 0.32, toe: 0.0078,
   nameFlat: 0.42,   // prénom à plat (gris en retrait) ; 0 → prénom en relief (nameAlb, nameRelief…)
@@ -145,6 +145,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
   }
 
+  // focus : 'top' (carte question / paquet) ou 'bottom' (carte vierge, réponse) ; fw = poids lissé du haut
+  let focus = 'top', fw = 1;
   let vp = null, eye = null;
   function frame(t, dt, W, H) {
     layout(W, H);
@@ -152,6 +154,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (face && face.kind === 'draw' && t - face.t0 >= DRAW_T) face.kind = 'idle';
     leaving = leaving.filter(c => { if (t - c.t0 < DISCARD_T) return true; card.freeInk(c.ink); return false; });
     stepLight(dt);
+    fw += ((focus === 'top' ? 1 : 0) - fw) * Math.min(1, dt * 3);
     const cy = (lay.yDeck + lay.yBlank) / 2;
     eye = [0, cy - lay.D * Math.sin(TILT), lay.D * Math.cos(TILT)];
     const target = [0, cy, 0];
@@ -161,7 +164,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     // même rendu quel que soit le format
     const k = lay.Hw / 235;
     const ln = Math.hypot(lp.x, lp.y) || 1, m = L.lightMode | 0;
-    const act = face ? poseAt(face, t) : { x: 0, y: lay.yDeck, z: 0 };       // carte active
+    const top = face ? poseAt(face, t) : { x: 0, y: lay.yDeck, z: 0 };
+    const act = { x: top.x * fw + blank.jx * (1 - fw), y: top.y * fw + lay.yBlank * (1 - fw), z: (top.z || 0) * fw };   // carte active (focus)
     const R = L.lightR0 * lay.Hw, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R);
     let lightPos, light = L.light * k * k;
     if (m === 2) {
@@ -177,11 +181,16 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     // cartes qui s'inclinent (manière 3)
     const crx = -ts.y * L.cardTilt, cry = ts.x * L.cardTilt;   // les cartes s'inclinent dans toutes les manières
     // inclinaison d'un groupe autour d'un pivot (+ respiration lente, propre à chaque groupe)
-    const group = (px, py, ph) => {
-      const rx = crx + L.sway * Math.sin(t * 0.61 + ph), ry = cry + L.sway * 1.2 * Math.sin(t * 0.47 + ph * 1.7);
-      return M4.mul(M4.mul(M4.model(0, 0, 0, px, py, 0), M4.model(rx, ry, 0)), M4.model(0, 0, 0, -px, -py, 0));
+    // chaque carte (le paquet d'un bloc, la carte vierge) : respiration organique propre (deux oscillations
+    // lentes par axe, périodes sans rapport simple, légère flottaison) ; seule la carte en focus suit en plus
+    // la souris / l'inclinaison (poids wt, passage en douceur)
+    const group = (px, py, ph, wt) => {
+      const rx = crx * wt + L.sway * (0.6 * Math.sin(t * 0.61 + ph) + 0.4 * Math.sin(t * 1.37 + 2.1 * ph));
+      const ry = cry * wt + L.sway * 1.2 * (0.6 * Math.sin(t * 0.47 + 1.7 * ph) + 0.4 * Math.sin(t * 1.13 + 0.6 * ph));
+      const dz = L.sway * 12 * Math.sin(t * 0.29 + ph);
+      return M4.mul(M4.mul(M4.model(0, 0, 0, px, py, dz), M4.model(rx, ry, 0)), M4.model(0, 0, 0, -px, -py, 0));
     };
-    const Gd = group(0, lay.yDeck, 0.0), Gb = group(blank.jx, lay.yBlank, 2.3);
+    const Gd = group(0, lay.yDeck, 0.0, fw), Gb = group(blank.jx, lay.yBlank, 2.3, 1 - fw);
     // projecteur de mise en valeur : au-dessus, devant, vise la carte active (cône un peu plus large qu'elle)
     const spotPos = [act.x, act.y + 0.35 * lay.Hw, lay.D * 0.55];
     const sd = [act.x - spotPos[0], act.y - spotPos[1], (act.z || 0) - spotPos[2]], sl = Math.hypot(...sd);
@@ -240,6 +249,11 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // toucher : renvoie ce qui s'est passé ({ type: 'draw' | 'discard' | 'blank' | null, id })
   function tap(x, y, t) {
     if (!vp) return { type: null };
+    const r = tapInner(x, y, t);
+    if (r.type === 'draw' || r.type === 'discard') focus = 'top';
+    return r;
+  }
+  function tapInner(x, y, t) {
     if (face && inside(screenQuad(poseAt(face, t)), x, y)) {
       if (face.kind !== 'idle') return { type: null };
       return { type: 'discard', id: discard(t) };
@@ -250,13 +264,14 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       if (pendingDraw >= 0) return { type: null };
       return { type: 'draw', id: draw(t) };
     }
-    if (inside(screenQuad({ x: blank.jx, y: lay.yBlank, z: 0, rx: 0, ry: Math.PI, rz: blank.jr }), x, y)) return { type: 'blank' };
+    if (inside(screenQuad({ x: blank.jx, y: lay.yBlank, z: 0, rx: 0, ry: Math.PI, rz: blank.jr }), x, y)) { focus = 'bottom'; return { type: 'blank' }; }
     return { type: null };
   }
   function setName(s) { nameText = s || ''; nameKey = ''; }
+  function setFocus(f) { focus = f === 'bottom' ? 'bottom' : 'top'; }
   function setTilt(x, y) { tilt.x = Math.max(-1, Math.min(1, x)); tilt.y = Math.max(-1, Math.min(1, y)); }
   const current = () => (face ? face.id : null);
   // direction (unitaire, écran : x à droite, y en haut) d'où vient la lumière — le prénom s'en sert
   const lightDir = () => { const l = Math.hypot(lp.x, lp.y) || 1; return [lp.x / l, lp.y / l]; };
-  return { frame, tap, setTilt, setName, current, lightDir, look: L, layout: lay };
+  return { frame, tap, setTilt, setName, setFocus, focus: () => focus, current, lightDir, look: L, layout: lay };
 }
