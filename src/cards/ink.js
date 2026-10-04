@@ -219,3 +219,47 @@ export function makeAnswerInk(text, seed = 1, maxLines = 3) {
   const cursor = { x: margin + lines[lines.length - 1].length * TYPE.pitch - 0.35, y: y0 + Math.max(0, last) * lead };
   return { canvas: cv, lines, cursor, hidden: first };
 }
+
+// Feuille réponse glissée sous la carte question : comme dans une machine, la ligne en cours reste toujours
+// à la même hauteur (SHEET_LINE mm du haut de la feuille) et c'est la feuille qui monte d'un cran à chaque
+// retour à la ligne ; les lignes passées montent et disparaissent sous la carte question.
+export const SHEET_LINE = 10 + 2 * TYPE.lead;   // ligne en cours ; les deux précédentes restent visibles au-dessus
+export function makeSheetInk(text, seed = 1) {
+  const PX = INK_PXMM, W = Math.round(CARD.w * PX), H = Math.round(CARD.h * PX);
+  const cv = new OffscreenCanvas(W, H), cx = cv.getContext('2d');
+  cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
+  const r0 = createRng(seed), margin = r0.range(9, 12), lead = TYPE.lead;
+  const lines = answerLines(text), n = lines.length;
+  const fontPx = TYPE.size * PX;
+  const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
+  const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;
+  cx.globalCompositeOperation = 'lighter';
+  let idx = 0;
+  for (let li = 0; li < n; li++) {
+    const line = lines[li], base = SHEET_LINE - (n - 1 - li) * lead;
+    if (base < -4) { idx += line.length + 1; continue; }
+    [...line].forEach((ch, ci) => {
+      const r = createRng((seed * 7919 + (idx + ci) * 104729) >>> 0);
+      const g = () => { let s = 0; for (let i = 0; i < 4; i++) s += r(); return (s - 2) / 0.58; };
+      if (ch === ' ') return;
+      const x = margin + ci * TYPE.pitch + g() * 0.06, y = base + g() * 0.09;
+      const press = Math.min(1, Math.max(0.5, 0.82 + g() * 0.14)), rot = g() * 0.5 * Math.PI / 180;
+      gx.setTransform(1, 0, 0, 1, 0, 0); gx.globalCompositeOperation = 'source-over';
+      gx.clearRect(0, 0, glyph.width, glyph.height);
+      gx.font = `${fontPx}px "${FAMILY}"`; gx.fillStyle = '#fff'; gx.strokeStyle = '#fff';
+      gx.translate(ox, oyB); gx.scale(TYPE.xScale, TYPE.yScale);
+      gx.fillText(ch, 0, 0);
+      gx.setTransform(1, 0, 0, 1, 0, 0);
+      if (r() < 0.4) {
+        const a = r() * Math.PI * 2, rr = glyph.width * 0.6;
+        const gr = gx.createLinearGradient(glyph.width / 2 - Math.cos(a) * rr, glyph.height / 2 - Math.sin(a) * rr, glyph.width / 2 + Math.cos(a) * rr, glyph.height / 2 + Math.sin(a) * rr);
+        gr.addColorStop(0, `rgba(255,255,255,${r.range(0.5, 0.9)})`); gr.addColorStop(1, 'rgba(255,255,255,1)');
+        gx.globalCompositeOperation = 'destination-in'; gx.fillStyle = gr; gx.fillRect(0, 0, glyph.width, glyph.height);
+      }
+      cx.save(); cx.translate(x * PX, y * PX); cx.rotate(rot); cx.globalAlpha = press;
+      cx.drawImage(glyph, -ox, -oyB); cx.restore();
+    });
+    idx += line.length + 1;
+  }
+  return { canvas: cv, lines, cursor: { x: margin + lines[n - 1].length * TYPE.pitch - 0.35, y: SHEET_LINE }, scroll: (n - 1) * lead };
+}

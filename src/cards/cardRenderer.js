@@ -97,11 +97,12 @@ uniform mat4 uVP, uModel;
 uniform vec2 uCard;
 uniform vec3 uWarp;          // gondolage (mm) : courbure en x, en y, torsion
 uniform sampler2D uLogo;
-uniform float uLogoSq, uLogoRange, uH, uB, uFoot, uFootW;
+uniform float uLogoSq, uLogoRange, uH, uB, uFoot, uFootW, uNoLogo;
 uniform vec2 uLogoOff, uLogoScale;
 out vec3 vWorld, vT, vB, vN; out vec2 vMM; flat out int vFace;
 // même profil que le shader de surface, pied un peu adouci (le maillage a un pas de 0,2 mm)
 float gaufrage(vec2 p) {
+  if (uNoLogo > 0.5) return 0.0;
   vec2 uv = (p - uLogoOff) / (uLogoSq * uLogoScale) + 0.5; uv.y = 1.0 - uv.y;
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return 0.0;
   float d = textureLod(uLogo, uv, 0.0).r * min(uLogoScale.x, uLogoScale.y);
@@ -135,7 +136,7 @@ uniform float uHasInkBack;
 uniform vec4 uCursor; uniform float uCursorFace;     // curseur de frappe : x, y (mm, bas), hauteur, opacité ; face (0/1, -1 aucun)
 uniform float uHasInk, uInkAlb, uInkPress, uInkWear, uInkThr, uInkVar, uInkPaper, uInkOrg;
 uniform vec2 uCard;          // largeur, hauteur (mm)
-uniform float uLogoSq, uLogoRange;
+uniform float uLogoSq, uLogoRange, uNoLogo;
 uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
 uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
 uniform vec3 uLightPos, uEye, uRoomUp;
@@ -153,6 +154,7 @@ out vec4 o;
 const float PI = 3.14159265;
 
 float logoD(vec2 p) {        // distance signée au contour (mm), < 0 dans le logo
+  if (uNoLogo > 0.5) return uLogoRange;   // feuille sans logo
   vec2 uv = (p - uLogoOff) / (uLogoSq * uLogoScale) + 0.5; uv.y = 1.0 - uv.y;
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return uLogoRange;
   return texture(uLogo, uv).r * min(uLogoScale.x, uLogoScale.y);
@@ -430,6 +432,10 @@ export async function createCardRenderer(gl, base = './') {
     meshes[name] = { vao, count: mesh.indices.length };
   }
   const paperTex = imageTexture(gl, paperImg), logoTex = await logoTexture(gl, logoImg);
+  // papier en répétition miroir : la feuille réponse peut faire défiler son grain (le papier monte)
+  gl.bindTexture(gl.TEXTURE_2D, paperTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
 
   // params : éclairage + matière ; card : { model, logoOff, paperXf }
   function draw(vp, eye, params, card) {
@@ -441,6 +447,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uLogoSq, CARD.logoSq); gl.uniform1f(u.uLogoRange, CARD.logoRange);
     gl.uniform2fv(u.uLogoOff, card.logoOff || [0, 0]);
     gl.uniform2fv(u.uLogoScale, card.logoScale || [1, 1]);
+    gl.uniform1f(u.uNoLogo, card.noLogo ? 1 : 0);
     gl.uniform4fv(u.uPaperXf, card.paperXf || [0, 0, 0, 0]);
     gl.uniform3fv(u.uWarp, card.warp || [0, 0, 0]);
     gl.uniform1f(u.uSeed, card.seed || 0);

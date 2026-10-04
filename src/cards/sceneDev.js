@@ -63,7 +63,15 @@ function start(scene) {
       if (!down.moved && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) down.moved = true;
       if (down.moved) { scene.drag(dx); return; }
     }
-    if (e.pointerType === 'mouse' || !gyroLive) scene.setTilt((e.clientX / innerWidth - 0.5) * 1.4, (0.5 - e.clientY / innerHeight) * 1.4);
+    // souris (ou doigt sans gyroscope) : sur la carte, elle est parfaitement droite ; elle s'incline à mesure
+    // que le pointeur s'en éloigne
+    if (e.pointerType === 'mouse' || !gyroLive) {
+      const r = scene.cardRect(); if (!r) return;
+      const x = e.clientX, y = e.clientY;
+      const ox = x < r.left ? x - r.left : x > r.right ? x - r.right : 0;
+      const oy = y < r.top ? y - r.top : y > r.bottom ? y - r.bottom : 0;
+      scene.setTilt(ox / (innerWidth * 0.3), -oy / (innerHeight * 0.3));
+    }
   });
   canvas.addEventListener('pointerup', e => {
     if (!down) return;
@@ -82,7 +90,8 @@ function start(scene) {
   let g0 = null, orientAsked = false;
   function onOrient(e) {
     if (e.beta == null || e.gamma == null) return;
-    if (!g0) g0 = { b: e.beta, g: e.gamma };
+    // position zéro : tenue normale de lecture (écran penché d'environ 50° vers l'arrière, à plat de côté)
+    if (!g0) g0 = { b: 50, g: 0 };
     gyroLive = true;
     scene.setTilt((e.gamma - g0.g) / 25, -(e.beta - g0.b) / 25);
   }
