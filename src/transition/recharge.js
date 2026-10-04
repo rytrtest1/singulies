@@ -18,9 +18,13 @@ const lerp = (a, b, u) => a + (b - a) * u;
 
 export const REST = 0.6;          // repos minimal après la dernière arrivée (s)
 export const RISE = 1.9;          // durée de la montée (s)
-export const NAME_LOW = 0.62;     // le prénom baisse avant d'être rechargé
-export const NAME_GRAY = 0.42;    // gris « en retrait » de la scène des cartes (LOOK.nameFlat)
-const NAME_LIT = 0.95;            // clarté visée par une lettre qui rejoint le prénom
+// une seule clarté du prénom dans toute l'app (accueil, transition, cartes) : 0,85 (≈ 217/255) ; jamais de baisse
+// d'une scène à l'autre. La recharge le fait baisser puis le ramène à ce niveau (pas au-delà) ; la marge jusqu'au
+// blanc sert à l'allumage de ses lettres quand on écrit la réponse.
+export const NAME_REST = 0.85;
+export const NAME_LOW = 0.62;     // fraction de NAME_REST : le prénom baisse avant d'être rechargé
+export const NAME_GRAY = NAME_REST;   // (ancien gris « en retrait » 0,42 : retiré, 05/10)
+const NAME_LIT = NAME_REST;       // clarté visée par une lettre qui rejoint le prénom
 const DEP0 = 0.5, DEP_SPAN = 2.2; // départs étalés, du plus loin au plus proche
 const MAX_FLY = 140;               // toutes les lettres allumées à l'écran, du fond au premier plan
 
@@ -135,8 +139,8 @@ export function rechargeFrame(plan, T, ctx) {
 
 // clarté du prénom : baisse au départ, remonte à chaque arrivée ; une lettre sans donneur se recharge seule
 function nameBright(plan, T, keep) {
-  const low = 1 - (1 - NAME_LOW) * sm(0.1, 1.1, T);
-  return keep.map((k, j) => lerp(low, 1, plan.fed[j] ? 1 - k : sm(plan.tEnd - 1.4, plan.tEnd - 0.2, T)));
+  const low = NAME_REST * (1 - (1 - NAME_LOW) * sm(0.1, 1.1, T));
+  return keep.map((k, j) => lerp(low, NAME_REST, plan.fed[j] ? 1 - k : sm(plan.tEnd - 1.4, plan.tEnd - 0.2, T)));
 }
 
 // flux d'énergie (?transition=energie) : de chaque lettre allumée, sa lumière floue et bruitée s'étire en

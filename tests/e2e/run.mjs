@@ -281,6 +281,7 @@ await run('Suggestion en composition (iPhone) : prénom affiché d’un coup, sa
     i.dispatchEvent(new InputEvent('input', { inputType: 'insertCompositionText', data: 'Léa' }));
   });
   await p.waitForFunction(() => window.__sg.S.rev == null, null, { timeout: 15000 });
+  await sleep(500);   // la confirmation suit la suggestion de 150 ms
   const s = await st(p);
   return [same('pas de frappe automatique', false, r.rev), same('rien en attente après 150 ms', 99, mid), same('modèle', 'LEA', s.text), same('confirmé', true, await p.evaluate(() => window.__sg.S.confirmed))];
 });

@@ -1,0 +1,23 @@
+// Niveaux de luminosité de la scène des cartes (fond, papier, encre, prénom) : node tools/luminance.mjs [requête]
+import { createServer } from 'vite';
+import { chromium } from 'playwright';
+import { PNG } from 'pngjs';
+const Q = process.argv[2] || '';
+const server = await createServer({ server: { port: 5194, strictPort: true }, logLevel: 'error' });
+await server.listen();
+const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+p.setDefaultTimeout(180000);
+await p.goto('http://localhost:5194/scene-cartes.html?prenom=LEA&seed=3' + Q);
+await p.waitForFunction(() => { const s = window.__scene?.scene.state(); return s && s.writing && s.active && s.active.id != null; });
+await new Promise(r => setTimeout(r, 3000));
+const png = PNG.sync.read(await p.screenshot());
+const r = await p.evaluate(() => { const s = window.__scene.scene; return { card: s.cardRect() }; });
+const lum = (x, y) => { const i = (y * png.width + x) * 4; return 0.2126 * png.data[i] + 0.7152 * png.data[i + 1] + 0.0722 * png.data[i + 2]; };
+const pct = (a, q) => { const s = [...a].sort((x, y) => x - y); return Math.round(s[Math.floor(q * (s.length - 1))]); };
+const c = r.card, inCard = [], name = [];
+for (let y = Math.ceil(c.top) + 4; y < c.bottom - 4; y++) for (let x = Math.ceil(c.left) + 4; x < c.right - 4; x++) inCard.push(lum(x, y));
+for (let y = 60; y < 130; y++) for (let x = 0; x < png.width; x++) name.push(lum(x, y));
+await p.screenshot({ path: 'captures/transition/coherence-cartes.png' });
+console.log(JSON.stringify({ fond: Math.round(lum(10, 800)), papier_med: pct(inCard, 0.5), encre_p995: pct(inCard, 0.995), encre_max: pct(inCard, 1), prenom_max: pct(name, 1), prenom_p99: pct(name, 0.995) }));
+await b.close(); await server.close();

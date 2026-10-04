@@ -13,7 +13,7 @@ import { createField, MODES } from './field/field.js';
 import { createRng } from './field/rng.js';
 import { createLight } from './field/light.js';
 import { sigmaPx } from './field/camera.js';
-import { planRecharge, fieldLetter, rechargeFrame, energyFrame, riseU, grayU, sm as smT, REST, RISE, NAME_GRAY } from './transition/recharge.js';
+import { planRecharge, fieldLetter, rechargeFrame, energyFrame, riseU, grayU, sm as smT, REST, RISE, NAME_GRAY, NAME_REST } from './transition/recharge.js';
 
 const transRng = createRng();
 
@@ -454,7 +454,7 @@ function frame(ts) {
       if (tg && here.length) camDY = u * (here[0].y - tg[0].y) * 3 / focal;
     }
     // mouvement réduit : le prénom s'efface au centre puis apparaît à sa place, déjà en retrait
-    if (CFG.reduced) bright = bright.map(() => (S.riseT == null ? 1 - smooth(0, 0.9, T) : NAME_GRAY * smooth(S.riseT, S.riseT + 0.9, S.t)));
+    if (CFG.reduced) bright = bright.map(() => (S.riseT == null ? NAME_REST * (1 - smooth(0, 0.9, T)) : NAME_GRAY * smooth(S.riseT, S.riseT + 0.9, S.t)));
     hook = CFG.reduced
       ? { letter: (w, i, dn, buf, o) => { const k = 1 - smooth(0, 1.2, T); buf[o + 7] *= k; buf[o + 17] *= k; } }
       : { letter: (w, i, dn, buf, o) => fieldLetter(plan, T, w, i, dn, buf, o), extra: () => R.inst || [] };
@@ -469,7 +469,7 @@ function frame(ts) {
     const active = wheel && S.phase === 'input' && T < 0 && i === place.length - 1 && wheel.current !== ' ';
     const dy = active ? -wheel.frac * S.capPx * 1.6 : 0;
     let al = active ? nameFade * (1 - 0.55 * Math.min(1, Math.abs(wheel.frac) * 2)) : nameFade;
-    if (bright) al *= bright[i];
+    al *= bright ? bright[i] : NAME_REST;   // même clarté du prénom partout
     glyphs.push({
       box: [g.x + gm.x0 * g.fs, g.y + dy + gm.y0 * g.fs, g.x + gm.x1 * g.fs, g.y + dy + gm.y1 * g.fs],
       uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: al, pxEm: g.fs,
