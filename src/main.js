@@ -35,6 +35,7 @@ const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
 const OPEN_FADE = 1.4;      // s de fondu d'entrée
 const LEAVE_FADE = 1.2;     // s de fondu au noir après validation (sans WebGL2)
+const SHOW_NEXT = P.get('fleche') === '1';   // flèche « suite » retirée pour l'instant (04/10) ; ?fleche=1 pour la revoir
 const AUTO_NEXT = 10;       // s sans toucher après confirmation → passage automatique à la suite
 const HANDOFF = 0.6;        // s de fondu enchaîné vers la scène des cartes (même prénom, même place)
 
@@ -461,7 +462,7 @@ function frame(ts) {
   });
   // le signe sous le prénom confirmé (aller à la suite) ; 10 s sans geste → on y va
   const canNext = S.phase === 'input' && S.confirmed && T < 0 && !!text.trim() && !wheel && !S.rev;   // pas pendant la frappe automatique
-  nextEl.classList.toggle('on', canNext && S.t - S.confirmedAt > 1.2 && S.t > OPEN_DARK + 1.5);
+  nextEl.classList.toggle('on', SHOW_NEXT && canNext && S.t - S.confirmedAt > 1.2 && S.t > OPEN_DARK + 1.5);
   if (canNext) { nextEl.style.left = (cx - 22) + 'px'; nextEl.style.top = (L.bottom + Math.max(12, 0.8 * L.cap)) + 'px'; }
   if (canNext && S.t - Math.max(S.confirmedAt, S.actAt) > AUTO_NEXT) startTransition();
   if (CFG.debug) {   // croix au point de fuite

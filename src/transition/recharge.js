@@ -81,12 +81,14 @@ export function fieldLetter(plan, T, w, i, dn, buf, o) {
   const m = 1 - sm(t0, end, T);
   const s = plan.src.get(w);
   const f = s && s[i];
-  const gone = f && T >= f.dep;
-  if (gone && plan.mode === 'lettres') { buf[o + 7] = 0; buf[o + 17] = 0; return; }
-  buf[o + 7] *= m;
-  // énergie : la lettre se vide peu à peu à mesure que le filament l'emporte ; lumière : d'un coup
-  const keepL = !f ? m : plan.mode === 'energie' ? 1 - sm(f.dep, f.dep + f.lag + 0.7 * f.tdur, T) : gone ? 0 : m;
-  buf[o + 17] *= keepL;
+  if (!f) { buf[o + 7] *= m; buf[o + 17] *= m; return; }
+  // une lettre qui va partir garde exactement sa clarté jusqu'à son départ (sinon : baisse puis remontée = flash) ;
+  // on note sa clarté vivante, que sa copie en vol reprend au départ
+  if (T < f.dep) { f.alive = buf[o + 7]; f.Llive = buf[o + 17]; return; }
+  if (plan.mode === 'lettres') { buf[o + 7] = 0; buf[o + 17] = 0; return; }
+  // lumière / énergie : la lettre grise restée sur place rejoint en douceur l'extinction des autres
+  buf[o + 7] *= 1 - (1 - m) * sm(f.dep, f.dep + 0.8, T);
+  buf[o + 17] *= plan.mode === 'energie' ? 1 - sm(f.dep, f.dep + f.lag + 0.7 * f.tdur, T) : 0;
 }
 
 // instances des lettres en vol, à l'instant T, dans le monde du champ. world(w, i) : la lettre en monde
@@ -99,7 +101,7 @@ export function rechargeFrame(plan, T, ctx) {
   const light = plan.mode === 'lumiere';
   for (const fl of plan.flyers) {
     if (T < fl.dep) continue;
-    if (!fl.s0) { fl.s0 = world(fl.w, fl.i); fl.L0 = fl.L; }
+    if (!fl.s0) { fl.s0 = world(fl.w, fl.i); fl.L0 = fl.Llive ?? fl.L; if (fl.alive != null) fl.s0.alpha = fl.alive; }
     // départ doux, arrivée franche : la lettre est absorbée par le prénom au lieu de tourner autour
     const s0 = fl.s0, u = clamp01((T - fl.dep) / fl.dur), ue = 1 - Math.cos(u * Math.PI / 2);
     const p1 = name[fl.j], g = s0.g;
@@ -159,7 +161,7 @@ export function energyFrame(plan, T, ctx) {
     const cxp = (a.x + bx) / 2 + nx * f.bow * d * 1.6, cyp = (a.y + by) / 2 + ny * f.bow * d * 1.6;
     const t = T - f.dep, A = f.amp * d;
     const w0 = Math.max(2.5, 0.75 * capHeight * a.fs + a.blur), w1 = Math.max(1.6, 0.16 * capHeight * p1.fs);   // flou large à la source, s'affine en arrivant
-    const I = Math.min(0.62, 0.22 + 0.7 * f.L);
+    const I = Math.min(0.62, 0.22 + 0.7 * (f.Llive ?? f.L));
     let prev = null;
     for (let k = 0; k <= NSEG; k++) {
       const u = k / NSEG, iu = 1 - u;

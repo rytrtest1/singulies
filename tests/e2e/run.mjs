@@ -138,7 +138,7 @@ await run('Validation / Échap', async (p) => {
   const e = await p.evaluate(() => ({ phase: window.__sg.S.phase, text: window.__sg.model.text, ls: localStorage.getItem('singulies.name') }));
   out.push(same('Échap en scène: phase inchangée', 'scene', e.phase), same('Échap: prénom conservé', 'LEA', e.text), same('Échap: localStorage inchangé', 'LEA', e.ls));
   return out;
-});
+}, { query: '?memoire=1' });
 await run('Rechargement après départ de transition', async (p) => {
   await p.keyboard.type('Léa'); await p.evaluate(() => window.__sg.startTransition());   // sans Entrée préalable
   const t = await p.evaluate(() => window.__sg.S.trans != null);
@@ -150,7 +150,15 @@ await run('Rechargement après départ de transition', async (p) => {
   const f2 = await p.evaluate(() => window.__sg.cards.frames);
   const foreign = [...p.hosts].filter((h) => h !== 'localhost' && h !== '127.0.0.1');
   return [same('transition démarrée', true, t), same('phase après reload', 'scene', s.phase), same('prénom restauré', 'LEA', s.text), same('cartes dessinent', true, f2 > 0), same('hôtes externes', [], foreign)];
-}, { query: '' });
+}, { query: '?memoire=1' });
+await run('Sans mémoire (défaut) : prénom jamais retenu', async (p) => {
+  await p.keyboard.type('Léa'); await p.evaluate(() => window.__sg.startTransition()); await sleep(300);
+  const ls = await p.evaluate(() => localStorage.getItem('singulies.name'));
+  await p.reload();
+  await p.waitForFunction(() => window.__sg && window.__sg.atlas, null, { timeout: 60000 });
+  const s = await st(p);
+  return [same('rien en mémoire', null, ls), same('accueil vide après reload', '', s.text), same('phase input', 'input', s.phase)];
+});
 await run('Validation directe (validate) sans transition', async (p) => {
   await p.keyboard.type('Léa'); await p.evaluate(() => window.__sg.validate());
   await p.waitForFunction(() => window.__sg.S.phase === 'leaving' || window.__sg.S.phase === 'black', null, { timeout: 15000 });
@@ -159,7 +167,7 @@ await run('Validation directe (validate) sans transition', async (p) => {
 });
 await run('Visiteur qui revient', async (p) => {
   const s = await st(p); return [same('model', 'LEA', s.text), same('phase', 'input', s.phase)];
-}, { init: () => { try { if (!localStorage.getItem('singulies.name')) localStorage.setItem('singulies.name', 'LEA'); } catch {} } });
+}, { query: '?memoire=1', init: () => { try { if (!localStorage.getItem('singulies.name')) localStorage.setItem('singulies.name', 'LEA'); } catch {} } });
 await run('Accessibilité du champ', async (p) => {
   const r = await p.evaluate(() => {
     const i = document.getElementById('in');
@@ -225,7 +233,7 @@ await run('Signe #next visible puis clic -> transition', async (p) => {
   await p.waitForFunction(() => document.getElementById('next').classList.contains('on'), null, { timeout: 60000 });
   await p.click('#next'); await sleep(200);
   return [same('transition démarrée', true, (await flags(p)).trans)];
-});
+}, { query: "?fleche=1" });
 await run('2e Entrée sans focus (desktop, champ défocalisé par la confirmation)', async (p) => {
   await p.keyboard.type('Lea'); await p.keyboard.press('Enter'); await sleep(300);
   await p.keyboard.press('Enter'); await sleep(300);
