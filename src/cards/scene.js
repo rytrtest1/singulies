@@ -343,13 +343,21 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // rectangles écran (px CSS) : la question (zone où la souris laisse la carte droite) ; la carte en focus ;
   // la carte réponse (la page place le signe « donner » dessous)
   function cardRect() { if (!vp) return null; const c = answer && focusAns > 0.5 ? answer : question; return c ? rectOf(screenQuad(poseOf(c, lastT))) : rectOf(screenQuad(deckPose(STACK - 1, stack[STACK - 1]))); }
+  // bas de la place « réponse sortie » (repos, sans animation) : PASSER se fixe dessous, sans jamais bouger
+  function restBottom() { return vp ? rectOf(screenQuad(answerPose({ jx: 0, jy: 0, jr: 0 }))).bottom : null; }
   function lowestBottom() {
     if (!vp) return null;
     let b = 0;
     for (const c of [question, answer]) if (c) b = Math.max(b, rectOf(screenQuad(poseOf(c, lastT))).bottom);
     return b || null;
   }
-  function activeRect() { return answer && vp ? rectOf(screenQuad(poseOf(answer, lastT))) : null; }
+  // partie visible de la carte réponse (sous la question quand elle n'en dépasse que d'une ligne)
+  function activeRect() {
+    if (!answer || !vp) return null;
+    const r = rectOf(screenQuad(poseOf(answer, lastT)));
+    if (question && answer.place === 'peek') r.top = Math.max(r.top, rectOf(screenQuad(poseOf(question, lastT))).bottom);
+    return r;
+  }
 
   // ---------- gestes ----------
   function tap(x, y, t) {
@@ -396,7 +404,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function setKeyboard(px) { kbPx = px; }
   return {
     frame, tap, drag, release, give, pass, start, setName, setTilt, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
-    activeRect, cardRect, lowestBottom,
+    activeRect, cardRect, lowestBottom, restBottom,
     state: () => ({ writing, active: answer ? { kind: question ? 'question' : 'blank', id: question?.id, text: answer.text } : null, ended: !!ended, discards, offered: false }),
     look: L, layout: lay,
   };

@@ -43,9 +43,15 @@ function start(scene) {
     giveEl.classList.toggle('on', !!canGive);
     if (r) { giveEl.style.left = ((r.left + r.right) / 2 - 22) + 'px'; giveEl.style.top = (r.bottom + 10) + 'px'; }
     passEl.classList.toggle('on', !st.ended);
-    // PASSER juste sous l'élément le plus bas (la carte réponse, ou le signe « donner »)
-    const lb = scene.lowestBottom();
-    if (lb) passEl.style.top = Math.min(innerHeight - 50, lb + (canGive ? 62 : 14)) + 'px';
+    // PASSER : fixe, sous la place la plus basse de la carte réponse (et du signe « donner ») — ne bouge pas
+    const rb = scene.restBottom();
+    if (rb) passEl.style.top = Math.min(innerHeight - 50, rb + 58) + 'px';
+    // le champ natif est posé, invisible, sur la carte réponse : la toucher ouvre le clavier (iPhone : seul un
+    // toucher direct sur le champ l'ouvre)
+    if (r && !st.ended) {
+      answer.style.left = r.left + 'px'; answer.style.top = r.top + 'px';
+      answer.style.width = (r.right - r.left) + 'px'; answer.style.height = (r.bottom - r.top) + 'px';
+    } else { answer.style.width = '1px'; answer.style.height = '1px'; }
     window.__scene.frames++;
     requestAnimationFrame(frame);
   }
@@ -55,6 +61,16 @@ function start(scene) {
   answer.addEventListener('input', () => scene.setText(answer.value));
   answer.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); answer.blur(); } });
   answer.addEventListener('blur', () => scene.stopWriting());
+  answer.addEventListener('focus', () => { if (!scene.state().writing) scene.startWriting(); });
+  // relire en glissant verticalement sur la carte réponse (le champ est dessus)
+  let ty = null, tvs = 0;
+  answer.addEventListener('touchstart', e => { ty = e.touches[0].clientY; tvs = 0; }, { passive: true });
+  answer.addEventListener('touchmove', e => {
+    if (ty == null || scene.state().writing) return;
+    const steps = Math.trunc((ty - e.touches[0].clientY) / 28);
+    if (steps !== tvs) { scene.scrollAnswer(steps - tvs); tvs = steps; }
+  }, { passive: true });
+  answer.addEventListener('wheel', e => { e.preventDefault(); if (Math.abs(e.deltaY) > 4) scene.scrollAnswer(e.deltaY > 0 ? 1 : -1); }, { passive: false });
   const vv = window.visualViewport;
   const onVV = () => scene.setKeyboard(vv ? Math.max(0, innerHeight - vv.height) : 0);
   if (vv) { vv.addEventListener('resize', onVV); vv.addEventListener('scroll', onVV); }
