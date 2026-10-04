@@ -107,24 +107,15 @@ input.addEventListener('focus', () => input.classList.remove('rest'));
 // (hors collage, hors aperçu de composition) → on ferme le clavier
 const TOUCH = matchMedia('(pointer: coarse)').matches;
 let lastLen = finalName(model.text).length;
-let compLen = null;
+// (05/10 : le prénom proposé s'affiche d'un coup — la frappe lettre par lettre est réservée au visiteur qui revient)
 function detectSuggestion(info) {
   const src = info?.source || '';
-  if (src === 'composition') {
-    // iPhone : la suggestion du clavier arrive en composition (aperçu) — si l'aperçu gagne ≥ 2 lettres d'un coup,
-    // la frappe lettre par lettre commence tout de suite (le prénom entier n'apparaît jamais d'un bloc)
-    const n = bridge.shownText.length;
-    if (compLen == null) compLen = Math.min(n, lastLen);
-    if (n - compLen >= 2) startReveal(compLen, 0.05);
-    compLen = n;
-    return;                                                // la confirmation se juge à la fin de la composition
-  }
-  compLen = null;
+  if (src === 'composition') return;                       // aperçu : on juge à la fin de la composition
   const L = finalName(model.text).length, jump = L - lastLen;
   lastLen = L;
-  if (jump >= 2 && !/paste|Paste|Drop/.test(src)) { startReveal(L - jump, 0.05); setTimeout(confirmName, 150); }
+  if (jump >= 2 && !/paste|Paste|Drop/.test(src)) setTimeout(confirmName, 150);
 }
-// le prénom s'écrit lettre par lettre, comme à la machine (visiteur qui revient, prénom proposé par le clavier) :
+// le prénom s'écrit lettre par lettre, comme à la machine (visiteur qui revient) :
 // affichage et lumière suivent la frappe, le modèle a déjà tout le prénom
 function startReveal(from, delay) { if (!CFG.reduced && !S.rev) S.rev = { n: Math.max(0, from), next: S.t + delay }; }   // une frappe en cours continue
 function revealText(str) {
