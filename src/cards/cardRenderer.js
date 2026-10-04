@@ -1,7 +1,9 @@
-// Carte SINGULIÉS en volume : 87 × 51,5 × 0,4 mm, coins arrondis, tranche.
+// Carte SINGULIÉS en volume : 87 × 51,5 × 0,4 mm, coins arrondis, tranche, léger gondolage.
 // Dos : logo gaufré en relief ; recto : même logo en creux, vu en miroir. Papier = relief relatif
 // tiré de la photo du dos (public/cards/paper.jpg) ; relief du logo = distance signée (logo.png).
-// Unités du monde : mm. Éclairage : lampe ponctuelle + ambiance, ombres propres du relief.
+// Unités du monde : mm. Lumière : lampe étendue (disque, ombres douces) + pièce (environnement neutre).
+// Matière : papier noir mat — diffusion d'Oren-Nayar, reflet GGX large, lustre velouté (sheen),
+// fibres qui scintillent ; tranche plus claire, bords un peu cassés, irréguliers.
 import { program } from '../gl/gl.js';
 
 export const CARD = { w: 87, h: 51.5, r: 3, t: 0.4, logoSq: 38.501, logoRange: 2 };
@@ -39,25 +41,38 @@ function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
 function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
 function norm(a) { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }
 
-// ---------- maillage : deux faces (éventail) + tranche ----------
-function cardMesh(seg = 12) {
-  const { w, h, r, t } = CARD, ol = [];
+// ---------- maillage : deux faces en grille (pour le gondolage) + tranche ----------
+function cardMesh(nx = 72, ny = 44, seg = 12) {
+  const { w, h, r, t } = CARD, v = [];
+  const push = (x, y, z, nx_, ny_, nz, f) => v.push(x, y, z, nx_, ny_, nz, f);
+  // point de grille ramené dans le rectangle arrondi (coins projetés sur l'arc)
+  const fit = (x, y) => {
+    const cx = w / 2 - r, cy = h / 2 - r, qx = Math.abs(x) - cx, qy = Math.abs(y) - cy;
+    if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy); if (l > r) return [Math.sign(x) * (cx + qx * r / l), Math.sign(y) * (cy + qy * r / l)]; }
+    return [x, y];
+  };
+  const G = [];
+  for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) G.push(fit(-w / 2 + w * i / nx, -h / 2 + h * j / ny));
+  for (const [z, s, f] of [[t / 2, 1, 0], [-t / 2, -1, 1]]) {      // 0 = dos (+z), 1 = recto (−z)
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const a = G[j * (nx + 1) + i], b = G[j * (nx + 1) + i + 1], c = G[(j + 1) * (nx + 1) + i + 1], d = G[(j + 1) * (nx + 1) + i];
+      const tri = s > 0 ? [a, b, c, a, c, d] : [a, c, b, a, d, c];
+      for (const p of tri) push(p[0], p[1], z, 0, 0, s, f);
+    }
+  }
+  const ol = [];
   const corners = [[w / 2 - r, h / 2 - r, 0], [-w / 2 + r, h / 2 - r, 0.5], [-w / 2 + r, -h / 2 + r, 1], [w / 2 - r, -h / 2 + r, 1.5]];
   for (const [cx, cy, a0] of corners) for (let i = 0; i <= seg; i++) {
     const a = (a0 + 0.5 * i / seg) * Math.PI; ol.push([cx + r * Math.cos(a), cy + r * Math.sin(a), Math.cos(a), Math.sin(a)]);
   }
-  const v = [];   // x y z  nx ny nz  face
-  const push = (x, y, z, nx, ny, nz, f) => v.push(x, y, z, nx, ny, nz, f);
-  const n = ol.length;
-  for (const [z, s, f] of [[t / 2, 1, 0], [-t / 2, -1, 1]]) {      // 0 = dos (+z), 1 = recto (−z)
-    for (let i = 0; i < n; i++) {
-      const a = ol[i], b = ol[(i + 1) % n];
-      if (s > 0) { push(0, 0, z, 0, 0, 1, f); push(a[0], a[1], z, 0, 0, 1, f); push(b[0], b[1], z, 0, 0, 1, f); }
-      else { push(0, 0, z, 0, 0, -1, f); push(b[0], b[1], z, 0, 0, -1, f); push(a[0], a[1], z, 0, 0, -1, f); }
-    }
+  // côtés droits subdivisés (le gondolage les courbe aussi)
+  const edge = [];
+  for (let k = 0; k < ol.length; k++) {
+    const a = ol[k], b = ol[(k + 1) % ol.length], n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 1.5));
+    for (let i = 0; i < n; i++) { const u = i / n; edge.push([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u, a[3] + (b[3] - a[3]) * u]); }
   }
-  for (let i = 0; i < n; i++) {                                    // 2 = tranche
-    const a = ol[i], b = ol[(i + 1) % n];
+  for (let i = 0; i < edge.length; i++) {                         // 2 = tranche
+    const a = edge[i], b = edge[(i + 1) % edge.length];
     push(a[0], a[1], t / 2, a[2], a[3], 0, 2); push(a[0], a[1], -t / 2, a[2], a[3], 0, 2); push(b[0], b[1], t / 2, b[2], b[3], 0, 2);
     push(b[0], b[1], t / 2, b[2], b[3], 0, 2); push(a[0], a[1], -t / 2, a[2], a[3], 0, 2); push(b[0], b[1], -t / 2, b[2], b[3], 0, 2);
   }
@@ -69,35 +84,48 @@ layout(location=0) in vec3 aPos;
 layout(location=1) in vec3 aNor;
 layout(location=2) in float aFace;
 uniform mat4 uVP, uModel;
-out vec3 vWorld, vNor; out vec2 vMM; flat out int vFace;
+uniform vec2 uCard;
+uniform vec3 uWarp;          // gondolage (mm) : courbure en x, en y, torsion
+out vec3 vWorld, vT, vB, vN; out vec2 vMM; flat out int vFace;
 void main() {
-  vec4 w = uModel * vec4(aPos, 1.0);
-  vWorld = w.xyz; vNor = mat3(uModel) * aNor; vMM = aPos.xy; vFace = int(aFace + 0.5);
+  vec2 q = 2.0 * aPos.xy / uCard;
+  float z = uWarp.x * q.x * q.x + uWarp.y * q.y * q.y + uWarp.z * q.x * q.y;
+  float dzx = (2.0 * uWarp.x * q.x + uWarp.z * q.y) * 2.0 / uCard.x;
+  float dzy = (2.0 * uWarp.y * q.y + uWarp.z * q.x) * 2.0 / uCard.y;
+  vec3 p = aPos + vec3(0.0, 0.0, z);
+  vec3 T = normalize(vec3(1.0, 0.0, dzx)), B = normalize(vec3(0.0, 1.0, dzy));
+  vec3 Nu = normalize(cross(T, B));
+  int f = int(aFace + 0.5);
+  vec3 N = f == 0 ? Nu : f == 1 ? -Nu : normalize(vec3(aNor.xy, -dot(aNor.xy, vec2(dzx, dzy))));
+  mat3 m = mat3(uModel);
+  vec4 w = uModel * vec4(p, 1.0);
+  vWorld = w.xyz; vT = m * T; vB = m * B; vN = m * N; vMM = aPos.xy; vFace = f;
   gl_Position = uVP * w;
 }`;
 
 const FS = /* glsl */`#version 300 es
 precision highp float;
-in vec3 vWorld, vNor; in vec2 vMM; flat in int vFace;
-uniform mat4 uModel;
+in vec3 vWorld, vT, vB, vN; in vec2 vMM; flat in int vFace;
 uniform sampler2D uPaper, uLogo;
 uniform vec2 uCard;          // largeur, hauteur (mm)
 uniform float uLogoSq, uLogoRange;
 uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
 uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
-uniform vec3 uLightPos, uEye;
-uniform float uLight, uAmb, uAlbedo, uExposure;
-uniform float uH, uB, uCrease, uFiber, uSheen, uGloss, uFoot, uFootW;
+uniform vec3 uLightPos, uEye, uRoomUp;
+uniform float uLight, uLightR, uEnv, uAlbedo, uExposure;
+uniform float uH, uB, uCrease, uFiber, uFoot, uFootW;
+uniform float uRough, uSpec, uSheen, uGlint, uEdge, uGrain, uDiffRough;
 uniform vec4 uPaperXf;       // décalage (mm) + rotation du papier, propre à chaque carte
+uniform float uSeed;
 out vec4 o;
+const float PI = 3.14159265;
 
 float logoD(vec2 p) {        // distance signée au contour (mm), < 0 dans le logo
   vec2 uv = (p - uLogoOff) / (uLogoSq * uLogoScale) + 0.5; uv.y = 1.0 - uv.y;
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return uLogoRange;
   return texture(uLogo, uv).r * min(uLogoScale.x, uLogoScale.y);
 }
-// profil du gaufrage : pied raide (pli du papier, uFoot de la hauteur sur uFootW mm) puis épaule
-// arrondie sur uB mm ; uFootW est élargi à l'empreinte d'un pixel (pas de scintillement au loin)
+// profil du gaufrage : pied raide (pli du papier) puis épaule arrondie ; pied élargi à l'empreinte du pixel
 float gFootW = 0.08;
 float prof(float d) {
   float a = clamp(-d / gFootW, 0.0, 1.0), b = clamp(-d / uB, 0.0, 1.0);
@@ -109,57 +137,104 @@ vec2 paperUV(vec2 p) {
   vec2 q = mat2(c, s, -s, c) * p + uPaperXf.xy;
   return vec2(q.x / uCard.x + 0.5, 0.5 - q.y / uCard.y);
 }
-float paper(vec2 p) { return 1.0 + (texture(uPaper, paperUV(p)).r * 255.0 - 128.0) / 255.0; }
+// grain : seul le détail fin (fibres) est amplifié, pas les nuages du papier
+float paper(vec2 p) {
+  vec2 uv = paperUV(p);
+  float r = texture(uPaper, uv).r, lo = texture(uPaper, uv, 3.0).r;
+  return 1.0 + ((lo - 0.502) + uGrain * (r - lo)) * 255.0 / 255.0;
+}
+vec2 hash2(vec2 c) { c = vec2(dot(c, vec2(127.1, 311.7)), dot(c, vec2(269.5, 183.3))) + uSeed; return fract(sin(c) * 43758.5453); }
+float noise1(float x) {
+  float i = floor(x), f = fract(x);
+  float a = fract(sin(i * 91.7 + uSeed) * 43758.5), b = fract(sin((i + 1.0) * 91.7 + uSeed) * 43758.5);
+  return mix(a, b, f * f * (3.0 - 2.0 * f));
+}
+
+// pièce neutre : sol sombre, plafond diffus, grande source douce du côté de la lampe
+float env(vec3 d, vec3 Ld) {
+  return 0.06 + 0.5 * smoothstep(-0.2, 0.9, dot(d, uRoomUp)) + 2.5 * pow(max(dot(d, Ld), 0.0), 8.0);
+}
+float D_GGX(float NH, float a) { float a2 = a * a, d = NH * NH * (a2 - 1.0) + 1.0; return a2 / (PI * d * d); }
+float V_Smith(float NL, float NV, float a) { float k = a * 0.5; return 0.25 / ((NL * (1.0 - k) + k) * (NV * (1.0 - k) + k)); }
+float D_Charlie(float NH, float r) { float ir = 1.0 / r, s2 = max(1.0 - NH * NH, 1e-4); return (2.0 + ir) * pow(s2, ir * 0.5) / (2.0 * PI); }
+float V_Neubelt(float NL, float NV) { return 1.0 / (4.0 * (NL + NV - NL * NV) + 1e-4); }
+float orenNayar(vec3 n, vec3 L, vec3 V, float sig) {
+  float s2 = sig * sig, A = 1.0 - 0.5 * s2 / (s2 + 0.33), B = 0.45 * s2 / (s2 + 0.09);
+  float NL = clamp(dot(n, L), 0.0, 1.0), NV = clamp(dot(n, V), 1e-3, 1.0);
+  vec3 lp = L - n * NL, vp = V - n * NV;
+  float cphi = dot(lp, vp) / max(1e-4, length(lp) * length(vp));
+  float ta = acos(NL), tb = acos(NV), a = max(ta, tb), b = min(ta, tb);
+  return NL * (A + B * max(cphi, 0.0) * sin(a) * tan(min(b, 1.5)));
+}
 
 void main() {
-  vec3 N = normalize(vNor);
+  vec3 Ng = normalize(vN), T = normalize(vT), Bv = normalize(vB);
   vec3 L = uLightPos - vWorld; float dist = length(L); L /= dist;
   vec3 V = normalize(uEye - vWorld);
-  float irr = uLight * 250000.0 / (dist * dist);      // lampe : éclairement ∝ 1/d² (normalisé à 500 mm)
+  float irr = uLight * 250000.0 / (dist * dist);      // éclairement ∝ 1/d² (normalisé à 500 mm)
+  float tanL = uLightR / dist;                         // demi-angle apparent de la lampe
   vec3 col;
-  if (vFace == 2) {                                    // tranche : cœur du carton, un peu plus clair
-    float diff = max(dot(N, L), 0.0);
-    col = vec3(uAlbedo * 1.25 * (uAmb + irr * diff));
+  if (vFace == 2) {                                    // tranche : cœur du carton, plus clair, fibreux
+    float n1 = noise1(atan(vMM.y, vMM.x) * 180.0);
+    float alb = uAlbedo * (1.6 + 0.5 * n1);
+    float NL = max(dot(Ng, L), 0.0);
+    col = vec3(alb * (irr * NL + uEnv * env(Ng, L)));
   } else {
-    // repère de la face : le recto voit le logo en miroir et en creux
     float s = vFace == 0 ? 1.0 : -1.0;
-    vec2 p = vMM;                                      // coordonnées (mm) sur la face
-    vec3 T = normalize(mat3(uModel) * vec3(1.0, 0.0, 0.0));
-    vec3 B = normalize(mat3(uModel) * vec3(0.0, 1.0, 0.0));
-    vec3 Nf = normalize(mat3(uModel) * vec3(0.0, 0.0, s));
-    // gradient du relief (différences centrées, pas lié à la résolution de l'écran)
+    vec2 p = vMM;
+    // relief du logo (dos : bosse, recto : creux) ; le pied est élargi à l'empreinte du pixel
     float fw = fwidth(logoD(p));
     gFootW = max(uFootW, fw * 1.2);
     float e = max(0.02, fw * 0.5);
     float hx = (height(p + vec2(e, 0.0), s) - height(p - vec2(e, 0.0), s)) / (2.0 * e);
     float hy = (height(p + vec2(0.0, e), s) - height(p - vec2(0.0, e), s)) / (2.0 * e);
-    // fibres : micro-relief tiré du papier (son gradient)
-    float pe = 0.06;
+    float pe = 0.05;
+    float R0 = paper(p);
     float fx = (paper(p + vec2(pe, 0.0)) - paper(p - vec2(pe, 0.0))) / (2.0 * pe);
     float fy = (paper(p + vec2(0.0, pe)) - paper(p - vec2(0.0, pe))) / (2.0 * pe);
     hx += uFiber * fx; hy += uFiber * fy;
-    // normale de la face : (−hx, −hy, 1) dans le repère (T, B, Nf) ; T,B tels que la normale sorte
-    vec3 n = normalize(-hx * T - hy * B + Nf);
-    // ombre propre : marche vers la lampe dans le plan de la face
-    vec2 Lt = vec2(dot(L, T), dot(L, B)); float Lz = max(dot(L, Nf), 1e-3);
+    // hauteur comptée le long de la normale sortante de la face (Ng) : n = Ng − hx T − hy B
+    vec3 n = normalize(Ng - hx * T - hy * Bv);
+    // bord : la coupe arrondit et casse le papier sur ~0,15 mm (plus aux coins), irrégulier
+    vec2 q = abs(p) - (uCard * 0.5 - 3.0);
+    vec2 qo = max(q, 0.0);
+    float rr = length(qo) + min(max(q.x, q.y), 0.0) - 3.0;
+    vec2 od = length(qo) > 0.0 ? normalize(qo) * sign(p) : (q.x > q.y ? vec2(sign(p.x), 0.0) : vec2(0.0, sign(p.y)));
+    float per = p.x + 3.7 * p.y;
+    float wr = uEdge * (0.10 + 0.10 * noise1(per * 1.3) + (length(qo) > 0.0 ? 0.08 : 0.0));
+    float rim = smoothstep(-wr, 0.0, rr);
+    n = normalize(n + (T * od.x + Bv * od.y) * rim * 1.8);
+    // ombre propre, douce (la lampe a une taille) : marche vers la lampe dans le plan de la face
+    vec2 Lt = vec2(dot(L, T), dot(L, Bv)); float Lz = dot(L, Ng);
     float h0 = height(p, s), sh = 1.0;
-    if (length(Lt) > 1e-4) {
+    if (Lz > 0.0 && length(Lt) > 1e-4) {
       vec2 dir = normalize(Lt); float slope = Lz / length(Lt);
       for (int i = 1; i <= 10; i++) {
-        float t = float(i) * 0.06;
-        float need = h0 + t * slope;
-        sh = min(sh, clamp(1.0 - (height(p + dir * t, s) - need) / 0.02, 0.0, 1.0));
+        float t = float(i) * 0.07;
+        float occl = (height(p + dir * t, s) - (h0 + t * slope)) / (t * max(tanL, 0.02));
+        sh = min(sh, clamp(0.5 - 0.5 * occl, 0.0, 1.0));
       }
     }
-    // pli au pied du gaufrage (le papier y est cassé) : fine ligne sombre, largeur ≥ 1 px écran
     float d = logoD(p);
-    float wpx = fwidth(d);
-    float crease = 1.0 - uCrease * exp(-pow(d / max(0.045, wpx), 2.0));
-    float diff = max(dot(n, L), 0.0) * sh;
-    vec3 H = normalize(L + V);
-    float spec = uSheen * pow(max(dot(n, H), 0.0), uGloss) * sh;
-    float alb = uAlbedo * paper(p);
-    col = vec3((alb * (uAmb + irr * diff) + irr * spec) * crease);
+    float crease = 1.0 - uCrease * exp(-pow(d / max(0.04, fw), 2.0));
+    // matière
+    float alb = uAlbedo * R0 * (1.0 + 0.5 * rim);
+    float NL = max(dot(n, L), 0.0), NV = max(dot(n, V), 1e-3);
+    vec3 H = normalize(L + V); float NH = max(dot(n, H), 0.0), VH = max(dot(V, H), 0.0);
+    float a = clamp(uRough * uRough + tanL * 0.5, 0.02, 1.0);       // lampe étendue → lobe élargi
+    float F = 0.04 + 0.96 * pow(1.0 - VH, 5.0);
+    float spec = uSpec * D_GGX(NH, a) * V_Smith(NL, NV, a) * F;
+    float sheen = uSheen * D_Charlie(NH, 0.45) * V_Neubelt(NL, NV);
+    // fibres : chaque texel clair est une fibre à facette propre, qui s'allume sous un angle précis
+    vec2 cellf = paperUV(p) * vec2(textureSize(uPaper, 0));
+    vec2 hr = hash2(floor(cellf)) - 0.5;
+    vec3 ng = normalize(n + (T * hr.x + Bv * hr.y) * 0.9);
+    float glint = uGlint * smoothstep(1.06, 1.35, R0) * pow(max(dot(ng, H), 0.0), 220.0) * clamp(1.6 - fwidth(cellf.x), 0.0, 1.0);
+    float diff = orenNayar(n, L, V, uDiffRough) * sh;
+    float Fv = 0.04 + 0.96 * pow(1.0 - NV, 5.0);
+    vec3 Rv = reflect(-V, n);
+    float amb = uEnv * (alb * env(n, L) + 0.25 * Fv * env(Rv, L));
+    col = vec3((alb * irr * diff + irr * NL * sh * (spec + sheen + glint) + amb) * crease);
   }
   col *= uExposure;
   col = pow(max(col, 0.0), vec3(1.0 / 2.2));
@@ -228,8 +303,11 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform2fv(u.uLogoOff, card.logoOff || [0, 0]);
     gl.uniform2fv(u.uLogoScale, card.logoScale || [1, 1]);
     gl.uniform4fv(u.uPaperXf, card.paperXf || [0, 0, 0, 0]);
+    gl.uniform3fv(u.uWarp, card.warp || [0, 0, 0]);
+    gl.uniform1f(u.uSeed, card.seed || 0);
     gl.uniform3fv(u.uLightPos, params.lightPos); gl.uniform3fv(u.uEye, eye);
-    for (const k of ['Light', 'Amb', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Sheen', 'Gloss', 'Foot', 'FootW']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
+    gl.uniform3fv(u.uRoomUp, params.roomUp || [0, 0, 1]);
+    for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, paperTex); gl.uniform1i(u.uPaper, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, logoTex); gl.uniform1i(u.uLogo, 1);
     gl.bindVertexArray(vao);
