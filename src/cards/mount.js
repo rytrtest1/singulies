@@ -177,6 +177,7 @@ export async function mountCards(opts) {
 
   // préparation invisible (textures, compilation des shaders) : une image dessinée puis effacée, avant start()
   api.warm = () => {
+    scene.prepare();
     const dpr = Math.min(2, devicePixelRatio || 1), W = canvas.clientWidth || innerWidth, H = canvas.clientHeight || innerHeight;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
     gl.viewport(0, 0, canvas.width, canvas.height);

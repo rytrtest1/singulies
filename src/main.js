@@ -12,7 +12,8 @@ import { loadState, saveValidated, clearStored, clearValidated } from './app/sto
 import { createField, MODES } from './field/field.js';
 import { createRng } from './field/rng.js';
 import { createLight } from './field/light.js';
-import { planRecharge, fieldLetter, rechargeFrame, riseU, grayU, sm as smT, REST, RISE, NAME_GRAY } from './transition/recharge.js';
+import { sigmaPx } from './field/camera.js';
+import { planRecharge, fieldLetter, rechargeFrame, energyFrame, riseU, grayU, sm as smT, REST, RISE, NAME_GRAY } from './transition/recharge.js';
 
 const transRng = createRng();
 
@@ -24,7 +25,9 @@ const CFG = {
   seed: P.has('seed') ? +P.get('seed') : undefined,
   debug: P.get('debug') === '1',
   mode: ['profondeur', 'horizontal'].includes(P.get('mode')) ? P.get('mode') : 'melange',   // défaut : mélange
-  transition: P.get('transition') === 'lettres' ? 'lettres' : 'lumiere',   // défaut : seule la lumière part (choix Maxence 04/10) ; ?transition=lettres : la lettre entière
+  // défaut (Maxence 04/10) : la lettre entière part, avec sa clarté, son flou, sa profondeur ; ?transition=lumiere : seule sa lumière ;
+  // ?transition=energie : flux d'énergie (filaments de lumière floue qui ondoient jusqu'au prénom)
+  transition: ['lumiere', 'energie'].includes(P.get('transition')) ? P.get('transition') : 'lettres',
   wheel: P.get('saisie') === 'roue',   // saisie par roue de lettres (sans clavier virtuel)
   voice: P.get('saisie') === 'voix',   // « dis ou écris ton prénom » (essai)
 };
@@ -73,6 +76,7 @@ const S = {
   trans: null,            // instant du départ de la transition vers les cartes
   riseT: null,            // début de la montée (attend que la scène des cartes soit prête)
   handT: null,            // début du fondu enchaîné vers la scène des cartes
+  rev: null,              // frappe automatique en cours { n lettres affichées, instant de la suivante }
   nameBox: null,          // boîte écran du prénom (le toucher = aller à la suite)
   boost: 0,               // avance/recul dans le champ (molette, glisser vertical)
   lat: 0, adv: 1,         // nappes latérales / avance (bascule progressive vers le mode visé ; initialisés ci-dessous)
@@ -90,7 +94,7 @@ function announce(msg) {
 const bridge = createBridge(input, model, {
   caseMode: CFG.caseMode,
   announce,
-  onChange: (info) => { if (S.phase === 'input') { S.typed = true; S.keyAt = S.t; S.confirmed = false; detectSuggestion(info); } renderFallback(); },
+  onChange: (info) => { if (S.phase === 'input') { S.typed = true; S.keyAt = S.t; S.confirmed = false; S.rev = null; detectSuggestion(info); } renderFallback(); },
   onSubmit: () => submitName(),
   onEscape: goBack,
 });
@@ -107,7 +111,18 @@ function detectSuggestion(info) {
   if (src === 'composition') return;                       // aperçu : on juge à la fin de la composition
   const L = finalName(model.text).length, jump = L - lastLen;
   lastLen = L;
-  if (jump >= 2 && !/paste|Paste|Drop/.test(src)) setTimeout(confirmName, 150);
+  if (jump >= 2 && !/paste|Paste|Drop/.test(src)) { startReveal(L - jump, 0.05); setTimeout(confirmName, 150); }
+}
+// le prénom s'écrit lettre par lettre, comme à la machine (visiteur qui revient, prénom proposé par le clavier) :
+// affichage et lumière suivent la frappe, le modèle a déjà tout le prénom
+function startReveal(from, delay) { if (!CFG.reduced) S.rev = { n: Math.max(0, from), next: S.t + delay }; }
+function revealText(str) {
+  const r = S.rev;
+  if (!r) return str;
+  if (S.trans != null || S.phase !== 'input') { S.rev = null; return str; }
+  while (r.n < str.length && S.t >= r.next) { const ch = str[r.n++]; r.next += ch === ' ' ? 0.26 : 0.09 + 0.1 * Math.random(); }
+  if (r.n >= str.length) { S.rev = null; if (S.confirmed) S.confirmedAt = S.t; return str; }
+  return str.slice(0, r.n);
 }
 const wheel = CFG.wheel ? createWheel({
   model, reduced: CFG.reduced,
@@ -202,7 +217,8 @@ function enterScene() {
   S.phase = 'scene'; S.phaseAt = S.t;
   cancelAnimationFrame(rafId); rafId = 0;
   canvas.style.visibility = 'hidden';
-  try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* */ }
+  // mémoire de l'accueil rendue plus tard, quand la première question est posée (pas pendant le retournement)
+  setTimeout(() => { try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* */ } }, 6000);
   window.__sg.cards = cardsReady;
 }
 
@@ -265,8 +281,9 @@ for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) window.addEv
 function measure() {
   const w = window.innerWidth, h = window.innerHeight;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  // une variation de hauteur seule pendant la saisie (clavier) ne reconstruit rien
-  if (S.w && w === S.w && document.activeElement === input && Math.abs(h - S.h) > 80) return;
+  // une variation de hauteur seule pendant la saisie (clavier du téléphone) ne reconstruit rien ; sur ordinateur,
+  // toute nouvelle taille de fenêtre est prise en compte (le prénom reste au centre)
+  if (TOUCH && S.w && w === S.w && document.activeElement === input && Math.abs(h - S.h) > 80) return;
   if (w === S.w && h === S.h && dpr === S.dpr) return;
   S.w = w; S.h = h; S.dpr = dpr;
   canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
@@ -291,7 +308,8 @@ function renderFallback() {
 const PAR = { tx: 0, ty: 0, x: 0, y: 0, vx: 0, vy: 0 };
 const BR = { p: 0, v: 0 };   // souffle de caméra à chaque frappe (ressort)
 const light = createLight({ reduced: CFG.reduced });
-if (stored.name && !stored.validated) light.prime(model.text.toUpperCase(), 0);   // visiteur qui revient : déjà allumé
+// visiteur qui revient : son prénom se tape tout seul à l'arrivée, lettre par lettre (la lumière suit la frappe)
+if (stored.name && !stored.validated) { S.typed = true; startReveal(0, OPEN_DARK + 1.3); }
 window.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'mouse' || !S.w) return;
   PAR.tx = (e.clientX / S.w - 0.5) * 2; PAR.ty = (e.clientY / S.h - 0.5) * 2;
@@ -340,7 +358,8 @@ function frame(ts) {
   let target = 0;
   const cx = S.w / 2, cy0 = field ? field.view.cy : S.h * 0.5;   // le prénom est au point de fuite
   if (wheel && S.phase === 'input') wheel.update(dt);
-  const text = displayCase(wheel ? wheel.displayText : bridge.shownText, CFG.caseMode);
+  const shownRev = revealText(wheel ? wheel.displayText : bridge.shownText);
+  const text = displayCase(shownRev, CFG.caseMode);
   const L0 = atlas ? layoutName(text, metrics, { w: S.w, h: S.h, cx, cy: cy0 }) : null;
   if (vv && L0 && document.activeElement === input) {
     const visBottom = vv.offsetTop + vv.height;
@@ -364,7 +383,7 @@ function frame(ts) {
   const L = layoutName(text, metrics, { w: S.w, h: S.h, cx, cy });
   const kx = 1 - Math.exp(-dt / 0.07);
   L.glyphs.forEach((g, i) => {
-    if (glyphAnim[i] == null || !S.typed) glyphAnim[i] = g.x; else if (S.trans == null) glyphAnim[i] += (g.x - glyphAnim[i]) * kx;
+    if (glyphAnim[i] == null || !S.typed) glyphAnim[i] = g.x; else glyphAnim[i] += (g.x - glyphAnim[i]) * kx;   // toujours vers le centre
   });
   glyphAnim.length = L.glyphs.length;
   S.capPx = L.cap;
@@ -401,7 +420,12 @@ function frame(ts) {
     if (S.riseT != null && S.handT == null && S.t >= S.riseT + rise) handoff();
     if (S.handT != null && S.t - S.handT > HANDOFF + 0.15) { enterScene(); return; }
     if (!CFG.reduced) {
-      R = rechargeFrame(plan, T, { world: field.letterWorld, cam: field.cam, f: focal, vx, vy, name: here, capHeight: atlas.capHeight });
+      const cap = atlas.capHeight;
+      R = plan.mode === 'energie'
+        ? energyFrame(plan, T, { name: here, capHeight: cap, ecx: (ch) => { const g = atlas.glyphs[ch]; return g ? (g.x0 + g.x1) / 2 : 0.3; },
+          src: (fl) => { const p = field.letterScreen(fl.w, fl.i, focal, vx, vy), g = atlas.glyphs[fl.w.chars[fl.i]];
+            return { x: p.x + (g.x0 + g.x1) / 2 * p.fs, y: p.y - 0.5 * cap * p.fs, fs: p.fs, blur: sigmaPx(focal, Math.max(0.5, p.z)) }; } })
+        : rechargeFrame(plan, T, { world: field.letterWorld, cam: field.cam, f: focal, vx, vy, name: here, capHeight: cap });
       bright = R.bright;
     } else bright = here.map(() => 1);
     const tg = S.targets && S.targets.length === here.length ? S.targets : null;
@@ -417,7 +441,7 @@ function frame(ts) {
     if (CFG.reduced) bright = bright.map(() => (S.riseT == null ? 1 - smooth(0, 0.9, T) : NAME_GRAY * smooth(S.riseT, S.riseT + 0.9, S.t)));
     hook = CFG.reduced
       ? { letter: (w, i, dn, buf, o) => { const k = 1 - smooth(0, 1.2, T); buf[o + 7] *= k; buf[o + 17] *= k; } }
-      : { letter: (w, i, dn, buf, o) => fieldLetter(plan, T, w, i, dn, buf, o), extra: () => R.inst };
+      : { letter: (w, i, dn, buf, o) => fieldLetter(plan, T, w, i, dn, buf, o), extra: () => R.inst || [] };
   }
   field.cam.y += camDY;
 
@@ -436,7 +460,7 @@ function frame(ts) {
     });
   });
   // le signe sous le prénom confirmé (aller à la suite) ; 10 s sans geste → on y va
-  const canNext = S.phase === 'input' && S.confirmed && T < 0 && !!text.trim() && !wheel;
+  const canNext = S.phase === 'input' && S.confirmed && T < 0 && !!text.trim() && !wheel && !S.rev;   // pas pendant la frappe automatique
   nextEl.classList.toggle('on', canNext && S.t - S.confirmedAt > 1.2 && S.t > OPEN_DARK + 1.5);
   if (canNext) { nextEl.style.left = (cx - 22) + 'px'; nextEl.style.top = (L.bottom + Math.max(12, 0.8 * L.cap)) + 'px'; }
   if (canNext && S.t - Math.max(S.confirmedAt, S.actAt) > AUTO_NEXT) startTransition();
@@ -456,7 +480,7 @@ function frame(ts) {
   }
 
   // lumière : diff du prénom → ondes / extinctions ; le champ écoute (souffle + ralentissement)
-  const kind = light.update(bridge.shownText.toUpperCase(), S.t);
+  const kind = light.update((wheel ? bridge.shownText : shownRev).toUpperCase(), S.t);
   if (kind && S.phase === 'input' && !CFG.reduced) { BR.v += kind > 0 ? 0.015 : 0.008; S.slowAt = S.t; }
   { const w = 2.2, z = 0.85; BR.v += (-BR.p * w * w - 2 * z * w * BR.v) * dt; BR.p += BR.v * dt; }
   let speed = 1 - 0.65 * (1 - smooth(0, 1.1, S.t - S.slowAt));
@@ -473,7 +497,7 @@ function frame(ts) {
     S.lat += (lt - S.lat) * k; S.adv += (at - S.adv) * k; }
   field.step(dt, !CFG.reduced, speed * portraitSpeed * (1 + (T >= 0 ? 0 : S.boost)), S.lat, S.adv);
   const fl = field.emit(light, S.t, { x: cx, y: cy }, hook);
-  stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig,
+  stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig, energy: R?.energy,
     field: fl, cam: field.cam, focal, vx, vy, dim: S.dim, time: S.t });
   stats.letters = fl.count;
   stats.gpuMB = +((atlas.width * atlas.height * 2 + canvas.width * canvas.height * 4 * 2) / 1048576).toFixed(1);

@@ -157,13 +157,27 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   }
 
   // ---------- questions ----------
+  // la frappe d'une question (Canvas 2D + texture) est lourde : la première est préparée d'avance (prepare),
+  // pour qu'aucun à-coup ne tombe pendant le premier retournement
+  let preQ = null, preA = null;
+  function inkQuestion(id, v) {
+    const q = QUESTIONS.find(x => x.id === id);
+    const qm = makeInkMap(q.q, Math.floor(v.seed * 1000) + id);
+    return { id, q: q.q, v, ink: card.makeInk(qm.canvas), margin: qm.margin };
+  }
+  function prepare() {
+    if (preQ || next >= QUESTIONS.length) return;
+    preQ = inkQuestion(order[next], stack[stack.length - 1]);
+    const v = { ...variant(), noLogo: true };
+    preA = { v, cursorMM: makeStripInk('', Math.floor(v.seed * 1000) + 7, preQ.margin).cursor, forId: preQ.id };
+  }
   function makeQuestion(t) {
     if (next >= QUESTIONS.length) return null;
     const id = order[next++];
     const v = stack.pop(); stack.unshift(variant());
-    const q = QUESTIONS.find(x => x.id === id);
-    const qm = makeInkMap(q.q, Math.floor(v.seed * 1000) + id), ink = card.makeInk(qm.canvas);
-    return { id, q: q.q, v, ink, margin: qm.margin, anim: 'draw', t0: t, dur: DRAW_T, from: deckPose(STACK - 1, v), landedAt: t + DRAW_T };
+    const Q = preQ && preQ.id === id ? preQ : inkQuestion(id, v);
+    preQ = null;
+    return { ...Q, anim: 'draw', t0: t, dur: DRAW_T, from: deckPose(STACK - 1, v), landedAt: t + DRAW_T };
   }
   function drawNext(t) { question = makeQuestion(t); if (question) emit('draw', { id: question.id }); }
   function discard(t, dir = -1, from = null) {
@@ -179,9 +193,11 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
 
   // ---------- la carte réponse ----------
   function makeAnswer(t) {
-    const v = { ...variant(), noLogo: true };
+    const pre = preA && preA.forId === question.id ? preA : null;
+    preA = null;
+    const v = pre ? pre.v : { ...variant(), noLogo: true };
     const a = { v, ink: null, text: '', cursorMM: null, first: 0, place: 'peek', anim: 'slide', t0: t, dur: 0.8, from: { ...peekPose(v), y: lay.yDeck } };
-    a.cursorMM = makeStripInk('', Math.floor(v.seed * 1000) + 7, question.margin).cursor;
+    a.cursorMM = pre ? pre.cursorMM : makeStripInk('', Math.floor(v.seed * 1000) + 7, question.margin).cursor;
     return a;
   }
   function renderAnswer(c = act()) {
@@ -538,7 +554,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function setTilt(x, y) { tilt.x = Math.max(-1, Math.min(1, x)); tilt.y = Math.max(-1, Math.min(1, y)); }
   function setKeyboard(px) { kbPx = px; }
   return {
-    frame, tap, drag, release, give, pass, back, start, setName, setTilt, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
+    frame, tap, drag, release, give, pass, back, start, prepare, setName, setTilt, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
     state: () => ({ idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),

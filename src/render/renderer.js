@@ -167,6 +167,46 @@ void main() {
   o = vec4(vec3(a * lum), a);
 }`;
 
+// Flux d'énergie (transition « energie ») : chaque filament = suite de segments (instances) ; lumière floue
+// gaussienne en travers, bruit qui coule le long du filament (vers le prénom), début et fin fondus.
+// Mélange MAX : pas de surbrillance aux jointures ni là où les filaments se croisent (jamais de gain par le flou).
+export const ESTRIDE = 12;
+const EN_VS = /* glsl */`#version 300 es
+layout(location=0) in vec4 a_seg;    // x0, y0, x1, y1 (px CSS)
+layout(location=1) in vec4 a_w;      // largeur (σ px) en 0 et en 1, abscisse le long du filament en 0 et en 1
+layout(location=2) in vec4 a_p;      // intensité, graine, tête, queue (abscisses 0…1)
+uniform vec2 u_view;
+out vec2 v_px; flat out vec4 v_seg, v_w, v_p;
+void main() {
+  vec2 c = vec2(gl_VertexID & 1, gl_VertexID >> 1);
+  vec2 d = a_seg.zw - a_seg.xy; float L = max(length(d), 1e-3); vec2 t = d / L, n = vec2(-t.y, t.x);
+  float r = 3.0 * max(a_w.x, a_w.y);
+  vec2 pos = mix(a_seg.xy - t * r, a_seg.zw + t * r, c.x) + n * mix(-r, r, c.y);
+  v_px = pos; v_seg = a_seg; v_w = a_w; v_p = a_p;
+  gl_Position = vec4((pos / u_view * 2.0 - 1.0) * vec2(1.0, -1.0), 0.0, 1.0);
+}`;
+const EN_FS = /* glsl */`#version 300 es
+precision highp float;
+uniform float u_time, u_fade;
+in vec2 v_px; flat in vec4 v_seg, v_w, v_p;
+out vec4 o;
+${NOISE}
+void main() {
+  vec2 a = v_seg.xy, d = v_seg.zw - a; float L2 = max(dot(d, d), 1e-6);
+  float h = clamp(dot(v_px - a, d) / L2, 0.0, 1.0);
+  float dist = length(v_px - a - d * h);
+  float w = mix(v_w.x, v_w.y, h), s = mix(v_w.z, v_w.w, h);
+  float side = dot(v_px - a, vec2(-d.y, d.x)) * inversesqrt(L2) / w;
+  // le flux coule vers le prénom : le bruit avance le long du filament ; il ondule aussi en travers
+  float n = fbm(vec2(s * 9.0 - u_time * 1.6 + v_p.y, side * 0.55 + 0.25 * sin(u_time * 0.9 + s * 6.0 + v_p.y)))
+          + 0.5 * fbm(vec2(s * 21.0 - u_time * 2.7 - v_p.y, side * 1.3 - u_time * 0.4));
+  float prof = exp(-0.5 * dist * dist / (w * w));
+  float env = smoothstep(v_p.w, v_p.w + 0.12, s) * (1.0 - smoothstep(v_p.z - 0.1, v_p.z, s));
+  float v = v_p.x * prof * env * clamp(0.62 + 0.9 * n, 0.0, 1.4) * u_fade;
+  v = min(v, 0.62);
+  o = vec4(vec3(v), v);
+}`;
+
 const STRIDE = 12; // floats par instance
 
 export function createRenderer(canvas, gl, atlas) {
@@ -174,6 +214,7 @@ export function createRenderer(canvas, gl, atlas) {
   let cap = 64;
   let inst = new Float32Array(cap * STRIDE);
   let fcap = 1024;   // lettres du champ
+  let ecap = 2048;   // segments du flux d'énergie
 
   function init() {
     const bg = program(gl, BG_VS, BG_FS);
@@ -205,7 +246,20 @@ export function createRenderer(canvas, gl, atlas) {
       gl.vertexAttribDivisor(i, 1);
     }
     gl.bindVertexArray(null);
-    res = { bg, gp, tex, btex, vao, buf, empty, fp, fvao, fbuf };
+    // flux d'énergie
+    const ep = program(gl, EN_VS, EN_FS);
+    const evao = gl.createVertexArray();
+    gl.bindVertexArray(evao);
+    const ebuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, ebuf);
+    gl.bufferData(gl.ARRAY_BUFFER, ecap * ESTRIDE * 4, gl.DYNAMIC_DRAW);
+    for (let i = 0; i < 3; i++) {
+      gl.enableVertexAttribArray(i);
+      gl.vertexAttribPointer(i, 4, gl.FLOAT, false, ESTRIDE * 4, i * 16);
+      gl.vertexAttribDivisor(i, 1);
+    }
+    gl.bindVertexArray(null);
+    res = { bg, gp, tex, btex, vao, buf, empty, fp, fvao, fbuf, ep, evao, ebuf };
   }
 
   init();
@@ -260,6 +314,25 @@ export function createRenderer(canvas, gl, atlas) {
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count);
       calls++;
       gl.bindVertexArray(null);
+    }
+
+    // flux d'énergie (sous le prénom)
+    const en = f.energy;
+    if (en && en.count) {
+      const { ep, evao, ebuf } = res;
+      gl.bindBuffer(gl.ARRAY_BUFFER, ebuf);
+      if (en.count > ecap) { while (ecap < en.count) ecap *= 2; gl.bufferData(gl.ARRAY_BUFFER, ecap * ESTRIDE * 4, gl.DYNAMIC_DRAW); }
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, en.data, 0, en.count * ESTRIDE);
+      gl.useProgram(ep.p);
+      gl.uniform2f(ep.u.u_view, f.w, f.h);
+      gl.uniform1f(ep.u.u_time, (f.time ?? 0) % 1000);
+      gl.uniform1f(ep.u.u_fade, f.fade);
+      gl.blendEquation(gl.MAX);
+      gl.bindVertexArray(evao);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, en.count);
+      gl.bindVertexArray(null);
+      gl.blendEquation(gl.FUNC_ADD);
+      calls++;
     }
 
     const list = f.glyphs;

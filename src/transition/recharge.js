@@ -63,9 +63,12 @@ export function planRecharge(ctx) {
     bow: (rng() < 0.5 ? -1 : 1) * (0.05 + 0.1 * rng()),
     s0: null,
   }));
-  const tEnd = flyers.reduce((m, f) => Math.max(m, f.dep + f.dur), 3.2);
-  const src = new Map();   // mot → { rang → départ }
-  for (const f of flyers) { if (!src.has(f.w)) src.set(f.w, {}); src.get(f.w)[f.i] = f.dep; }
+  // énergie : la tête du filament part au départ, sa queue quitte la lettre un peu après et la vide en partant
+  if (mode === 'energie') for (const f of flyers) { f.dur *= 0.85; f.lag = 0.45 + 0.2 * rng(); f.tdur = f.dur + 0.5; f.ph = rng() * 6.283; f.amp = 0.04 + 0.05 * rng(); }
+  const fEnd = (f) => (mode === 'energie' ? f.dep + f.lag + f.tdur : f.dep + f.dur);
+  const tEnd = flyers.reduce((m, f) => Math.max(m, fEnd(f)), 3.2);
+  const src = new Map();   // mot → { rang → lettre en route }
+  for (const f of flyers) { if (!src.has(f.w)) src.set(f.w, {}); src.get(f.w)[f.i] = f; }
   return { flyers, src, fed: count.map((c) => c > 0), tEnd, mode };
 }
 
@@ -77,10 +80,13 @@ export function fieldLetter(plan, T, w, i, dn, buf, o) {
   const t0 = Math.min(end - 1.2, 0.3 + 1.6 * (1 - dn) + 0.4 * ((w.lp[i].seed * 0.618) % 1));
   const m = 1 - sm(t0, end, T);
   const s = plan.src.get(w);
-  const gone = s && s[i] != null && T >= s[i];
-  if (gone && plan.mode !== 'lumiere') { buf[o + 7] = 0; buf[o + 17] = 0; return; }
+  const f = s && s[i];
+  const gone = f && T >= f.dep;
+  if (gone && plan.mode === 'lettres') { buf[o + 7] = 0; buf[o + 17] = 0; return; }
   buf[o + 7] *= m;
-  buf[o + 17] = gone ? 0 : buf[o + 17] * m;
+  // énergie : la lettre se vide peu à peu à mesure que le filament l'emporte ; lumière : d'un coup
+  const keepL = !f ? m : plan.mode === 'energie' ? 1 - sm(f.dep, f.dep + f.lag + 0.7 * f.tdur, T) : gone ? 0 : m;
+  buf[o + 17] *= keepL;
 }
 
 // instances des lettres en vol, à l'instant T, dans le monde du champ. world(w, i) : la lettre en monde
@@ -122,10 +128,51 @@ export function rechargeFrame(plan, T, ctx) {
     keep[fl.j] *= 1 - 0.45 * sm(0.7, 0.97, u);
   }
   out.sort((a, b) => b.z - a.z);                 // loin → proche
-  // clarté du prénom : baisse au départ, remonte à chaque arrivée ; une lettre sans donneur se recharge seule
+  return { inst: out.map((o) => o.e), bright: nameBright(plan, T, keep) };
+}
+
+// clarté du prénom : baisse au départ, remonte à chaque arrivée ; une lettre sans donneur se recharge seule
+function nameBright(plan, T, keep) {
   const low = 1 - (1 - NAME_LOW) * sm(0.1, 1.1, T);
-  const bright = name.map((_, j) => lerp(low, 1, plan.fed[j] ? 1 - keep[j] : sm(plan.tEnd - 1.4, plan.tEnd - 0.2, T)));
-  return { inst: out.map((o) => o.e), bright };
+  return keep.map((k, j) => lerp(low, 1, plan.fed[j] ? 1 - k : sm(plan.tEnd - 1.4, plan.tEnd - 0.2, T)));
+}
+
+// flux d'énergie (?transition=energie) : de chaque lettre allumée, sa lumière floue et bruitée s'étire en
+// filament, ondoie et coule jusqu'à la même lettre du prénom, puis s'y vide. ctx : src(f) → centre écran et taille
+// (px/em) de la lettre source, avec son flou (px) ; name : lettres du prénom (origine de chasse, ligne de base,
+// px/em) ; ecx(ch) : centre du glyphe (em) ; capHeight. Renvoie les segments (renderer : ESTRIDE = 12) et la
+// clarté du prénom.
+const NSEG = 22;
+export function energyFrame(plan, T, ctx) {
+  const { src, name, ecx, capHeight } = ctx;
+  const keep = name.map(() => 1);
+  const segs = [];
+  for (const f of plan.flyers) {
+    if (T < f.dep) continue;
+    const head = easeInOut(clamp01((T - f.dep) / f.dur));
+    const tail = easeInOut(clamp01((T - f.dep - f.lag) / f.tdur));
+    keep[f.j] *= 1 - 0.45 * sm(0.9, 1, head) * (0.3 + 0.7 * tail);
+    if (tail >= 0.999) continue;
+    const a = src(f), p1 = name[f.j];
+    const bx = p1.x + ecx(p1.ch) * p1.fs, by = p1.y - 0.5 * capHeight * p1.fs;
+    const dx = bx - a.x, dy = by - a.y, d = Math.hypot(dx, dy) || 1, nx = -dy / d, ny = dx / d;
+    const cxp = (a.x + bx) / 2 + nx * f.bow * d * 1.6, cyp = (a.y + by) / 2 + ny * f.bow * d * 1.6;
+    const t = T - f.dep, A = f.amp * d;
+    const w0 = Math.max(2.5, 0.75 * capHeight * a.fs + a.blur), w1 = Math.max(1.6, 0.16 * capHeight * p1.fs);   // flou large à la source, s'affine en arrivant
+    const I = Math.min(0.62, 0.22 + 0.7 * f.L);
+    let prev = null;
+    for (let k = 0; k <= NSEG; k++) {
+      const u = k / NSEG, iu = 1 - u;
+      // courbe douce + ondoiement qui remonte le filament (nul aux deux bouts)
+      const wob = Math.sin(Math.PI * u) * (Math.sin(6.283 * (1.3 * u - 0.55 * t) + f.ph) + 0.35 * Math.sin(6.283 * (2.7 * u - 0.9 * t) + 2.1 * f.ph));
+      const x = iu * iu * a.x + 2 * iu * u * cxp + u * u * bx + nx * A * wob;
+      const y = iu * iu * a.y + 2 * iu * u * cyp + u * u * by + ny * A * wob;
+      const wd = w0 + (w1 - w0) * Math.pow(u, 0.7);
+      if (prev && u >= tail - 0.14 && prev.u <= head + 0.02) segs.push(prev.x, prev.y, x, y, prev.wd, wd, prev.u, u, I, f.ph * 7.3, head, tail);
+      prev = { x, y, wd, u };
+    }
+  }
+  return { energy: { data: new Float32Array(segs), count: segs.length / 12 }, bright: nameBright(plan, T, keep) };
 }
 
 // montée : 0 → 1 entre riseT et riseT + RISE
