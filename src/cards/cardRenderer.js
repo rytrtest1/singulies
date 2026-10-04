@@ -1,4 +1,4 @@
-// Carte SINGULIÉS en volume : 87 × 51,5 × 0,4 mm, coins arrondis, tranche, léger gondolage.
+// Carte SINGULIÉS en volume : 87 × 51,5 × 0,25 mm, coins arrondis, tranche, léger gondolage.
 // Dos : logo gaufré en relief ; recto : même logo en creux, vu en miroir. Papier = relief relatif
 // tiré de la photo du dos (public/cards/paper.jpg) ; relief du logo = distance signée (logo.png).
 // Unités du monde : mm. Lumière : lampe étendue (disque, ombres douces) + pièce (environnement neutre).
@@ -6,7 +6,7 @@
 // fibres qui scintillent ; tranche plus claire, bords un peu cassés, irréguliers.
 import { program } from '../gl/gl.js';
 
-export const CARD = { w: 87, h: 51.5, r: 3, t: 0.4, logoSq: 38.501, logoRange: 2 };
+export const CARD = { w: 87, h: 51.5, r: 3, t: 0.25, logoSq: 38.501, logoRange: 2 };
 
 // ---------- petites matrices (colonnes, comme WebGL) ----------
 export const M4 = {
@@ -114,7 +114,7 @@ uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
 uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
 uniform vec3 uLightPos, uEye, uRoomUp;
 uniform float uLight, uLightR, uEnv, uAlbedo, uExposure;
-uniform float uH, uB, uCrease, uFiber, uFoot, uFootW;
+uniform float uH, uB, uCrease, uFiber, uFoot, uFootW, uParallax;
 uniform float uRough, uSpec, uSheen, uGlint, uEdge, uGrain, uDiffRough;
 uniform vec4 uPaperXf;       // décalage (mm) + rotation du papier, propre à chaque carte
 uniform float uSeed;
@@ -133,6 +133,25 @@ float prof(float d) {
   return uFoot * a * a * (3.0 - 2.0 * a) + (1.0 - uFoot) * b * b * (3.0 - 2.0 * b);
 }
 float height(vec2 p, float s) { return s * uH * prof(logoD(p)); }
+// parallaxe (relief vu de biais) : on suit le regard dans le relief. Le plan de la face est pris au
+// sommet du relief (dos : sommet du gaufrage ; recto : niveau du papier) ; profondeur ≥ 0 sous ce plan.
+float depthAt(vec2 p, float s) { float k = prof(logoD(p)); return uH * (s > 0.0 ? 1.0 - k : k); }
+vec2 parallax(vec2 p0, float s, vec3 Vt) {
+  if (uH <= 0.0 || uParallax <= 0.0) return p0;
+  float vz = max(Vt.z, 0.08);
+  float n = floor(mix(40.0, 8.0, vz));
+  vec2 delta = -Vt.xy / vz * uH * uParallax / n;
+  float stepL = 1.0 / n, layer = 0.0;
+  vec2 p = p0; float d = depthAt(p, s) / uH;
+  for (int i = 0; i < 40; i++) {
+    if (float(i) >= n || layer >= d) break;
+    p += delta; layer += stepL; d = depthAt(p, s) / uH;
+  }
+  vec2 prev = p - delta;
+  float a = d - layer, b = depthAt(prev, s) / uH - (layer - stepL);
+  float w = a / (a - b + 1e-5);
+  return mix(p, prev, clamp(w, 0.0, 1.0));
+}
 vec2 paperUV(vec2 p) {
   float c = cos(uPaperXf.z), s = sin(uPaperXf.z);
   vec2 q = mat2(c, s, -s, c) * p + uPaperXf.xy;
@@ -190,10 +209,11 @@ void main() {
     col = vec3(alb * (irr * NL + uEnv * env(Ng, L)));
   } else {
     float s = vFace == 0 ? 1.0 : -1.0;
-    vec2 p = vMM;
     // relief du logo (dos : bosse, recto : creux) ; le pied est élargi à l'empreinte du pixel
-    float fw = fwidth(logoD(p));
+    float fw = fwidth(logoD(vMM));
     gFootW = max(uFootW, fw * 1.2);
+    vec3 Vt0 = normalize(uEye - vWorld);
+    vec2 p = parallax(vMM, s, vec3(dot(Vt0, T), dot(Vt0, Bv), dot(Vt0, Ng)));
     float e = max(0.02, fw * 0.5);
     float hx = (height(p + vec2(e, 0.0), s) - height(p - vec2(e, 0.0), s)) / (2.0 * e);
     float hy = (height(p + vec2(0.0, e), s) - height(p - vec2(0.0, e), s)) / (2.0 * e);
@@ -230,7 +250,8 @@ void main() {
       float op = clamp((0.45 + 0.6 * c) * mix(1.0, 0.35 + 0.95 * var, uInkVar) * (1.0 - 0.45 * hollow), 0.0, 1.0);
       // la texture du papier passe à travers l'encre : fibres plus blanches, creux moins couverts
       op *= clamp(1.0 + uInkPaper * paperHF(p) * uGrain, 0.35, 1.3);
-      ink = shape * op;
+      // parois raides du creux : le caractère n'y frappe presque pas
+      ink = shape * op / (1.0 + 3.0 * length(vec2(hx, hy)));
     }
     // hauteur comptée le long de la normale sortante de la face (Ng) : n = Ng − hx T − hy B
     vec3 n = normalize(Ng - hx * T - hy * Bv);
@@ -346,7 +367,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uSeed, card.seed || 0);
     gl.uniform3fv(u.uLightPos, params.lightPos); gl.uniform3fv(u.uEye, eye);
     gl.uniform3fv(u.uRoomUp, params.roomUp || [0, 0, 1]);
-    for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'InkAlb', 'InkPress', 'InkWear', 'InkThr', 'InkVar', 'InkPaper', 'InkOrg']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
+    for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'Parallax', 'InkAlb', 'InkPress', 'InkWear', 'InkThr', 'InkVar', 'InkPaper', 'InkOrg']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, paperTex); gl.uniform1i(u.uPaper, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, logoTex); gl.uniform1i(u.uLogo, 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, card.ink || null); gl.uniform1i(u.uInk, 2);
