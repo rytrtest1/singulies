@@ -91,27 +91,39 @@ export async function createNameRelief(gl, paperTex, family = '"SG Garamond", se
   gl.bindVertexArray(null);
   let count = 0, origin = [0, 0];
 
-  // mise en page : centre (mm), hauteur de capitale (mm), largeur max (mm) ; interlettrage 0,45 em
-  function layout(text, cx, cy, capMm, maxW, glow = []) {
-    const chars = [...text.toUpperCase()].filter(ch => atlas.glyphs[ch] || ch === ' ');
+  // mise en page : centre de la 1re ligne (mm), hauteur de capitale (mm), largeur max (mm) ; interlettrage
+  // 0,45 em. lines : coupure de l'accueil (1 ou 2 lignes, mêmes mots) ; les lignes suivantes descendent de 2,4
+  // capitales, comme sur l'accueil. glow : par caractère du texte (espaces compris)
+  function layout(text, cx, cy, capMm, maxW, glow = [], lines = null) {
+    const T = [...text.toUpperCase()];
+    const L = (lines || [text]).map(l => [...l.toUpperCase()]);
     let em = capMm / atlas.capHeight;
-    const width = e => chars.reduce((s, ch) => s + (ch === ' ' ? 0.3 : atlas.glyphs[ch].adv) * e, 0) + 0.45 * e * Math.max(0, chars.length - 1);
-    if (width(em) > maxW) em *= maxW / width(em);
-    let x = cx - width(em) / 2;
-    const base = cy - atlas.capHeight * em / 2;          // ligne de base : capitales centrées sur cy
+    const width = (cs, e) => cs.reduce((s, ch) => s + (ch === ' ' ? 0.3 : atlas.glyphs[ch] ? atlas.glyphs[ch].adv : 0) * e, 0) + 0.45 * e * Math.max(0, cs.length - 1);
+    const wMax = Math.max(...L.map(cs => width(cs, em)));
+    if (wMax > maxW) em *= maxW / wMax;
+    const base0 = cy - atlas.capHeight * em / 2;          // ligne de base : capitales de la 1re ligne centrées sur cy
     origin = [cx, cy];
-    const v = [];
-    chars.forEach((ch, i) => {
-      if (ch === ' ') { x += (0.3 + 0.45) * em; return; }
-      const g = atlas.glyphs[ch], G = glow[i] || 0;
-      const x0 = x + g.x0 * em, x1 = x + g.x1 * em, y0 = base - g.y0 * em, y1 = base - g.y1 * em;   // y monde vers le haut
-      const q = [[x0, y0, g.u0, g.v0], [x1, y0, g.u1, g.v0], [x1, y1, g.u1, g.v1], [x0, y1, g.u0, g.v1]];
-      for (const k of [0, 1, 2, 0, 2, 3]) v.push(q[k][0], q[k][1], q[k][2], q[k][3], G);
-      x += (g.adv + 0.45) * em;
+    const v = [], pens = [];
+    let gi = 0, base = base0;
+    L.forEach((cs, li) => {
+      let x = cx - width(cs, em) / 2;
+      base = base0 - li * 2.4 * atlas.capHeight * em;
+      for (const ch of cs) {
+        const i = gi++;
+        if (ch === ' ' || !atlas.glyphs[ch]) { x += (0.3 + 0.45) * em; continue; }
+        pens.push({ ch, x, base });
+        const g = atlas.glyphs[ch], G = glow[i] || 0;
+        const x0 = x + g.x0 * em, x1 = x + g.x1 * em, y0 = base - g.y0 * em, y1 = base - g.y1 * em;   // y monde vers le haut
+        const q = [[x0, y0, g.u0, g.v0], [x1, y0, g.u1, g.v0], [x1, y1, g.u1, g.v1], [x0, y1, g.u0, g.v1]];
+        for (const k of [0, 1, 2, 0, 2, 3]) v.push(q[k][0], q[k][1], q[k][2], q[k][3], G);
+        x += (g.adv + 0.45) * em;
+      }
+      if (li < L.length - 1 && T[gi] === ' ') gi++;      // l'espace de la coupure
     });
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.DYNAMIC_DRAW);
     count = v.length / 5;
+    return { em, glyphs: pens };   // monde (mm) : origine de chasse et ligne de base de chaque lettre
   }
 
   function draw(vp, eye, P, look, occ) {
@@ -138,5 +150,5 @@ export async function createNameRelief(gl, paperTex, family = '"SG Garamond", se
     gl.bindVertexArray(null);
     gl.depthMask(true); gl.disable(gl.BLEND);
   }
-  return { layout, draw, capHeight: atlas.capHeight };
+  return { layout, draw, capHeight: atlas.capHeight, adv: ch => atlas.glyphs[ch]?.adv ?? 0.6 };
 }

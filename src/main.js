@@ -1,4 +1,4 @@
-// SINGULIÉS — écran d'accueil. Amorçage, boucle, états (saisie → validation → noir).
+// SINGULIÉS — écran d'accueil. Amorçage, boucle, états (saisie → transition → scène des cartes).
 import { NameModel } from './input/model.js';
 import { createBridge } from './input/bridge.js';
 import { createWheel } from './input/wheel.js';
@@ -8,10 +8,13 @@ import { getGL } from './gl/gl.js';
 import { buildAtlas } from './gl/atlas.js';
 import { createRenderer } from './render/renderer.js';
 import { layoutName } from './name/layout.js';
-import { loadState, saveValidated, clearStored } from './app/storage.js';
-import { createField, MODES } from './field/field.js';
+import { loadState, saveValidated, clearStored, clearValidated } from './app/storage.js';
+import { createField, MODES, grayOf } from './field/field.js';
 import { createRng } from './field/rng.js';
 import { createLight } from './field/light.js';
+import { planRecharge, fieldMod, rechargeFrame, riseU, grayU, sm as smT, T_REST, RISE, NAME_GRAY } from './transition/recharge.js';
+
+const transRng = createRng();
 
 const P = new URLSearchParams(location.search);
 const CFG = {
@@ -27,11 +30,14 @@ const CFG = {
 const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
 const OPEN_FADE = 1.4;      // s de fondu d'entrée
-const LEAVE_FADE = 1.2;     // s de fondu au noir après validation
+const LEAVE_FADE = 1.2;     // s de fondu au noir après validation (sans WebGL2)
+const AUTO_NEXT = 10;       // s sans toucher après confirmation → passage automatique à la suite
+const HANDOFF = 0.6;        // s de fondu enchaîné vers la scène des cartes (même prénom, même place)
 
 const canvas = document.getElementById('c');
 const input = document.getElementById('in');
 const backEl = document.getElementById('back');
+const nextEl = document.getElementById('next');
 const live = document.getElementById('live');
 const fallbackEl = document.getElementById('fallback');
 input.setAttribute('autocapitalize', CFG.caseMode === 'lower' ? 'words' : 'characters');
@@ -47,7 +53,7 @@ if (P.get('auto') !== '0') {
 const stored = loadState();
 const model = new NameModel(stored.validated ?? stored.name ?? '');
 const S = {
-  phase: stored.validated ? 'black' : 'input',   // input | leaving | black
+  phase: stored.validated ? 'scene' : 'input',   // input | scene (cartes) ; sans WebGL2 : leaving | black
   phaseAt: 0,
   typed: false,           // une touche a été tapée → le curseur disparaît définitivement
   keyAt: -9,
@@ -61,8 +67,12 @@ const S = {
   dim: 1,
   slowAt: -9,
   confirmed: !!(stored.name && !stored.validated),   // Entrée / remplissage auto / visiteur qui revient : prénom confirmé
-  acro: null,             // instant du passage en colonne (acrostiche)
-  nameBox: null,          // boîte écran du prénom (toucher pour passer en colonne)
+  confirmedAt: stored.name && !stored.validated ? OPEN_DARK : -99,   // instant de la confirmation
+  actAt: -99,             // dernier geste (le passage automatique attend 10 s sans toucher)
+  trans: null,            // instant du départ de la transition vers les cartes
+  riseT: null,            // début de la montée (attend que la scène des cartes soit prête)
+  handT: null,            // début du fondu enchaîné vers la scène des cartes
+  nameBox: null,          // boîte écran du prénom (le toucher = aller à la suite)
   boost: 0,               // avance/recul dans le champ (molette, glisser vertical)
   lat: 0, adv: 1,         // nappes latérales / avance (bascule progressive vers le mode visé ; initialisés ci-dessous)
 };
@@ -125,15 +135,15 @@ if (voice) {
 }
 const spec = new Float32Array(24);   // spectre lissé (moitié ; dessiné en miroir)
 
-// Entrée : 1re fois = confirmer (clavier fermé, rien d'autre) ; ensuite = passage en colonne
+// Entrée : 1re fois = confirmer (clavier fermé, rien d'autre) ; ensuite = aller à la suite (les cartes)
 function submitName() {
-  if (S.phase !== 'input' || S.acro != null || (!wheel && bridge.composing)) return;
+  if (S.phase !== 'input' || S.trans != null || (!wheel && bridge.composing)) return;
   if (!finalName(model.text)) return;
-  if (!S.confirmed) confirmName(); else startAcrostic();
+  if (!S.confirmed) confirmName(); else startTransition();
 }
 function confirmName() {
-  if (S.phase !== 'input' || S.acro != null || !finalName(model.text)) return;
-  S.confirmed = true; S.typed = true;
+  if (S.phase !== 'input' || S.trans != null || !finalName(model.text)) return;
+  S.confirmed = true; S.typed = true; S.confirmedAt = S.t;
   const n = input.value.length;
   try { input.setSelectionRange(n, n); } catch { /* */ }
   window.getSelection?.().removeAllRanges();
@@ -141,12 +151,50 @@ function confirmName() {
   input.classList.add('rest');   // aucun rendu natif (sélection, surlignage du remplissage auto)
   if (TOUCH) input.readOnly = true;   // téléphone : même si le champ reprend le focus, pas de clavier
 }
-// les lettres du prénom pivotent en colonne (amorce de l'acrostiche), puis on passe à la suite
-const ACRO_STEP = 0.07, ACRO_DUR = 1.1, ACRO_HOLD = 1.4;
-function startAcrostic() {
-  if (S.phase !== 'input' || S.acro != null || !finalName(model.text)) return;
-  S.acro = S.t; S.confirmed = true;
-  input.blur(); wheel?.enable(false); voice?.stop();
+// la suite : les lettres allumées du champ rechargent le prénom, le champ s'éteint, le prénom monte à sa place
+// de la scène des cartes, qui prend la main (voir transition/recharge.js). Sans WebGL2 : fondu au noir.
+let plan = null, cards = null, cardsReady = false;
+function startTransition() {
+  if (S.phase !== 'input' || S.trans != null || !finalName(model.text)) return;
+  const shown = displayCase(finalName(model.text), CFG.caseMode);
+  S.trans = S.t; S.confirmed = true; S.validatedName = shown;
+  saveValidated(shown);                     // un rechargement (même pendant la transition) mène aux cartes
+  input.blur(); input.classList.add('rest'); input.readOnly = true;
+  wheel?.enable(false); voice?.stop();
+  nextEl.classList.remove('on');
+  if (!renderer) { validate(); return; }
+  loadCards(shown.toUpperCase());
+}
+// la scène des cartes : son propre canvas WebGL2 par-dessus, invisible jusqu'au fondu enchaîné
+function loadCards(name) {
+  if (cards) return;
+  cards = import('./cards/mount.js').then(({ mountCards }) => mountCards({
+    name, base: './', onExit: exitCards,
+    onEnd: () => {},
+  })).then((m) => {
+    if (!m) throw new Error('webgl2');
+    m.canvas.style.opacity = '0'; m.canvas.style.pointerEvents = 'none'; m.canvas.style.zIndex = '5';
+    cardsReady = m; return m;
+  }).catch((e) => { console.error(e); cardsReady = 'failed'; });
+}
+// retour depuis le paquet : l'accueil, prénom confirmé (comme un visiteur qui revient)
+function exitCards() { clearValidated(); location.reload(); }
+// fondu enchaîné : la scène des cartes dessine le même prénom, au même endroit, dans le même gris
+function handoff() {
+  const m = cardsReady;
+  S.handT = S.t;
+  m.canvas.style.transition = `opacity ${S.trans == null ? 1.2 : HANDOFF}s ease`;
+  m.canvas.style.pointerEvents = 'auto';
+  m.start();
+  requestAnimationFrame(() => { m.canvas.style.opacity = '1'; });
+  emitValidated(S.validatedName, S.trans == null);
+}
+function enterScene() {
+  S.phase = 'scene'; S.phaseAt = S.t;
+  cancelAnimationFrame(rafId); rafId = 0;
+  canvas.style.visibility = 'hidden';
+  try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* */ }
+  window.__sg.cards = cardsReady;
 }
 
 function validate() {
@@ -173,9 +221,9 @@ function enterBlack(restored) {
 }
 
 function goBack() {
-  if (S.phase === 'input') return;
+  if (S.phase === 'input' || S.phase === 'scene') return;
   clearStored();             // le prénom mémorisé est effacé, il reste affiché pour cette visite
-  S.phase = 'input'; S.phaseAt = S.t; S.validatedName = null; S.acro = null; S.confirmed = !!finalName(model.text);   // retour : prénom conservé, toucher pour repartir
+  S.phase = 'input'; S.phaseAt = S.t; S.validatedName = null; S.trans = null; S.confirmed = !!finalName(model.text);   // retour : prénom conservé, toucher pour repartir
   backEl.classList.remove('on');
   bridge.refresh();
   input.classList.remove('rest'); input.readOnly = false;
@@ -189,9 +237,9 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.a
 
 // Toucher n'importe où : focus du champ (ouvre le clavier mobile, geste utilisateur)
 document.addEventListener('click', (e) => {
-  if (S.phase !== 'input' || S.acro != null || e.target === backEl || backEl.contains(e.target)) return;
+  if (S.phase !== 'input' || S.trans != null || e.target === backEl || backEl.contains(e.target) || nextEl.contains(e.target)) return;
   const b = S.nameBox;
-  if (S.confirmed && b && e.clientX > b[0] && e.clientX < b[2] && e.clientY > b[1] && e.clientY < b[3]) { startAcrostic(); return; }
+  if (S.confirmed && b && e.clientX > b[0] && e.clientX < b[2] && e.clientY > b[1] && e.clientY < b[3]) { startTransition(); return; }
   if (!wheel && document.activeElement !== input) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); }
 });
 
@@ -199,7 +247,10 @@ document.addEventListener('click', (e) => {
 const MODE_ORDER = ['melange', 'profondeur', 'horizontal'];
 function toggleMode() { CFG.mode = MODE_ORDER[(MODE_ORDER.indexOf(CFG.mode) + 1) % MODE_ORDER.length]; }
 window.addEventListener('keydown', (e) => { if (e.key === 'Tab' && !e.altKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleMode(); } });
-document.addEventListener('dblclick', (e) => { if (S.acro == null && !wheel) toggleMode(); });
+document.addEventListener('dblclick', (e) => { if (S.trans == null && !wheel) toggleMode(); });
+// le signe sous le prénom confirmé : aller à la suite ; sans geste pendant 10 s, on y va tout seul
+nextEl.addEventListener('click', (e) => { e.stopPropagation(); startTransition(); });
+for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) window.addEventListener(ev, () => { S.actAt = S.t; }, { passive: true, capture: true });
 
 // ---------- dimensions ----------
 function measure() {
@@ -291,13 +342,10 @@ function frame(ts) {
   else { const k = 30, c = 2 * Math.sqrt(k) * 0.95; S.shiftV += ((target - S.shiftY) * k - c * S.shiftV) * dt; S.shiftY += S.shiftV * dt; }
   input.style.transform = `translateY(${S.shiftY.toFixed(1)}px)`;
 
-  if (!renderer) {   // sans WebGL2 : la colonne n'est pas dessinée, mais la validation doit aboutir
-    if (S.acro != null && S.phase === 'input' && S.t - S.acro > (Math.max(1, finalName(model.text).length) - 1) * ACRO_STEP + ACRO_DUR + ACRO_HOLD) validate();
-    renderFallback(); return;
-  }
+  if (!renderer) { renderFallback(); return; }   // sans WebGL2 : la suite = fondu au noir (startTransition)
   const cy = cy0 + S.shiftY;
 
-  // fondus : ouverture, départ, retour
+  // fondus : ouverture, départ (sans WebGL2), retour
   const open = smooth(OPEN_DARK, OPEN_DARK + OPEN_FADE, S.t);
   let sceneFade = open, nameFade = smooth(OPEN_DARK + 0.2, OPEN_DARK + 1.2, S.t);
   if (S.phase === 'leaving') { const k = 1 - smooth(0, LEAVE_FADE, S.t - S.phaseAt); sceneFade *= k; nameFade *= k; }
@@ -305,39 +353,89 @@ function frame(ts) {
   else if (S.phaseAt > 0) { const k = smooth(0, 1.0, S.t - S.phaseAt); sceneFade *= k; nameFade *= k; }
 
   const L = layoutName(text, metrics, { w: S.w, h: S.h, cx, cy });
-  const glyphs = [];
   const kx = 1 - Math.exp(-dt / 0.07);
-  const acro = S.acro != null ? acrostic(L, text, cx, cy) : null;
   L.glyphs.forEach((g, i) => {
-    const gm = atlas.glyphs[g.ch];
-    if (!gm) return;
-    if (glyphAnim[i] == null || !S.typed) glyphAnim[i] = g.x; else if (!acro) glyphAnim[i] += (g.x - glyphAnim[i]) * kx;
-    let x = CFG.reduced ? g.x : glyphAnim[i];
-    if (acro) {   // trajectoire courbe vers la colonne, retard propre à chaque lettre
-      const tg = acro.pos[i], x0 = x, y0 = g.y;
-      const u = CFG.reduced ? smooth(0, 0.3, S.t - S.acro) : easeInOut(Math.min(1, Math.max(0, (S.t - S.acro - i * ACRO_STEP) / ACRO_DUR)));
-      const mx = (x0 + tg.x) / 2 + (tg.y - y0) * 0.22, my = (y0 + tg.y) / 2 - (tg.x - x0) * 0.22;
-      x = (1 - u) * (1 - u) * x0 + 2 * u * (1 - u) * mx + u * u * tg.x;
-      const yy = (1 - u) * (1 - u) * y0 + 2 * u * (1 - u) * my + u * u * tg.y;
-      glyphs.push({ box: [x + gm.x0 * g.fs, yy + gm.y0 * g.fs, x + gm.x1 * g.fs, yy + gm.y1 * g.fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: nameFade, pxEm: g.fs });
-      return;
-    }
-    // roue : la lettre en cours (la dernière) suit la rotation
-    const active = wheel && S.phase === 'input' && i === L.glyphs.length - 1 && wheel.current !== ' ';
-    const dy = active ? -wheel.frac * S.capPx * 1.6 : 0;
-    const al = active ? nameFade * (1 - 0.55 * Math.min(1, Math.abs(wheel.frac) * 2)) : nameFade;
-    glyphs.push({
-      box: [x + gm.x0 * g.fs, g.y + dy + gm.y0 * g.fs, x + gm.x1 * g.fs, g.y + dy + gm.y1 * g.fs],
-      uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: al, pxEm: g.fs,
-    });
+    if (glyphAnim[i] == null || !S.typed) glyphAnim[i] = g.x; else if (S.trans == null) glyphAnim[i] += (g.x - glyphAnim[i]) * kx;
   });
   glyphAnim.length = L.glyphs.length;
   S.capPx = L.cap;
   S.nameBox = L.glyphs.length ? [Math.min(...L.lines.map((l) => l.x0)) - 30, L.top - 30, Math.max(...L.lines.map((l) => l.x1)) + 30, L.bottom + 30] : null;
-  if (acro && S.phase === 'input' && S.t - S.acro > (L.glyphs.length - 1) * ACRO_STEP + ACRO_DUR + ACRO_HOLD) validate();
-  // curseur : clignote tant qu'aucune touche n'a été tapée, puis disparaît définitivement
+  // le prénom tel qu'il est posé (avant toute transition)
+  const here = L.glyphs.map((g, i) => ({ ch: g.ch, x: CFG.reduced ? g.x : glyphAnim[i], y: g.y, fs: g.fs }));
+
+  // caméra : la parallaxe et le souffle d'abord (la transition s'y ajoute)
+  updateCamera(dt);
+  const v = field.view, focal = v.f * (1 + BR.p), vx = v.cx + field.offX, vy = v.cy + S.shiftY;
+
+  // ---------- transition vers les cartes ----------
+  const T = S.trans != null ? S.t - S.trans : -1;
+  let R = null, place = here, bright = null, vig = 1, mod = null, camDY = 0;
+  if (T >= 0) {
+    const lsc = (w, i) => field.letterScreen(w, i, focal, vx, vy);
+    if (!plan) {
+      plan = CFG.reduced ? { flyers: [], src: new Map(), fed: here.map(() => true) } : planRecharge({
+        words: field.words, letterScreen: lsc, name: here, W: S.w, H: S.h, rng: transRng,
+        level: (w, i, x, y) => {
+          const nx = (x - cx) / (S.w / 2), ny = (y - cy) / (S.h / 2);
+          return light.level(w.chars[i], w.lp[i], Math.min(1, Math.hypot(nx, ny) / Math.SQRT2), w.z, S.t, nx, ny);
+        },
+      });
+      window.__sg.plan = plan;
+    }
+    const restAt = CFG.reduced ? 0.9 : T_REST;
+    if (S.riseT == null && T >= restAt) {
+      if (cardsReady === 'failed') { S.trans = null; plan = null; validate(); }    // pas de cartes : fondu au noir
+      else if (cardsReady) { S.riseT = S.t; S.targets = cardsReady.nameTargets(S.w, S.h); }
+    }
+    const rise = CFG.reduced ? 0.9 : RISE;
+    if (S.riseT != null && S.handT == null && S.t >= S.riseT + rise) handoff();
+    if (S.handT != null && S.t - S.handT > HANDOFF + 0.15) { enterScene(); return; }
+    if (!CFG.reduced) {
+      R = rechargeFrame(plan, T, here, lsc, (f) => {
+        const w = f.w, a = w.base * (1 - (w.occL ? w.occL[f.i] : 0));
+        return a * Math.min(1, grayOf(w.z) * w.ink * S.dim + f.L);
+      });
+      bright = R.bright;
+    } else bright = here.map(() => 1);
+    const tg = S.targets && S.targets.length === here.length ? S.targets : null;
+    if (S.riseT != null) {
+      const u = CFG.reduced ? 1 : riseU(S.t, S.riseT), gu = CFG.reduced ? 1 : grayU(S.t, S.riseT);
+      if (tg) place = here.map((p, i) => ({ ch: p.ch, x: p.x + (tg[i].x - p.x) * u, y: p.y + (tg[i].y - p.y) * u, fs: p.fs + (tg[i].fs - p.fs) * u }));
+      bright = bright.map((b) => b + (NAME_GRAY - b) * gu);
+      vig = 1 - (CFG.reduced ? smooth(S.riseT, S.riseT + 0.9, S.t) : smT(S.riseT, S.riseT + RISE, S.t));
+      // la caméra descend : le prénom (le plus proche, z ≈ 3) monte de toute sa course, les mots lointains à peine
+      if (tg && here.length) camDY = u * (here[0].y - tg[0].y) * 3 / focal;
+    }
+    // mouvement réduit : le prénom s'efface au centre puis apparaît à sa place, déjà en retrait
+    if (CFG.reduced) bright = bright.map(() => (S.riseT == null ? 1 - smooth(0, 0.9, T) : NAME_GRAY * smooth(S.riseT, S.riseT + 0.9, S.t)));
+    mod = (w, i, dn) => (CFG.reduced ? 1 - smooth(0, 1.2, T) : fieldMod(plan, T, w, i, dn));
+  }
+  field.cam.y += camDY;
+
+  const glyphs = [];
+  if (R) for (const f of R.flyers) {   // lettres en vol (sous le prénom)
+    const gm = atlas.glyphs[f.ch];
+    if (gm) glyphs.push({ box: [f.x + gm.x0 * f.fs, f.y + gm.y0 * f.fs, f.x + gm.x1 * f.fs, f.y + gm.y1 * f.fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: f.alpha * nameFade, pxEm: f.fs });
+  }
+  place.forEach((g, i) => {
+    const gm = atlas.glyphs[g.ch];
+    if (!gm) return;
+    // roue : la lettre en cours (la dernière) suit la rotation
+    const active = wheel && S.phase === 'input' && T < 0 && i === place.length - 1 && wheel.current !== ' ';
+    const dy = active ? -wheel.frac * S.capPx * 1.6 : 0;
+    let al = active ? nameFade * (1 - 0.55 * Math.min(1, Math.abs(wheel.frac) * 2)) : nameFade;
+    if (bright) al *= bright[i];
+    glyphs.push({
+      box: [g.x + gm.x0 * g.fs, g.y + dy + gm.y0 * g.fs, g.x + gm.x1 * g.fs, g.y + dy + gm.y1 * g.fs],
+      uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: al, pxEm: g.fs,
+    });
+  });
+  // le signe sous le prénom confirmé (aller à la suite) ; 10 s sans geste → on y va
+  const canNext = S.phase === 'input' && S.confirmed && T < 0 && !!text.trim() && !wheel;
+  nextEl.classList.toggle('on', canNext && S.t - S.confirmedAt > 1.2 && S.t > OPEN_DARK + 1.5);
+  if (canNext) { nextEl.style.left = (cx - 22) + 'px'; nextEl.style.top = (L.bottom + Math.max(12, 0.8 * L.cap)) + 'px'; }
+  if (canNext && S.t - Math.max(S.confirmedAt, S.actAt) > AUTO_NEXT) startTransition();
   if (CFG.debug) {   // croix au point de fuite
-    const vy = field.view.cy + S.shiftY;
     glyphs.push({ box: [cx - 12, vy - 0.5, cx + 12, vy + 0.5], uv: null, alpha: 0.6, pxEm: 1 });
     glyphs.push({ box: [cx - 0.5, vy - 12, cx + 0.5, vy + 12], uv: null, alpha: 0.6, pxEm: 1 });
   }
@@ -356,24 +454,22 @@ function frame(ts) {
   const kind = light.update(bridge.shownText.toUpperCase(), S.t);
   if (kind && S.phase === 'input' && !CFG.reduced) { BR.v += kind > 0 ? 0.015 : 0.008; S.slowAt = S.t; }
   { const w = 2.2, z = 0.85; BR.v += (-BR.p * w * w - 2 * z * w * BR.v) * dt; BR.p += BR.v * dt; }
-  const speed = 1 - 0.65 * (1 - smooth(0, 1.1, S.t - S.slowAt));
+  let speed = 1 - 0.65 * (1 - smooth(0, 1.1, S.t - S.slowAt));
+  if (T >= 0) speed *= 1 - 0.8 * smooth(0, 2, T);   // le champ se calme pendant qu'il donne sa lumière
 
-  // champ : zone vide autour du prénom, caméra, simulation
+  // champ : zone vide autour du prénom, simulation
   const ln = L.lines;
-  if (acro) field.setZone(acro.box);
-  else field.setZone(text.trim() ? { x0: Math.min(...ln.map((l) => l.x0)), x1: Math.max(...ln.map((l) => l.x1)), y0: L.top, y1: L.bottom, pad: 1.1 * L.fs } : null);
-  updateCamera(dt);
+  field.setZone(text.trim() ? { x0: Math.min(...ln.map((l) => l.x0)), x1: Math.max(...ln.map((l) => l.x1)), y0: L.top, y1: L.bottom, pad: 1.1 * L.fs } : null);
   // lettres éteintes ≈ −38 % tant qu'un prénom est saisi (prototype : 0,62, lissage 2,5/s)
   S.dim += ((text.trim() ? 0.62 : 1) - S.dim) * (1 - Math.exp(-dt * 2.5));
   S.boost *= Math.exp(-dt / 1.3);
   const portraitSpeed = S.w < S.h ? 2 : 1;   // portrait : on ne voit qu'une partie du champ, le flux paraît lent
   { const [lt, at] = MODES[CFG.mode], k = CFG.reduced ? 1 : 1 - Math.exp(-dt * 1.2);   // bascule progressive
     S.lat += (lt - S.lat) * k; S.adv += (at - S.adv) * k; }
-  field.step(dt, !CFG.reduced, speed * portraitSpeed * (1 + S.boost), S.lat, S.adv);
-  const fl = field.emit(light, S.t, { x: cx, y: cy });
-  const v = field.view;
-  stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs,
-    field: fl, cam: field.cam, focal: v.f * (1 + BR.p), vx: v.cx + field.offX, vy: v.cy + S.shiftY, dim: S.dim, time: S.t });
+  field.step(dt, !CFG.reduced, speed * portraitSpeed * (1 + (T >= 0 ? 0 : S.boost)), S.lat, S.adv);
+  const fl = field.emit(light, S.t, { x: cx, y: cy }, mod);
+  stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig,
+    field: fl, cam: field.cam, focal, vx, vy, dim: S.dim, time: S.t });
   stats.letters = fl.count;
   stats.gpuMB = +((atlas.width * atlas.height * 2 + canvas.width * canvas.height * 4 * 2) / 1048576).toFixed(1);
 }
@@ -442,24 +538,20 @@ function drawVoice(L, glyphs, fade, dt, text) {
   }
 }
 
-// colonne de l'acrostiche : une lettre par ligne, centrée ; un espace = demi-ligne
-function acrostic(L, text, cx, cy) {
-  const row = L.cap * 1.5, fs = L.fs, t = text.replace(/ +$/, '');
-  const rows = [];
-  let y = 0;
-  for (const ch of t) { if (ch === ' ') { y += row * 0.6; continue; } rows.push({ ch, y }); y += row; }
-  const H = y - row, top = cy - H / 2 + L.cap / 2;
-  const pos = rows.map((r) => ({ x: cx - (atlas.glyphs[r.ch]?.adv ?? 0.6) * fs / 2, y: top + r.y }));
-  return { pos, box: { x0: cx - fs * 0.6, x1: cx + fs * 0.6, y0: top - L.cap, y1: top + H + L.cap * 0.3, pad: 1.1 * fs } };
-}
-const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
-
 function smooth(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 
 // ---------- amorçage ----------
 let metrics = null;
 async function boot() {
   measure();
+  // rechargement après la suite : directement la scène des cartes (le prénom à sa place, le paquet arrive)
+  if (S.phase === 'scene') {
+    canvas.style.visibility = 'hidden'; input.readOnly = true;
+    loadCards(S.validatedName.toUpperCase());
+    await cards;
+    if (cardsReady && cardsReady !== 'failed') { handoff(); window.__sg.cards = cardsReady; return; }
+    S.phase = 'black'; canvas.style.visibility = '';
+  }
   // la seconde de noir sert à charger la police et construire l'atlas
   try {
     const ff = new FontFace(FONT_FAMILY, `url(${new URL('fonts/EBGaramond-500.woff2', document.baseURI)})`, { weight: '500' });
@@ -489,11 +581,11 @@ async function boot() {
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { cancelAnimationFrame(rafId); rafId = 0; }
-  else if (!rafId && (!gl || !gl.isContextLost())) { last = 0; rafId = requestAnimationFrame(frame); }
+  else if (!rafId && S.phase !== 'scene' && (!gl || !gl.isContextLost())) { last = 0; rafId = requestAnimationFrame(frame); }
 });
 
 // accès de test / mesure
 const stats = { drawCalls: 0, gpuMB: 0, letters: 0, warmupMs: 0 };
-window.__sg = { stats, model, S, CFG, get atlas() { return atlas; }, get field() { return field; }, get voice() { return voice; }, validate, submitName, startAcrostic, goBack, get bridge() { return bridge; } };
+window.__sg = { stats, model, S, CFG, get atlas() { return atlas; }, get field() { return field; }, get voice() { return voice; }, validate, submitName, startTransition, goBack, get bridge() { return bridge; } };
 
 boot();

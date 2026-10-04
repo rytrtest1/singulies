@@ -19,6 +19,7 @@ uniform float u_dpr;
 uniform vec2 u_center;   // centre de la vignette, px physiques (y vers le bas)
 uniform float u_grain;   // 1 = charbon granuleux, 0 = noir pur
 uniform float u_fade;
+uniform float u_vig;     // force de la vignette (1 ; 0 = fond uni, comme la scène des cartes)
 out vec4 o;
 float hash(vec2 p) { // grain statique, stable d'une image à l'autre
   p = fract(p * vec2(443.897, 441.423));
@@ -32,7 +33,7 @@ void main() {
   float c = u_grain > 1.5 ? mix(5.0 / 255.0, g * g * g, 23.0 / 255.0) : 6.0 / 255.0; // grain seulement sur demande
   vec2 half_ = vec2(max(u_center.x, u_res.x - u_center.x), max(u_center.y, u_res.y - u_center.y)) * 1.41421;
   float r = length((frag - u_center) / half_);
-  float a = 0.66 * clamp((r - 0.52) / 0.48, 0.0, 1.0);
+  float a = 0.66 * u_vig * clamp((r - 0.52) / 0.48, 0.0, 1.0);
   c *= (1.0 - a) * min(u_grain, 1.0);
   c += (hash(frag + 31.7) - 0.5) / 255.0 * step(0.5, u_grain);   // tramage ±½ niveau : pas de bandes dans la vignette
   o = vec4(vec3(c * u_fade), 1.0);
@@ -220,6 +221,7 @@ export function createRenderer(canvas, gl, atlas) {
     gl.uniform2f(bg.u.u_center, f.cx * f.dpr, f.cy * f.dpr);
     gl.uniform1f(bg.u.u_grain, f.grain);
     gl.uniform1f(bg.u.u_fade, f.fade);
+    gl.uniform1f(bg.u.u_vig, f.vig ?? 1);
     gl.bindVertexArray(empty);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
@@ -245,7 +247,7 @@ export function createRenderer(canvas, gl, atlas) {
       gl.uniform2f(fp.u.u_cam, f.cam.x, f.cam.y);
       gl.uniform1f(fp.u.u_f, f.focal);
       gl.uniform1f(fp.u.u_dpr, f.dpr);
-      gl.uniform1f(fp.u.u_fade, f.fade);
+      gl.uniform1f(fp.u.u_fade, f.fade * (f.fieldFade ?? 1));
       gl.uniform1f(fp.u.u_dim, f.dim ?? 1);
       gl.uniform1f(fp.u.u_time, (f.time ?? 0) % 1000);
       gl.uniform1i(fp.u.u_atlas, 0);

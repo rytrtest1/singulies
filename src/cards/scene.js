@@ -15,6 +15,7 @@ import { loadTypeFont, makeInkMap, makeAnswerInk, makeStripInk, STRIP, TYPE } fr
 import { createNameRelief } from './nameRelief.js';
 import { createRng } from '../field/rng.js';
 import QUESTIONS from './questions.json';
+import { layoutName } from '../name/layout.js';
 
 export const LOOK = {
   // réglé par Maxence sur téléphone (04/10). Cartes noires ; lampe en orbite + hauteur (manière 1, 60 %) ; la
@@ -266,6 +267,30 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   }
 
   let vp = null, eye = null, lastT = 0, focusAns = 0;
+  // coupure du prénom : la même que sur l'accueil (1 ou 2 lignes)
+  const nameLines = (text, W, H) => layoutName(text, { adv: nameR.adv, capHeight: nameR.capHeight }, { w: W, h: H, cx: W / 2, cy: H / 2 }).lines.map(l => l.text);
+  // prénom : 11 % du haut de l'écran, capitale ≈ 3,4 % de la hauteur (bornée), plan des cartes
+  const nameCap = H => Math.min(52, Math.max(26, 0.052 * H)) * 0.66;
+  function nameY(eye, cy) {
+    const fy = 0.11, ndcY = 1 - 2 * fy, tf = Math.tan(FOV / 2);
+    const fwd = norm3(sub3([0, cy, 0], eye)), right = norm3(cross3(fwd, [0, 1, 0])), up = cross3(right, fwd);
+    const dir = norm3(add3(fwd, mul3(up, ndcY * tf)));
+    const s = -eye[2] / dir[2];
+    return eye[1] + dir[1] * s;
+  }
+  // où le prénom se posera (caméra au repos, sans clavier) : origine de chasse, ligne de base et taille d'un em
+  // de chaque lettre, en px écran — l'accueil y conduit son prénom avant de passer la main (aucun saut)
+  function nameTargets(text, W, H) {
+    layout(W, H);
+    const cy = (lay.yDeck + lay.yAns) / 2, Ds = lay.D;
+    const e = [0, cy - Ds * Math.sin(TILT), Ds * Math.cos(TILT)];
+    const m = M4.mul(M4.perspective(FOV, W / H, Ds * 0.3, Ds * 3), M4.lookAt(e, [0, cy, 0], [0, 1, 0]));
+    const L0 = nameR.layout(text.toUpperCase(), 0, nameY(e, cy), nameCap(H) * lay.Hw / H, lay.Ww * 0.86, [], nameLines(text.toUpperCase(), W, H));
+    nameKey = '';                                       // la prochaine image refait la vraie mise en page
+    const P = (x, y) => { const w = m[3] * x + m[7] * y + m[15]; return [((m[0] * x + m[4] * y + m[12]) / w * 0.5 + 0.5) * W, (0.5 - (m[1] * x + m[5] * y + m[13]) / w * 0.5) * H]; };
+    return L0.glyphs.map(g => { const a = P(g.x, g.base), b = P(g.x, g.base + L0.em); return { ch: g.ch, x: a[0], y: a[1], fs: a[1] - b[1] }; });
+  }
+
   function frame(t, dt, W, H) {
     lastT = t;
     layout(W, H);
@@ -388,15 +413,11 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
     // prénom (à plat, en retrait) ; ses lettres s'éclairent quand on les tape ; tout s'allume à la fin
     if (nameText) {
-      const fy = 0.11, ndcY = 1 - 2 * fy, tf = Math.tan(FOV / 2);
-      const fwd = norm3(sub3([0, cy, 0], eye)), right = norm3(cross3(fwd, [0, 1, 0])), up = cross3(right, fwd);
-      const dir = norm3(add3(fwd, mul3(up, ndcY * tf)));
-      const s = -eye[2] / dir[2], py = eye[1] + dir[1] * s;
+      const py = nameY(eye, cy);
       const g = [...nameText].map((_, i) => Math.max(glow[i] || 0, ended ? sstep(0.9 + i * 0.12, 1.5 + i * 0.12, te) * 0.9 : 0));
       const key = nameText + W + 'x' + H + Math.round(py * 10) + Math.round(scale * 100) + g.map(x => x.toFixed(2)).join();
       if (key !== nameKey) {
-        const capPx = Math.min(52, Math.max(26, 0.052 * H)) * 0.66;
-        nameR.layout(nameText, 0, py, capPx * Hs / H, lay.Ww * scale * 0.86, g);
+        nameR.layout(nameText, 0, py, nameCap(H) * Hs / H, lay.Ww * scale * 0.86, g, nameLines(nameText, W, H));
         nameKey = key;
       }
       if (kb > 0.02) gl.disable(gl.DEPTH_TEST);           // clavier ouvert : le prénom reste devant
@@ -518,7 +539,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function setKeyboard(px) { kbPx = px; }
   return {
     frame, tap, drag, release, give, pass, back, start, setName, setTilt, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
-    activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank,
+    activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
     state: () => ({ idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),
     look: L, layout: lay,

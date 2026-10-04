@@ -122,27 +122,40 @@ await run('Validation / Échap', async (p) => {
     window.addEventListener('singulies:name-validated', (e) => window.__ev.push(e.detail));
   });
   await p.keyboard.type('Léa'); await p.keyboard.press('Enter'); await sleep(100);
-  await p.focus('#in'); await p.keyboard.press('Enter'); // 2e Entrée : colonne puis validation
-  await p.waitForFunction(() => window.__sg.S.phase === 'leaving' || window.__sg.S.phase === 'black', null, { timeout: 15000 });
-  const early = await p.evaluate(() => ({ ev: window.__ev.length, phase: window.__sg.S.phase }));
-  await p.waitForFunction(() => window.__ev.length > 0, null, { timeout: 15000 });
-  const r = await p.evaluate(() => ({ ev: window.__ev, cb: window.__cb, phase: window.__sg.S.phase, ls: localStorage.getItem('singulies.name') }));
+  await p.focus('#in'); await p.keyboard.press('Enter'); // 2e Entrée : transition
+  await p.waitForFunction(() => window.__sg.S.trans != null, null, { timeout: 15000 });
+  const early = await p.evaluate(() => ({ ev: window.__ev.length, phase: window.__sg.S.phase, ls: localStorage.getItem('singulies.name'), ss: sessionStorage.getItem('singulies.validated') }));
+  const g = await p.evaluate(() => { window.__sg.goBack(); return window.__sg.S.trans != null; });   // goBack ne fait rien pendant la transition
+  await p.waitForFunction(() => window.__ev.length > 0, null, { timeout: 120000 });
+  await p.waitForFunction(() => window.__sg.S.phase === 'scene', null, { timeout: 120000 });
+  const r = await p.evaluate(() => ({ ev: window.__ev, cb: window.__cb, phase: window.__sg.S.phase, ls: localStorage.getItem('singulies.name'), cards: !!window.__sg.cards }));
   const foreign = [...p.hosts].filter((h) => h !== 'localhost' && h !== '127.0.0.1');
-  const out = [same('phase pendant fondu', 'leaving', early.phase), same('événement pas immédiat', 0, early.ev),
-    same('événement name', 'LEA', r.ev[0]?.name), same('onNameValidated', ['LEA'], r.cb), same('phase black', 'black', r.phase),
+  const out = [same('transition démarrée (S.trans != null)', true, g), same('phase pendant transition', 'input', early.phase), same('événement pas immédiat', 0, early.ev),
+    same('saveValidated au départ: localStorage', 'LEA', early.ls), same('saveValidated au départ: sessionStorage', true, !!early.ss),
+    same('événement name', 'LEA', r.ev[0]?.name), same('onNameValidated', ['LEA'], r.cb), same('phase scene', 'scene', r.phase), same('__sg.cards défini', true, r.cards),
     same('localStorage', 'LEA', r.ls), same('hôtes externes', [], foreign)];
-  await p.keyboard.press('Escape'); await sleep(200);
+  await p.keyboard.press('Escape'); await sleep(300);
   const e = await p.evaluate(() => ({ phase: window.__sg.S.phase, text: window.__sg.model.text, ls: localStorage.getItem('singulies.name') }));
-  out.push(same('Échap: phase', 'input', e.phase), same('Échap: prénom conservé', 'LEA', e.text), same('Échap: localStorage effacé', null, e.ls));
+  out.push(same('Échap en scène: phase inchangée', 'scene', e.phase), same('Échap: prénom conservé', 'LEA', e.text), same('Échap: localStorage inchangé', 'LEA', e.ls));
   return out;
 });
-await run('Rechargement 0,3 s après validation', async (p) => {
-  await p.keyboard.type('Léa'); await p.evaluate(() => window.__sg.validate()); await sleep(300);
-  await p.reload();
-  await p.waitForFunction(() => window.__sg && window.__sg.atlas, null, { timeout: 30000 });
+await run('Rechargement après départ de transition', async (p) => {
+  await p.keyboard.type('Léa'); await p.evaluate(() => window.__sg.startTransition());   // sans Entrée préalable
+  const t = await p.evaluate(() => window.__sg.S.trans != null);
   await sleep(300);
-  const s = await p.evaluate(() => ({ phase: window.__sg.S.phase, text: window.__sg.model.text }));
-  return [same('phase après reload', 'black', s.phase), same('prénom restauré', 'LEA', s.text)];
+  await p.reload();
+  await p.waitForFunction(() => window.__sg && window.__sg.S.phase === 'scene' && window.__sg.cards, null, { timeout: 120000 });
+  const s = await p.evaluate(() => ({ phase: window.__sg.S.phase, text: window.__sg.model.text, frames: window.__sg.cards.frames, inpRO: document.getElementById('in').readOnly }));
+  await sleep(1500);
+  const f2 = await p.evaluate(() => window.__sg.cards.frames);
+  const foreign = [...p.hosts].filter((h) => h !== 'localhost' && h !== '127.0.0.1');
+  return [same('transition démarrée', true, t), same('phase après reload', 'scene', s.phase), same('prénom restauré', 'LEA', s.text), same('cartes dessinent', true, f2 > 0), same('hôtes externes', [], foreign)];
+}, { query: '' });
+await run('Validation directe (validate) sans transition', async (p) => {
+  await p.keyboard.type('Léa'); await p.evaluate(() => window.__sg.validate());
+  await p.waitForFunction(() => window.__sg.S.phase === 'leaving' || window.__sg.S.phase === 'black', null, { timeout: 15000 });
+  await p.waitForFunction(() => window.__sg.S.phase === 'black', null, { timeout: 30000 });
+  return [same('phase black', 'black', await p.evaluate(() => window.__sg.S.phase))];
 });
 await run('Visiteur qui revient', async (p) => {
   const s = await st(p); return [same('model', 'LEA', s.text), same('phase', 'input', s.phase)];
@@ -176,7 +189,7 @@ await run('Sans WebGL2', async (p) => {
   HTMLCanvasElement.prototype.getContext = function (t, ...a) { return t === 'webgl2' ? null : o.call(this, t, ...a); };
 } });
 
-const flags = (p) => p.evaluate(() => ({ conf: window.__sg.S.confirmed, foc: document.activeElement === document.getElementById('in'), phase: window.__sg.S.phase, acro: window.__sg.S.acro != null, text: window.__sg.model.text }));
+const flags = (p) => p.evaluate(() => ({ conf: window.__sg.S.confirmed, foc: document.activeElement === document.getElementById('in'), phase: window.__sg.S.phase, trans: window.__sg.S.trans != null, text: window.__sg.model.text }));
 await run('autocomplete=off avec ?auto=0', async (p) => {
   return [same('autocomplete', 'off', await p.evaluate(() => document.getElementById('in').getAttribute('autocomplete')))];
 }, { query: '?auto=0' });
@@ -186,33 +199,50 @@ await run('Entrée = confirmer', async (p) => {
   await p.keyboard.type('B'); // champ défocalisé : refocaliser puis frapper
   await p.focus('#in'); await p.keyboard.type('B'); await sleep(100);
   const b = await flags(p);
-  return [same('confirmé', true, a.conf), same('champ non focalisé', false, a.foc), same('phase input', 'input', a.phase), same('pas d\'acro', false, a.acro),
+  return [same('confirmé', true, a.conf), same('champ non focalisé', false, a.foc), same('phase input', 'input', a.phase), same('pas de transition', false, a.trans),
     same('frappe après confirmation: confirmed false', false, b.conf), same('texte', 'LEAB', b.text)];
 });
-await run('2x Entrée -> acro puis black', async (p) => {
+await run('2x Entrée -> transition puis scène', async (p) => {
+  await p.evaluate(() => { window.__ev = []; window.addEventListener('singulies:name-validated', (e) => window.__ev.push(e.detail)); });
   await p.keyboard.type('Lea'); await p.keyboard.press('Enter'); await sleep(200);
   await p.focus('#in'); await p.keyboard.press('Enter'); await sleep(200);
   const a = await flags(p);
-  await p.waitForFunction(() => window.__sg.S.phase === 'black', null, { timeout: 12000 });
-  return [same('acro démarré', true, a.acro), same('phase encore input', 'input', a.phase), same('phase black', 'black', (await flags(p)).phase)];
+  await p.waitForFunction(() => window.__sg.S.phase === 'scene', null, { timeout: 120000 });
+  const ev = await p.evaluate(() => window.__ev.map((e) => e.name));
+  return [same('transition démarrée', true, a.trans), same('phase encore input', 'input', a.phase), same('phase scene', 'scene', (await flags(p)).phase), same('événement', ['LEA'], ev)];
+});
+await run('Confirmer puis rien faire -> transition automatique', async (p) => {
+  await p.keyboard.type('Lea'); await p.keyboard.press('Enter');
+  const c = await p.evaluate(() => window.__sg.S.confirmedAt);
+  await sleep(500);
+  const early = (await flags(p)).trans;
+  await p.waitForFunction((c0) => window.__sg.S.t > c0 + 10.5, c, { timeout: 120000 });
+  await p.waitForFunction(() => window.__sg.S.trans != null, null, { timeout: 30000 });
+  return [same('pas de transition tout de suite', false, early), same('transition automatique', true, (await flags(p)).trans)];
+});
+await run('Signe #next visible puis clic -> transition', async (p) => {
+  await p.keyboard.type('Lea'); await p.keyboard.press('Enter');
+  await p.waitForFunction(() => document.getElementById('next').classList.contains('on'), null, { timeout: 60000 });
+  await p.click('#next'); await sleep(200);
+  return [same('transition démarrée', true, (await flags(p)).trans)];
 });
 await run('2e Entrée sans focus (desktop, champ défocalisé par la confirmation)', async (p) => {
   await p.keyboard.type('Lea'); await p.keyboard.press('Enter'); await sleep(300);
   await p.keyboard.press('Enter'); await sleep(300);
-  return [same('acro démarré', true, (await flags(p)).acro)];
+  return [same('transition démarrée', true, (await flags(p)).trans)];
 });
-await run('Clic dans nameBox -> acro', async (p) => {
+await run('Clic dans nameBox -> transition', async (p) => {
   await p.keyboard.type('Lea'); await p.keyboard.press('Enter'); await sleep(500);
   const box = await p.evaluate(() => window.__sg.S.nameBox);
   await p.mouse.click((box[0] + box[2]) / 2, (box[1] + box[3]) / 2); await sleep(200);
   const a = await flags(p);
-  return [same('nameBox défini', true, !!box), same('acro', true, a.acro)];
+  return [same('nameBox défini', true, !!box), same('transition', true, a.trans)];
 });
 await run('Clic hors du prénom après confirmation', async (p) => {
   await p.keyboard.type('Lea'); await p.keyboard.press('Enter'); await sleep(500);
   await p.mouse.click(8, 8); await sleep(200);
   const a = await flags(p);
-  return [same('champ refocalisé', true, a.foc), same('pas d\'acro', false, a.acro), same('phase input', 'input', a.phase)];
+  return [same('champ refocalisé', true, a.foc), same('pas de transition', false, a.trans), same('phase input', 'input', a.phase)];
 });
 await run('Remplissage auto simulé', async (p) => {
   await p.evaluate(() => {
@@ -230,7 +260,7 @@ await run('Entrée pendant IME ignorée', async (p, c) => {
   await cdp.send('Input.imeSetComposition', { text: 'e', selectionStart: 1, selectionEnd: 1 }); await sleep(100);
   await p.keyboard.press('Enter'); await sleep(200);
   const a = await flags(p);
-  return [same('non confirmé', false, a.conf), same('pas d\'acro', false, a.acro)];
+  return [same('non confirmé', false, a.conf), same('pas de transition', false, a.trans)];
 });
 
 await browser.close(); await server.close();

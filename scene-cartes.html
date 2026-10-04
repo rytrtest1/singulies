@@ -10,35 +10,10 @@
   html, body { margin: 0; height: 100%; background: #060606; overflow: hidden; touch-action: pinch-zoom; }
   #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   #log { position: fixed; left: 8px; bottom: 8px; color: #555; font: 11px system-ui; pointer-events: none; }
-  /* champ natif : reçoit le clavier, invisible (le texte est tapé sur la carte) */
-  #answer { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; margin: 0;
-    font-size: 16px; resize: none; background: transparent; color: transparent; caret-color: transparent; outline: none;
-    overflow: hidden; -webkit-tap-highlight-color: transparent; -webkit-user-select: text; z-index: 2; }
-  /* donner : petit signe sous la carte écrite */
-  #give { position: fixed; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
-    color: rgba(236,236,236,0.5); opacity: 0; transition: opacity .8s; pointer-events: none; }
-  #give.on { opacity: 1; pointer-events: auto; }
-  #give { z-index: 3; }
-  /* PASSER (sur la carte blanche, après quelques secondes sans frappe) : discret, placé par le script */
-  #pass { position: fixed; left: 0; right: 0; top: 85%; text-align: center; z-index: 3;
-    opacity: 0; transition: opacity 1.2s; pointer-events: none;
-    font: 500 12px/44px 'SG Garamond', serif; letter-spacing: 0.4em; padding-left: 0.4em; color: rgba(236,236,236,0.32); }
-  /* retour (de la carte blanche au paquet) : flèche discrète, zone 44 px */
-  #back { position: fixed; left: 6px; top: max(6px, env(safe-area-inset-top)); width: 44px; height: 44px; display: flex;
-    align-items: center; justify-content: center; color: rgba(236,236,236,0.4); opacity: 0; transition: opacity .8s;
-    pointer-events: none; z-index: 3; }
-  #back.on { opacity: 1; pointer-events: auto; }
-  #pass.on { opacity: 1; pointer-events: auto; }
-  #veil { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 1.4s; pointer-events: none; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<textarea id="answer" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="done" aria-label="Réponse"></textarea>
-<div id="give" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></div>
-<div id="pass" role="button">PASSER</div>
-<div id="back" role="button" aria-label="Retour"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M14.5 6 L8.5 12 L14.5 18" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></div>
-<div id="veil"></div>
 <div id="log"></div>
 <script type="module" src="./src/cards/sceneDev.js"></script>
 </body>

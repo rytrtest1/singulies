@@ -318,7 +318,9 @@ export function createField(opts) {
   // light (optionnel) : createLight() ; t : temps ; c : centre du prénom (px)
   let buf = new Float32Array(1024 * STRIDE);
   let litCount = 0;
-  function emit(light, t = 0, c = null) {
+  // mod (optionnel) : (mot, rang de la lettre, distance écran au prénom 0…1) → facteur d'alpha et de lumière
+  // (transition : extinction lettre par lettre, lettres parties rejoindre le prénom)
+  function emit(light, t = 0, c = null, mod = null) {
     let n = 0;
     litCount = 0;
     const lit = light && light.active;
@@ -335,12 +337,13 @@ export function createField(opts) {
         buf[o + 8] = g.u0; buf[o + 9] = g.v0; buf[o + 10] = g.u1; buf[o + 11] = g.v1;
         buf[o + 12] = g.x0; buf[o + 13] = g.y0; buf[o + 14] = g.x1; buf[o + 15] = g.y1;
         let L = 0;
-        if (lit) {
+        if (lit || mod) {
           // position écran approximative de la lettre (propagation de la lumière, anneau)
           const fx = (pen + w.half + 0.5 * w.adv[i] * w.S) / (2 * w.half || 1);
           const lx = w.box[0] + fx * (w.box[2] - w.box[0]), ly = (w.box[1] + w.box[3]) / 2;
           const dn = Math.min(1, Math.hypot((lx - cx) / hw, (ly - cy) / hh) / Math.SQRT2);
-          L = light.level(w.chars[i], w.lp[i], dn, w.z, t, (lx - cx) / hw, (ly - cy) / hh);
+          if (lit) L = light.level(w.chars[i], w.lp[i], dn, w.z, t, (lx - cx) / hw, (ly - cy) / hh);
+          if (mod) { const m = mod(w, i, dn); buf[o + 7] *= m; L *= m; }
           if (L > 0.01) litCount++;
         }
         buf[o + 16] = gray; buf[o + 17] = L; buf[o + 18] = 0; buf[o + 19] = 0;
@@ -350,6 +353,17 @@ export function createField(opts) {
       }
     }
     return { data: buf, count: n };
+  }
+
+  // position écran d'une lettre, même calcul que le shader (sans la pente ni la compression cos ψ) :
+  // origine de chasse x, ligne de base y, px par em ; f : focale, (vx, vy) : point de fuite à l'écran
+  function letterScreen(w, i, f, vx, vy) {
+    let pen = -w.half;
+    for (let j = 0; j < i; j++) pen += (w.adv[j] + w.track) * w.S;
+    const g = glyphs[w.chars[i]], ecx = 0.5 * (g.x0 + g.x1);
+    const s = pen + ecx * w.S, X = w.X - cam.x + Math.cos(w.psi) * s, Y = w.Y - cam.y;
+    const Z = w.z - Math.sin(w.psi) * s, k = f * w.S / Math.max(0.5, Z), zp = Math.max(0.1, Z);
+    return { x: vx + f * X / zp - ecx * k, y: vy + f * Y / zp + (w.jit[i] + 0.5 * capHeight) * k, fs: k, z: Z };
   }
 
   // ---------- mesures ----------
@@ -374,5 +388,5 @@ export function createField(opts) {
 
   function advance(seconds, dt = 0.5) { for (let s = 0; s < seconds; s += dt) step(dt, true); }
 
-  return { resize, step, emit, setZone, stats, advance, cam, words, get view() { return view; }, get zone() { return zone; }, get litCount() { return litCount; }, get offX() { return offX; } };
+  return { resize, step, emit, setZone, stats, advance, letterScreen, cam, words, get view() { return view; }, get zone() { return zone; }, get litCount() { return litCount; }, get offX() { return offX; } };
 }

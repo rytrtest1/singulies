@@ -10,4 +10,6 @@ export function loadState() {
   return { name: get(localStorage, K_NAME), validated: get(sessionStorage, K_VALID) };
 }
 export function saveValidated(name) { set(localStorage, K_NAME, name); set(sessionStorage, K_VALID, name); }
+// retour depuis les cartes : le prénom reste mémorisé (confirmé), seule la suite est oubliée
+export function clearValidated() { set(sessionStorage, K_VALID, null); }
 export function clearStored() { set(localStorage, K_NAME, null); set(sessionStorage, K_VALID, null); }
