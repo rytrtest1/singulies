@@ -106,7 +106,8 @@ void main() {
 const FS = /* glsl */`#version 300 es
 precision highp float;
 in vec3 vWorld, vT, vB, vN; in vec2 vMM; flat in int vFace;
-uniform sampler2D uPaper, uLogo;
+uniform sampler2D uPaper, uLogo, uInk;
+uniform float uHasInk, uInkAlb, uInkGrain, uInkPress;
 uniform vec2 uCard;          // largeur, hauteur (mm)
 uniform float uLogoSq, uLogoRange;
 uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
@@ -143,6 +144,9 @@ float paper(vec2 p) {
   float r = texture(uPaper, uv).r, lo = texture(uPaper, uv, 3.0).r;
   return 1.0 + ((lo - 0.502) + uGrain * (r - lo)) * 255.0 / 255.0;
 }
+float paperHF(vec2 p) { vec2 uv = paperUV(p); return texture(uPaper, uv).r - texture(uPaper, uv, 3.0).r; }
+// encre du recto : la face est lue retournée (axe x local vers la gauche de l'écran)
+vec2 inkUV(vec2 p) { return vec2(0.5 - p.x / uCard.x, 0.5 - p.y / uCard.y); }
 vec2 hash2(vec2 c) { c = vec2(dot(c, vec2(127.1, 311.7)), dot(c, vec2(269.5, 183.3))) + uSeed; return fract(sin(c) * 43758.5453); }
 float noise1(float x) {
   float i = floor(x), f = fract(x);
@@ -193,6 +197,19 @@ void main() {
     float fx = (paper(p + vec2(pe, 0.0)) - paper(p - vec2(pe, 0.0))) / (2.0 * pe);
     float fy = (paper(p + vec2(0.0, pe)) - paper(p - vec2(0.0, pe))) / (2.0 * pe);
     hx += uFiber * fx; hy += uFiber * fy;
+    // frappe : le caractère enfonce un peu le papier (creux doux sous l'encre)
+    float ink = 0.0;
+    if (vFace == 1 && uHasInk > 0.5) {
+      float ie = 0.06;
+      hx -= uInkPress * (texture(uInk, inkUV(p + vec2(ie, 0.0)), 1.5).r - texture(uInk, inkUV(p - vec2(ie, 0.0)), 1.5).r) / (2.0 * ie);
+      hy -= uInkPress * (texture(uInk, inkUV(p + vec2(0.0, ie)), 1.5).r - texture(uInk, inkUV(p - vec2(0.0, ie)), 1.5).r) / (2.0 * ie);
+      float c = texture(uInk, inkUV(p)).r;
+      // l'encre se dépose sur les sommets des fibres ; le creux du logo est moins bien frappé
+      float hfp = paperHF(p) * uGrain;
+      float dep = mix(1.0 - uInkGrain, 1.0, smoothstep(-0.05, 0.04, hfp + 0.05 * (c - 0.7)));
+      float hollow = prof(logoD(p));
+      ink = clamp(pow(c, 0.8) * dep * (1.0 - 0.5 * hollow), 0.0, 1.0);
+    }
     // hauteur comptée le long de la normale sortante de la face (Ng) : n = Ng − hx T − hy B
     vec3 n = normalize(Ng - hx * T - hy * Bv);
     // bord : la coupe arrondit et casse le papier sur ~0,15 mm (plus aux coins), irrégulier
@@ -218,12 +235,12 @@ void main() {
     float d = logoD(p);
     float crease = 1.0 - uCrease * exp(-pow(d / max(0.04, fw), 2.0));
     // matière
-    float alb = uAlbedo * R0 * (1.0 + 0.5 * rim);
+    float alb = mix(uAlbedo * R0 * (1.0 + 0.5 * rim), uInkAlb * (0.9 + 0.2 * R0), ink);
     float NL = max(dot(n, L), 0.0), NV = max(dot(n, V), 1e-3);
     vec3 H = normalize(L + V); float NH = max(dot(n, H), 0.0), VH = max(dot(V, H), 0.0);
     float a = clamp(uRough * uRough + tanL * 0.5, 0.02, 1.0);       // lampe étendue → lobe élargi
     float F = 0.04 + 0.96 * pow(1.0 - VH, 5.0);
-    float spec = uSpec * D_GGX(NH, a) * V_Smith(NL, NV, a) * F;
+    float spec = uSpec * (1.0 - 0.6 * ink) * D_GGX(NH, a) * V_Smith(NL, NV, a) * F;
     float sheen = uSheen * D_Charlie(NH, 0.45) * V_Neubelt(NL, NV);
     // fibres : chaque texel clair est une fibre à facette propre, qui s'allume sous un angle précis
     vec2 cellf = paperUV(p) * vec2(textureSize(uPaper, 0));
@@ -307,12 +324,27 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uSeed, card.seed || 0);
     gl.uniform3fv(u.uLightPos, params.lightPos); gl.uniform3fv(u.uEye, eye);
     gl.uniform3fv(u.uRoomUp, params.roomUp || [0, 0, 1]);
-    for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
+    for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'InkAlb', 'InkGrain', 'InkPress']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, paperTex); gl.uniform1i(u.uPaper, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, logoTex); gl.uniform1i(u.uLogo, 1);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, card.ink || null); gl.uniform1i(u.uInk, 2);
+    gl.uniform1f(u.uHasInk, card.ink ? 1 : 0);
     gl.bindVertexArray(vao);
     gl.drawArrays(gl.TRIANGLES, 0, count);
     gl.bindVertexArray(null);
   }
-  return { draw };
+  // carte d'encre (canvas) → texture R8 avec mipmaps ; à libérer avec freeInk quand la carte quitte la scène
+  function makeInk(canvas) {
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, gl.RED, gl.UNSIGNED_BYTE, canvas);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return t;
+  }
+  const freeInk = t => gl.deleteTexture(t);
+  return { draw, makeInk, freeInk };
 }
