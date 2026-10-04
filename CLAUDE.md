@@ -31,11 +31,11 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - `prefers-reduced-motion` : image fixe, ondes en simples fondus, pas de parallaxe.
 
 ## Lumière — organique, jamais copié-collé
-- Seules les lettres saisies s'allument (un prénom identique en fond est OK). Rapport allumé/éteint ≈ 3–4, maintenu après l'onde ; lettres éteintes ≈ −40 % tant qu'un prénom est saisi.
+- Seules les lettres saisies s'allument (un prénom identique en fond est OK). Rapport allumé/éteint ≈ 3–4, maintenu après l'onde ; **les lettres éteintes gardent la même opacité qu'un prénom soit saisi ou non** (05/10 : l'ancienne baisse de −40 % retirée).
 - Anneau de résonance : niveau de repos des allumées décroît avec la distance au prénom central ; les plus vifs forment un anneau autour.
 - Paramètres par lettre tirés à la naissance : retard, attaque ≈ 0,5–1,4 s, décroissance ≈ 1,4–6 s (lent, décision Maxence 03/10), intensité, souffle de repos (2 sinus non synchronisés : phase+fréquence), graine de la lumière intérieure.
 - Propagation : front **de l'arrière-plan vers l'avant-plan** (≈ 4 s du fond au premier plan ; la première lettre au fond se remarque en ≈ 0,4 s, 05/10), bord irrégulier par bruit spatial doux, petit retard propre par lettre. Après l'onde, descente progressive vers le repos, sans chute.
-- Effacement : extinction du plus loin vers le centre, durée propre 0,25–0,6 s.
+- Effacement : extinction du plus loin vers le centre, durée propre 0,25–0,6 s. **Effacée pendant son allumage, une lettre rembobine depuis là où elle en était** (onde figée, aucune ne s'allume pour s'éteindre aussitôt ; une lettre pas encore atteinte reste éteinte), 05/10.
 - **Pas de traînée ni de déformation par lettre** (abandonnées 03/10 : trop d'effort pour peu de résultat). Pas de mise au point sur les lettres allumées (distrait du prénom, 03/10). **Une clarté lente circule à l'intérieur** des lettres allumées (bruit en coordonnées du glyphe). Pas de halo sur le prénom central.
 
 ## Texte

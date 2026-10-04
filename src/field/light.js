@@ -73,16 +73,25 @@ export function createLight({ reduced = false } = {}) {
     if (counts[C]) {
       p = reduced ? sm(0, 1.2, t - added[C] - 0.5 * (1 - zeta)) : sm(0, att * 1.5, t - added[C] - delay);
     } else if (removed[C] != null) {
-      // extinction : du plus loin vers le centre
-      const since = t - removed[C] - 0.45 * (1 - dn) - 0.5 * lp.d;
-      p = 1 - sm(0, reduced ? 0.6 : lp.off, since);
       if (added[C] == null || removed[C] < added[C]) p = 0;
+      else if (reduced) p = (1 - sm(0, 0.6, t - removed[C])) * sm(0, 1.2, removed[C] - added[C] - 0.5 * (1 - zeta));
+      else {
+        // effacement : l'allumage se rembobine depuis là où il en était (une lettre pas encore atteinte reste
+        // éteinte, aucune ne s'allume pour s'éteindre aussitôt) ; les lettres allumées s'éteignent du plus loin
+        // vers le centre, chacune en lp.off
+        const A = att * 1.5, tau0 = Math.min(A, removed[C] - added[C] - delay);
+        if (tau0 <= 0) p = 0;
+        else {
+          const since = Math.max(0, t - removed[C] - (0.45 * (1 - dn) + 0.5 * lp.d) * (tau0 / A));
+          p = sm(0, A, tau0 - since * A / lp.off);
+        }
+      }
     }
     if (p <= 0 && !counts[C]) return 0;
     let pulse = 0;
     for (const w of waves) {
       if (w.ch !== C) continue;
-      const tau = t - w.t0 - delay;
+      const tau = (counts[C] || removed[C] == null ? t : Math.min(t, removed[C])) - w.t0 - delay;   // effacée : l'onde se fige, puis se rembobine avec la lettre
       if (tau <= 0) continue;
       pulse += tau < att ? sm(0, att, tau) : Math.exp(-(tau - att) / dec);
     }

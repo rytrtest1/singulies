@@ -505,8 +505,8 @@ function frame(ts) {
   // champ : zone vide autour du prénom, simulation
   const ln = L.lines;
   field.setZone(text.trim() ? { x0: Math.min(...ln.map((l) => l.x0)), x1: Math.max(...ln.map((l) => l.x1)), y0: L.top, y1: L.bottom, pad: 1.1 * L.fs } : null);
-  // lettres éteintes ≈ −38 % tant qu'un prénom est saisi (prototype : 0,62, lissage 2,5/s)
-  S.dim += ((text.trim() ? 0.62 : 1) - S.dim) * (1 - Math.exp(-dt * 2.5));
+  // les lettres éteintes gardent la même opacité qu'un prénom soit saisi ou non (05/10, plus cohérent)
+  S.dim = 1;
   S.boost *= Math.exp(-dt / 1.3);
   const portraitSpeed = S.w < S.h ? 2 : 1;   // portrait : on ne voit qu'une partie du champ, le flux paraît lent
   { const [lt, at] = MODES[CFG.mode], k = CFG.reduced ? 1 : 1 - Math.exp(-dt * 1.2);   // bascule progressive
