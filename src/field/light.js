@@ -7,6 +7,7 @@
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const sm = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 const TAU = Math.PI * 2;
+export const LIGHT_FULL = 6.0;   // s : la lettre la plus proche du premier plan a fini de s'allumer
 
 // paramètres propres d'une lettre
 export function letterParams(rng) {
@@ -61,12 +62,13 @@ export function createLight({ reduced = false } = {}) {
   function level(ch, lp, dn, z, t, nx = 0, ny = 0) {
     const C = ch.toUpperCase();
     const k = sm(10, 30, z);
-    // propagation : front qui part du fond (z ≈ 34) et atteint l'avant-plan en ≈ 5 s ;
+    // propagation : front qui part du fond (z ≈ 34) et atteint l'avant-plan en ≈ 4 s (le fond s'allume vite :
+    // la première lettre se remarque en ≈ 0,4 s) ;
     // le bord du front ondule (bruit spatial lent) et chaque lettre a son petit retard propre
     const zeta = clamp01(Math.log(z / 2.8) / Math.log(34 / 2.8));        // 0 proche → 1 fond
     const noise = 0.5 + 0.28 * Math.sin(2.3 * nx + 1.7 * ny + 0.6) + 0.22 * Math.sin(-1.9 * nx + 2.9 * ny + 2.1);
-    const delay = 0.3 + 4.2 * Math.pow(1 - zeta, 1.2) + 1.1 * noise + 2 * lp.d;
-    const att = lp.att * 5.5, dec = lp.dec * 2 * (1 + 0.3 * k);             // lent : 0,5–1,4 s / 1,4–6 s
+    const delay = 0.1 + 3.4 * Math.pow(1 - zeta, 1.2) + 0.6 * noise + 2 * lp.d;
+    const att = lp.att * 4, dec = lp.dec * 2 * (1 + 0.3 * k);             // lent : 0,5–1,4 s / 1,4–6 s
     let p = 0;
     if (counts[C]) {
       p = reduced ? sm(0, 1.2, t - added[C] - 0.5 * (1 - zeta)) : sm(0, att * 1.5, t - added[C] - delay);
@@ -91,5 +93,7 @@ export function createLight({ reduced = false } = {}) {
     return p * (rest * breath + pulse);
   }
 
-  return { update, prime, level, get active() { return Object.keys(counts).length > 0 || waves.length > 0; } };
+  // instant où la dernière lettre allumée a atteint sa clarté (retard max + montée) : la suite peut commencer
+  function fullAt() { let m = -Infinity; for (const C in counts) m = Math.max(m, added[C] ?? -Infinity); return m + LIGHT_FULL; }
+  return { update, prime, level, fullAt, get active() { return Object.keys(counts).length > 0 || waves.length > 0; } };
 }

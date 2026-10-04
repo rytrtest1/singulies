@@ -43,6 +43,7 @@ export async function mountCards(opts) {
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: !!opts.shot });
   if (!gl) return null;
   const t0 = performance.now(), now = () => (performance.now() - t0) / 1000;
+  const vv = window.visualViewport;
 
   function finish(d) {
     log(d.kind + (d.text ? ' : ' + d.text : ''));
@@ -53,7 +54,8 @@ export async function mountCards(opts) {
     onEnd?.(detail);
   }
   function focusAnswer() { if (document.activeElement !== answer) answer.focus({ preventScroll: true }); }
-  const scene = await createCardScene(gl, { base, seed, look, on: { end: finish, write: focusAnswer, discard: () => { answer.value = ''; } } });
+  const setValue = (s) => { if (answer.value !== s) { answer.value = s; try { answer.setSelectionRange(s.length, s.length); } catch { /* */ } } };
+  const scene = await createCardScene(gl, { base, seed, look, on: { end: finish, write: focusAnswer, text: (d) => setValue(d.text) } });
   scene.setName(name);
 
   let started = false;
@@ -78,9 +80,16 @@ export async function mountCards(opts) {
       if (r) { giveEl.style.left = ((r.left + r.right) / 2 - 22) + 'px'; giveEl.style.top = (r.bottom + 10) + 'px'; }
       // PASSER : sur la carte blanche seulement, après 3 s sans frappe, sous la carte ; retour : en haut à gauche
       // (carte blanche → paquet ; paquet → accueil quand la page le permet)
+      // PASSER : 3 s après que la carte blanche a pris la place du paquet, toujours visible ; clavier ouvert : entre
+      // le bas de la carte et le haut du clavier
       const mk = scene.marks();
-      passEl.classList.toggle('on', !st.ended && !st.kb && st.mode === 'free' && st.idle > 3 && !(st.active && st.active.text));
-      if (mk) passEl.style.top = (mk.deckBottom + 34) + 'px';
+      passEl.classList.toggle('on', !st.ended && st.mode === 'free' && st.freeFor > 3);
+      const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
+      if (st.kb && r) passEl.style.top = Math.max(r.bottom + 2, (r.bottom + kbTop) / 2 - 22) + 'px';
+      else if (mk) passEl.style.top = (mk.deckBottom + 34) + 'px';
+      // respiration : la lumière et la carte en focus bougent d'elles-mêmes, très peu (le vivant, sans gyroscope)
+      const br = { x: 0.16 * Math.sin(t * 0.676) + 0.07 * Math.sin(t * 1.1 + 1), y: 0.12 * Math.sin(t * 0.566 + 2) + 0.05 * Math.sin(t * 0.91) };
+      scene.setTilt(ptr.x + br.x, ptr.y + br.y);
       backEl.classList.toggle('on', !st.ended && (st.mode === 'free' || (!!onExit && t > 3 && !st.kb)));
       // le champ natif est posé, invisible, sur la carte réponse : la toucher ouvre le clavier (iPhone : seul un
       // toucher direct sur le champ l'ouvre)
@@ -108,13 +117,14 @@ export async function mountCards(opts) {
     if (steps !== tvs) { scene.scrollAnswer(steps - tvs); tvs = steps; }
   }, { passive: true });
   answer.addEventListener('wheel', e => { e.preventDefault(); if (Math.abs(e.deltaY) > 4) scene.scrollAnswer(e.deltaY > 0 ? 1 : -1); }, { passive: false });
-  const vv = window.visualViewport;
   const onVV = () => scene.setKeyboard(vv ? Math.max(0, innerHeight - vv.height) : 0);
   if (vv) { vv.addEventListener('resize', onVV); vv.addEventListener('scroll', onVV); }
 
-  // ---- pointeur : toucher, glisser la carte, et inclinaison (souris ; doigt en repli sans gyroscope) ----
-  let down = null, gyroLive = false;
-  canvas.addEventListener('pointerdown', e => { if (!started) return; down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false }; askOrientation(); });
+  // ---- pointeur : toucher, glisser la carte (gauche : la suivante, droite : la précédente ; carte blanche : vers
+  // le haut), inclinaison à la souris ou au doigt (pas de gyroscope : aucune autorisation demandée) ----
+  let down = null;
+  const ptr = { x: 0, y: 0 };
+  canvas.addEventListener('pointerdown', e => { if (!started) return; down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false, on: scene.hitAt(e.clientX, e.clientY) }; });
   // premier geste : si l'écriture attend le clavier, on l'ouvre (iPhone)
   addEventListener('touchend', () => { if (started && scene.state().writing) focusAnswer(); }, { passive: true });
   // relire la réponse validée : molette
@@ -125,23 +135,23 @@ export async function mountCards(opts) {
       const dx = e.clientX - down.x, dy = e.clientY - down.y;
       if (!down.moved && !down.v && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) down.moved = true;
       if (!down.moved && Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) down.v = true;
+      if (down.v && down.on === 'blank' && scene.state().mode !== 'free') { if (dy < -36 && !down.took) { down.took = scene.chooseBlank(now()); } return; }
       if (down.v) { const steps = Math.trunc(-dy / 28); if (steps !== (down.vs || 0)) { scene.scrollAnswer(steps - (down.vs || 0)); down.vs = steps; } return; }
       if (down.moved) { scene.drag(dx); return; }
     }
     // souris (ou doigt sans gyroscope) : sur la carte, elle est parfaitement droite ; elle s'incline à mesure
     // que le pointeur s'en éloigne
-    if (e.pointerType === 'mouse' || !gyroLive) {
-      const r = scene.cardRect(); if (!r) return;
-      const x = e.clientX, y = e.clientY;
-      const ox = x < r.left ? x - r.left : x > r.right ? x - r.right : 0;
-      const oy = y < r.top ? y - r.top : y > r.bottom ? y - r.bottom : 0;
-      scene.setTilt(ox / (innerWidth * 0.3), -oy / (innerHeight * 0.3));
-    }
+    const r = scene.cardRect(); if (!r) return;
+    const x = e.clientX, y = e.clientY;
+    const ox = x < r.left ? x - r.left : x > r.right ? x - r.right : 0;
+    const oy = y < r.top ? y - r.top : y > r.bottom ? y - r.bottom : 0;
+    ptr.x = Math.max(-1, Math.min(1, ox / (innerWidth * 0.3))); ptr.y = Math.max(-1, Math.min(1, -oy / (innerHeight * 0.3)));
   });
   canvas.addEventListener('pointerup', e => {
     if (!down) return;
     const dx = e.clientX - down.x, dtm = Math.max(1, performance.now() - down.t);
     if (down.moved) { const r = scene.release(dx, dx / dtm, now()); if (r.type) log(r.type); down = null; return; }
+    if (down.took) { down = null; setValue(''); focusAnswer(); log('carte blanche'); return; }   // iPhone : le clavier s'ouvre au lâcher
     if (down.v) { down = null; return; }
     down = null;
     const r = scene.tap(e.clientX, e.clientY, now());
@@ -155,25 +165,6 @@ export async function mountCards(opts) {
   giveEl.addEventListener('click', () => { if (scene.give(now())) { answer.blur(); log('donné'); } });
   passEl.addEventListener('click', () => { const r = scene.pass(now()); if (r) { answer.blur(); log('passé'); } });
 
-  // ---- gyroscope (iPhone : demande au premier geste) ----
-  let g0 = null, orientAsked = false;
-  function onOrient(e) {
-    if (e.beta == null || e.gamma == null) return;
-    // position zéro : tenue normale de lecture (écran penché d'environ 50° vers l'arrière, à plat de côté)
-    if (!g0) g0 = { b: 50, g: 0 };
-    gyroLive = true;
-    scene.setTilt((e.gamma - g0.g) / 25, -(e.beta - g0.b) / 25);
-  }
-  function askOrientation() {
-    if (orientAsked) return;
-    const DO = window.DeviceOrientationEvent;
-    if (DO && typeof DO.requestPermission === 'function') {
-      orientAsked = true;
-      DO.requestPermission().then(s => { if (s === 'granted') addEventListener('deviceorientation', onOrient); }).catch(() => { orientAsked = false; });
-    } else { orientAsked = true; addEventListener('deviceorientation', onOrient); }
-  }
-  addEventListener('touchend', () => { if (started) askOrientation(); }, { passive: true });
-  if (!(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')) askOrientation();
 
   // préparation invisible (textures, compilation des shaders) : une image dessinée puis effacée, avant start()
   api.warm = () => {

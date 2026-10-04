@@ -36,7 +36,7 @@ const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atl
 const OPEN_FADE = 1.4;      // s de fondu d'entrée
 const LEAVE_FADE = 1.2;     // s de fondu au noir après validation (sans WebGL2)
 const SHOW_NEXT = P.get('fleche') === '1';   // flèche « suite » retirée pour l'instant (04/10) ; ?fleche=1 pour la revoir
-const AUTO_NEXT = 10;       // s sans toucher après confirmation → passage automatique à la suite
+// passage automatique à la suite : dès que la dernière lettre allumée du champ a atteint sa clarté (prénom confirmé)
 const HANDOFF = 0.6;        // s de fondu enchaîné vers la scène des cartes (même prénom, même place)
 
 const canvas = document.getElementById('c');
@@ -95,7 +95,7 @@ function announce(msg) {
 const bridge = createBridge(input, model, {
   caseMode: CFG.caseMode,
   announce,
-  onChange: (info) => { if (S.phase === 'input') { S.typed = true; S.keyAt = S.t; S.confirmed = false; S.rev = null; detectSuggestion(info); } renderFallback(); },
+  onChange: (info) => { if (S.phase === 'input') { S.typed = true; S.keyAt = S.t; S.confirmed = false; detectSuggestion(info); } renderFallback(); },
   onSubmit: () => submitName(),
   onEscape: goBack,
 });
@@ -116,14 +116,17 @@ function detectSuggestion(info) {
 }
 // le prénom s'écrit lettre par lettre, comme à la machine (visiteur qui revient, prénom proposé par le clavier) :
 // affichage et lumière suivent la frappe, le modèle a déjà tout le prénom
-function startReveal(from, delay) { if (!CFG.reduced) S.rev = { n: Math.max(0, from), next: S.t + delay }; }
+function startReveal(from, delay) { if (!CFG.reduced && !(S.rev && S.rev.n <= from)) S.rev = { n: Math.max(0, from), next: S.t + delay }; }
 function revealText(str) {
   const r = S.rev;
   if (!r) return str;
   if (S.trans != null || S.phase !== 'input') { S.rev = null; return str; }
+  // une vraie frappe pendant l'animation (texte qui ne prolonge plus ce qui est affiché) l'arrête
+  if (r.shown != null && !str.startsWith(r.shown)) { S.rev = null; return str; }
   while (r.n < str.length && S.t >= r.next) { const ch = str[r.n++]; r.next += ch === ' ' ? 0.26 : 0.09 + 0.1 * Math.random(); }
   if (r.n >= str.length) { S.rev = null; if (S.confirmed) S.confirmedAt = S.t; return str; }
-  return str.slice(0, r.n);
+  r.shown = str.slice(0, r.n);
+  return r.shown;
 }
 const wheel = CFG.wheel ? createWheel({
   model, reduced: CFG.reduced,
@@ -256,6 +259,11 @@ function goBack() {
   if (wheel) wheel.enable(true); else if (!(S.confirmed && TOUCH)) input.focus({ preventScroll: true });   // téléphone : pas de clavier, toucher le prénom pour repartir
 }
 backEl.addEventListener('click', goBack);
+// ordinateur : une touche de lettre tapée alors que le champ a perdu le focus (clic ailleurs) le lui rend
+window.addEventListener('keydown', (e) => {
+  if (TOUCH || wheel || S.phase !== 'input' || S.trans != null || document.activeElement === input) return;
+  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); }
+}, true);
 // Entrée quand le champ a perdu le focus (prénom confirmé, clavier fermé) : 2e Entrée = colonne
 window.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.defaultPrevented && !wheel && S.confirmed && document.activeElement !== input) { e.preventDefault(); submitName(); } });
 // Échap fonctionne aussi quand le champ n'a plus le focus (écran noir)
@@ -265,7 +273,11 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.a
 document.addEventListener('click', (e) => {
   if (S.phase !== 'input' || S.trans != null || e.target === backEl || backEl.contains(e.target) || nextEl.contains(e.target)) return;
   const b = S.nameBox;
-  if (S.confirmed && b && e.clientX > b[0] && e.clientX < b[2] && e.clientY > b[1] && e.clientY < b[3]) { startTransition(); return; }
+  // seule la zone du prénom / du curseur répond (ailleurs, plus tard : toucher un prénom du champ pour lire son
+  // acrostiche) : prénom écrit → aller à la suite ; vide → écrire (le clavier sort)
+  const inZone = b && e.clientX > b[0] && e.clientX < b[2] && e.clientY > b[1] && e.clientY < b[3];
+  if (!inZone) return;
+  if (finalName(model.text) && !bridge.composing) { startTransition(); return; }
   if (!wheel && document.activeElement !== input) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); }
 });
 
@@ -276,7 +288,7 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Tab' && !e.altKey && 
 document.addEventListener('dblclick', (e) => { if (S.trans == null && !wheel) toggleMode(); });
 // le signe sous le prénom confirmé : aller à la suite ; sans geste pendant 10 s, on y va tout seul
 nextEl.addEventListener('click', (e) => { e.stopPropagation(); startTransition(); });
-for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) window.addEventListener(ev, () => { S.actAt = S.t; }, { passive: true, capture: true });
+for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart', 'touchmove']) window.addEventListener(ev, () => { S.actAt = S.t; }, { passive: true, capture: true });
 
 // ---------- dimensions ----------
 function measure() {
@@ -388,7 +400,9 @@ function frame(ts) {
   });
   glyphAnim.length = L.glyphs.length;
   S.capPx = L.cap;
-  S.nameBox = L.glyphs.length ? [Math.min(...L.lines.map((l) => l.x0)) - 30, L.top - 30, Math.max(...L.lines.map((l) => l.x1)) + 30, L.bottom + 30] : null;
+  // zone sensible : le prénom, ou le curseur quand il est vide (au moins 44 px de haut, assez large pour le doigt)
+  S.nameBox = L.glyphs.length ? [Math.min(...L.lines.map((l) => l.x0)) - 30, L.top - 30, Math.max(...L.lines.map((l) => l.x1)) + 30, L.bottom + 30]
+    : [cx - Math.max(80, 0.2 * S.w), L.cursor.y0 - 40, cx + Math.max(80, 0.2 * S.w), L.cursor.y1 + 40];
   // le prénom tel qu'il est posé (avant toute transition)
   const here = L.glyphs.map((g, i) => ({ ch: g.ch, x: CFG.reduced ? g.x : glyphAnim[i], y: g.y, fs: g.fs }));
 
@@ -464,7 +478,8 @@ function frame(ts) {
   const canNext = S.phase === 'input' && S.confirmed && T < 0 && !!text.trim() && !wheel && !S.rev;   // pas pendant la frappe automatique
   nextEl.classList.toggle('on', SHOW_NEXT && canNext && S.t - S.confirmedAt > 1.2 && S.t > OPEN_DARK + 1.5);
   if (canNext) { nextEl.style.left = (cx - 22) + 'px'; nextEl.style.top = (L.bottom + Math.max(12, 0.8 * L.cap)) + 'px'; }
-  if (canNext && S.t - Math.max(S.confirmedAt, S.actAt) > AUTO_NEXT) startTransition();
+  // … et jamais moins de 3 s après le dernier geste (toucher, souris, molette, touche)
+  if (canNext && S.t >= Math.max(light.fullAt(), S.confirmedAt + 1, S.actAt + 3)) startTransition();
   if (CFG.debug) {   // croix au point de fuite
     glyphs.push({ box: [cx - 12, vy - 0.5, cx + 12, vy + 0.5], uv: null, alpha: 0.6, pxEm: 1 });
     glyphs.push({ box: [cx - 0.5, vy - 12, cx + 0.5, vy + 12], uv: null, alpha: 0.6, pxEm: 1 });
@@ -485,7 +500,7 @@ function frame(ts) {
   if (kind && S.phase === 'input' && !CFG.reduced) { BR.v += kind > 0 ? 0.015 : 0.008; S.slowAt = S.t; }
   { const w = 2.2, z = 0.85; BR.v += (-BR.p * w * w - 2 * z * w * BR.v) * dt; BR.p += BR.v * dt; }
   let speed = 1 - 0.65 * (1 - smooth(0, 1.1, S.t - S.slowAt));
-  if (T >= 0) speed *= 1 - 0.8 * smooth(0, 2, T);   // le champ se calme pendant qu'il donne sa lumière
+  // pendant la transition le champ continue d'avancer et de défiler : les mots s'éteignent en mouvement
 
   // champ : zone vide autour du prénom, simulation
   const ln = L.lines;

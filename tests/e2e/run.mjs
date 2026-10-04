@@ -204,11 +204,11 @@ await run('autocomplete=off avec ?auto=0', async (p) => {
 await run('Entrée = confirmer', async (p) => {
   await p.keyboard.type('Léa'); await p.keyboard.press('Enter'); await sleep(300);
   const a = await flags(p);
-  await p.keyboard.type('B'); // champ défocalisé : refocaliser puis frapper
+  await p.keyboard.type('B'); // champ défocalisé : la touche lui rend le focus et s'écrit
   await p.focus('#in'); await p.keyboard.type('B'); await sleep(100);
   const b = await flags(p);
   return [same('confirmé', true, a.conf), same('champ non focalisé', false, a.foc), same('phase input', 'input', a.phase), same('pas de transition', false, a.trans),
-    same('frappe après confirmation: confirmed false', false, b.conf), same('texte', 'LEAB', b.text)];
+    same('frappe après confirmation: confirmed false', false, b.conf), same('texte (les deux B)', 'LEABB', b.text)];
 });
 await run('2x Entrée -> transition puis scène', async (p) => {
   await p.evaluate(() => { window.__ev = []; window.addEventListener('singulies:name-validated', (e) => window.__ev.push(e.detail)); });
@@ -250,7 +250,19 @@ await run('Clic hors du prénom après confirmation', async (p) => {
   await p.keyboard.type('Lea'); await p.keyboard.press('Enter'); await sleep(500);
   await p.mouse.click(8, 8); await sleep(200);
   const a = await flags(p);
-  return [same('champ refocalisé', true, a.foc), same('pas de transition', false, a.trans), same('phase input', 'input', a.phase)];
+  return [same('champ non refocalisé (clavier seulement dans la zone du curseur)', false, a.foc), same('pas de transition', false, a.trans), same('phase input', 'input', a.phase)];
+});
+await run('Zone du curseur (prénom vide) -> champ focalisé ; touche au clavier -> champ focalisé', async (p) => {
+  await p.evaluate(() => document.getElementById('in').blur()); await sleep(200);
+  await p.mouse.click(8, 8); await sleep(200);
+  const a = await flags(p);
+  const box = await p.evaluate(() => window.__sg.S.nameBox);
+  await p.mouse.click((box[0] + box[2]) / 2, (box[1] + box[3]) / 2); await sleep(200);
+  const b = await flags(p);
+  await p.evaluate(() => document.getElementById('in').blur()); await sleep(100);
+  await p.keyboard.type('L'); await sleep(200);
+  const c = await flags(p);
+  return [same('clic ailleurs : pas de focus', false, a.foc), same('clic zone du curseur : focus', true, b.foc), same('lettre tapée : focus + texte', [true, 'L'], [c.foc, c.text])];
 });
 await run('Remplissage auto simulé', async (p) => {
   await p.evaluate(() => {

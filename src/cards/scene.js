@@ -32,6 +32,7 @@ export const LOOK = {
 const FOV = 26 * Math.PI / 180;
 const TILT = 0.22;
 const STACK = 12, PITCH = 0.15;
+const RETURN_T = 0.75;
 const DRAW_T = 1.5, DISCARD_T = 0.6, ANSWER_T = 1.1, MOVE_T = 0.9;
 const LINES = 3;                   // lignes visibles sur la carte réponse
 
@@ -74,6 +75,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   let writing = false, kbPx = 0, kb = 0;
   let ended = null;
   let nameText = '', nameKey = '', glow = [];
+  let glowT = [], glowP = [];        // allumage des lettres du prénom : instant, paramètres propres (attaque, descente, force)
 
   // ---------- disposition ----------
   const lay = { W: 1, H: 1, D: 300, Hw: 100, Ww: 100, yDeck: 0, yAns: -60 };
@@ -115,8 +117,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const idle = t - Math.max(question.landedAt, lastKeyT) - L.cornerDelay;
     if (idle < 0) return 0;
     const k = Math.floor(idle / 7), ph = idle - 7 * k;
-    if (k >= 2) return 0;
-    return -7 * sstep(0, 0.6, ph) * (1 - sstep(0.9, 1.8, ph));
+    if (k >= (hasPrev() ? 3 : 2)) return 0;
+    const side = hasPrev() && k % 2 === 1 ? 1 : -1;       // gauche : la suivante ; droite : la précédente
+    return side * 7 * sstep(0, 0.6, ph) * (1 - sstep(0.9, 1.8, ph));
   }
   const restPose = c => c === question ? centerPose(c.v, dragging ? dragX : hintX(lastT))
     : c === blank ? (c.place === 'up' ? { x: 1.2 + c.v.jx * 0.5, y: lay.yDeck - 0.8 + c.v.jy, z: FACE_Z, rx: 0, ry: Math.PI, rz: c.v.jr } : blankRest(c.v, c.out, bob(c)))
@@ -136,6 +139,11 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       const p = lerpPose(a, b, e);
       p.z += (CARD.w / 2 + 8) * (up - down) * 0.9; p.ry = Math.PI * sstep(0.2, 0.7, u); p.rx = -0.12 * (up - down);
       return p;
+    }
+    if (c.anim === 'return') {                        // une question déjà vue revient de son côté
+      if (t < c.t0) return c.from;
+      const a = c.from, b = restPose(c), e = ease(u), p = lerpPose(a, b, e);
+      p.z = b.z + 4 * (1 - sstep(0.6, 1, u)); return p;
     }
     if (c.anim === 'discard') {
       const a = c.from, e = Math.pow(u, 1.8), s = c.dir || -1;
@@ -179,15 +187,47 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     preQ = null;
     return { ...Q, anim: 'draw', t0: t, dur: DRAW_T, from: deckPose(STACK - 1, v), landedAt: t + DRAW_T };
   }
-  function drawNext(t) { question = makeQuestion(t); if (question) emit('draw', { id: question.id }); }
+  // chaque question garde sa réponse (rien ne passe d'une carte à l'autre)
+  const answers = {};
+  function showAnswerOf(q) {
+    if (!answer) return;
+    const txt = (q && answers[q.id]) || '';
+    if (answer.text !== txt) setAnswerText(txt);
+    if (!txt && answer.place === 'below') moveAnswer(lastT, 'peek');   // pas de réponse : la bande d'écriture
+    emit('text', { text: txt });
+  }
+  // cartes vues : seq (dans l'ordre), cur = la question posée ; on peut revenir en arrière et repartir en avant
+  const seq = [];
+  let cur = -1;
+  function drawNext(t) {
+    question = makeQuestion(t);
+    if (!question) return;
+    seq.length = cur + 1; seq.push({ id: question.id, q: question.q, v: question.v, margin: question.margin }); cur = seq.length - 1;
+    showAnswerOf(question); emit('draw', { id: question.id });
+  }
+  // une carte déjà vue revient de son côté (s = −1 : de la gauche, +1 : de la droite)
+  function bringBack(t, k, s) {
+    const e = seq[k]; cur = k;
+    const Q = inkQuestion(e.id, e.v);
+    const rest = centerPose(e.v);
+    question = { ...Q, anim: 'return', t0: t, dur: RETURN_T, from: { ...rest, x: rest.x + s * (lay.Ww / 2 + CARD.w * 1.2), y: rest.y - 8, rz: rest.rz + s * 0.3 }, landedAt: t + RETURN_T };
+    showAnswerOf(question);
+    emit('draw', { id: question.id });
+  }
+  const hasPrev = () => cur > 0;
+  // dir −1 : la question part à gauche = la suivante (déjà vue : elle revient de la droite ; sinon le paquet tire) ;
+  // dir +1 : elle part à droite = la précédente revient de la gauche
   function discard(t, dir = -1, from = null) {
     if (!question || busy(question, t) || ended) return false;
+    if (dir > 0 && !hasPrev()) return false;
+    if (answer && writing) answers[question.id] = answer.text || '';
     leaving.push({ ...question, anim: 'discard', t0: t, dur: DISCARD_T, dir, from: from || poseOf(question, t) });
     emit('discard', { id: question.id });
     discards++;
     question = null;
-    pendingDraw = t + DISCARD_T * 0.45;
-    if (answer && answer.text) setAnswerText('');       // la réponse appartenait à la question écartée
+    if (dir > 0) bringBack(t + DISCARD_T * 0.25, cur - 1, -1);
+    else if (cur < seq.length - 1) bringBack(t + DISCARD_T * 0.25, cur + 1, 1);
+    else { pendingDraw = t + DISCARD_T * 0.45; if (answer && answer.text) setAnswerText(''); emit('text', { text: '' }); }
     return true;
   }
 
@@ -216,8 +256,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const clean = s.toLowerCase().replace(/[’‘`´]/g, "'").replace(/[\r\n\t]/g, ' ').replace(/ {2,}/g, ' ');
     const prev = answer.text || '';
     if (clean === prev) return;
+    if (mode === 'q' && question) answers[question.id] = clean;
     if (clean.length > prev.length && clean.startsWith(prev)) {      // lettres du prénom tapées → elles s'éclairent
-      for (const ch of clean.slice(prev.length)) { const b = bare(ch); [...nameText].forEach((n, i) => { if (b && n === b) glow[i] = 1; }); }
+      for (const ch of clean.slice(prev.length)) { const b = bare(ch); [...nameText].forEach((n, i) => { if (b && n === b) lightName(i); }); }
     }
     setAnswerText(clean);
   }
@@ -331,7 +372,13 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     stepLight(dt);
     kb += ((writing && kbPx > 40 ? 1 : 0) - kb) * Math.min(1, dt * 4);
     focusAns += (((mode === 'free' || (answer && (writing || (answer.place === 'below' && answer.text)))) ? 1 : 0) - focusAns) * Math.min(1, dt * 3);
-    for (let i = 0; i < glow.length; i++) glow[i] = (glow[i] || 0) * Math.exp(-dt / 1.4);
+    // lettres du prénom tapées : attaque douce, descente lente, chacune à son rythme (comme l'onde de l'accueil)
+    for (let i = 0; i < glowT.length; i++) {
+      if (glowT[i] == null) { glow[i] = 0; continue; }
+      const p = glowP[i], tau = t - glowT[i];
+      glow[i] = tau < p.att ? p.k * sstep(0, p.att, tau) : p.k * Math.exp(-(tau - p.att) / p.dec);
+      if (glow[i] < 0.004 && tau > p.att) glowT[i] = null;
+    }
     const te = ended ? t - ended.t0 : 0;
 
     // caméra ; clavier ouvert : la carte réponse (à sa taille) au milieu de la partie visible, le reste s'efface
@@ -437,7 +484,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
         nameKey = key;
       }
       if (kb > 0.02) gl.disable(gl.DEPTH_TEST);           // clavier ouvert : le prénom reste devant
-      nameR.draw(vp, eye, P, L, fadeQ > 0.5 ? occQ : null);
+      nameR.draw(vp, eye, P, L, fadeQ > 0.5 ? occQ : null, t);
       gl.enable(gl.DEPTH_TEST);
     }
     if (ended && !ended.done && te > 2.9) { ended.done = true; emit('end', { kind: ended.kind, text: ended.text, id: ended.id }); }
@@ -529,7 +576,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     dragging = false;
     const far = Math.abs(dx) > lay.W * 0.22 || Math.abs(vx) > 0.6;
     dragX = 0;
-    if (far) return discard(t, Math.sign(dx) || -1, from) ? { type: 'discard' } : { type: null };
+    if (far) return discard(t, Math.sign(dx) || -1, from) ? { type: dx > 0 ? 'previous' : 'discard' } : { type: 'cancel' };
     return { type: 'cancel' };
   }
   function give(t) {
@@ -550,14 +597,21 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   }
 
   function start(t) { startT = t; pendingDraw = t + 1.1; }      // le paquet arrive (fondu), puis il tire
-  function setName(s) { nameText = (s || '').toUpperCase(); nameKey = ''; glow = []; }
+  function setName(s) { nameText = (s || '').toUpperCase(); nameKey = ''; glow = []; glowT = []; glowP = []; }
+  // une lettre du prénom s'allume (si elle l'est déjà, elle repart de sa clarté actuelle, sans saut)
+  function lightName(i) {
+    const cur = glow[i] || 0, k = 0.75 + 0.25 * rnd();
+    const att = 0.35 + 0.5 * rnd();
+    glowP[i] = { att, dec: 1.6 + 2 * rnd(), k };
+    glowT[i] = lastT - att * Math.asin(Math.min(1, cur / k)) / (Math.PI / 2);   // reprise approchée sur la montée
+  }
   function setTilt(x, y) { tilt.x = Math.max(-1, Math.min(1, x)); tilt.y = Math.max(-1, Math.min(1, y)); }
   function setKeyboard(px) { kbPx = px; }
   return {
-    frame, tap, drag, release, give, pass, back, start, prepare, setName, setTilt, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
+    frame, tap, drag, release, give, pass, back, start, prepare, setName, hitAt: (x, y) => hit(x, y), setTilt, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
-    state: () => ({ idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),
+    state: () => ({ freeFor: mode === 'free' ? lastT - freeT : 0, hasPrev: hasPrev(), idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),
     look: L, layout: lay,
   };
 }

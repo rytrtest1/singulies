@@ -18,13 +18,18 @@ in vec2 vUV; in vec3 vWorld; in float vGlow;
 uniform sampler2D uAtlas, uPaper;
 uniform float uGrain, uFiber, uGlint, uSeed;
 uniform vec2 uOrigin;
-uniform float uFlat;                 // > 0 : prénom à plat, gris uFlat (affiché), seulement assombri par l'ombre d'une carte
+uniform float uFlat;
+uniform float uTime;                 // clarté qui circule dans les lettres allumées                 // > 0 : prénom à plat, gris uFlat (affiché), seulement assombri par l'ombre d'une carte
 uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc, uLightR;
 uniform vec2 uTexel;                 // taille d'un texel de l'atlas (uv)
 uniform float uTexelEm;              // taille d'un texel (em)
 uniform vec3 uLightPos, uEye;
 uniform float uLight, uEnv, uAlb, uRelief, uBevel, uExposure, uToe, uSpec;
 out vec4 o;
+float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float vn(vec2 p) { vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(h21(i), h21(i + vec2(1, 0)), u.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), u.x), u.y); }
+float fbm2(vec2 p) { return vn(p) + 0.5 * vn(p * 2.03 + 17.1) - 0.75; }
 float occShadow(vec3 L, float dist) {
   if (uHasOcc < 0.5 || L.z <= 1e-3) return 1.0;
   float s = (uOccZ - vWorld.z) / L.z;
@@ -45,7 +50,10 @@ void main() {
   if (uFlat > 0.0) {
     vec3 Lf = uLightPos - vWorld; float df = length(Lf);
     float shf = occShadow(Lf / df, df);
-    float g = uFlat * shf + vGlow * 0.5;
+    // allumée : une clarté lente circule à l'intérieur (bruit en coordonnées du monde), comme sur l'accueil
+    vec2 q = vWorld.xy * 0.42 + vec2(0.17, -0.11) * uTime;
+    float n = 0.5 * fbm2(q) + 0.25 * fbm2(q * 2.1 + 7.3 - vec2(-0.05, 0.21) * uTime);
+    float g = uFlat * shf + vGlow * 0.62 * clamp(0.55 + 1.6 * n, 0.15, 1.6);
     o = vec4(vec3(g) * cov, cov);
     return;
   }
@@ -126,7 +134,7 @@ export async function createNameRelief(gl, paperTex, family = '"SG Garamond", se
     return { em, glyphs: pens };   // monde (mm) : origine de chasse et ligne de base de chaque lettre
   }
 
-  function draw(vp, eye, P, look, occ) {
+  function draw(vp, eye, P, look, occ, time = 0) {
     if (!count) return;
     const u = prog.u;
     gl.useProgram(prog.p);
@@ -136,7 +144,7 @@ export async function createNameRelief(gl, paperTex, family = '"SG Garamond", se
     gl.uniform1f(u.uExposure, P.exposure); gl.uniform1f(u.uToe, P.toe);
     gl.uniform1f(u.uAlb, look.nameAlb); gl.uniform1f(u.uRelief, look.nameRelief); gl.uniform1f(u.uBevel, look.nameBevel);
     gl.uniform1f(u.uSpec, look.nameSpec);
-    gl.uniform1f(u.uFlat, look.nameFlat || 0); gl.uniform1f(u.uLightR, P.lightR);
+    gl.uniform1f(u.uFlat, look.nameFlat || 0); if (u.uTime) gl.uniform1f(u.uTime, time % 1000); gl.uniform1f(u.uLightR, P.lightR);
     gl.uniform1f(u.uHasOcc, occ ? 1 : 0);
     if (occ) { gl.uniform4f(u.uOcc, occ.x, occ.y, 43.5, 25.75); gl.uniform1f(u.uOccZ, occ.z); gl.uniform1f(u.uOccRot, occ.rz); }
     gl.uniform2f(u.uTexel, 1 / atlas.width, 1 / atlas.height); gl.uniform1f(u.uTexelEm, 1 / 128);

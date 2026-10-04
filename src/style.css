@@ -10,7 +10,8 @@ body { -webkit-tap-highlight-color: transparent; }
   box-sizing: border-box; margin: 0; padding: 0; border: 0; outline: none; border-radius: 0;
   font: 16px/1 sans-serif; text-align: center;
   background: transparent; color: transparent; -webkit-text-fill-color: transparent; caret-color: transparent;
-  pointer-events: auto; -webkit-appearance: none; appearance: none;
+  /* aucun toucher direct : toucher le prénom = aller à la suite ; ailleurs, la page donne le focus (clavier) */
+  pointer-events: none; -webkit-appearance: none; appearance: none;
 }
 #in::selection { background: transparent; color: transparent; }
 /* remplissage automatique : jamais de fond ni de surlignage natif */
