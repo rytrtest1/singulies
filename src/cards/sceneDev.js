@@ -45,7 +45,8 @@ function start(scene) {
     // choix (repères fixes, au repos) : « passer » (seulement après 4 s sans frappe, réponse vide) à mi-chemin entre la bande d'écriture et la carte
     // vierge, « expression libre » juste au-dessus d'elle ; masqués clavier ouvert ou une fois le choix fait
     const mk = scene.marks(), ch = st.choices && !st.kb;
-    passEl.classList.toggle('on', ch && st.idle > 4 && !(st.active && st.active.text)); freeEl.classList.toggle('on', ch);
+    // PASSER : aussi sur la carte blanche (même délai)
+    passEl.classList.toggle('on', !st.ended && !st.kb && (ch || st.mode === 'free') && st.idle > 4 && !(st.active && st.active.text)); freeEl.classList.toggle('on', ch);
     if (mk) { passEl.style.top = ((mk.peekBottom + mk.blankTop) / 2 - 30) + 'px'; freeEl.style.top = (mk.blankTop - 28) + 'px'; }
     // le champ natif est posé, invisible, sur la carte réponse : la toucher ouvre le clavier (iPhone : seul un
     // toucher direct sur le champ l'ouvre)

@@ -19,12 +19,12 @@
     color: rgba(236,236,236,0.5); opacity: 0; transition: opacity .8s; pointer-events: none; }
   #give.on { opacity: 1; pointer-events: auto; }
   #give { z-index: 3; }
-  /* « passer » (au milieu, après quelques secondes sans frappe) et « carte blanche » (au-dessus de la carte vierge) : à la machine,
-     en minuscules, discrets ; placés par le script */
+  /* PASSER (au milieu, après quelques secondes sans frappe) et « carte blanche » (à la machine, au-dessus de la
+     carte vierge) : discrets ; placés par le script */
   #pass, #free { position: fixed; left: 0; right: 0; top: 85%; text-align: center; z-index: 3;
-    font: 13px/44px 'SG Machine', monospace; letter-spacing: 0.04em; color: rgba(236,236,236,0.38);
     opacity: 0; transition: opacity 1.2s; pointer-events: none; }
-  #free { pointer-events: none !important; line-height: 20px; }
+  #pass { font: 500 12px/44px 'SG Garamond', serif; letter-spacing: 0.4em; padding-left: 0.4em; color: rgba(236,236,236,0.32); }
+  #free { font: 13px/20px 'SG Machine', monospace; letter-spacing: 0.04em; color: rgba(236,236,236,0.38); pointer-events: none !important; }
   #pass.on, #free.on { opacity: 1; pointer-events: auto; }
   #veil { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 1.4s; pointer-events: none; }
 </style>
@@ -33,7 +33,7 @@
 <canvas id="c"></canvas>
 <textarea id="answer" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="done" aria-label="Réponse"></textarea>
 <div id="give" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></div>
-<div id="pass" role="button">passer</div>
+<div id="pass" role="button">PASSER</div>
 <div id="free" aria-hidden="true">carte blanche</div>
 <div id="veil"></div>
 <div id="log"></div>

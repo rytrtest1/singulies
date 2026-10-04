@@ -238,3 +238,4 @@ Voir « Point de reprise » en tête de fichier.
 - Fins : réponse = paire qui s'éloigne ; expression libre = la carte seule ; passer = le paquet s'éloigne (plus de rectangle noir).
 - Tests 43/43 et 86/86. Non vérifié : iPhone réel (clavier à l'ouverture de la carte vierge).
 - v11 : « passer » (au lieu de « passer cette étape »), visible seulement après 4 s sans frappe ; « carte blanche » au-dessus de la carte vierge.
+- v12 : PASSER en majuscules (Garamond espacé) ; carte blanche = élément principal : le paquet, la question et la réponse s'éloignent, elle monte à la place du paquet (plus de retour).
