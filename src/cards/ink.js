@@ -153,3 +153,69 @@ export function makeInkMap(question, seed = 1) {
   cx.restore();
   return { canvas: cv, lines, margin, text };
 }
+
+// ---------- réponse tapée sur une carte (thème libre ou verso d'une question) ----------
+// Comme une machine : les mots ne bougent jamais une fois tapés (retour à la ligne quand le mot ne tient
+// plus, sans rééquilibrage) ; chaque frappe garde ses défauts propres (tirés de son rang dans le texte).
+// Trois lignes visibles au plus : au-delà, la ligne du haut disparaît d'un coup.
+export function answerLines(text, max = TYPE.maxChars) {
+  const lines = [''];
+  for (const word of text.split(/(\s+)/)) {
+    if (!word) continue;
+    if (/^\s+$/.test(word)) { lines[lines.length - 1] += ' '; continue; }
+    let w = word;
+    while (w.length) {
+      const cur = lines[lines.length - 1];
+      if (cur.length + w.length <= max) { lines[lines.length - 1] = cur + w; w = ''; }
+      else if (cur.trim().length === 0 && w.length > max) { lines[lines.length - 1] = cur + w.slice(0, max - cur.length); w = w.slice(max - cur.length); lines.push(''); }
+      else lines.push('');
+    }
+    if (lines[lines.length - 1].length > max) lines.push('');
+  }
+  return lines.map(l => l.replace(/^ +/, ''));
+}
+
+export function makeAnswerInk(text, seed = 1, maxLines = 3) {
+  const PX = INK_PXMM, W = Math.round(CARD.w * PX), H = Math.round(CARD.h * PX);
+  const cv = new OffscreenCanvas(W, H), cx = cv.getContext('2d');
+  cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
+  const r0 = createRng(seed);
+  const margin = r0.range(9, 12), lead = TYPE.lead, y0 = r0.range(13.5, 15);
+  const lines = answerLines(text), first = Math.max(0, lines.length - maxLines);
+  const fontPx = TYPE.size * PX;
+  const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
+  const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;
+  cx.globalCompositeOperation = 'lighter';
+  let idx = 0;                                          // rang du caractère dans le texte (défauts stables)
+  for (let li = 0; li < first; li++) idx += lines[li].length + 1;
+  for (let li = first; li < lines.length; li++) {
+    const line = lines[li], base = y0 + (li - first) * lead;
+    [...line].forEach((ch, ci) => {
+      const r = createRng((seed * 7919 + (idx + ci) * 104729) >>> 0);
+      const g = () => { let s = 0; for (let i = 0; i < 4; i++) s += r(); return (s - 2) / 0.58; };
+      if (ch === ' ') return;
+      const x = margin + ci * TYPE.pitch + g() * 0.06, y = base + g() * 0.09;
+      const press = Math.min(1, Math.max(0.5, 0.82 + g() * 0.14)), rot = g() * 0.5 * Math.PI / 180;
+      gx.setTransform(1, 0, 0, 1, 0, 0); gx.globalCompositeOperation = 'source-over';
+      gx.clearRect(0, 0, glyph.width, glyph.height);
+      gx.font = `${fontPx}px "${FAMILY}"`; gx.fillStyle = '#fff'; gx.strokeStyle = '#fff';
+      gx.translate(ox, oyB); gx.scale(TYPE.xScale, TYPE.yScale);
+      gx.fillText(ch, 0, 0);
+      gx.lineWidth = TYPE.weight * PX + (CLOG.has(ch) && r() < 0.12 ? 0.12 * PX : 0); gx.lineJoin = 'round';
+      if (gx.lineWidth > 0) gx.strokeText(ch, 0, 0);
+      gx.setTransform(1, 0, 0, 1, 0, 0);
+      if (r() < 0.4) {
+        const a = r() * Math.PI * 2, rr = glyph.width * 0.6;
+        const gr = gx.createLinearGradient(glyph.width / 2 - Math.cos(a) * rr, glyph.height / 2 - Math.sin(a) * rr, glyph.width / 2 + Math.cos(a) * rr, glyph.height / 2 + Math.sin(a) * rr);
+        gr.addColorStop(0, `rgba(255,255,255,${r.range(0.5, 0.9)})`); gr.addColorStop(1, 'rgba(255,255,255,1)');
+        gx.globalCompositeOperation = 'destination-in'; gx.fillStyle = gr; gx.fillRect(0, 0, glyph.width, glyph.height);
+      }
+      cx.save(); cx.translate(x * PX, y * PX); cx.rotate(rot); cx.globalAlpha = press;
+      cx.drawImage(glyph, -ox, -oyB); cx.restore();
+    });
+    idx += line.length + 1;
+  }
+  const last = lines.length - 1 - first;
+  const cursor = { x: margin + lines[lines.length - 1].length * TYPE.pitch - 0.35, y: y0 + Math.max(0, last) * lead };
+  return { canvas: cv, lines, cursor, hidden: first };
+}

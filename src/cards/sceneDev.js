@@ -1,80 +1,105 @@
-// Page de développement de la scène 2 (non publiée) : /scene-cartes.html?prenom=LEA&seed=3
-// Reproduit le haut de la scène (prénom) en HTML ; le vrai prénom viendra du rendu de la scène 1.
-import { createCardScene } from './scene.js';
+// Page de développement de la scène 2 (publiée en essai, sans lien) : /scene-cartes.html?prenom=LEA&seed=3
+// Gestes : toucher la carte = répondre (elle se retourne ; clavier) ; glisser la carte de côté ou toucher le
+// paquet = une autre ; toucher la carte blanche offerte = écrire librement ; « terminé » ferme le clavier ;
+// le signe sous la carte écrite = donner ; PASSER = improvisation. &reglages : panneau de réglages.
+import { createCardScene, LOOK } from './scene.js';
 
 const P = new URLSearchParams(location.search);
-const PRENOM = (P.get('prenom') || 'LEA').toUpperCase();   // dessiné en relief par la scène
-const log = document.getElementById('log');
+const PRENOM = (P.get('prenom') || 'LEA').toUpperCase();
+const log = document.getElementById('log'), answer = document.getElementById('answer');
+const giveEl = document.getElementById('give'), passEl = document.getElementById('pass'), veil = document.getElementById('veil');
 const canvas = document.getElementById('c');
 const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: P.has('shot') });
-import { LOOK } from './scene.js';
 const look = {}; for (const k in LOOK) if (P.has(k)) look[k] = +P.get(k);
-// (pas d'await au niveau du module : cible Safari 14)
-createCardScene(gl, { base: './', seed: P.has('seed') ? +P.get('seed') : undefined, look }).then(start);
+const t0 = performance.now(), now = () => (performance.now() - t0) / 1000;
+
+function finish(d) {
+  log.textContent = d.kind + (d.text ? ' : ' + d.text : '');
+  const detail = { name: PRENOM, ...d };
+  try { if (typeof window.onCardChosen === 'function') window.onCardChosen(detail); } catch (e) { console.error(e); }
+  window.dispatchEvent(new CustomEvent('singulies:card-chosen', { detail }));
+  veil.style.opacity = 1;
+}
+createCardScene(gl, { base: './', seed: P.has('seed') ? +P.get('seed') : undefined, look, on: { end: finish } }).then(start);
+
 function start(scene) {
-scene.setName(PRENOM);
-window.__scene = { scene, ready: true, frames: 0 };
-
-let t0 = performance.now(), last = t0;
-function frame(now) {
-  const t = (now - t0) / 1000, dt = Math.min(0.05, (now - last) / 1000); last = now;
-  const dpr = Math.min(2, devicePixelRatio || 1), W = canvas.clientWidth, H = canvas.clientHeight;
-  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
-  gl.viewport(0, 0, canvas.width, canvas.height);
-  gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1);
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  scene.frame(t, dt, W, H);
-  window.__scene.frames++; window.__scene.t = t;
+  scene.setName(PRENOM);
+  scene.start(now());
+  window.__scene = { scene, ready: true, frames: 0 };
+  let last = performance.now();
+  function frame(n) {
+    const t = now(), dt = Math.min(0.05, (n - last) / 1000); last = n;
+    const dpr = Math.min(2, devicePixelRatio || 1), W = canvas.clientWidth, H = canvas.clientHeight;
+    if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    scene.frame(t, dt, W, H);
+    // signes : donner (sous la carte écrite, clavier fermé) ; passer (avec la carte blanche offerte)
+    const st = scene.state(), r = scene.activeRect();
+    const canGive = st.active && st.active.text && !st.writing && !st.ended && r;
+    giveEl.classList.toggle('on', !!canGive);
+    if (r) { giveEl.style.left = ((r.left + r.right) / 2 - 22) + 'px'; giveEl.style.top = (r.bottom + 10) + 'px'; }
+    passEl.classList.toggle('on', st.offered && !st.writing && !st.ended);
+    window.__scene.frames++;
+    requestAnimationFrame(frame);
+  }
   requestAnimationFrame(frame);
-}
-requestAnimationFrame(frame);
 
-// lumière : la souris la fait varier un peu (micro-variation) ; sur téléphone, l'inclinaison de l'appareil
-// (par rapport à la position de départ), comme un reflet sur du verre. Le doigt ne sert qu'à toucher.
-// repli sans gyroscope (refusé, absent) : le doigt qui glisse fait comme la souris
-let gyroLive = false;
-addEventListener('pointermove', e => {
-  if (e.pointerType !== 'mouse' && gyroLive) return;
-  scene.setTilt((e.clientX / innerWidth - 0.5) * 1.4, (0.5 - e.clientY / innerHeight) * 1.4);
-});
-let g0 = null;
-function onOrient(e) {
-  if (e.beta == null || e.gamma == null) return;
-  if (!g0) g0 = { b: e.beta, g: e.gamma };
-  gyroLive = true;
-  scene.setTilt((e.gamma - g0.g) / 25, -(e.beta - g0.b) / 25);
-}
-let orientAsked = false;
-function askOrientation() {
-  if (orientAsked) return; orientAsked = true;
-  const DO = window.DeviceOrientationEvent;
-  if (DO && typeof DO.requestPermission === 'function') {      // iPhone : demande système, au premier toucher
-    DO.requestPermission().then(s => { if (s === 'granted') addEventListener('deviceorientation', onOrient); }).catch(() => {});
-  } else addEventListener('deviceorientation', onOrient);
-}
-if (!(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')) askOrientation();
-// iPhone : la demande d'accès au mouvement n'est acceptée qu'après un vrai geste (doigt relevé)
-addEventListener('touchend', askOrientation, { passive: true });
-addEventListener('click', askOrientation);
-addEventListener('pointerdown', e => {
-  const r = scene.tap(e.clientX, e.clientY, (performance.now() - t0) / 1000);
-  if (r.type) log.textContent = r.type + (r.id ? ' ' + r.id : '');
-});
-// tests : window.__scene.tapAt(fx, fy) en fractions de l'écran
-window.__scene.tapAt = (fx, fy) => scene.tap(fx * canvas.clientWidth, fy * canvas.clientHeight, (performance.now() - t0) / 1000);
+  // ---- clavier : le champ natif reçoit la frappe, la carte affiche ----
+  answer.addEventListener('input', () => scene.setText(answer.value));
+  answer.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); answer.blur(); } });
+  answer.addEventListener('blur', () => scene.stopWriting());
+  const vv = window.visualViewport;
+  const onVV = () => scene.setKeyboard(vv ? Math.max(0, innerHeight - vv.height) : 0);
+  if (vv) { vv.addEventListener('resize', onVV); vv.addEventListener('scroll', onVV); }
 
-// mesure (tests) : luminance du papier (médiane) et de l'encre (99e centile) dans la carte retournée
-window.__scene.measure = () => {
-  const c = document.createElement('canvas'); c.width = canvas.width; c.height = canvas.height;
-  const x = c.getContext('2d'); x.drawImage(canvas, 0, 0);
-  const lay = scene.layout, k = canvas.width / canvas.clientWidth;
-  const cx = canvas.width / 2, cy = 0.42 * canvas.height, w = 0.6 * Math.min(canvas.width, canvas.height * 1.69 * 0.27), h = w / 1.69 * 0.8;
-  const d = x.getImageData(Math.round(cx - w / 2), Math.round(cy - h / 2), Math.round(w), Math.round(h)).data;
-  const v = []; for (let i = 0; i < d.length; i += 4) v.push(0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]);
-  v.sort((a, b) => a - b);
-  const bg = x.getImageData(2, Math.round(canvas.height * 0.95), 1, 1).data[0];
-  return { papier: Math.round(v[Math.floor(v.length * 0.5)]), papierSombre: Math.round(v[Math.floor(v.length * 0.1)]), encre: Math.round(v[Math.floor(v.length * 0.995)]), fond: bg };
-};
+  // ---- pointeur : toucher, glisser la carte, et inclinaison (souris ; doigt en repli sans gyroscope) ----
+  let down = null, gyroLive = false;
+  canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false }; askOrientation(); });
+  addEventListener('pointermove', e => {
+    if (down) {
+      const dx = e.clientX - down.x, dy = e.clientY - down.y;
+      if (!down.moved && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) down.moved = true;
+      if (down.moved) { scene.drag(dx); return; }
+    }
+    if (e.pointerType === 'mouse' || !gyroLive) scene.setTilt((e.clientX / innerWidth - 0.5) * 1.4, (0.5 - e.clientY / innerHeight) * 1.4);
+  });
+  canvas.addEventListener('pointerup', e => {
+    if (!down) return;
+    const dx = e.clientX - down.x, dtm = Math.max(1, performance.now() - down.t);
+    if (down.moved) { const r = scene.release(dx, dx / dtm, now()); if (r.type) log.textContent = r.type; down = null; return; }
+    down = null;
+    const r = scene.tap(e.clientX, e.clientY, now());
+    if (r.type) log.textContent = r.type;
+    if (r.type === 'write' || r.type === 'take') { answer.value = scene.state().active?.text || ''; answer.focus({ preventScroll: true }); }
+    else if (r.type === 'reread') answer.blur();
+  });
+  giveEl.addEventListener('click', () => { if (scene.give(now())) { answer.blur(); log.textContent = 'donné'; } });
+  passEl.addEventListener('click', () => { if (scene.pass(now())) { answer.blur(); log.textContent = 'passé'; } });
+
+  // ---- gyroscope (iPhone : demande au premier geste) ----
+  let g0 = null, orientAsked = false;
+  function onOrient(e) {
+    if (e.beta == null || e.gamma == null) return;
+    if (!g0) g0 = { b: e.beta, g: e.gamma };
+    gyroLive = true;
+    scene.setTilt((e.gamma - g0.g) / 25, -(e.beta - g0.b) / 25);
+  }
+  function askOrientation() {
+    if (orientAsked) return;
+    const DO = window.DeviceOrientationEvent;
+    if (DO && typeof DO.requestPermission === 'function') {
+      orientAsked = true;
+      DO.requestPermission().then(s => { if (s === 'granted') addEventListener('deviceorientation', onOrient); }).catch(() => { orientAsked = false; });
+    } else { orientAsked = true; addEventListener('deviceorientation', onOrient); }
+  }
+  addEventListener('touchend', askOrientation, { passive: true });
+  if (!(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')) askOrientation();
+
+  // tests : window.__scene.tapAt(fx, fy) en fractions de l'écran
+  window.__scene.tapAt = (fx, fy) => scene.tap(fx * canvas.clientWidth, fy * canvas.clientHeight, now());
+  window.__scene.type = s => { answer.value = s; scene.setText(s); };
 
   // réglages à la main (&reglages) : tous les paramètres de la carte, panneau repliable ; la ligne de
   // valeurs (seulement celles changées) se recopie, et se passe aussi dans l'adresse

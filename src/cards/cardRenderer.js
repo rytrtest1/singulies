@@ -130,7 +130,9 @@ void main() {
 const FS = /* glsl */`#version 300 es
 precision highp float;
 in vec3 vWorld, vT, vB, vN; in vec2 vMM; flat in int vFace;
-uniform sampler2D uPaper, uLogo, uInk;
+uniform sampler2D uPaper, uLogo, uInk, uInkBack;   // encre du recto (question) et du verso (réponse)
+uniform float uHasInkBack;
+uniform vec4 uCursor; uniform float uCursorFace;     // curseur de frappe : x, y (mm, bas), hauteur, opacité ; face (0/1, -1 aucun)
 uniform float uHasInk, uInkAlb, uInkPress, uInkWear, uInkThr, uInkVar, uInkPaper, uInkOrg;
 uniform vec2 uCard;          // largeur, hauteur (mm)
 uniform float uLogoSq, uLogoRange;
@@ -196,7 +198,8 @@ float paper(vec2 p) {
 }
 float paperHF(vec2 p) { vec2 uv = paperUV(p); return texture(uPaper, uv).r - texture(uPaper, uv, 3.0).r; }
 // encre du recto : la face est lue retournée (axe x local vers la gauche de l'écran)
-vec2 inkUV(vec2 p) { return vec2(0.5 - p.x / uCard.x, 0.5 - p.y / uCard.y); }
+vec2 inkUV(vec2 p) { return vFace == 1 ? vec2(0.5 - p.x / uCard.x, 0.5 - p.y / uCard.y) : vec2(0.5 + p.x / uCard.x, 0.5 - p.y / uCard.y); }
+float inkTex(vec2 p, float bias) { vec2 uv = inkUV(p); return vFace == 1 ? texture(uInk, uv, bias).r : texture(uInkBack, uv, bias).r; }
 float hash1(vec2 c) { return fract(sin(dot(c, vec2(127.1, 311.7)) + uSeed) * 43758.5453); }
 float vnoise(vec2 x) {
   vec2 i = floor(x), f = fract(x), u = f * f * (3.0 - 2.0 * f);
@@ -272,10 +275,10 @@ void main() {
     hx += uFiber * fx; hy += uFiber * fy;
     // frappe : le caractère enfonce un peu le papier (creux doux sous l'encre)
     float ink = 0.0;
-    if (vFace == 1 && uHasInk > 0.5) {
+    if ((vFace == 1 && uHasInk > 0.5) || (vFace == 0 && uHasInkBack > 0.5)) {
       float ie = 0.06;
-      hx -= uInkPress * (texture(uInk, inkUV(p + vec2(ie, 0.0)), 1.5).r - texture(uInk, inkUV(p - vec2(ie, 0.0)), 1.5).r) / (2.0 * ie);
-      hy -= uInkPress * (texture(uInk, inkUV(p + vec2(0.0, ie)), 1.5).r - texture(uInk, inkUV(p - vec2(0.0, ie)), 1.5).r) / (2.0 * ie);
+      hx -= uInkPress * (inkTex(p + vec2(ie, 0.0), 1.5) - inkTex(p - vec2(ie, 0.0), 1.5)) / (2.0 * ie);
+      hy -= uInkPress * (inkTex(p + vec2(0.0, ie), 1.5) - inkTex(p - vec2(0.0, ie), 1.5)) / (2.0 * ie);
       // carte d'encre : c = forme × pression (0–1). Le carbone se dépose en grains serrés (≈ 0,07 mm),
       // plus denses sur le bord de la lettre (le caractère y appuie plus), avec des manques ;
       // les grains accrochent les sommets des fibres ; le creux du logo est moins bien frappé.
@@ -284,8 +287,8 @@ void main() {
       // douceur dans la lettre (épaisseur ≈ 0,7 mm d'échelle) et finement le long du bord (≈ 0,12 mm) ;
       // uInkWear déforme un peu le dessin du caractère.
       vec2 wob = vec2(vnoise(p * 2.2 + 5.0), vnoise(p * 2.2 + 41.0)) - 0.5;
-      vec2 iuv = inkUV(p + wob * 0.05 * uInkWear);
-      float c = 0.5 * texture(uInk, iuv).r + 0.5 * texture(uInk, iuv, 1.3).r;
+      vec2 pw = p + wob * 0.05 * uInkWear;
+      float c = 0.5 * inkTex(pw, 0.0) + 0.5 * inkTex(pw, 1.3);
       float thr = uInkThr
         + (vnoise(p * 1.4 + 11.0) - 0.5) * 0.3 * uInkOrg
         + (vnoise(p * 8.0 + 23.0) - 0.5) * 0.22 * uInkOrg;
@@ -300,6 +303,15 @@ void main() {
       op *= clamp(1.0 + uInkPaper * paperHF(p) * uGrain, 0.35, 1.3);
       // parois raides du creux : le caractère n'y frappe presque pas
       ink = shape * op / (1.0 + 0.4 * length(vec2(hx, hy)));
+    }
+    // curseur de frappe : trait fin à l'encre, effilé aux extrémités, qui respire
+    if (uCursorFace == float(vFace) && uCursor.w > 0.0) {
+      float u = clamp((p.y - uCursor.y) / uCursor.z, 0.0, 1.0);
+      float halfW = 0.07 * (0.35 + 0.65 * sin(3.14159 * u));
+      float dx = abs(p.x - uCursor.x) - halfW;
+      float dy = max(uCursor.y - p.y, p.y - (uCursor.y + uCursor.z));
+      float dd = max(dx, dy), aaC = max(fwidth(p.x), 0.015);
+      ink = max(ink, (1.0 - smoothstep(-aaC, aaC, dd)) * uCursor.w);
     }
     // hauteur comptée le long de la normale sortante de la face (Ng) : n = Ng − hx T − hy B
     vec3 n = normalize(Ng - hx * T - hy * Bv);
@@ -444,6 +456,9 @@ export async function createCardRenderer(gl, base = './') {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, logoTex); gl.uniform1i(u.uLogo, 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, card.ink || null); gl.uniform1i(u.uInk, 2);
     gl.uniform1f(u.uHasInk, card.ink ? 1 : 0);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, card.inkBack || null); gl.uniform1i(u.uInkBack, 3);
+    gl.uniform1f(u.uHasInkBack, card.inkBack ? 1 : 0);
+    gl.uniform4fv(u.uCursor, card.cursor || [0, 0, 0, 0]); gl.uniform1f(u.uCursorFace, card.cursorFace ?? -1);
     const m = meshes[card.lod || 'fine'];
     gl.uniform1f(u.uShade, card.shade ?? 1);
     gl.bindVertexArray(m.vao);
