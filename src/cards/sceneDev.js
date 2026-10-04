@@ -43,6 +43,9 @@ function start(scene) {
     giveEl.classList.toggle('on', !!canGive);
     if (r) { giveEl.style.left = ((r.left + r.right) / 2 - 22) + 'px'; giveEl.style.top = (r.bottom + 10) + 'px'; }
     passEl.classList.toggle('on', !st.ended);
+    // PASSER juste sous l'élément le plus bas (la carte réponse, ou le signe « donner »)
+    const lb = scene.lowestBottom();
+    if (lb) passEl.style.top = Math.min(innerHeight - 50, lb + (canGive ? 62 : 14)) + 'px';
     window.__scene.frames++;
     requestAnimationFrame(frame);
   }

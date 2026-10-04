@@ -280,7 +280,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       card.draw(vp, eye, P, { model: model(Gq, qp), lod: 'fine', ink: question.ink, shade: dimQ, ...question.v, curl: [-1, 1, lift] });
     }
     if (answer) {
-      const cur = !busy(answer, t) && writing ? cursorAt(answer.cursorMM, t) : {};
+      const cur = !busy(answer, t) && (writing || !answer.text) ? cursorAt(answer.cursorMM, t) : {};
       card.draw(vp, eye, P, { model: model(Ga, anp), lod: 'fine', ink: answer.ink, shade: dimA, occ: answer.place === 'peek' ? occQ : null, ...answer.v, ...cur });
     }
     // prénom (à plat, en retrait) ; ses lettres s'éclairent quand on les tape ; tout s'allume à la fin
@@ -343,6 +343,12 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // rectangles écran (px CSS) : la question (zone où la souris laisse la carte droite) ; la carte en focus ;
   // la carte réponse (la page place le signe « donner » dessous)
   function cardRect() { if (!vp) return null; const c = answer && focusAns > 0.5 ? answer : question; return c ? rectOf(screenQuad(poseOf(c, lastT))) : rectOf(screenQuad(deckPose(STACK - 1, stack[STACK - 1]))); }
+  function lowestBottom() {
+    if (!vp) return null;
+    let b = 0;
+    for (const c of [question, answer]) if (c) b = Math.max(b, rectOf(screenQuad(poseOf(c, lastT))).bottom);
+    return b || null;
+  }
   function activeRect() { return answer && vp ? rectOf(screenQuad(poseOf(answer, lastT))) : null; }
 
   // ---------- gestes ----------
@@ -379,6 +385,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     question = null; pendingDraw = -1;
     answer.from = poseOf(answer, t); answer.place = 'center'; answer.anim = 'move'; answer.t0 = t; answer.dur = MOVE_T;
     setAnswerText('');
+    startWriting();                                  // carte blanche : curseur et clavier tout de suite
     emit('blank', {});
     return 'blank';
   }
@@ -389,7 +396,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function setKeyboard(px) { kbPx = px; }
   return {
     frame, tap, drag, release, give, pass, start, setName, setTilt, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
-    activeRect, cardRect,
+    activeRect, cardRect, lowestBottom,
     state: () => ({ writing, active: answer ? { kind: question ? 'question' : 'blank', id: question?.id, text: answer.text } : null, ended: !!ended, discards, offered: false }),
     look: L, layout: lay,
   };
