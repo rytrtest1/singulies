@@ -4,8 +4,8 @@
 // dessous le paquet et n'en dépasse que d'une ligne : le curseur y apparaît et le clavier s'ouvre (page).
 // Validée, elle sort dessous (3 lignes, molette / glissé vertical pour relire). Une autre question : glisser
 // la question de côté (elle esquisse le geste d'elle-même), le coin corné, ou toucher le paquet ; la carte
-// réponse reste sous le paquet. En bas, une carte vierge (« expression libre », page) : la toucher la fait
-// monter, on y écrit (toucher la question = revenir). « passer cette étape » (page) : la fin, improvisation.
+// réponse reste sous le paquet. En bas, une carte vierge (« carte blanche », page) : la toucher la fait
+// monter, on y écrit (toucher la question = revenir). « passer » (page, après quelques secondes sans frappe) : la fin.
 // Lumière : manière 1 (orbite + hauteur) + la carte en focus s'incline vers la souris / le téléphone.
 import { createCardRenderer, M4, CARD } from './cardRenderer.js';
 import { loadTypeFont, makeInkMap, makeAnswerInk, makeStripInk, STRIP, TYPE } from './ink.js';
@@ -488,7 +488,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   return {
     frame, tap, drag, release, give, pass, start, setName, setTilt, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank,
-    state: () => ({ writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),
+    // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
+    state: () => ({ idle: question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),
     look: L, layout: lay,
   };
 }

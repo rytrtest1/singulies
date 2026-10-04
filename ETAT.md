@@ -237,3 +237,4 @@ Voir « Point de reprise » en tête de fichier.
 - « passer cette étape » au milieu (improvisation) ; carte vierge en bas, « expression libre » au-dessus (police machine) → monte, on écrit ; toucher la question = revenir.
 - Fins : réponse = paire qui s'éloigne ; expression libre = la carte seule ; passer = le paquet s'éloigne (plus de rectangle noir).
 - Tests 43/43 et 86/86. Non vérifié : iPhone réel (clavier à l'ouverture de la carte vierge).
+- v11 : « passer » (au lieu de « passer cette étape »), visible seulement après 4 s sans frappe ; « carte blanche » au-dessus de la carte vierge.

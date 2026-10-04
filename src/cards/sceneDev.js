@@ -2,7 +2,7 @@
 // La carte réponse se pose sous la question : le clavier s'ouvre tout seul (iPhone : au premier toucher, Safari
 // n'ouvre le clavier que dans la foulée d'un geste). Coin corné / glisser la question / toucher le paquet = une
 // autre ; « terminé » ferme le clavier ; molette ou glissé vertical sur la réponse = relire ; le signe sous la
-// réponse = donner ; carte vierge du bas = expression libre ; « passer cette étape » = la fin. &reglages : réglages.
+// réponse = donner ; carte vierge du bas = carte blanche ; « passer » (après 4 s sans frappe) = la fin. &reglages : réglages.
 import { createCardScene, LOOK } from './scene.js';
 
 const P = new URLSearchParams(location.search);
@@ -42,10 +42,10 @@ function start(scene) {
     const canGive = st.active && st.active.text && !st.writing && !st.ended && r;
     giveEl.classList.toggle('on', !!canGive);
     if (r) { giveEl.style.left = ((r.left + r.right) / 2 - 22) + 'px'; giveEl.style.top = (r.bottom + 10) + 'px'; }
-    // choix (repères fixes, au repos) : « passer cette étape » à mi-chemin entre la bande d'écriture et la carte
+    // choix (repères fixes, au repos) : « passer » (seulement après 4 s sans frappe, réponse vide) à mi-chemin entre la bande d'écriture et la carte
     // vierge, « expression libre » juste au-dessus d'elle ; masqués clavier ouvert ou une fois le choix fait
     const mk = scene.marks(), ch = st.choices && !st.kb;
-    passEl.classList.toggle('on', ch); freeEl.classList.toggle('on', ch);
+    passEl.classList.toggle('on', ch && st.idle > 4 && !(st.active && st.active.text)); freeEl.classList.toggle('on', ch);
     if (mk) { passEl.style.top = ((mk.peekBottom + mk.blankTop) / 2 - 30) + 'px'; freeEl.style.top = (mk.blankTop - 28) + 'px'; }
     // le champ natif est posé, invisible, sur la carte réponse : la toucher ouvre le clavier (iPhone : seul un
     // toucher direct sur le champ l'ouvre)
