@@ -2,7 +2,7 @@
 // Disposition : prénom en haut (dessiné ailleurs), paquet au centre, carte vierge dessous.
 // Toucher le paquet = piocher : la carte du dessus se soulève, se retourne et se pose, question
 // visible, sur le paquet. Toucher la question (ou le paquet) = la défausser : elle s'en va et la
-// suivante se retourne aussitôt. Lumière neutre, fixe (le pointeur ne change pas l'éclairage).
+// suivante se retourne aussitôt. Lumière neutre ; le pointeur en change la direction, pas la force.
 import { createCardRenderer, M4, CARD } from './cardRenderer.js';
 import { loadTypeFont, makeInkMap } from './ink.js';
 import { createRng } from '../field/rng.js';
@@ -10,13 +10,13 @@ import QUESTIONS from './questions.json';
 
 // matière et lumière (calage du banc, éclairage du site : neutre, venant d'en haut à gauche, devant)
 export const LOOK = {
-  // cartes les plus noires possible (04/10) : lampe rasante basse en haut à gauche, fixe ; éclairage doux
-  // de face qui fait ressortir l'encre ; pied de courbe qui écrase les noirs du papier. Frappe de la scène
-  // moins variée qu'au banc (lisible à taille réelle). Mesures : voir ETAT.md.
-  light: 0.012, lightR: 70, env: 0.25, albedo: 0.025, exposure: 1.0, lightX: -0.6, lightY: 0.45, lightZ: 90, follow: 0,
+  // cartes les plus noires possible (04/10) : lampe lointaine (1 × hauteur de scène, 210 mm de haut à l'échelle
+  // téléphone) dont le pointeur choisit la direction ; éclairage doux de face pour l'encre ; pied de courbe
+  // qui écrase les noirs du papier. Frappe de la scène moins variée qu'au banc (lisible). Mesures : ETAT.md.
+  light: 0.066, lightR: 160, env: 0.25, albedo: 0.025, exposure: 1.0, lightAz: 1.99, lightR0: 1.0, lightZ: 210,
   h: 0.5, b: 1.0, crease: 0.3, fiber: 0.03, foot: 0.4, footW: 0.12, parallax: 0,
-  rough: 0.45, spec: 0.8, sheen: 0.15, glint: 2, edge: 1.0, grain: 3, diffRough: 0.25, envSpec: 0.02, toe: 0.0058,
-  inkAlb: 3.5, inkPress: 0.04, inkWear: 0.7, inkThr: 0.33, inkVar: 0.6, inkPaper: 5, inkOrg: 0.7,
+  rough: 0.45, spec: 0.8, sheen: 0.15, glint: 2, edge: 1.0, grain: 3, diffRough: 0.25, envSpec: 0.02, toe: 0.0068,
+  inkAlb: 2.6, inkPress: 0.04, inkWear: 0.7, inkThr: 0.33, inkVar: 0.6, inkPaper: 5, inkOrg: 0.7,
 };
 const FOV = 26 * Math.PI / 180;
 const TILT = 0.3;                  // la caméra regarde un peu d'en haut : les cartes fuient légèrement
@@ -104,11 +104,17 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   }
 
   // lumière : suit le pointeur (ressort ω 2,2 ζ 0,85), petite dérive au repos
-  const ptr = { x: 0.5, y: 0.35 }, lp = { x: 0, y: 0, vx: 0, vy: 0 };
-  function stepLight(dt, t) {
-    // lumière fixe par défaut (04/10 : les cartes restent noires quand on bouge le doigt) ; follow > 0 la rend mobile
-    const tx = (ptr.x - 0.5) * lay.Ww * 0.9 * L.follow + L.lightX * lay.Hw * 0.28;
-    const ty = (0.5 - ptr.y) * lay.Hw * 0.7 * L.follow + L.lightY * lay.Hw;
+  // lumière : le pointeur choisit d'où elle vient (azimut), jamais sa force — la lampe tourne autour des
+  // cartes à distance et hauteur constantes : les ombres du relief et des fibres bougent, le papier reste
+  // noir. Ressort amorti (ω 2,2, ζ 0,85) sur la direction ; au repos, en haut à gauche.
+  const ptr = { x: 0.5, y: 0.35, seen: false };
+  const lp = { x: Math.cos(L.lightAz), y: Math.sin(L.lightAz), vx: 0, vy: 0 };
+  function stepLight(dt) {
+    let tx = Math.cos(L.lightAz), ty = Math.sin(L.lightAz);
+    if (ptr.seen) {
+      const dx = (ptr.x - 0.5) * lay.W / lay.H, dy = 0.5 - ptr.y, l = Math.hypot(dx, dy);
+      if (l > 0.03) { tx = dx / l; ty = dy / l; }
+    }
     const w = 2.2, z = 0.85;
     for (const [k, v, tg] of [['x', 'vx', tx], ['y', 'vy', ty]]) {
       const a = -2 * z * w * lp[v] - w * w * (lp[k] - tg);
@@ -122,7 +128,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (pendingDraw >= 0 && t >= pendingDraw) { pendingDraw = -1; draw(t); }
     if (face && face.kind === 'draw' && t - face.t0 >= DRAW_T) face.kind = 'idle';
     leaving = leaving.filter(c => { if (t - c.t0 < DISCARD_T) return true; card.freeInk(c.ink); return false; });
-    stepLight(dt, t);
+    stepLight(dt);
     const cy = (lay.yDeck + lay.yBlank) / 2;
     eye = [0, cy - lay.D * Math.sin(TILT), lay.D * Math.cos(TILT)];
     const target = [0, cy, 0];
@@ -131,7 +137,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     // toute la lumière à l'échelle de la scène (réglée pour une scène de 235 mm de haut, téléphone) :
     // même rendu quel que soit le format
     const k = lay.Hw / 235;
-    const lightPos = [lp.x, lp.y, L.lightZ * k];
+    const ln = Math.hypot(lp.x, lp.y) || 1, cyL = (lay.yDeck + lay.yBlank) / 2;
+    const lightPos = [lp.x / ln * L.lightR0 * lay.Hw, cyL + lp.y / ln * L.lightR0 * lay.Hw, L.lightZ * k];
     const P = { ...L, lightPos, light: L.light * k * k };
     gl.enable(gl.DEPTH_TEST);
     // pile (maillage léger, de plus en plus dans l'ombre vers le bas) ; dessus en maillage fin
@@ -182,7 +189,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (inside(screenQuad({ x: blank.jx, y: lay.yBlank, z: 0, rx: 0, ry: Math.PI, rz: blank.jr }), x, y)) return { type: 'blank' };
     return { type: null };
   }
-  function pointer(x, y) { ptr.x = x / lay.W; ptr.y = y / lay.H; }
+  function pointer(x, y) { ptr.x = x / lay.W; ptr.y = y / lay.H; ptr.seen = true; }
   const current = () => (face ? face.id : null);
   return { frame, tap, pointer, current, layout: lay };
 }
