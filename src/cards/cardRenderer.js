@@ -107,7 +107,7 @@ const FS = /* glsl */`#version 300 es
 precision highp float;
 in vec3 vWorld, vT, vB, vN; in vec2 vMM; flat in int vFace;
 uniform sampler2D uPaper, uLogo, uInk;
-uniform float uHasInk, uInkAlb, uInkPress, uInkWear, uInkThr, uInkVar, uInkPaper;
+uniform float uHasInk, uInkAlb, uInkPress, uInkWear, uInkThr, uInkVar, uInkPaper, uInkOrg;
 uniform vec2 uCard;          // largeur, hauteur (mm)
 uniform float uLogoSq, uLogoRange;
 uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
@@ -211,12 +211,18 @@ void main() {
       // carte d'encre : c = forme × pression (0–1). Le carbone se dépose en grains serrés (≈ 0,07 mm),
       // plus denses sur le bord de la lettre (le caractère y appuie plus), avec des manques ;
       // les grains accrochent les sommets des fibres ; le creux du logo est moins bien frappé.
-      // lettre nette et fine (bord franc, seuil haut sur la carte d'encre) ; uInkWear = usure du caractère
-      vec2 wob = vec2(vnoise(p * 3.1 + 5.0), vnoise(p * 3.1 + 41.0)) - 0.5;
-      vec2 iuv = inkUV(p + wob * 0.06 * uInkWear);
-      float c = texture(uInk, iuv).r;
+      // lettre nette mais organique : la carte d'encre est lue un peu adoucie (≈ 0,08 mm), si bien que
+      // la force de la frappe (c) déplace le bord : chaque lettre a sa graisse. Le seuil varie en
+      // douceur dans la lettre (épaisseur ≈ 0,7 mm d'échelle) et finement le long du bord (≈ 0,12 mm) ;
+      // uInkWear déforme un peu le dessin du caractère.
+      vec2 wob = vec2(vnoise(p * 2.2 + 5.0), vnoise(p * 2.2 + 41.0)) - 0.5;
+      vec2 iuv = inkUV(p + wob * 0.05 * uInkWear);
+      float c = 0.5 * texture(uInk, iuv).r + 0.5 * texture(uInk, iuv, 1.3).r;
+      float thr = uInkThr
+        + (vnoise(p * 1.4 + 11.0) - 0.5) * 0.3 * uInkOrg
+        + (vnoise(p * 8.0 + 23.0) - 0.5) * 0.22 * uInkOrg;
       float cw = max(fwidth(c) * 0.6, 0.02);
-      float shape = smoothstep(uInkThr - cw, uInkThr + cw, c);
+      float shape = smoothstep(thr - cw, thr + cw, c);
       // opacité : l'encre se dépose plus à un endroit qu'à un autre dans une même lettre (variation douce,
       // ≈ 0,5–1 mm), selon la pression de la frappe (c) et le creux du logo
       float hollow = prof(logoD(p));
@@ -340,7 +346,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uSeed, card.seed || 0);
     gl.uniform3fv(u.uLightPos, params.lightPos); gl.uniform3fv(u.uEye, eye);
     gl.uniform3fv(u.uRoomUp, params.roomUp || [0, 0, 1]);
-    for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'InkAlb', 'InkPress', 'InkWear', 'InkThr', 'InkVar', 'InkPaper']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
+    for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'InkAlb', 'InkPress', 'InkWear', 'InkThr', 'InkVar', 'InkPaper', 'InkOrg']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, paperTex); gl.uniform1i(u.uPaper, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, logoTex); gl.uniform1i(u.uLogo, 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, card.ink || null); gl.uniform1i(u.uInk, 2);

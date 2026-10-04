@@ -11,14 +11,14 @@ import QUESTIONS from './questions.json';
 const DEF = {
   lightAz: -25, lightEl: 35, lightDist: 220, light: 0.025, lightR: 60, env: 0.03, albedo: 0.05, exposure: 1.0,
   h: 0.5, b: 1.0, crease: 0.3, fiber: 0.03, foot: 0.4, footW: 0.12,
-  rough: 0.45, spec: 3, sheen: 0.3, glint: 2, edge: 1.0, grain: 3, diffRough: 0.25, inkAlb: 2.0, inkPress: 0.04, inkWear: 0.15, inkThr: 0.4, inkVar: 1, inkPaper: 5, q: 33, seed: 1, wx: 0.25, wy: -0.12, wt: 0.1,
+  rough: 0.45, spec: 3, sheen: 0.3, glint: 2, edge: 1.0, grain: 3, diffRough: 0.25, inkAlb: 2.0, inkPress: 0.04, inkWear: 0.5, inkThr: 0.36, inkVar: 1, inkPaper: 2, inkOrg: 1, q: 33, seed: 1, wx: 0.25, wy: -0.12, wt: 0.1,
   lx: -0.9, ly: 0.3, lsx: 1, lsy: 1.09, rx: 0, ry: 0, fov: 8, zoom: 1, panX: 0, panY: 0,
 };
 const RANGES = {
   lightAz: [-180, 180, 1], lightEl: [3, 90, 1], lightDist: [80, 1500, 10], light: [0, 0.3, 0.001], lightR: [1, 200, 1],
   env: [0, 1, 0.01], albedo: [0.005, 0.3, 0.001], exposure: [0.2, 4, 0.01], h: [0, 0.8, 0.005], b: [0.05, 2, 0.01],
   crease: [0, 1, 0.01], fiber: [0, 0.06, 0.001], foot: [0, 1, 0.01], footW: [0.02, 0.4, 0.005],
-  rough: [0.1, 1, 0.01], spec: [0, 3, 0.01], sheen: [0, 3, 0.01], glint: [0, 5, 0.05], edge: [0, 3, 0.05], grain: [0, 4, 0.05], diffRough: [0, 1, 0.01], inkAlb: [0, 3, 0.01], inkPress: [0, 0.08, 0.001], inkWear: [0, 2, 0.05], inkThr: [0.1, 0.8, 0.01], inkVar: [0, 1.5, 0.05], inkPaper: [0, 15, 0.1], q: [1, 73, 1], seed: [1, 200, 1],
+  rough: [0.1, 1, 0.01], spec: [0, 3, 0.01], sheen: [0, 3, 0.01], glint: [0, 5, 0.05], edge: [0, 3, 0.05], grain: [0, 4, 0.05], diffRough: [0, 1, 0.01], inkAlb: [0, 3, 0.01], inkPress: [0, 0.08, 0.001], inkWear: [0, 2, 0.05], inkThr: [0.1, 0.8, 0.01], inkVar: [0, 1.5, 0.05], inkPaper: [0, 15, 0.1], inkOrg: [0, 3, 0.05], q: [1, 73, 1], seed: [1, 200, 1],
   wx: [-1, 1, 0.01], wy: [-1, 1, 0.01], wt: [-1, 1, 0.01], lx: [-3, 3, 0.05], ly: [-3, 3, 0.05],
   lsx: [0.8, 1.2, 0.005], lsy: [0.8, 1.2, 0.005], fov: [4, 60, 1],
 };

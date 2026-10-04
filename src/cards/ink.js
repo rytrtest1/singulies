@@ -90,7 +90,7 @@ export function makeInkMap(question, seed = 1) {
       if (ch === ' ' || ch === ' ') return;
       const x = margin + ci * TYPE.pitch + g() * 0.06;
       const y = base + drift * ci / Math.max(1, line.length) + g() * 0.09;
-      const press = Math.min(1, Math.max(0.35, 0.8 + g() * 0.16));
+      const press = Math.min(1, Math.max(0.5, 0.82 + g() * 0.14));
       const rot = g() * 0.5 * Math.PI / 180;
       // vignette : caractère seul, puis frappe partielle (dégradé d'un côté), puis report sur la carte
       gx.setTransform(1, 0, 0, 1, 0, 0);
