@@ -18,7 +18,7 @@ export const LOOK = {
   light: 0.111, lightR: 400, env: 0.28, albedo: 0.029, exposure: 0.74, lightAz: 0.67, lightR0: 1.0, lightZ: 210, tiltAmp: 1.45,
   h: 0.19, b: 1.32, crease: 0, fiber: 0.06, foot: 0.76, footW: 0.165, parallax: 0,
   rough: 0.64, spec: 3.1, sheen: 0, glint: 0.35, edge: 3, grain: 1.25, diffRough: 0.65, envSpec: 0.32, toe: 0.0078,
-  nameAlb: 0.5, nameRelief: 0.05, nameBevel: 0.07, nameSpec: 0.4,
+  nameAlb: 0.5, nameRelief: 0.05, nameBevel: 0.07, nameSpec: 0.4, nameGrain: 1.25, nameFiber: 0.06, nameGlint: 0.35,
   inkAlb: 0.35, inkPress: 0.1, inkWear: 3, inkThr: 0.35, inkVar: 0.6, inkPaper: 11.5, inkOrg: 0,
 };
 const FOV = 26 * Math.PI / 180;
@@ -40,7 +40,7 @@ const clamp01 = u => Math.min(1, Math.max(0, u));
 export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {} } = {}) {
   // look : surcharge de LOOK (page de dev : ?light=…&env=…)
   const card = await createCardRenderer(gl, base);
-  const nameR = await createNameRelief(gl);
+  const nameR = await createNameRelief(gl, card.paperTex);
   let nameText = '', nameKey = '';
   await loadTypeFont(base);
   const L = { ...LOOK, ...look };

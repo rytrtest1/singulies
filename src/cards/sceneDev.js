@@ -91,7 +91,7 @@ window.__scene.measure = () => {
       inkAlb: [0, 4, 0.05, 'encre : blancheur'], inkThr: [0.15, 0.7, 0.01, 'encre : finesse du trait'], inkVar: [0, 3, 0.05, 'encre : variations'],
       inkPaper: [0, 30, 0.5, 'encre : papier visible'], inkOrg: [0, 3, 0.05, 'encre : contours irréguliers'], inkWear: [0, 3, 0.05, 'encre : usure'],
       inkPress: [0, 0.1, 0.002, 'encre : creusement'],
-      nameAlb: [0, 2, 0.01, 'prénom : clarté'], nameRelief: [0, 0.3, 0.005, 'prénom : relief'], nameBevel: [0.01, 0.2, 0.005, 'prénom : arrondi'], nameSpec: [0, 3, 0.05, 'prénom : brillance'],
+      nameAlb: [0, 2, 0.01, 'prénom : clarté'], nameRelief: [0, 0.3, 0.005, 'prénom : relief'], nameBevel: [0.01, 0.2, 0.005, 'prénom : arrondi'], nameSpec: [0, 3, 0.05, 'prénom : brillance'], nameGrain: [0, 4, 0.05, 'prénom : grain'], nameFiber: [0, 0.2, 0.002, 'prénom : relief des fibres'], nameGlint: [0, 4, 0.05, 'prénom : scintillement'],
     };
     const init = { ...scene.look };
     const wrap = document.createElement('div');

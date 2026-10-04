@@ -450,5 +450,5 @@ export async function createCardRenderer(gl, base = './') {
     return t;
   }
   const freeInk = t => gl.deleteTexture(t);
-  return { draw, makeInk, freeInk };
+  return { draw, makeInk, freeInk, paperTex };
 }
