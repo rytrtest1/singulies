@@ -16,7 +16,7 @@ export const LOOK = {
   // (ou la souris, ou le doigt en repli) fait tourner la direction (pas de lumière de reflet : grisait les cartes) ;
   // la carte retournée projette son ombre douce sur le paquet ; les bords cassés accrochent la lumière.
   light: 0.111, lightR: 400, env: 0.28, albedo: 0.029, exposure: 0.74, lightAz: 0.67, lightR0: 1.0, lightZ: 210, tiltAmp: 1.45,
-  lightMode: 0, elevAmp: 0.45, flashZ: 70, cardTilt: 0.12, spot: 0.12,
+  lightMode: 3, elevAmp: 0.45, flashZ: 70, cardTilt: 0.2, lightVar: 0.35, sway: 0.018, spot: 0.12,
   h: 0.19, b: 1.32, crease: 0, fiber: 0.06, foot: 0.76, footW: 0.165, parallax: 0,
   rough: 0.64, spec: 3.1, sheen: 0, glint: 0.35, edge: 3, grain: 1.25, diffRough: 0.65, envSpec: 0.32, toe: 0.0078,
   nameFlat: 0.42,   // prénom à plat (gris en retrait) ; 0 → prénom en relief (nameAlb, nameRelief…)
@@ -125,14 +125,16 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   //   0 orbite : la lampe tourne autour de la carte active (l'angle des ombres change, sur 360°)
   //   1 orbite + hauteur : idem, et incliner vers soi / vers l'avant rend la lumière rasante / zénithale
   //   2 lampe de poche : la lampe est tenue au-dessus de la scène, sous le doigt / la souris, assez basse
-  //   3 cartes qui s'inclinent : lampe fixe, ce sont les cartes qui pivotent un peu (comme tenues en main)
+  //   3 cartes qui s'inclinent (défaut, 04/10) : les cartes penchent vers la souris / le mouvement du téléphone
+  //     (le paquet d'un bloc, autour de sa base ; la carte vierge de son côté) ; la lampe ne varie qu'un peu
+  //     (lightVar). Dans toutes les manières, les cartes respirent très lentement au repos (sway).
   // tilt : décalage normalisé [-1, 1] (x à droite, y en haut), fourni par la page.
   const tilt = { x: 0, y: 0 }, ts = { x: 0, y: 0 };   // ts : inclinaison lissée (≈ 0,35 s)
   const lp = { x: Math.cos(L.lightAz), y: Math.sin(L.lightAz), vx: 0, vy: 0 };
   function stepLight(dt) {
     const kk = Math.min(1, dt * 3); ts.x += (tilt.x - ts.x) * kk; ts.y += (tilt.y - ts.y) * kk;
     const m = L.lightMode | 0;
-    const ax = m === 3 ? 0 : tilt.x, ay = m === 3 || m === 1 ? 0 : tilt.y;
+    const s3 = m === 3 ? L.lightVar : 1, ax = tilt.x * s3, ay = (m === 1 ? 0 : tilt.y) * s3;
     let tx = Math.cos(L.lightAz) + L.tiltAmp * ax, ty = Math.sin(L.lightAz) + L.tiltAmp * ay;
     const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
     const w = 2.2, z = 0.85;
@@ -173,6 +175,12 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
     // cartes qui s'inclinent (manière 3)
     const crx = m === 3 ? -ts.y * L.cardTilt : 0, cry = m === 3 ? ts.x * L.cardTilt : 0;
+    // inclinaison d'un groupe autour d'un pivot (+ respiration lente, propre à chaque groupe)
+    const group = (px, py, ph) => {
+      const rx = crx + L.sway * Math.sin(t * 0.61 + ph), ry = cry + L.sway * 1.2 * Math.sin(t * 0.47 + ph * 1.7);
+      return M4.mul(M4.mul(M4.model(0, 0, 0, px, py, 0), M4.model(rx, ry, 0)), M4.model(0, 0, 0, -px, -py, 0));
+    };
+    const Gd = group(0, lay.yDeck, 0.0), Gb = group(blank.jx, lay.yBlank, 2.3);
     // projecteur de mise en valeur : au-dessus, devant, vise la carte active (cône un peu plus large qu'elle)
     const spotPos = [act.x, act.y + 0.35 * lay.Hw, lay.D * 0.55];
     const sd = [act.x - spotPos[0], act.y - spotPos[1], (act.z || 0) - spotPos[2]], sl = Math.hypot(...sd);
@@ -186,11 +194,11 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const n = visibleStack();
     for (let i = 0; i < n; i++) {
       const v = stack[STACK - n + i], p = stackPose(i, v), top = i === n - 1;
-      card.draw(vp, eye, P, { model: M4.model(p.rx + crx, p.ry + cry, p.rz, p.x, p.y, p.z), lod: top ? 'fine' : 'coarse', shade: 0.55 + 0.45 * (i + 1) / n, occ, ...v });
+      card.draw(vp, eye, P, { model: M4.mul(Gd, M4.model(p.rx, p.ry, p.rz, p.x, p.y, p.z)), lod: top ? 'fine' : 'coarse', shade: 0.55 + 0.45 * (i + 1) / n, occ, ...v });
     }
     for (const c of [...leaving, ...(face ? [face] : [])]) {
       const p = poseAt(c, t);
-      card.draw(vp, eye, P, { model: M4.model(p.rx + crx, p.ry + cry, p.rz, p.x, p.y, p.z), lod: 'fine', ink: c.ink, ...c.v });
+      card.draw(vp, eye, P, { model: M4.mul(Gd, M4.model(p.rx, p.ry, p.rz, p.x, p.y, p.z)), lod: 'fine', ink: c.ink, ...c.v });
     }
     // prénom en relief, en haut (dans le plan z = 0, à 13 % de la hauteur de l'écran)
     if (nameText) {
@@ -206,7 +214,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       }
     }
     // carte vierge (recto vers la caméra, sans texte)
-    card.draw(vp, eye, P, { model: M4.model(crx, Math.PI + cry, blank.jr, blank.jx, lay.yBlank, 0), lod: 'fine', ...blank });
+    card.draw(vp, eye, P, { model: M4.mul(Gb, M4.model(0, Math.PI, blank.jr, blank.jx, lay.yBlank, 0)), lod: 'fine', ...blank });
     if (nameText) nameR.draw(vp, eye, P, L, occ);
   }
 

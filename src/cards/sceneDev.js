@@ -35,7 +35,7 @@ requestAnimationFrame(frame);
 let gyroLive = false;
 addEventListener('pointermove', e => {
   if (e.pointerType !== 'mouse' && gyroLive) return;
-  scene.setTilt((e.clientX / innerWidth - 0.5) * 0.7, (0.5 - e.clientY / innerHeight) * 0.7);
+  scene.setTilt((e.clientX / innerWidth - 0.5) * 1.4, (0.5 - e.clientY / innerHeight) * 1.4);
 });
 let g0 = null;
 function onOrient(e) {
@@ -80,8 +80,8 @@ window.__scene.measure = () => {
   // valeurs (seulement celles changées) se recopie, et se passe aussi dans l'adresse
   if (P.has('reglages')) {
     const R = {
-      lightMode: [0, 3, 1, 'MANIÈRE : 0 orbite · 1 + hauteur · 2 lampe de poche · 3 cartes inclinées'],
-      elevAmp: [0, 1.2, 0.02, '1 : variation de hauteur'], flashZ: [20, 200, 2, '2 : hauteur de la lampe de poche'], cardTilt: [0, 0.4, 0.005, '3 : inclinaison des cartes'],
+      lightMode: [0, 3, 1, 'MANIÈRE : 3 cartes inclinées (défaut) · 0 orbite · 1 + hauteur · 2 lampe de poche'],
+      elevAmp: [0, 1.2, 0.02, '1 : variation de hauteur'], flashZ: [20, 200, 2, '2 : hauteur de la lampe de poche'], cardTilt: [0, 0.5, 0.005, '3 : inclinaison des cartes'], lightVar: [0, 1.5, 0.05, '3 : variation de la lumière'], sway: [0, 0.06, 0.001, 'respiration des cartes'],
       spot: [0, 0.4, 0.002, 'projecteur sur la carte active'],
       nameFlat: [0, 1, 0.01, 'prénom à plat : gris (0 = relief)'],
       light: [0, 0.3, 0.001, 'lampe : force'], lightAz: [0, 6.28, 0.01, 'lampe : direction'], lightZ: [20, 600, 5, 'lampe : hauteur'],
