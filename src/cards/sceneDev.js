@@ -2,13 +2,13 @@
 // La carte réponse se pose sous la question : le clavier s'ouvre tout seul (iPhone : au premier toucher, Safari
 // n'ouvre le clavier que dans la foulée d'un geste). Coin corné / glisser la question / toucher le paquet = une
 // autre ; « terminé » ferme le clavier ; molette ou glissé vertical sur la réponse = relire ; le signe sous la
-// réponse = donner ; carte vierge du bas = carte blanche ; « passer » (après 4 s sans frappe) = la fin. &reglages : réglages.
+// réponse = donner ; carte blanche (après une question passée) ; retour = le paquet ; PASSER (sur la carte blanche) = la fin. &reglages : réglages.
 import { createCardScene, LOOK } from './scene.js';
 
 const P = new URLSearchParams(location.search);
 const PRENOM = (P.get('prenom') || 'LEA').toUpperCase();
 const log = document.getElementById('log'), answer = document.getElementById('answer');
-const giveEl = document.getElementById('give'), passEl = document.getElementById('pass'), freeEl = document.getElementById('free'), veil = document.getElementById('veil');
+const giveEl = document.getElementById('give'), passEl = document.getElementById('pass'), backEl = document.getElementById('back'), veil = document.getElementById('veil');
 const canvas = document.getElementById('c');
 const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: P.has('shot') });
 const look = {}; for (const k in LOOK) if (P.has(k)) look[k] = +P.get(k);
@@ -42,12 +42,11 @@ function start(scene) {
     const canGive = st.active && st.active.text && !st.writing && !st.ended && r;
     giveEl.classList.toggle('on', !!canGive);
     if (r) { giveEl.style.left = ((r.left + r.right) / 2 - 22) + 'px'; giveEl.style.top = (r.bottom + 10) + 'px'; }
-    // choix (repères fixes, au repos) : « passer » (seulement après 4 s sans frappe, réponse vide) à mi-chemin entre la bande d'écriture et la carte
-    // vierge, « expression libre » juste au-dessus d'elle ; masqués clavier ouvert ou une fois le choix fait
-    const mk = scene.marks(), ch = st.choices && !st.kb;
-    // PASSER : aussi sur la carte blanche (même délai)
-    passEl.classList.toggle('on', !st.ended && !st.kb && (ch || st.mode === 'free') && st.idle > 4 && !(st.active && st.active.text)); freeEl.classList.toggle('on', ch);
-    if (mk) { passEl.style.top = ((mk.peekBottom + mk.blankTop) / 2 - 30) + 'px'; freeEl.style.top = (mk.blankTop - 28) + 'px'; }
+    // PASSER : sur la carte blanche seulement, après 3 s sans frappe, sous la carte ; retour : en haut à gauche
+    const mk = scene.marks();
+    passEl.classList.toggle('on', !st.ended && !st.kb && st.mode === 'free' && st.idle > 3 && !(st.active && st.active.text));
+    if (mk) passEl.style.top = (mk.deckBottom + 34) + 'px';
+    backEl.classList.toggle('on', !st.ended && st.mode === 'free');
     // le champ natif est posé, invisible, sur la carte réponse : la toucher ouvre le clavier (iPhone : seul un
     // toucher direct sur le champ l'ouvre)
     if (r && !st.ended) {
@@ -112,6 +111,7 @@ function start(scene) {
     if (r.type) log.textContent = r.type;
     if (r.type === 'write') { answer.value = scene.state().active?.text || ''; focusAnswer(); }
   });
+  backEl.addEventListener('click', () => { if (scene.back(now())) { answer.value = scene.state().active?.text || ''; focusAnswer(); log.textContent = 'retour'; } });
   giveEl.addEventListener('click', () => { if (scene.give(now())) { answer.blur(); log.textContent = 'donné'; } });
   passEl.addEventListener('click', () => { const r = scene.pass(now()); if (r) { answer.blur(); log.textContent = 'passé'; } });
 

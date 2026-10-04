@@ -239,3 +239,7 @@ Voir « Point de reprise » en tête de fichier.
 - Tests 43/43 et 86/86. Non vérifié : iPhone réel (clavier à l'ouverture de la carte vierge).
 - v11 : « passer » (au lieu de « passer cette étape »), visible seulement après 4 s sans frappe ; « carte blanche » au-dessus de la carte vierge.
 - v12 : PASSER en majuscules (Garamond espacé) ; carte blanche = élément principal : le paquet, la question et la réponse s'éloignent, elle monte à la place du paquet (plus de retour).
+
+## 04/10 — Scène 2 v13 : déroulé paquet → carte blanche → PASSER
+- Shader des cartes : uFade = fondu vers la couleur du fond (6/255) ; arrivées/départs/fins sans rectangle noir.
+- Paquet seul au début (fondu + petite montée, tirage à 1,1 s). Carte blanche après une question passée : monte du bas (haut à 82 %), « carte blanche » à la machine au centre, saut « touche-moi » toutes les 4,5 s. Toucher : tour sur elle-même (1,2 s, l'encre change quand le recto est caché) vers la place du paquet, qui recule et se fond. Retour (flèche haut gauche) : l'inverse. PASSER seulement sur la carte blanche (3 s sans frappe, vide).

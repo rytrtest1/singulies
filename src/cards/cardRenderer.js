@@ -158,6 +158,7 @@ uniform float uH, uB, uCrease, uFiber, uFoot, uFootW, uParallax;
 uniform float uRough, uSpec, uSheen, uGlint, uEdge, uGrain, uDiffRough, uEnvSpec, uToe;
 uniform vec4 uPaperXf;       // décalage (mm) + rotation du papier, propre à chaque carte
 uniform float uSeed;
+uniform float uFade;        // 1 = carte présente, 0 = fondue dans le fond (6/255), jamais un rectangle noir
 uniform float uShade;       // occlusion (cartes sous d'autres dans la pile)
 out vec4 o;
 const float PI = 3.14159265;
@@ -383,7 +384,7 @@ void main() {
   // courbe « photo » : pied qui écrase les noirs (papier presque noir), hautes lumières intactes
   col = max(col - uToe, 0.0) / (1.0 - uToe);
   col = pow(max(col, 0.0), vec3(1.0 / 2.2));
-  o = vec4(col, 1.0);
+  o = vec4(mix(vec3(6.0 / 255.0), col, uFade), 1.0);
 }`;
 
 function loadImage(url) {
@@ -477,7 +478,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uHasInkBack, card.inkBack ? 1 : 0);
     gl.uniform4fv(u.uCursor, card.cursor || [0, 0, 0, 0]); gl.uniform1f(u.uCursorFace, card.cursorFace ?? -1);
     const m = meshes[card.lod || 'fine'];
-    gl.uniform1f(u.uShade, card.shade ?? 1);
+    gl.uniform1f(u.uShade, card.shade ?? 1); gl.uniform1f(u.uFade, card.fade ?? 1);
     gl.bindVertexArray(m.vao);
     gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);

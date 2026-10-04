@@ -4,9 +4,11 @@
 // dessous le paquet et n'en dépasse que d'une ligne : le curseur y apparaît et le clavier s'ouvre (page).
 // Validée, elle sort dessous (3 lignes, molette / glissé vertical pour relire). Une autre question : glisser
 // la question de côté (elle esquisse le geste d'elle-même), le coin corné, ou toucher le paquet ; la carte
-// réponse reste sous le paquet. En bas, une carte vierge (« carte blanche », page) : la toucher en fait l'élément
-// principal — le paquet, la question et la réponse s'éloignent dans le noir, elle monte à leur place, on y écrit.
-// PASSER (page, après quelques secondes sans frappe) : la fin.
+// réponse reste sous le paquet. Après une première question passée, la carte blanche (« carte blanche » tapé en
+// son centre) monte du bas de l'écran, à moitié visible, et sautille de temps en temps (touche-moi). La toucher :
+// elle fait un tour sur elle-même en prenant la place du paquet (qui recule et se fond dans le fond) ; on y écrit ;
+// retour (page) = le paquet revient. Sur la carte blanche, PASSER (page) : la fin. Arrivées et départs : fondu
+// vers la couleur du fond, jamais vers le noir.
 // Lumière : manière 1 (orbite + hauteur) + la carte en focus s'incline vers la souris / le téléphone.
 import { createCardRenderer, M4, CARD } from './cardRenderer.js';
 import { loadTypeFont, makeInkMap, makeAnswerInk, makeStripInk, STRIP, TYPE } from './ink.js';
@@ -64,7 +66,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   let next = 0, discards = 0;
   // question : { id, q, v, ink, anim, t0, dur, from, landedAt } ; réponse : { v, ink, text, cursorMM, first, place, anim… }
   // answer : carte réponse de la question (sous le paquet) ; blank : carte vierge (expression libre), en bas
-  let question = null, answer = null, blank = null, mode = 'q', lastKeyT = 0, freeT = 0;
+  let question = null, answer = null, blank = null, mode = 'q', lastKeyT = 0, freeT = 0, backT = -1, startT = 0;
   const act = () => (mode === 'free' ? blank : answer);
   let leaving = [];
   let pendingDraw = -1;
@@ -89,8 +91,14 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   const deckPose = (i, v) => ({ x: v.jx, y: lay.yDeck + v.jy, z: i * PITCH, rx: 0, ry: 0, rz: v.jr });
   const centerPose = (v, dx = 0) => ({ x: v.jx * 3 + 1.2 + dx, y: lay.yDeck + v.jy * 2 - 0.8, z: FACE_Z, rx: 0, ry: Math.PI, rz: v.jr * 1.5 + dx * 0.0015 });
   const answerPose = v => ({ x: v.jx, y: lay.yAns + v.jy, z: -0.8, rx: 0, ry: Math.PI, rz: v.jr });
-  // carte vierge au repos : en bas de l'écran, son haut vers 85 % (le reste sort de l'écran) ; out = rangée
-  const blankRest = (v, out = 0) => ({ x: v.jx, y: (0.5 - 0.94) * lay.Hw - CARD.h / 2 + v.jy - out * (CARD.h + 30), z: 0, rx: 0, ry: Math.PI, rz: v.jr * 0.6 });
+  // carte blanche au repos : en bas de l'écran, son haut vers 82 % (le bas sort de l'écran, le texte au centre
+  // reste visible) ; out = rangée sous l'écran ; bob = petit saut « touche-moi » toutes les 4,5 s
+  const bob = c => {
+    if (!c || c.place !== 'rest' || c.anim || c.out > 0.05 || c.appearT == null || lastT < c.appearT) return 0;
+    const ph = (lastT - c.appearT) % 4.5;
+    return 3.2 * sstep(0, 0.16, ph) * (1 - sstep(0.16, 0.45, ph)) + 1.1 * sstep(0.45, 0.57, ph) * (1 - sstep(0.57, 0.85, ph));
+  };
+  const blankRest = (v, out = 0, dy = 0) => ({ x: v.jx, y: (0.5 - 0.91) * lay.Hw - CARD.h / 2 + v.jy - out * (CARD.h + 30) + dy, z: 0, rx: 0, ry: Math.PI, rz: v.jr * 0.6 });
   const visibleStack = () => Math.max(0, Math.min(STACK, QUESTIONS.length - next));
 
   // ---------- animations ----------
@@ -110,7 +118,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     return -7 * sstep(0, 0.6, ph) * (1 - sstep(0.9, 1.8, ph));
   }
   const restPose = c => c === question ? centerPose(c.v, dragging ? dragX : hintX(lastT))
-    : c === blank ? (c.place === 'up' ? { x: 1.2 + c.v.jx * 0.5, y: lay.yDeck - 0.8 + c.v.jy, z: FACE_Z, rx: 0, ry: Math.PI, rz: c.v.jr } : blankRest(c.v, c.out))
+    : c === blank ? (c.place === 'up' ? { x: 1.2 + c.v.jx * 0.5, y: lay.yDeck - 0.8 + c.v.jy, z: FACE_Z, rx: 0, ry: Math.PI, rz: c.v.jr } : blankRest(c.v, c.out, bob(c)))
     : c.place === 'peek' ? peekPose(c.v) : answerPose(c.v);
   function moveAnswer(t, place) {
     if (!answer || answer.place === place) return;
@@ -131,6 +139,12 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (c.anim === 'discard') {
       const a = c.from, e = Math.pow(u, 1.8), s = c.dir || -1;
       return { ...a, x: a.x + s * e * (lay.Ww / 2 + CARD.w * 1.2), y: a.y - 8 * u, z: a.z + 4 * sstep(0, 0.3, u), rz: a.rz + s * 0.3 * e };
+    }
+    if (c.anim === 'flip') {                          // la carte blanche se soulève, fait un tour sur elle-même, se pose
+      const a = c.from, b = restPose(c), e = ease(u), p = lerpPose(a, b, e);
+      p.ry = a.ry + (c.place === 'up' ? 2 : -2) * Math.PI * sstep(0.12, 0.85, u);
+      p.z += (CARD.w / 2 + 6) * Math.sin(Math.PI * u); p.rx = -0.1 * Math.sin(Math.PI * u);
+      return p;
     }
     if (c.anim === 'move') {                          // déplacement de la carte réponse (dessous ↔ bande, centre)
       const a = c.from, b = restPose(c), e = ease(u), p = lerpPose(a, b, e);
@@ -212,18 +226,29 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (f !== answer.first) { answer.first = f; renderAnswer(); }
   }
 
+  const FLIP_T = 1.2;
   function chooseBlank(t) {
-    if (ended || !blank || mode === 'free' || busy(answer, t)) return false;
+    if (ended || !blank || mode === 'free' || busy(answer, t) || busy(blank, t)) return false;
     if (writing) { writing = false; renderAnswer(answer); }
     mode = 'free'; freeT = t;
-    blank.from = poseOf(blank, t); blank.place = 'up'; blank.anim = 'move'; blank.t0 = t; blank.dur = MOVE_T;
+    blank.from = poseOf(blank, t); blank.place = 'up'; blank.anim = 'flip'; blank.t0 = t; blank.dur = FLIP_T;
     setAnswerText('', blank);
     startWriting();
     emit('blank', {});
     return true;
   }
-  // les choix (carte vierge, « passer cette étape ») : tant qu'aucune réponse n'est validée
-  const choicesOn = () => !ended && mode === 'q' && !(answer && answer.text && !writing && answer.place === 'below');
+  // retour : la carte blanche refait son tour et redescend, le paquet revient
+  function back(t) {
+    if (mode !== 'free' || ended || busy(blank, t)) return false;
+    writing = false;
+    mode = 'q'; backT = t;
+    blank.from = poseOf(blank, t); blank.place = 'rest'; blank.anim = 'flip'; blank.t0 = t; blank.dur = FLIP_T;
+    if (blank.ink) { card.freeInk(blank.ink); blank.ink = null; } blank.text = '';
+    startWriting();
+    return true;
+  }
+  // la carte blanche s'offre après une première question passée, tant qu'aucune réponse n'est validée
+  const choicesOn = () => !ended && mode === 'q' && discards >= 1 && !(answer && answer.text && !writing && answer.place === 'below');
 
   // ---------- lumière (manière 1) + inclinaison de la carte en focus ----------
   const tilt = { x: 0, y: 0 }, ts = { x: 0, y: 0 };
@@ -245,9 +270,15 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     lastT = t;
     layout(W, H);
     if (pendingDraw >= 0 && t >= pendingDraw) { pendingDraw = -1; drawNext(t); }
-    if (!blank) blank = { v: { ...variant(), noLogo: true }, ink: null, text: '', cursorMM: null, first: 0, place: 'rest', out: 1 };
-    // la carte vierge monte du bas une fois la carte réponse posée ; elle se range quand le choix est fait
-    blank.out += (((answer && !answer.anim && choicesOn()) || mode === 'free' ? 0 : 1) - blank.out) * Math.min(1, dt * 2.2);
+    if (!blank) {
+      const v = { ...variant(), noLogo: true };
+      blank = { v, ink: null, labelInk: card.makeInk(makeInkMap('carte blanche', Math.floor(v.seed * 1000) + 3).canvas), text: '', cursorMM: null, first: 0, place: 'rest', out: 1, appearT: null };
+    }
+    // la carte blanche monte du bas (après une question passée) ; elle se range quand une réponse est validée
+    const bIn = (answer && !answer.anim && choicesOn()) || mode === 'free' || busy(blank, t);
+    if (bIn && blank.appearT == null) blank.appearT = t + 2.2;
+    if (!bIn) blank.appearT = null;
+    blank.out += ((bIn ? 0 : 1) - blank.out) * Math.min(1, dt * 1.8);
     for (const c of [question, answer, blank]) if (c && c.anim && t - c.t0 >= c.dur) {
       const first = c === answer && c.anim === 'slide';
       c.anim = null;
@@ -261,7 +292,6 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     focusAns += (((mode === 'free' || (answer && (writing || (answer.place === 'below' && answer.text)))) ? 1 : 0) - focusAns) * Math.min(1, dt * 3);
     for (let i = 0; i < glow.length; i++) glow[i] = (glow[i] || 0) * Math.exp(-dt / 1.4);
     const te = ended ? t - ended.t0 : 0;
-    const endU = ended ? sstep(2.4, 3.2, te) : 0;                 // tout s'éteint à la fin
 
     // caméra ; clavier ouvert : la carte réponse (à sa taille) au milieu de la partie visible, le reste s'efface
     const vis = 1 - kbPx / H, scale = 1, Hs = lay.Hw, Ds = lay.D;
@@ -309,45 +339,52 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       return M4.mul(M4.mul(M4.model(0, 0, 0, px, py, pz + dz), M4.model(rx, ry, 0)), M4.model(0, 0, 0, -px, -py, -pz));
     };
     const wQ = 1 - focusAns, wA = focusAns;
-    // fin sans paire (expression libre, passer) : le paquet et ce qui l'accompagne s'éloignent aussi dans le noir
-    // (une carte qui s'éteint sur place ferait un rectangle plus noir que le fond)
-    const fAway = mode === 'free' ? Math.pow(ease(clamp01((t - freeT) / 1.6)), 1.4) : 0;   // carte blanche prise
-    const uAway = Math.max(fAway, ended && ended.kind !== 'reponse' ? Math.pow(ease(clamp01(te / 1.9)), 1.4) : 0);
+    // le paquet (avec la question et la carte réponse) : arrivée = fondu depuis le fond + petite montée ;
+    // départ quand la carte blanche prend sa place = il recule et se fond dans le fond ; retour = l'inverse.
+    // Fin sans paire : il s'éloigne dans le noir. Jamais d'assombrissement vers le noir (rectangle sur le fond).
+    const intro = ease(clamp01((t - startT) / 1.4));
+    const qVis = mode === 'free' ? 1 - ease(clamp01((t - freeT) / 0.9)) : backT >= 0 ? ease(clamp01((t - backT - 0.2) / 0.9)) : 1;
+    const uEnd = ended && ended.kind !== 'reponse' ? Math.pow(ease(clamp01(te / 1.9)), 1.4) : 0;
     const Gq0 = group(0, lay.yDeck, 0, 0.0, ended ? 0 : wQ);
-    const Gq = uAway ? M4.mul(M4.model(0, 0, 0, 0, 18 * uAway, -650 * uAway), Gq0) : Gq0, Ga = !ended && answer && answer.place === 'below' && !answer.anim ? group(0, lay.yAns, 0, 2.3, wA) : Gq;
-    const Gb = !ended && blank && blank.place === 'up' && !blank.anim ? group(0, lay.yDeck, 0, 2.3, wA) : ended && ended.kind !== 'theme' && mode !== 'free' ? Gq : group(0, bp ? bp.y : 0, 0, 4.1, 0);
-    const endShade = 1 - endU;
-    const dimQ = (ended ? 1 : 1 - L.unfocusDim * (1 - wQ)) * endShade, dimA = (ended ? 1 : 1 - L.unfocusDim * (1 - wA)) * endShade;
+    const Gq = M4.mul(M4.model(0, 0, 0, 0, 6 * (1 - qVis) + 18 * uEnd, -30 * (1 - intro) - 140 * (1 - qVis) - 650 * uEnd), Gq0);
+    const Ga = !ended && answer && answer.place === 'below' && !answer.anim ? group(0, lay.yAns, 0, 2.3, wA) : Gq;
+    const Gb = !ended && blank && blank.place === 'up' && !blank.anim ? group(0, lay.yDeck, 0, 2.3, wA) : group(0, bp ? bp.y : 0, 0, 4.1, 0);
+    const endFade = ended ? 1 - sstep(2.4, 3.2, te) : 1;
     const deckFade = ended ? 1 - sstep(0.3, 1.6, te) : 1;           // le paquet s'efface pendant que la paire part
-    const goneF = mode === 'free' ? 1 - sstep(0.3, 1.5, t - freeT) : 1;      // le paquet parti (carte blanche)
-    const fadeQ = (ended && ended.kind !== 'reponse' ? deckFade : 1) * goneF, fadeB = ended && ended.kind !== 'theme' ? deckFade : 1;
-    const dimB = (ended ? 1 : mode === 'free' ? 1 - L.unfocusDim * (1 - wA) : 1 - L.unfocusDim) * endShade;
+    const vq = intro * Math.pow(qVis, 1.5);
+    const fadeD = vq * deckFade * endFade;
+    const fadeQ = vq * (ended && ended.kind !== 'reponse' ? deckFade : 1) * endFade;
+    const fadeB = (ended && mode === 'q' ? deckFade : 1) * endFade;
+    const dimQ = ended ? 1 : 1 - L.unfocusDim * (1 - wQ), dimA = ended ? 1 : 1 - L.unfocusDim * (1 - wA);
+    const dimB = ended ? 1 : mode === 'free' ? dimA : 1 - L.unfocusDim;
     gl.enable(gl.DEPTH_TEST);
     const model = (G, p) => M4.mul(G, M4.model(p.rx, p.ry, p.rz, p.x, p.y, p.z));
-    const occQ = question && mode === 'q' ? { x: qp.x, y: qp.y, z: qp.z, rz: qp.rz } : null;
+    const occQ = question && mode === 'q' && qVis > 0.99 ? { x: qp.x, y: qp.y, z: qp.z, rz: qp.rz } : null;
     // paquet (d'un bloc avec la question posée dessus)
-    const n = dimQ * deckFade * goneF > 0.02 ? visibleStack() : 0;     // effacés (clavier ouvert) : on ne les dessine plus
+    const n = fadeD > 0.01 ? visibleStack() : 0;
     for (let i = 0; i < n; i++) {
       const v = stack[STACK - n + i], p = deckPose(i, v);
-      card.draw(vp, eye, P, { model: model(Gq, p), lod: i === n - 1 ? 'fine' : 'coarse', shade: (0.55 + 0.45 * (i + 1) / n) * dimQ * deckFade * goneF, occ: ended ? null : occQ, ...v });
+      card.draw(vp, eye, P, { model: model(Gq, p), lod: i === n - 1 ? 'fine' : 'coarse', shade: (0.55 + 0.45 * (i + 1) / n) * dimQ, fade: fadeD, occ: ended ? null : occQ, ...v });
     }
-    for (const c of leaving) card.draw(vp, eye, P, { model: model(Gq, poseOf(c, t)), lod: 'fine', ink: c.ink, shade: dimQ, ...c.v });
-    if (question && dimQ * fadeQ > 0.01) {
-      // coin supérieur droit corné, seulement après cornerDelay s : il se soulève de temps en temps
-      // (comme une page qu'on va tourner) puis retombe — invitation à prendre une autre question
+    for (const c of leaving) card.draw(vp, eye, P, { model: model(Gq, poseOf(c, t)), lod: 'fine', ink: c.ink, shade: dimQ, fade: fadeQ, ...c.v });
+    if (question && fadeQ > 0.01) {
+      // coin supérieur droit légèrement corné après cornerDelay s
       const idleFor = question.anim ? -1 : t - question.landedAt;
       const on = idleFor > L.cornerDelay && !ended && mode === 'q' ? 1 : 0;
       question.curlA = (question.curlA || 0) + (on - (question.curlA || 0)) * Math.min(1, dt * 1.5);
       const lift = -0.3 * question.curlA;                          // vers la caméra (carte retournée)
-      card.draw(vp, eye, P, { model: model(Gq, qp), lod: 'fine', ink: question.ink, shade: dimQ * fadeQ, ...question.v, curl: [-1, 1, lift] });
+      card.draw(vp, eye, P, { model: model(Gq, qp), lod: 'fine', ink: question.ink, shade: dimQ, fade: fadeQ, ...question.v, curl: [-1, 1, lift] });
     }
     if (answer && fadeQ > 0.01) {
       const cur = mode === 'q' && !busy(answer, t) && (writing || !answer.text) && !ended ? cursorAt(answer.cursorMM, t) : {};
-      card.draw(vp, eye, P, { model: model(Ga, anp), lod: 'fine', ink: answer.ink, shade: (mode === 'free' ? dimQ : dimA) * fadeQ, occ: answer.place === 'peek' && !ended ? occQ : null, ...answer.v, ...cur });
+      card.draw(vp, eye, P, { model: model(Ga, anp), lod: 'fine', ink: answer.ink, shade: mode === 'free' ? dimQ : dimA, fade: fadeQ, occ: answer.place === 'peek' && !ended ? occQ : null, ...answer.v, ...cur });
     }
-    if (blank && blank.out < 0.999 && dimB * fadeB > 0.01) {
+    if (blank && blank.out < 0.999 && fadeB > 0.01) {
+      // « carte blanche » tapé au recto tant qu'elle attend ; pendant son tour, l'encre change quand le recto est caché
+      const fu = blank.anim === 'flip' ? sstep(0.12, 0.85, clamp01((t - blank.t0) / blank.dur)) : 1;
+      const label = blank.anim === 'flip' ? (blank.place === 'up' ? fu < 0.5 : fu >= 0.5) : blank.place === 'rest';
       const cur = mode === 'free' && !busy(blank, t) && (writing || !blank.text) && !ended ? cursorAt(blank.cursorMM || { x: 10, y: CARD.h / 2 - TYPE.lead + 1.2 }, t) : {};
-      card.draw(vp, eye, P, { model: model(Gb, bp), lod: 'fine', ink: blank.ink, shade: dimB * fadeB, ...blank.v, ...cur });
+      card.draw(vp, eye, P, { model: model(Gb, bp), lod: 'fine', ink: label ? blank.labelInk : blank.ink, shade: dimB, fade: fadeB, ...blank.v, ...cur });
     }
     // prénom (à plat, en retrait) ; ses lettres s'éclairent quand on les tape ; tout s'allume à la fin
     if (nameText) {
@@ -363,7 +400,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
         nameKey = key;
       }
       if (kb > 0.02) gl.disable(gl.DEPTH_TEST);           // clavier ouvert : le prénom reste devant
-      nameR.draw(vp, eye, P, L, dimQ > 0.02 ? occQ : null);
+      nameR.draw(vp, eye, P, L, fadeQ > 0.5 ? occQ : null);
       gl.enable(gl.DEPTH_TEST);
     }
     if (ended && !ended.done && te > 3.3) { ended.done = true; emit('end', { kind: ended.kind, text: ended.text, id: ended.id }); }
@@ -394,7 +431,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   const rectOf = q => { const xs = q.map(p => p[0]), ys = q.map(p => p[1]); return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) }; };
   function hit(x, y) {
     if (!vp) return null;
-    if (mode === 'free') return blank && inside(screenQuad(poseOf(blank, lastT)), x, y) ? 'blank' : null;
+    if (mode === 'free' || (backT >= 0 && lastT - backT < 0.8)) return mode === 'free' && blank && inside(screenQuad(poseOf(blank, lastT)), x, y) ? 'blank' : null;
     if (question && inside(screenQuad(poseOf(question, lastT)), x, y)) return 'question';
     if (answer && inside(screenQuad(poseOf(answer, lastT)), x, y)) return 'answer';
     if (blank && blank.out < 0.5 && inside(screenQuad(poseOf(blank, lastT)), x, y)) return 'blank';
@@ -417,7 +454,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function marks() {
     if (!vp) return null;
     const z = { jx: 0, jy: 0, jr: 0 };
-    return { peekBottom: rectOf(screenQuad(peekPose(z))).bottom, blankTop: rectOf(screenQuad(blankRest(z))).top };
+    return { peekBottom: rectOf(screenQuad(peekPose(z))).bottom, blankTop: rectOf(screenQuad(blankRest(z))).top, deckBottom: rectOf(screenQuad(centerPose(z))).bottom };
   }
   function lowestBottom() {
     if (!vp) return null;
@@ -475,15 +512,15 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     return 'end';
   }
 
-  function start(t) { pendingDraw = t + 0.6; }
+  function start(t) { startT = t; pendingDraw = t + 1.1; }      // le paquet arrive (fondu), puis il tire
   function setName(s) { nameText = (s || '').toUpperCase(); nameKey = ''; glow = []; }
   function setTilt(x, y) { tilt.x = Math.max(-1, Math.min(1, x)); tilt.y = Math.max(-1, Math.min(1, y)); }
   function setKeyboard(px) { kbPx = px; }
   return {
-    frame, tap, drag, release, give, pass, start, setName, setTilt, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
+    frame, tap, drag, release, give, pass, back, start, setName, setTilt, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
-    state: () => ({ idle: mode === 'free' ? lastT - Math.max(freeT + MOVE_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),
+    state: () => ({ idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),
     look: L, layout: lay,
   };
 }
