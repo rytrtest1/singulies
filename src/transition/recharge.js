@@ -1,12 +1,14 @@
-// Transition accueil → cartes (04/10). Trois temps séparés, jamais deux mouvements à la fois :
-// 1) la recharge : le prénom baisse un peu ; une à une, du fond vers l'avant, quelques lettres allumées du champ
-//    (celles du prénom) quittent leur mot et viennent se fondre dans la même lettre du prénom, qui remonte en
-//    clarté à chaque arrivée. Peu de lettres (une goutte à la fois), vraie perspective (elles grossissent en
-//    approchant), trajectoire légèrement courbe. Le reste du champ s'éteint sur place, des bords vers le prénom.
-// 2) un court repos : le prénom brille seul sur le fond.
-// 3) la montée : la caméra descend — le prénom monte jusqu'à sa place de la scène des cartes (chaque lettre
-//    vers sa position exacte, une ou deux lignes → une ligne), les derniers mots montent avec parallaxe, la
-//    vignette s'efface (fond uni des cartes) et le prénom se met en retrait (gris). Puis la scène prend la main.
+// Transition accueil → cartes (04/10, v2). Trois temps séparés, jamais deux mouvements à la fois :
+// 1) la recharge : le prénom baisse un peu ; une à une, du fond vers l'avant, TOUTES les lettres allumées du
+//    champ (celles du prénom) quittent leur mot et rejoignent la même lettre du prénom. Elles partent telles
+//    qu'elles sont (profondeur, flou, clarté, lumière intérieure, inclinaison) et volent dans le monde du champ
+//    (vraie perspective, même shader) en devenant peu à peu comme la lettre du prénom : nettes, droites, à sa
+//    taille, à sa clarté ; arrivées, elles s'y fondent et la lettre du prénom se recharge. Pendant ce temps les
+//    lettres grises s'éteignent (des bords vers le prénom) et ont complètement disparu quand la dernière arrive.
+//    Variante « lumiere » (?transition=lumiere) : seule la lumière part — la lettre reste à sa place, grise, et
+//    s'éteint avec les autres ; sa lumière, en forme de lettre, fait le voyage.
+// 2) un court repos : le prénom brille seul (la scène des cartes se prépare à ce moment, rien ne bouge).
+// 3) la montée : la caméra descend — le prénom monte à sa place de la scène des cartes, gris en retrait.
 // Fonctions pures du temps T (s depuis le départ) : aucune animation ne dépend du nombre d'images.
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -14,115 +16,116 @@ export const sm = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t 
 export const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
 const lerp = (a, b, u) => a + (b - a) * u;
 
-export const T_REST = 5.0;        // fin de la recharge (dernière arrivée ≤ 4,7 s)
+export const REST = 0.6;          // repos minimal après la dernière arrivée (s)
 export const RISE = 1.9;          // durée de la montée (s)
 export const NAME_LOW = 0.62;     // le prénom baisse avant d'être rechargé
 export const NAME_GRAY = 0.42;    // gris « en retrait » de la scène des cartes (LOOK.nameFlat)
-const DEP0 = 0.7, DEP_SPAN = 1.9; // départs étalés de 0,7 à 2,6 s, du plus loin au plus proche
-const CROSS = 0.35;               // fondu lettre du mot → lettre en vol (s)
+const NAME_LIT = 0.95;            // clarté visée par une lettre qui rejoint le prénom
+const DEP0 = 0.5, DEP_SPAN = 2.2; // départs étalés, du plus loin au plus proche
+const MAX_FLY = 64;
 
-// ctx : { words, letterScreen(w, i), level(w, i, x, y) → lumière, name: [{ ch, x, y, fs }] (lettres du prénom,
-// sans espaces), W, H, rng }
+// ctx : { words, letterScreen(w, i), level(w, i, x, y) → lumière, name: [{ ch, x, y, fs }], W, H, rng, mode }
 export function planRecharge(ctx) {
-  const { words, letterScreen, level, name, W, H, rng } = ctx;
+  const { words, letterScreen, level, name, W, H, rng, mode = 'lettres' } = ctx;
   const chars = new Set(name.map((g) => g.ch.toUpperCase()));
-  const pool = [];
+  let pool = [];
   for (const w of words) {
-    if (w.base < 0.5 || w.z < 8 || w.z > 33) continue;            // assez net, assez loin : il vient vers nous
+    if (w.base < 0.3) continue;
     for (let i = 0; i < w.chars.length; i++) {
       const C = w.chars[i].toUpperCase();
-      if (!chars.has(C) || (w.occL && w.occL[i] > 0.3)) continue;
+      if (!chars.has(C) || (w.occL && w.occL[i] > 0.6)) continue;
       const p = letterScreen(w, i);
-      if (p.x < W * 0.04 || p.x > W * 0.96 || p.y < H * 0.06 || p.y > H * 0.95) continue;
+      if (p.x < -p.fs || p.x > W + p.fs || p.y < 0 || p.y > H + p.fs) continue;
       const L = level(w, i, p.x, p.y);
-      if (L < 0.12) continue;
-      pool.push({ w, i, C, z: w.z, score: L * w.base, L });
+      if (L < 0.06) continue;                                   // pas (encore) allumée : elle s'éteint avec les grises
+      pool.push({ w, i, C, z: w.z, L, x: p.x, y: p.y });
     }
   }
-  const N = Math.min(24, Math.max(10, name.length + 4), pool.length);
-  const chosen = [], count = name.map(() => 0);
-  const spread = (c) => {   // éviter deux départs voisins : le regard suit une lettre à la fois
-    const p = letterScreen(c.w, c.i);
-    let k = 1;
-    for (const o of chosen) if (Math.hypot(o.p0g.x - p.x, o.p0g.y - p.y) < 0.14 * Math.max(W, H)) k *= 0.35;
-    return { s: c.score * k * (0.8 + 0.4 * rng()), p };
-  };
-  const take = (filter) => {
-    let best = null, bs = -1, bp = null;
-    for (const c of pool) { if (c.used || !filter(c)) continue; const { s, p } = spread(c); if (s > bs) { bs = s; best = c; bp = p; } }
-    if (best) { best.used = true; best.p0g = bp; }
-    return best;
-  };
-  // chaque lettre du prénom reçoit au moins une lettre du champ (quand le champ en a une)
-  const idx = name.map((_, j) => j).sort(() => rng() - 0.5);
-  for (const j of idx) {
-    if (chosen.length >= N) break;
-    const c = take((c) => c.C === name[j].ch.toUpperCase());
-    if (c) { c.j = j; count[j]++; chosen.push(c); }
-  }
-  while (chosen.length < N) {
-    const c = take(() => true);
-    if (!c) break;
-    let j = -1;
-    name.forEach((g, k) => { if (g.ch.toUpperCase() === c.C && (j < 0 || count[k] < count[j])) j = k; });
-    c.j = j; count[j]++; chosen.push(c);
+  if (pool.length > MAX_FLY) pool = pool.sort((a, b) => b.L - a.L).slice(0, MAX_FLY);
+  // la lettre du prénom visée : parmi celles de même lettre, la plus proche à l'écran, en équilibrant
+  const count = name.map(() => 0);
+  for (const c of pool) {
+    let j = -1, best = Infinity;
+    name.forEach((g, k) => {
+      if (g.ch.toUpperCase() !== c.C) return;
+      const d = Math.hypot(g.x - c.x, g.y - c.y) / Math.max(W, H) + 0.35 * count[k];
+      if (d < best) { best = d; j = k; }
+    });
+    c.j = j; count[j]++;
   }
   // du fond vers l'avant-plan (comme la lumière), petit désordre
-  chosen.sort((a, b) => b.z - a.z);
-  const n = chosen.length;
-  const flyers = chosen.map((c, k) => ({
-    w: c.w, i: c.i, j: c.j, ch: c.w.chars[c.i], L: c.L,
-    dep: DEP0 + DEP_SPAN * (n > 1 ? k / (n - 1) : 0) + (rng() - 0.5) * 0.24,
-    dur: 1.55 + 0.45 * rng(),
-    bow: (rng() < 0.5 ? -1 : 1) * (0.06 + 0.08 * rng()),
-    p0: null,
+  pool.sort((a, b) => b.z - a.z);
+  const n = pool.length;
+  const flyers = pool.map((c, k) => ({
+    w: c.w, i: c.i, j: c.j, L: c.L,
+    dep: DEP0 + DEP_SPAN * (n > 1 ? k / (n - 1) : 0) + (rng() - 0.5) * 0.3,
+    dur: 2.0 + 0.6 * rng(),
+    bow: (rng() < 0.5 ? -1 : 1) * (0.05 + 0.1 * rng()),
+    s0: null,
   }));
+  const tEnd = flyers.reduce((m, f) => Math.max(m, f.dep + f.dur), 3.2);
   const src = new Map();   // mot → { rang → départ }
   for (const f of flyers) { if (!src.has(f.w)) src.set(f.w, {}); src.get(f.w)[f.i] = f.dep; }
-  return { flyers, src, fed: count.map((c) => c > 0) };
+  return { flyers, src, fed: count.map((c) => c > 0), tEnd, mode };
 }
 
-// facteur d'alpha d'une lettre du champ : extinction des bords vers le prénom ; la lettre partie s'efface
-// pendant que sa copie en vol apparaît
-export function fieldMod(plan, T, w, i, dn) {
-  const seed = w.lp[i].seed;
-  const t0 = 1.1 + 2.7 * (1 - dn) + 0.5 * ((seed * 0.618) % 1);
-  let m = 1 - sm(t0, t0 + 1.5, T);
+// lettres du champ : les grises s'éteignent des bords vers le prénom, toutes éteintes à la dernière arrivée ;
+// une lettre partie disparaît d'un coup (sa copie en vol est identique à cet instant) — variante lumière :
+// elle reste, grise, et ne perd que sa lumière
+export function fieldLetter(plan, T, w, i, dn, buf, o) {
+  const end = plan.tEnd - 0.15;
+  const t0 = Math.min(end - 1.2, 0.3 + 1.6 * (1 - dn) + 0.4 * ((w.lp[i].seed * 0.618) % 1));
+  const m = 1 - sm(t0, end, T);
   const s = plan.src.get(w);
-  if (s && s[i] != null) m *= 1 - sm(s[i], s[i] + CROSS, T);
-  return m;
+  const gone = s && s[i] != null && T >= s[i];
+  if (gone && plan.mode !== 'lumiere') { buf[o + 7] = 0; buf[o + 17] = 0; return; }
+  buf[o + 7] *= m;
+  buf[o + 17] = gone ? 0 : buf[o + 17] * m;
 }
 
-// lettres en vol et clarté du prénom à l'instant T. name : positions actuelles des lettres du prénom ;
-// letterScreen(w, i) : position actuelle de la lettre source (lue au départ) ; b0(f) : clarté de départ
-export function rechargeFrame(plan, T, name, letterScreen, b0) {
+// instances des lettres en vol, à l'instant T, dans le monde du champ. world(w, i) : la lettre en monde
+// (field.letterWorld) ; cam, f, (vx, vy) : caméra et projection ; name : positions écran du prénom ;
+// capHeight : hauteur de capitale (em). Renvoie aussi la clarté de chaque lettre du prénom.
+export function rechargeFrame(plan, T, ctx) {
+  const { world, cam, f, vx, vy, name, capHeight, dim } = ctx;
   const out = [];
-  const keep = name.map(() => 1);              // Π (1 − 0,8·arrivée)
-  for (const f of plan.flyers) {
-    if (T < f.dep) continue;
-    if (!f.p0) { f.p0 = letterScreen(f.w, f.i); f.b0 = b0(f); }
-    const u = clamp01((T - f.dep) / f.dur), ue = easeInOut(u);
-    const p1 = name[f.j];
-    // droite en 3D vue en perspective : poids 1/taille (profondeur), taille harmonique (grossit en approchant)
-    const a = (1 - ue) / f.p0.fs, b = ue / p1.fs;
-    let x = (f.p0.x * a + p1.x * b) / (a + b), y = (f.p0.y * a + p1.y * b) / (a + b);
-    const fs = 1 / (a + b);
-    const dx = p1.x - f.p0.x, dy = p1.y - f.p0.y, d = Math.hypot(dx, dy) || 1;
-    const bow = Math.sin(Math.PI * ue) * f.bow * d;
-    x += -dy / d * bow; y += dx / d * bow;
-    // une goutte de lumière, pas un sprite blanc : à peine plus claire qu'au départ ; elle se fond dans la
-    // lettre du prénom avant de la recouvrir (aucun dédoublement), qui gagne la même clarté au même moment
-    const alpha = lerp(f.b0, Math.min(0.72, 0.2 + 1.5 * f.b0), sm(0.15, 0.6, u)) * sm(f.dep, f.dep + CROSS, T) * (1 - sm(0.62, 0.93, u));
-    if (alpha > 0.003) out.push({ ch: f.ch, x, y, fs, alpha });
-    keep[f.j] *= 1 - 0.8 * sm(0.6, 0.95, u);
+  const keep = name.map(() => 1);              // Π (1 − 0,45·arrivée)
+  const light = plan.mode === 'lumiere';
+  for (const fl of plan.flyers) {
+    if (T < fl.dep) continue;
+    if (!fl.s0) { fl.s0 = world(fl.w, fl.i); fl.L0 = fl.L; }
+    // départ doux, arrivée franche : la lettre est absorbée par le prénom au lieu de tourner autour
+    const s0 = fl.s0, u = clamp01((T - fl.dep) / fl.dur), ue = 1 - Math.cos(u * Math.PI / 2);
+    const p1 = name[fl.j], g = s0.g;
+    // cible : la lettre du prénom, à la profondeur où ce glyphe a sa taille (px par em) ; centre du glyphe
+    const zt = f * s0.S / p1.fs;
+    const sx = p1.x + s0.ecx * p1.fs, sy = p1.y - 0.5 * capHeight * p1.fs;
+    const Xt = (sx - vx) * zt / f + cam.x, Yt = (sy - vy) * zt / f + cam.y;
+    let X = lerp(s0.X, Xt, ue), Y = lerp(s0.Y, Yt, ue);
+    const z = lerp(s0.z, zt, ue);
+    const dx = Xt - s0.X, dy = Yt - s0.Y, d = Math.hypot(dx, dy) || 1;
+    const bow = Math.sin(Math.PI * ue) * fl.bow * d;
+    X += -dy / d * bow; Y += dx / d * bow;
+    const merge = sm(0.35, 0.85, u), sharp = sm(0.25, 0.8, u);
+    const fade = 1 - sm(0.74, 0.97, u);            // arrivée : elle se fond dans la lettre du prénom
+    const e = new Float32Array(24);
+    e[0] = X; e[1] = Y; e[2] = z; e[3] = s0.psi * (1 - ue);
+    e[4] = -s0.ecx * s0.S;                       // la lettre seule : son centre est (X, Y, z)
+    e[5] = (s0.jit * (1 - ue) + 0.5 * capHeight) * s0.S; e[6] = s0.S;
+    e[7] = lerp(s0.alpha, 1, ue) * fade;
+    e[8] = g.u0; e[9] = g.v0; e[10] = g.u1; e[11] = g.v1;
+    e[12] = g.x0; e[13] = g.y0; e[14] = g.x1; e[15] = g.y1;
+    e[16] = light ? 0 : s0.gray;                 // variante lumière : la lettre grise est restée à sa place
+    e[17] = fl.L0 * (1 - merge); e[18] = sharp; e[19] = merge;
+    e[20] = s0.seed; e[21] = NAME_LIT;
+    out.push({ z, e });
+    keep[fl.j] *= 1 - 0.45 * sm(0.7, 0.97, u);
   }
+  out.sort((a, b) => b.z - a.z);                 // loin → proche
   // clarté du prénom : baisse au départ, remonte à chaque arrivée ; une lettre sans donneur se recharge seule
   const low = 1 - (1 - NAME_LOW) * sm(0.1, 1.1, T);
-  const bright = name.map((_, j) => {
-    const c = plan.fed[j] ? 1 - keep[j] : sm(3.6, 4.6, T);
-    return lerp(low, 1, c);
-  });
-  return { flyers: out, bright };
+  const bright = name.map((_, j) => lerp(low, 1, plan.fed[j] ? 1 - keep[j] : sm(plan.tEnd - 1.4, plan.tEnd - 0.2, T)));
+  return { inst: out.map((o) => o.e), bright };
 }
 
 // montée : 0 → 1 entre riseT et riseT + RISE

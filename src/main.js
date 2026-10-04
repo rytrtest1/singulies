@@ -9,10 +9,10 @@ import { buildAtlas } from './gl/atlas.js';
 import { createRenderer } from './render/renderer.js';
 import { layoutName } from './name/layout.js';
 import { loadState, saveValidated, clearStored, clearValidated } from './app/storage.js';
-import { createField, MODES, grayOf } from './field/field.js';
+import { createField, MODES } from './field/field.js';
 import { createRng } from './field/rng.js';
 import { createLight } from './field/light.js';
-import { planRecharge, fieldMod, rechargeFrame, riseU, grayU, sm as smT, T_REST, RISE, NAME_GRAY } from './transition/recharge.js';
+import { planRecharge, fieldLetter, rechargeFrame, riseU, grayU, sm as smT, REST, RISE, NAME_GRAY } from './transition/recharge.js';
 
 const transRng = createRng();
 
@@ -24,6 +24,7 @@ const CFG = {
   seed: P.has('seed') ? +P.get('seed') : undefined,
   debug: P.get('debug') === '1',
   mode: ['profondeur', 'horizontal'].includes(P.get('mode')) ? P.get('mode') : 'melange',   // défaut : mélange
+  transition: P.get('transition') === 'lumiere' ? 'lumiere' : 'lettres',   // essai : seule la lumière part
   wheel: P.get('saisie') === 'roue',   // saisie par roue de lettres (sans clavier virtuel)
   voice: P.get('saisie') === 'voix',   // « dis ou écris ton prénom » (essai)
 };
@@ -163,17 +164,26 @@ function startTransition() {
   wheel?.enable(false); voice?.stop();
   nextEl.classList.remove('on');
   if (!renderer) { validate(); return; }
-  loadCards(shown.toUpperCase());
+  prefetchCards();
 }
-// la scène des cartes : son propre canvas WebGL2 par-dessus, invisible jusqu'au fondu enchaîné
+// pendant la recharge : seulement le réseau (module, papier, logo, police machine), aucun travail GPU
+let cardsModule = null;
+function prefetchCards() {
+  cardsModule = cardsModule || import('./cards/mount.js');
+  for (const u of ['cards/paper.jpg', 'cards/logo.png', 'fonts/CourierPrime-latin.woff2']) fetch(u).catch(() => {});
+}
+// la scène des cartes : son propre canvas WebGL2 par-dessus, invisible jusqu'au fondu enchaîné. Création des
+// textures et compilation des shaders (seul moment lourd) quand le prénom est seul et immobile : sans à-coup visible
 function loadCards(name) {
   if (cards) return;
-  cards = import('./cards/mount.js').then(({ mountCards }) => mountCards({
+  prefetchCards();
+  cards = cardsModule.then(({ mountCards }) => mountCards({
     name, base: './', onExit: exitCards,
     onEnd: () => {},
   })).then((m) => {
     if (!m) throw new Error('webgl2');
     m.canvas.style.opacity = '0'; m.canvas.style.pointerEvents = 'none'; m.canvas.style.zIndex = '5';
+    m.warm();
     cardsReady = m; return m;
   }).catch((e) => { console.error(e); cardsReady = 'failed'; });
 }
@@ -369,12 +379,12 @@ function frame(ts) {
 
   // ---------- transition vers les cartes ----------
   const T = S.trans != null ? S.t - S.trans : -1;
-  let R = null, place = here, bright = null, vig = 1, mod = null, camDY = 0;
+  let R = null, place = here, bright = null, vig = 1, hook = null, camDY = 0;
   if (T >= 0) {
     const lsc = (w, i) => field.letterScreen(w, i, focal, vx, vy);
     if (!plan) {
-      plan = CFG.reduced ? { flyers: [], src: new Map(), fed: here.map(() => true) } : planRecharge({
-        words: field.words, letterScreen: lsc, name: here, W: S.w, H: S.h, rng: transRng,
+      plan = CFG.reduced ? { flyers: [], src: new Map(), fed: here.map(() => true), tEnd: 1.2 } : planRecharge({
+        words: field.words, letterScreen: lsc, name: here, W: S.w, H: S.h, rng: transRng, mode: CFG.transition,
         level: (w, i, x, y) => {
           const nx = (x - cx) / (S.w / 2), ny = (y - cy) / (S.h / 2);
           return light.level(w.chars[i], w.lp[i], Math.min(1, Math.hypot(nx, ny) / Math.SQRT2), w.z, S.t, nx, ny);
@@ -382,7 +392,8 @@ function frame(ts) {
       });
       window.__sg.plan = plan;
     }
-    const restAt = CFG.reduced ? 0.9 : T_REST;
+    if (T >= plan.tEnd) loadCards(S.validatedName.toUpperCase());   // tout est arrivé, le champ est éteint
+    const restAt = plan.tEnd + (CFG.reduced ? 0.1 : REST);
     if (S.riseT == null && T >= restAt) {
       if (cardsReady === 'failed') { S.trans = null; plan = null; validate(); }    // pas de cartes : fondu au noir
       else if (cardsReady) { S.riseT = S.t; S.targets = cardsReady.nameTargets(S.w, S.h); }
@@ -391,10 +402,7 @@ function frame(ts) {
     if (S.riseT != null && S.handT == null && S.t >= S.riseT + rise) handoff();
     if (S.handT != null && S.t - S.handT > HANDOFF + 0.15) { enterScene(); return; }
     if (!CFG.reduced) {
-      R = rechargeFrame(plan, T, here, lsc, (f) => {
-        const w = f.w, a = w.base * (1 - (w.occL ? w.occL[f.i] : 0));
-        return a * Math.min(1, grayOf(w.z) * w.ink * S.dim + f.L);
-      });
+      R = rechargeFrame(plan, T, { world: field.letterWorld, cam: field.cam, f: focal, vx, vy, name: here, capHeight: atlas.capHeight });
       bright = R.bright;
     } else bright = here.map(() => 1);
     const tg = S.targets && S.targets.length === here.length ? S.targets : null;
@@ -408,15 +416,13 @@ function frame(ts) {
     }
     // mouvement réduit : le prénom s'efface au centre puis apparaît à sa place, déjà en retrait
     if (CFG.reduced) bright = bright.map(() => (S.riseT == null ? 1 - smooth(0, 0.9, T) : NAME_GRAY * smooth(S.riseT, S.riseT + 0.9, S.t)));
-    mod = (w, i, dn) => (CFG.reduced ? 1 - smooth(0, 1.2, T) : fieldMod(plan, T, w, i, dn));
+    hook = CFG.reduced
+      ? { letter: (w, i, dn, buf, o) => { const k = 1 - smooth(0, 1.2, T); buf[o + 7] *= k; buf[o + 17] *= k; } }
+      : { letter: (w, i, dn, buf, o) => fieldLetter(plan, T, w, i, dn, buf, o), extra: () => R.inst };
   }
   field.cam.y += camDY;
 
   const glyphs = [];
-  if (R) for (const f of R.flyers) {   // lettres en vol (sous le prénom)
-    const gm = atlas.glyphs[f.ch];
-    if (gm) glyphs.push({ box: [f.x + gm.x0 * f.fs, f.y + gm.y0 * f.fs, f.x + gm.x1 * f.fs, f.y + gm.y1 * f.fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: f.alpha * nameFade, pxEm: f.fs });
-  }
   place.forEach((g, i) => {
     const gm = atlas.glyphs[g.ch];
     if (!gm) return;
@@ -467,7 +473,7 @@ function frame(ts) {
   { const [lt, at] = MODES[CFG.mode], k = CFG.reduced ? 1 : 1 - Math.exp(-dt * 1.2);   // bascule progressive
     S.lat += (lt - S.lat) * k; S.adv += (at - S.adv) * k; }
   field.step(dt, !CFG.reduced, speed * portraitSpeed * (1 + (T >= 0 ? 0 : S.boost)), S.lat, S.adv);
-  const fl = field.emit(light, S.t, { x: cx, y: cy }, mod);
+  const fl = field.emit(light, S.t, { x: cx, y: cy }, hook);
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig,
     field: fl, cam: field.cam, focal, vx, vy, dim: S.dim, time: S.t });
   stats.letters = fl.count;

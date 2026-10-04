@@ -173,6 +173,16 @@ export async function mountCards(opts) {
   addEventListener('touchend', () => { if (started) askOrientation(); }, { passive: true });
   if (!(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')) askOrientation();
 
+  // préparation invisible (textures, compilation des shaders) : une image dessinée puis effacée, avant start()
+  api.warm = () => {
+    const dpr = Math.min(2, devicePixelRatio || 1), W = canvas.clientWidth || innerWidth, H = canvas.clientHeight || innerHeight;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    scene.frame(now(), 0.016, W, H);
+    gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.finish();
+  };
+
   // tests : tapAt(fx, fy) en fractions de l'écran ; type(s)
   api.tapAt = (fx, fy) => scene.tap(fx * canvas.clientWidth, fy * canvas.clientHeight, now());
   api.type = s => { answer.value = s; scene.setText(s); };

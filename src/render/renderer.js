@@ -102,14 +102,14 @@ layout(location=0) in vec4 a_w;    // X, Y, z (monde), ψ signé
 layout(location=1) in vec4 a_l;    // u (abscisse le long du mot), y ligne de base, S (taille d'un em), alpha
 layout(location=2) in vec4 a_uv;
 layout(location=3) in vec4 a_box;  // boîte du glyphe en em (origine = point de chasse)
-layout(location=4) in vec4 a_x;    // gris, lumière L, —, —
-layout(location=5) in vec4 a_y;    // graine propre (lumière intérieure), —, —, —
+layout(location=4) in vec4 a_x;    // gris, lumière L, netteté reprise (0…1), fondu vers le prénom (0…1)
+layout(location=5) in vec4 a_y;    // graine propre (lumière intérieure), clarté visée (prénom), —, —
 uniform vec2 u_view;               // px CSS
 uniform vec2 u_c;                  // point de fuite, px CSS
 uniform vec2 u_cam;                // translation caméra (monde)
 uniform float u_f, u_dpr;
 out vec2 v_uv;
-flat out float v_sig, v_aa, v_alpha, v_gray, v_L, v_seed;
+flat out float v_sig, v_aa, v_alpha, v_gray, v_L, v_seed, v_m, v_nb;
 flat out vec2 v_uv0, v_uvEm;       // coin uv du glyphe, uv par em
 const float ZF = ${ZF.toFixed(3)}, KB = ${KB.toFixed(4)}, KB_FAR = ${KB_FAR.toFixed(4)};
 vec2 proj(vec3 P) { return u_c + u_f * P.xy / max(P.z, 0.1); }
@@ -128,9 +128,9 @@ void main() {
   vec2 loc = vec2((e.x - ecx) * cp, e.y + a_l.y / S) * k;
   vec2 scr = sc + mat2(cos(g), sin(g), -sin(g), cos(g)) * loc;
   float sig = (zc < ZF ? KB : KB_FAR) * u_f * abs(1.0 / zc - 1.0 / ZF) / k;
-  v_sig = min(sig, ${BLUR_EM.toFixed(3)});                    // σ en em (plafond = atlas pré-flouté)
+  v_sig = min(sig, ${BLUR_EM.toFixed(3)}) * (1.0 - a_x.z);     // σ en em (plafond = atlas pré-flouté) ; lettre qui rejoint le prénom : redevient nette
   v_aa = 0.42 / (k * u_dpr);                                 // antialias ≈ 1 px physique, en em
-  v_alpha = a_l.w; v_gray = a_x.x; v_L = a_x.y; v_seed = a_y.x;
+  v_alpha = a_l.w; v_gray = a_x.x; v_L = a_x.y; v_seed = a_y.x; v_m = a_x.w; v_nb = a_y.y;
   v_uv = mix(a_uv.xy, a_uv.zw, c);
   v_uv0 = a_uv.xy; v_uvEm = (a_uv.zw - a_uv.xy) / (a_box.zw - a_box.xy);
   gl_Position = vec4((scr / u_view * 2.0 - 1.0) * vec2(1.0, -1.0), 0.0, 1.0);
@@ -141,7 +141,7 @@ precision highp float;
 uniform sampler2D u_atlas, u_blur;
 uniform float u_fade, u_dim, u_time;
 in vec2 v_uv;
-flat in float v_sig, v_aa, v_alpha, v_gray, v_L, v_seed;
+flat in float v_sig, v_aa, v_alpha, v_gray, v_L, v_seed, v_m, v_nb;
 flat in vec2 v_uv0, v_uvEm;
 out vec4 o;
 ${GLSL_COMMON}
@@ -163,7 +163,8 @@ void main() {
             + 0.5 * fbm(le * 4.5 - vec2(-0.05, 0.21) * u_time * fr + sd);
     Lc = v_L * clamp(0.55 + 1.4 * n, 0.15, 1.6);
   }
-  o = vec4(vec3(a * min(1.0, v_gray * u_dim + Lc)), a);  // allumée : s'ajoute au gris éteint
+  float lum = mix(min(1.0, v_gray * u_dim + Lc), v_nb, v_m);   // allumée : s'ajoute au gris éteint ; en route : devient le prénom
+  o = vec4(vec3(a * lum), a);
 }`;
 
 const STRIDE = 12; // floats par instance

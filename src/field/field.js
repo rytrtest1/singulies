@@ -318,9 +318,9 @@ export function createField(opts) {
   // light (optionnel) : createLight() ; t : temps ; c : centre du prénom (px)
   let buf = new Float32Array(1024 * STRIDE);
   let litCount = 0;
-  // mod (optionnel) : (mot, rang de la lettre, distance écran au prénom 0…1) → facteur d'alpha et de lumière
-  // (transition : extinction lettre par lettre, lettres parties rejoindre le prénom)
-  function emit(light, t = 0, c = null, mod = null) {
+  // hook (optionnel, transition) : letter(mot, rang, distance écran au prénom 0…1, buf, o) retouche l'instance
+  // (alpha o+7, lumière o+17) ; extra() → instances supplémentaires (Float32Array de STRIDE), dessinées en dernier
+  function emit(light, t = 0, c = null, hook = null) {
     let n = 0;
     litCount = 0;
     const lit = light && light.active;
@@ -337,13 +337,15 @@ export function createField(opts) {
         buf[o + 8] = g.u0; buf[o + 9] = g.v0; buf[o + 10] = g.u1; buf[o + 11] = g.v1;
         buf[o + 12] = g.x0; buf[o + 13] = g.y0; buf[o + 14] = g.x1; buf[o + 15] = g.y1;
         let L = 0;
-        if (lit || mod) {
+        if (lit || hook) {
           // position écran approximative de la lettre (propagation de la lumière, anneau)
           const fx = (pen + w.half + 0.5 * w.adv[i] * w.S) / (2 * w.half || 1);
           const lx = w.box[0] + fx * (w.box[2] - w.box[0]), ly = (w.box[1] + w.box[3]) / 2;
           const dn = Math.min(1, Math.hypot((lx - cx) / hw, (ly - cy) / hh) / Math.SQRT2);
           if (lit) L = light.level(w.chars[i], w.lp[i], dn, w.z, t, (lx - cx) / hw, (ly - cy) / hh);
-          if (mod) { const m = mod(w, i, dn); buf[o + 7] *= m; L *= m; }
+          buf[o + 16] = gray; buf[o + 17] = L; buf[o + 18] = 0; buf[o + 19] = 0;
+          buf[o + 20] = w.lp[i].seed; buf[o + 21] = 0; buf[o + 22] = 0; buf[o + 23] = 0;
+          if (hook) { hook.letter(w, i, dn, buf, o); L = buf[o + 17]; }
           if (L > 0.01) litCount++;
         }
         buf[o + 16] = gray; buf[o + 17] = L; buf[o + 18] = 0; buf[o + 19] = 0;
@@ -351,6 +353,10 @@ export function createField(opts) {
         pen += (w.adv[i] + w.track) * w.S;
         n++;
       }
+    }
+    if (hook && hook.extra) for (const e of hook.extra()) {
+      if ((n + 1) * STRIDE > buf.length) { const nb = new Float32Array(buf.length * 2); nb.set(buf); buf = nb; }
+      buf.set(e, n * STRIDE); n++;
     }
     return { data: buf, count: n };
   }
@@ -364,6 +370,15 @@ export function createField(opts) {
     const s = pen + ecx * w.S, X = w.X - cam.x + Math.cos(w.psi) * s, Y = w.Y - cam.y;
     const Z = w.z - Math.sin(w.psi) * s, k = f * w.S / Math.max(0.5, Z), zp = Math.max(0.1, Z);
     return { x: vx + f * X / zp - ecx * k, y: vy + f * Y / zp + (w.jit[i] + 0.5 * capHeight) * k, fs: k, z: Z };
+  }
+
+  // une lettre en monde (centre du glyphe, comme le shader) : départ d'une lettre qui quitte son mot
+  function letterWorld(w, i) {
+    let pen = -w.half;
+    for (let j = 0; j < i; j++) pen += (w.adv[j] + w.track) * w.S;
+    const g = glyphs[w.chars[i]], ecx = 0.5 * (g.x0 + g.x1), s = pen + ecx * w.S;
+    return { X: w.X + Math.cos(w.psi) * s, Y: w.Y, z: w.z - Math.sin(w.psi) * s, psi: w.psi, S: w.S, jit: w.jit[i], g, ecx,
+      alpha: w.base * (1 - (w.occL ? w.occL[i] : 0)), gray: grayOf(w.z) * w.ink, seed: w.lp[i].seed, ch: w.chars[i] };
   }
 
   // ---------- mesures ----------
@@ -388,5 +403,5 @@ export function createField(opts) {
 
   function advance(seconds, dt = 0.5) { for (let s = 0; s < seconds; s += dt) step(dt, true); }
 
-  return { resize, step, emit, setZone, stats, advance, letterScreen, cam, words, get view() { return view; }, get zone() { return zone; }, get litCount() { return litCount; }, get offX() { return offX; } };
+  return { resize, step, emit, setZone, stats, advance, letterScreen, letterWorld, cam, words, get view() { return view; }, get zone() { return zone; }, get litCount() { return litCount; }, get offX() { return offX; } };
 }
