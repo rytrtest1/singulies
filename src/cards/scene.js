@@ -2,7 +2,8 @@
 // Disposition : prénom en haut (dessiné ailleurs), paquet au centre, carte vierge dessous.
 // Toucher le paquet = piocher : la carte du dessus se soulève, se retourne et se pose, question
 // visible, sur le paquet. Toucher la question (ou le paquet) = la défausser : elle s'en va et la
-// suivante se retourne aussitôt. Lumière neutre ; le pointeur en change la direction, pas la force.
+// suivante se retourne aussitôt. Lumière neutre, direction fixe ; le téléphone incliné (ou la souris) la
+// fait varier un peu, jamais sa force.
 import { createCardRenderer, M4, CARD } from './cardRenderer.js';
 import { loadTypeFont, makeInkMap } from './ink.js';
 import { createRng } from '../field/rng.js';
@@ -13,7 +14,7 @@ export const LOOK = {
   // cartes les plus noires possible (04/10) : lampe lointaine (1 × hauteur de scène, 210 mm de haut à l'échelle
   // téléphone) dont le pointeur choisit la direction ; éclairage doux de face pour l'encre ; pied de courbe
   // qui écrase les noirs du papier. Frappe de la scène moins variée qu'au banc (lisible). Mesures : ETAT.md.
-  light: 0.066, lightR: 160, env: 0.25, albedo: 0.025, exposure: 1.0, lightAz: 1.99, lightR0: 1.0, lightZ: 210,
+  light: 0.066, lightR: 160, env: 0.25, albedo: 0.025, exposure: 1.0, lightAz: 1.99, lightR0: 1.0, lightZ: 210, tiltAmp: 0.55,
   h: 0.5, b: 1.0, crease: 0.3, fiber: 0.012, foot: 0.4, footW: 0.12, parallax: 0,
   rough: 0.45, spec: 0.8, sheen: 0.15, glint: 0.35, edge: 1.0, grain: 1.8, diffRough: 0.25, envSpec: 0.02, toe: 0.0068,
   inkAlb: 0.8, inkPress: 0.04, inkWear: 0.7, inkThr: 0.37, inkVar: 0.6, inkPaper: 5, inkOrg: 0.7,
@@ -111,21 +112,18 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   }
 
   // lumière : suit le pointeur (ressort ω 2,2 ζ 0,85), petite dérive au repos
-  // lumière : le pointeur choisit d'où elle vient (azimut), jamais sa force — la lampe tourne autour des
-  // cartes à distance et hauteur constantes : les ombres du relief et des fibres bougent, le papier reste
-  // noir. Ressort amorti (ω 2,2, ζ 0,85) sur la direction ; au repos, en haut à gauche.
-  const ptr = { x: 0.5, y: 0.35, seen: false };
+  // lumière : direction fixe (en haut à gauche) ; seules l'inclinaison du téléphone et, sur ordinateur, la
+  // position de la souris la font varier un peu (comme un reflet sur du verre) — jamais sa force.
+  // tilt : décalage normalisé [-1, 1] (x à droite, y en haut), fourni par la page (gyroscope ou souris).
+  const tilt = { x: 0, y: 0 };
   const lp = { x: Math.cos(L.lightAz), y: Math.sin(L.lightAz), vx: 0, vy: 0 };
   function stepLight(dt) {
-    let tx = Math.cos(L.lightAz), ty = Math.sin(L.lightAz);
-    if (ptr.seen) {
-      const dx = (ptr.x - 0.5) * lay.W / lay.H, dy = 0.5 - ptr.y, l = Math.hypot(dx, dy);
-      if (l > 0.03) { tx = dx / l; ty = dy / l; }
-    }
+    let tx = Math.cos(L.lightAz) + L.tiltAmp * tilt.x, ty = Math.sin(L.lightAz) + L.tiltAmp * tilt.y;
+    const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
     const w = 2.2, z = 0.85;
     for (const [k, v, tg] of [['x', 'vx', tx], ['y', 'vy', ty]]) {
-      const a = -2 * z * w * lp[v] - w * w * (lp[k] - tg);
-      lp[v] += a * dt; lp[k] += lp[v] * dt;
+      const acc = -2 * z * w * lp[v] - w * w * (lp[k] - tg);
+      lp[v] += acc * dt; lp[k] += lp[v] * dt;
     }
   }
 
@@ -196,9 +194,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (inside(screenQuad({ x: blank.jx, y: lay.yBlank, z: 0, rx: 0, ry: Math.PI, rz: blank.jr }), x, y)) return { type: 'blank' };
     return { type: null };
   }
-  function pointer(x, y) { ptr.x = x / lay.W; ptr.y = y / lay.H; ptr.seen = true; }
+  function setTilt(x, y) { tilt.x = Math.max(-1, Math.min(1, x)); tilt.y = Math.max(-1, Math.min(1, y)); }
   const current = () => (face ? face.id : null);
   // direction (unitaire, écran : x à droite, y en haut) d'où vient la lumière — le prénom s'en sert
   const lightDir = () => { const l = Math.hypot(lp.x, lp.y) || 1; return [lp.x / l, lp.y / l]; };
-  return { frame, tap, pointer, current, lightDir, look: L, layout: lay };
+  return { frame, tap, setTilt, current, lightDir, look: L, layout: lay };
 }

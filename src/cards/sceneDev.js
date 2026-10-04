@@ -32,17 +32,37 @@ function frame(now) {
   for (const s of letters) {
     const r = s.getBoundingClientRect();
     const ox = (r.left + r.width / 2 - (nr.left + nr.width / 2)) / Math.max(1, nr.width / 2);
-    const k = 0.5 + 0.5 * (lx * ox * 0.8 + ly * 0.35);
-    s.style.color = `rgba(236,236,236,${(0.3 + 0.22 * k).toFixed(3)})`;
+    const k = Math.max(0, Math.min(1, 0.5 + 0.5 * (lx * ox * 1.3 + ly * 0.45)));
+    s.style.color = `rgba(236,236,236,${(0.14 + 0.56 * Math.pow(k, 1.6)).toFixed(3)})`;
   }
   window.__scene.frames++; window.__scene.t = t;
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-addEventListener('pointermove', e => scene.pointer(e.clientX, e.clientY));
+// lumière : la souris la fait varier un peu (micro-variation) ; sur téléphone, l'inclinaison de l'appareil
+// (par rapport à la position de départ), comme un reflet sur du verre. Le doigt ne sert qu'à toucher.
+addEventListener('pointermove', e => {
+  if (e.pointerType !== 'mouse') return;
+  scene.setTilt((e.clientX / innerWidth - 0.5) * 0.7, (0.5 - e.clientY / innerHeight) * 0.7);
+});
+let g0 = null;
+function onOrient(e) {
+  if (e.beta == null || e.gamma == null) return;
+  if (!g0) g0 = { b: e.beta, g: e.gamma };
+  scene.setTilt((e.gamma - g0.g) / 25, -(e.beta - g0.b) / 25);
+}
+let orientAsked = false;
+function askOrientation() {
+  if (orientAsked) return; orientAsked = true;
+  const DO = window.DeviceOrientationEvent;
+  if (DO && typeof DO.requestPermission === 'function') {      // iPhone : demande système, au premier toucher
+    DO.requestPermission().then(s => { if (s === 'granted') addEventListener('deviceorientation', onOrient); }).catch(() => {});
+  } else addEventListener('deviceorientation', onOrient);
+}
+if (!(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')) askOrientation();
 addEventListener('pointerdown', e => {
-  scene.pointer(e.clientX, e.clientY);
+  askOrientation();
   const r = scene.tap(e.clientX, e.clientY, (performance.now() - t0) / 1000);
   if (r.type) log.textContent = r.type + (r.id ? ' ' + r.id : '');
 });
@@ -62,23 +82,43 @@ window.__scene.measure = () => {
   return { papier: Math.round(v[Math.floor(v.length * 0.5)]), papierSombre: Math.round(v[Math.floor(v.length * 0.1)]), encre: Math.round(v[Math.floor(v.length * 0.995)]), fond: bg };
 };
 
-  // réglages à la main (&reglages) : curseurs, valeurs affichées à recopier
+  // réglages à la main (&reglages) : tous les paramètres de la carte, panneau repliable ; la ligne de
+  // valeurs (seulement celles changées) se recopie, et se passe aussi dans l'adresse
   if (P.has('reglages')) {
+    const R = {
+      light: [0, 0.3, 0.001, 'lampe : force'], lightAz: [0, 6.28, 0.01, 'lampe : direction'], lightZ: [20, 600, 5, 'lampe : hauteur'],
+      lightR0: [0.2, 3, 0.05, 'lampe : distance'], lightR: [5, 400, 5, 'lampe : taille (ombres douces)'], tiltAmp: [0, 2, 0.05, 'variation (inclinaison)'],
+      env: [0, 1, 0.01, 'lumière de face'], envSpec: [0, 0.5, 0.005, 'reflet de la pièce'], exposure: [0.2, 3, 0.01, 'exposition'], toe: [0, 0.015, 0.0002, 'noir du papier'],
+      albedo: [0.005, 0.1, 0.001, 'papier : clarté'], grain: [0, 4, 0.05, 'papier : grain'], fiber: [0, 0.06, 0.001, 'papier : relief des fibres'],
+      glint: [0, 4, 0.05, 'papier : scintillement'], rough: [0.1, 1, 0.01, 'papier : rugosité'], spec: [0, 4, 0.05, 'papier : reflet'],
+      sheen: [0, 2, 0.01, 'papier : lustre rasant'], diffRough: [0, 1, 0.01, 'papier : mat'], edge: [0, 3, 0.05, 'bords cassés'],
+      h: [0, 1, 0.01, 'gaufrage : hauteur'], b: [0.1, 2, 0.01, 'gaufrage : arrondi'], foot: [0, 1, 0.01, 'gaufrage : pli net'],
+      footW: [0.02, 0.4, 0.005, 'gaufrage : largeur du pli'], crease: [0, 1, 0.01, 'gaufrage : trait sombre'],
+      inkAlb: [0, 4, 0.05, 'encre : blancheur'], inkThr: [0.15, 0.7, 0.01, 'encre : finesse du trait'], inkVar: [0, 3, 0.05, 'encre : variations'],
+      inkPaper: [0, 30, 0.5, 'encre : papier visible'], inkOrg: [0, 3, 0.05, 'encre : contours irréguliers'], inkWear: [0, 3, 0.05, 'encre : usure'],
+      inkPress: [0, 0.1, 0.002, 'encre : creusement'],
+    };
+    const init = { ...scene.look };
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;left:6px;right:6px;bottom:6px;z-index:5;font:12px system-ui;color:#999';
+    const btn = document.createElement('button');
+    btn.textContent = 'réglages'; btn.style.cssText = 'background:#222;color:#bbb;border:0;border-radius:6px;padding:6px 10px;font:12px system-ui';
     const box = document.createElement('div');
-    box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;background:rgba(0,0,0,.8);color:#999;font:12px system-ui;padding:8px;border-radius:8px;z-index:5';
-    const rows = [['inkAlb', 0, 3, 0.05, 'blancheur du texte'], ['inkThr', 0.2, 0.6, 0.01, 'finesse du trait'], ['inkVar', 0, 2, 0.05, 'variations'],
-      ['toe', 0, 0.012, 0.0002, 'noir du papier'], ['glint', 0, 3, 0.05, 'scintillement'], ['grain', 0, 4, 0.1, 'grain']];
-    const out = document.createElement('div'); out.style.cssText = 'margin-top:6px;color:#ccc;user-select:all;word-break:break-all';
-    const show = () => { out.textContent = rows.map(([k]) => k + '=' + scene.look[k]).join('&'); };
-    for (const [k, a, b, st, label] of rows) {
-      const l = document.createElement('label'); l.style.cssText = 'display:grid;grid-template-columns:120px 1fr 50px;gap:6px;align-items:center';
+    box.style.cssText = 'display:none;margin-top:6px;max-height:48vh;overflow:auto;background:rgba(0,0,0,.85);padding:8px;border-radius:8px';
+    const out = document.createElement('div'); out.style.cssText = 'margin:4px 0 8px;color:#ddd;user-select:all;word-break:break-all';
+    const show = () => { out.textContent = Object.keys(R).filter(k => scene.look[k] !== init[k]).map(k => k + '=' + scene.look[k]).join('&') || '(rien de changé)'; };
+    box.appendChild(out);
+    for (const k in R) {
+      const [a, b, st, label] = R[k];
+      const l = document.createElement('label'); l.style.cssText = 'display:grid;grid-template-columns:44% 1fr 52px;gap:6px;align-items:center;margin:3px 0';
       l.innerHTML = `<span>${label}</span><input type=range min=${a} max=${b} step=${st} value=${scene.look[k]}><span>${scene.look[k]}</span>`;
       const inp = l.children[1], v = l.children[2];
       inp.oninput = () => { scene.look[k] = +inp.value; v.textContent = inp.value; show(); };
-      inp.addEventListener('pointerdown', e => e.stopPropagation());
       box.appendChild(l);
     }
-    box.addEventListener('pointerdown', e => e.stopPropagation());
-    box.appendChild(out); show(); document.body.appendChild(box);
+    btn.onclick = () => { box.style.display = box.style.display === 'none' ? 'block' : 'none'; };
+    wrap.append(btn, box);
+    wrap.addEventListener('pointerdown', e => e.stopPropagation());
+    show(); document.body.appendChild(wrap);
   }
 }
