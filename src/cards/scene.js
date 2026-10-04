@@ -10,10 +10,13 @@ import QUESTIONS from './questions.json';
 
 // matière et lumière (calage du banc, éclairage du site : neutre, venant d'en haut à gauche, devant)
 export const LOOK = {
-  light: 0.012, lightR: 70, env: 0.03, albedo: 0.05, exposure: 1.0,
+  // lumière « dramatique » (04/10) : lampe rasante basse en haut à gauche (suit le pointeur), éclairage
+  // doux de face qui fait ressortir l'encre, pied de courbe qui écrase les noirs du papier.
+  // Mesuré (800×650) : fond 6, papier 16, encre 169.
+  light: 0.02, lightR: 70, env: 0.25, albedo: 0.025, exposure: 1.0, lightX: -0.6, lightY: 0.45, lightZ: 90,
   h: 0.5, b: 1.0, crease: 0.3, fiber: 0.03, foot: 0.4, footW: 0.12, parallax: 0,
-  rough: 0.45, spec: 3, sheen: 0.3, glint: 2, edge: 1.0, grain: 3, diffRough: 0.25,
-  inkAlb: 2.0, inkPress: 0.04, inkWear: 1.4, inkThr: 0.38, inkVar: 1.5, inkPaper: 15, inkOrg: 0.95,
+  rough: 0.45, spec: 0.8, sheen: 0.15, glint: 2, edge: 1.0, grain: 3, diffRough: 0.25, envSpec: 0.02, toe: 0.003,
+  inkAlb: 3.0, inkPress: 0.04, inkWear: 1.4, inkThr: 0.38, inkVar: 1.5, inkPaper: 15, inkOrg: 0.95,
 };
 const FOV = 26 * Math.PI / 180;
 const TILT = 0.3;                  // la caméra regarde un peu d'en haut : les cartes fuient légèrement
@@ -26,6 +29,7 @@ const easeIn = u => u * u * u;
 const clamp01 = u => Math.min(1, Math.max(0, u));
 
 export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {} } = {}) {
+  // look : surcharge de LOOK (page de dev : ?light=…&env=…)
   const card = await createCardRenderer(gl, base);
   await loadTypeFont(base);
   const L = { ...LOOK, ...look };
@@ -37,7 +41,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   const variant = () => ({
     seed: rnd() * 100,
     paperXf: [rnd.range(-12, 12), rnd.range(-8, 8), rnd() < 0.5 ? 0 : Math.PI, 0],
-    logoOff: [-0.9 + rnd.range(-0.4, 0.4), 0.3 + rnd.range(-0.4, 0.4)],
+    logoOff: [rnd.range(-0.15, 0.15), rnd.range(-0.15, 0.15)],   // logo centré (marquage : ±0,15 mm)
     warp: [rnd.range(0.05, 0.35), rnd.range(-0.2, 0.05), rnd.range(-0.12, 0.12)],
     jx: rnd.range(-0.5, 0.5), jy: rnd.range(-0.4, 0.4), jr: rnd.range(-0.012, 0.012),
   });
@@ -102,8 +106,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // lumière : suit le pointeur (ressort ω 2,2 ζ 0,85), petite dérive au repos
   const ptr = { x: 0.5, y: 0.35 }, lp = { x: 0, y: 0, vx: 0, vy: 0 };
   function stepLight(dt, t) {
-    const tx = (ptr.x - 0.5) * lay.Ww * 0.9 - lay.Ww * 0.25 + Math.sin(t * 0.13) * 6;
-    const ty = (0.5 - ptr.y) * lay.Hw * 0.7 + lay.Hw * 0.35 + Math.sin(t * 0.09 + 1) * 5;
+    const tx = (ptr.x - 0.5) * lay.Ww * 0.9 + L.lightX * lay.Ww + Math.sin(t * 0.13) * 6;
+    const ty = (0.5 - ptr.y) * lay.Hw * 0.7 + L.lightY * lay.Hw + Math.sin(t * 0.09 + 1) * 5;
     const w = 2.2, z = 0.85;
     for (const [k, v, tg] of [['x', 'vx', tx], ['y', 'vy', ty]]) {
       const a = -2 * z * w * lp[v] - w * w * (lp[k] - tg);
@@ -123,7 +127,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const target = [0, cy, 0];
     const aspect = W / H;
     vp = M4.mul(M4.perspective(FOV, aspect, lay.D * 0.3, lay.D * 3), M4.lookAt(eye, target, [0, 1, 0]));
-    const lightPos = [lp.x, lp.y, 260];
+    const lightPos = [lp.x, lp.y, L.lightZ];
     const P = { ...L, lightPos };
     gl.enable(gl.DEPTH_TEST);
     // pile (maillage léger, de plus en plus dans l'ombre vers le bas) ; dessus en maillage fin

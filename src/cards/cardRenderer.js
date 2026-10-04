@@ -139,7 +139,7 @@ uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
 uniform vec3 uLightPos, uEye, uRoomUp;
 uniform float uLight, uLightR, uEnv, uAlbedo, uExposure;
 uniform float uH, uB, uCrease, uFiber, uFoot, uFootW, uParallax;
-uniform float uRough, uSpec, uSheen, uGlint, uEdge, uGrain, uDiffRough;
+uniform float uRough, uSpec, uSheen, uGlint, uEdge, uGrain, uDiffRough, uEnvSpec, uToe;
 uniform vec4 uPaperXf;       // décalage (mm) + rotation du papier, propre à chaque carte
 uniform float uSeed;
 uniform float uShade;       // occlusion (cartes sous d'autres dans la pile)
@@ -276,7 +276,7 @@ void main() {
       // la texture du papier passe à travers l'encre : fibres plus blanches, creux moins couverts
       op *= clamp(1.0 + uInkPaper * paperHF(p) * uGrain, 0.35, 1.3);
       // parois raides du creux : le caractère n'y frappe presque pas
-      ink = shape * op / (1.0 + 1.2 * length(vec2(hx, hy)));
+      ink = shape * op / (1.0 + 0.4 * length(vec2(hx, hy)));
     }
     // hauteur comptée le long de la normale sortante de la face (Ng) : n = Ng − hx T − hy B
     vec3 n = normalize(Ng - hx * T - hy * Bv);
@@ -318,10 +318,12 @@ void main() {
     float diff = orenNayar(n, L, V, uDiffRough) * sh;
     float Fv = 0.04 + 0.96 * pow(1.0 - NV, 5.0);
     vec3 Rv = reflect(-V, n);
-    float amb = uEnv * (alb * env(n, L) + 0.25 * Fv * env(Rv, L));
+    float amb = uEnv * (alb * env(n, L) + uEnvSpec * Fv * env(Rv, L));
     col = vec3((alb * irr * diff + irr * NL * sh * (spec + sheen + glint) + amb) * crease);
   }
   col *= uExposure * uShade;
+  // courbe « photo » : pied qui écrase les noirs (papier presque noir), hautes lumières intactes
+  col = max(col - uToe, 0.0) / (1.0 - uToe);
   col = pow(max(col, 0.0), vec3(1.0 / 2.2));
   o = vec4(col, 1.0);
 }`;
@@ -397,7 +399,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uSeed, card.seed || 0);
     gl.uniform3fv(u.uLightPos, params.lightPos); gl.uniform3fv(u.uEye, eye);
     gl.uniform3fv(u.uRoomUp, params.roomUp || [0, 0, 1]);
-    for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'Parallax', 'InkAlb', 'InkPress', 'InkWear', 'InkThr', 'InkVar', 'InkPaper', 'InkOrg']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
+    for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'Parallax', 'EnvSpec', 'Toe', 'InkAlb', 'InkPress', 'InkWear', 'InkThr', 'InkVar', 'InkPaper', 'InkOrg']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, paperTex); gl.uniform1i(u.uPaper, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, logoTex); gl.uniform1i(u.uLogo, 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, card.ink || null); gl.uniform1i(u.uInk, 2);
