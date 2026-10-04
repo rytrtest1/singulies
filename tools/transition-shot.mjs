@@ -24,7 +24,10 @@ await page.keyboard.press('Enter');
 await page.waitForFunction(() => window.__sg.S.t > 9, null, { timeout: 120000 });   // la lumière s'est posée
 const tag = `${W}x${H}${process.env.Q ? '-' + process.env.Q.replace(/\W+/g, '') : ''}`;
 await page.screenshot({ path: `${OUT}/${tag}-avant.png` });
+const before = await page.evaluate(() => window.__sg.field.litCount);
 await page.evaluate(() => window.__sg.startTransition());
+await page.waitForFunction(() => window.__sg.plan, null, { timeout: 60000 });
+console.log('allumées avant', before, 'parties par profondeur', await page.evaluate(() => { const b = { proche: 0, moyen: 0, loin: 0 }; for (const f of window.__sg.plan.flyers) b[f.w.z < 6 ? 'proche' : f.w.z < 15 ? 'moyen' : 'loin']++; return b; }));
 const info = await page.evaluate(() => ({ flyers: window.__sg.plan?.flyers.length, fed: window.__sg.plan?.fed, tEnd: window.__sg.plan?.tEnd }));
 console.log('lettres qui partent', info);
 for (const T of (process.env.TS || '0.8,1.6,2.4,3.2,4.0,4.8,5.6,6.4,7.2,8.0').split(',').map(Number)) {

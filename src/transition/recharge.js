@@ -1,11 +1,11 @@
 // Transition accueil → cartes (04/10, v2). Trois temps séparés, jamais deux mouvements à la fois :
-// 1) la recharge : le prénom baisse un peu ; une à une, du fond vers l'avant, TOUTES les lettres allumées du
+// 1) la recharge (?transition=lettres) : le prénom baisse un peu ; une à une, du fond vers l'avant, TOUTES les lettres allumées du
 //    champ (celles du prénom) quittent leur mot et rejoignent la même lettre du prénom. Elles partent telles
 //    qu'elles sont (profondeur, flou, clarté, lumière intérieure, inclinaison) et volent dans le monde du champ
 //    (vraie perspective, même shader) en devenant peu à peu comme la lettre du prénom : nettes, droites, à sa
 //    taille, à sa clarté ; arrivées, elles s'y fondent et la lettre du prénom se recharge. Pendant ce temps les
 //    lettres grises s'éteignent (des bords vers le prénom) et ont complètement disparu quand la dernière arrive.
-//    Variante « lumiere » (?transition=lumiere) : seule la lumière part — la lettre reste à sa place, grise, et
+//    Par défaut (choix Maxence) : seule la lumière part — la lettre reste à sa place, grise, et
 //    s'éteint avec les autres ; sa lumière, en forme de lettre, fait le voyage.
 // 2) un court repos : le prénom brille seul (la scène des cartes se prépare à ce moment, rien ne bouge).
 // 3) la montée : la caméra descend — le prénom monte à sa place de la scène des cartes, gris en retrait.
@@ -22,7 +22,7 @@ export const NAME_LOW = 0.62;     // le prénom baisse avant d'être rechargé
 export const NAME_GRAY = 0.42;    // gris « en retrait » de la scène des cartes (LOOK.nameFlat)
 const NAME_LIT = 0.95;            // clarté visée par une lettre qui rejoint le prénom
 const DEP0 = 0.5, DEP_SPAN = 2.2; // départs étalés, du plus loin au plus proche
-const MAX_FLY = 64;
+const MAX_FLY = 140;               // toutes les lettres allumées à l'écran, du fond au premier plan
 
 // ctx : { words, letterScreen(w, i), level(w, i, x, y) → lumière, name: [{ ch, x, y, fs }], W, H, rng, mode }
 export function planRecharge(ctx) {
@@ -30,14 +30,14 @@ export function planRecharge(ctx) {
   const chars = new Set(name.map((g) => g.ch.toUpperCase()));
   let pool = [];
   for (const w of words) {
-    if (w.base < 0.3) continue;
+    if (w.base < 0.08) continue;
     for (let i = 0; i < w.chars.length; i++) {
       const C = w.chars[i].toUpperCase();
-      if (!chars.has(C) || (w.occL && w.occL[i] > 0.6)) continue;
+      if (!chars.has(C) || (w.occL && w.occL[i] > 0.85)) continue;
       const p = letterScreen(w, i);
-      if (p.x < -p.fs || p.x > W + p.fs || p.y < 0 || p.y > H + p.fs) continue;
+      if (p.x < -p.fs || p.x > W + p.fs || p.y < -0.5 * p.fs || p.y > H + 1.5 * p.fs) continue;   // grandes lettres du premier plan à moitié dans l'écran comprises
       const L = level(w, i, p.x, p.y);
-      if (L < 0.06) continue;                                   // pas (encore) allumée : elle s'éteint avec les grises
+      if (L < 0.03) continue;                                   // pas (encore) allumée : elle s'éteint avec les grises
       pool.push({ w, i, C, z: w.z, L, x: p.x, y: p.y });
     }
   }

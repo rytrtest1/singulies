@@ -29,6 +29,8 @@ export async function mountCards(opts) {
   }
   const el = (tag, cls, html = '') => { const e = document.createElement(tag); e.className = cls; e.innerHTML = html; document.body.appendChild(e); return e; };
   const canvas = opts.canvas || el('canvas', 'sc-c');
+  // invisible tant que la page ne la montre pas : un canvas WebGL neuf est noir et couvrirait l'accueil
+  if (opts.hidden) Object.assign(canvas.style, { opacity: '0', pointerEvents: 'none', zIndex: '5' });
   const answer = el('textarea', 'sc-answer');
   Object.assign(answer, { autocomplete: 'off', spellcheck: false });
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');

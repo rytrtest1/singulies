@@ -24,7 +24,7 @@ const CFG = {
   seed: P.has('seed') ? +P.get('seed') : undefined,
   debug: P.get('debug') === '1',
   mode: ['profondeur', 'horizontal'].includes(P.get('mode')) ? P.get('mode') : 'melange',   // défaut : mélange
-  transition: P.get('transition') === 'lumiere' ? 'lumiere' : 'lettres',   // essai : seule la lumière part
+  transition: P.get('transition') === 'lettres' ? 'lettres' : 'lumiere',   // défaut : seule la lumière part (choix Maxence 04/10) ; ?transition=lettres : la lettre entière
   wheel: P.get('saisie') === 'roue',   // saisie par roue de lettres (sans clavier virtuel)
   voice: P.get('saisie') === 'voix',   // « dis ou écris ton prénom » (essai)
 };
@@ -178,11 +178,10 @@ function loadCards(name) {
   if (cards) return;
   prefetchCards();
   cards = cardsModule.then(({ mountCards }) => mountCards({
-    name, base: './', onExit: exitCards,
+    name, base: './', onExit: exitCards, hidden: true,
     onEnd: () => {},
   })).then((m) => {
     if (!m) throw new Error('webgl2');
-    m.canvas.style.opacity = '0'; m.canvas.style.pointerEvents = 'none'; m.canvas.style.zIndex = '5';
     m.warm();
     cardsReady = m; return m;
   }).catch((e) => { console.error(e); cardsReady = 'failed'; });
