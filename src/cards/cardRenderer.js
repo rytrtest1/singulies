@@ -52,14 +52,16 @@ function axis(half, dense, fine, coarse) {
   out.push(half);
   return out;
 }
-function cardMesh(seg = 12) {
+function cardMesh(fine = true, seg = 12) {
   const { w, h, r, t } = CARD, v = [], idx = [];
   const fit = (x, y) => {   // point de grille ramené dans le rectangle arrondi (coins projetés sur l'arc)
     const cx = w / 2 - r, cy = h / 2 - r, qx = Math.abs(x) - cx, qy = Math.abs(y) - cy;
     if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy); if (l > r) return [Math.sign(x) * (cx + qx * r / l), Math.sign(y) * (cy + qy * r / l)]; }
     return [x, y];
   };
-  const xs = axis(w / 2, 22, 0.2, 2), ys = axis(h / 2, 23, 0.2, 2), nx = xs.length, ny = ys.length;
+  // maillage léger (cartes de la pile, vues de loin ou par la tranche) : 2 mm partout
+  const xs = fine ? axis(w / 2, 22, 0.2, 2) : axis(w / 2, 0, 2, 2), ys = fine ? axis(h / 2, 23, 0.2, 2) : axis(h / 2, 0, 2, 2);
+  const nx = xs.length, ny = ys.length;
   for (const [z, s, f] of [[t / 2, 1, 0], [-t / 2, -1, 1]]) {      // 0 = dos (+z), 1 = recto (−z)
     const base = v.length / 7;
     for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const [x, y] = fit(xs[i], ys[j]); v.push(x, y, z, 0, 0, s, f); }
@@ -140,6 +142,7 @@ uniform float uH, uB, uCrease, uFiber, uFoot, uFootW, uParallax;
 uniform float uRough, uSpec, uSheen, uGlint, uEdge, uGrain, uDiffRough;
 uniform vec4 uPaperXf;       // décalage (mm) + rotation du papier, propre à chaque carte
 uniform float uSeed;
+uniform float uShade;       // occlusion (cartes sous d'autres dans la pile)
 out vec4 o;
 const float PI = 3.14159265;
 
@@ -269,11 +272,11 @@ void main() {
       // ≈ 0,5–1 mm), selon la pression de la frappe (c) et le creux du logo
       float hollow = prof(logoD(p));
       float var = 0.55 * vnoise(p * 1.6 + 3.0) + 0.45 * vnoise(p * 3.7 + 29.0);
-      float op = clamp((0.45 + 0.6 * c) * mix(1.0, 0.35 + 0.95 * var, uInkVar) * (1.0 - 0.45 * hollow), 0.0, 1.0);
+      float op = clamp((0.45 + 0.6 * c) * mix(1.0, 0.35 + 0.95 * var, uInkVar) * (1.0 - 0.25 * hollow), 0.0, 1.0);
       // la texture du papier passe à travers l'encre : fibres plus blanches, creux moins couverts
       op *= clamp(1.0 + uInkPaper * paperHF(p) * uGrain, 0.35, 1.3);
       // parois raides du creux : le caractère n'y frappe presque pas
-      ink = shape * op / (1.0 + 3.0 * length(vec2(hx, hy)));
+      ink = shape * op / (1.0 + 1.2 * length(vec2(hx, hy)));
     }
     // hauteur comptée le long de la normale sortante de la face (Ng) : n = Ng − hx T − hy B
     vec3 n = normalize(Ng - hx * T - hy * Bv);
@@ -318,7 +321,7 @@ void main() {
     float amb = uEnv * (alb * env(n, L) + 0.25 * Fv * env(Rv, L));
     col = vec3((alb * irr * diff + irr * NL * sh * (spec + sheen + glint) + amb) * crease);
   }
-  col *= uExposure;
+  col *= uExposure * uShade;
   col = pow(max(col, 0.0), vec3(1.0 / 2.2));
   o = vec4(col, 1.0);
 }`;
@@ -362,20 +365,22 @@ async function logoTexture(gl, img) {
 export async function createCardRenderer(gl, base = './') {
   const [paperImg, logoImg] = await Promise.all([loadImage(base + 'cards/paper.jpg'), loadImage(base + 'cards/logo.png')]);
   const prog = program(gl, VS, FS);
-  const mesh = cardMesh();
-  const vao = gl.createVertexArray(), vbo = gl.createBuffer();
-  gl.bindVertexArray(vao);
-  gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-  gl.bufferData(gl.ARRAY_BUFFER, mesh.verts, gl.STATIC_DRAW);
-  const ibo = gl.createBuffer();
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
-  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 12);
-  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
-  gl.bindVertexArray(null);
+  const meshes = {};
+  for (const [name, fine] of [['fine', true], ['coarse', false]]) {
+    const mesh = cardMesh(fine);
+    const vao = gl.createVertexArray(), vbo = gl.createBuffer(), ibo = gl.createBuffer();
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, mesh.verts, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 12);
+    gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
+    gl.bindVertexArray(null);
+    meshes[name] = { vao, count: mesh.indices.length };
+  }
   const paperTex = imageTexture(gl, paperImg), logoTex = await logoTexture(gl, logoImg);
-  const count = mesh.indices.length;
 
   // params : éclairage + matière ; card : { model, logoOff, paperXf }
   function draw(vp, eye, params, card) {
@@ -397,8 +402,10 @@ export async function createCardRenderer(gl, base = './') {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, logoTex); gl.uniform1i(u.uLogo, 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, card.ink || null); gl.uniform1i(u.uInk, 2);
     gl.uniform1f(u.uHasInk, card.ink ? 1 : 0);
-    gl.bindVertexArray(vao);
-    gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_INT, 0);
+    const m = meshes[card.lod || 'fine'];
+    gl.uniform1f(u.uShade, card.shade ?? 1);
+    gl.bindVertexArray(m.vao);
+    gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);
   }
   // carte d'encre (canvas) → texture R8 avec mipmaps ; à libérer avec freeInk quand la carte quitte la scène
