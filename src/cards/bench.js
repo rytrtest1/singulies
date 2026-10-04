@@ -1,0 +1,89 @@
+// Banc d'essai d'une carte (page de développement, non publiée) : rendu à côté de la photo redressée.
+//   /banc-carte.html            dos, cadrage « photo » (vue de dessus, quasi orthographique)
+//   #ref=IMG_0066               autre photo de référence ; #noref : rendu seul ; #noui : sans réglages
+// Glisser = incliner la carte ; F = retourner ; R = référence ; les réglages sont gardés dans l'adresse.
+import { createCardRenderer, M4, CARD } from './cardRenderer.js';
+
+// défauts = calage sur la photo IMG_0063 (04/10) : luminance du papier 25,5 (photo 24,9)
+const DEF = {
+  lightAz: -25, lightEl: 35, lightDist: 220, light: 0.03, amb: 0.05, albedo: 0.05, exposure: 1.0,
+  h: 0.4, b: 1.0, crease: 0.3, fiber: 0.02, sheen: 0.2, gloss: 24, foot: 0.5, footW: 0.12,
+  lx: -0.9, ly: 0.3, lsx: 1, lsy: 1.09, rx: 0, ry: 0, fov: 8,
+};
+const RANGES = {
+  lightAz: [-180, 180, 1], lightEl: [3, 90, 1], lightDist: [80, 1500, 10], light: [0, 3, 0.01], amb: [0, 1, 0.01],
+  albedo: [0.005, 0.3, 0.001], exposure: [0.2, 4, 0.01], h: [0, 0.5, 0.005], b: [0.05, 1.5, 0.01],
+  crease: [0, 1, 0.01], fiber: [0, 0.03, 0.0005], sheen: [0, 0.3, 0.005], gloss: [1, 80, 1], foot: [0, 1, 0.01], footW: [0.02, 0.4, 0.005], lx: [-3, 3, 0.05], ly: [-3, 3, 0.05], lsx: [0.8, 1.2, 0.005], lsy: [0.8, 1.2, 0.005], fov: [4, 60, 1],
+};
+
+const hash = new URLSearchParams(location.hash.slice(1));
+const S = { ...DEF };
+for (const k in DEF) if (hash.has(k)) S[k] = +hash.get(k);
+const refName = hash.get('ref') || 'IMG_0063';
+if (hash.has('noref')) document.body.classList.add('noref');
+if (hash.has('noui')) document.body.classList.add('noui');
+document.getElementById('ref').src = `./ressources/cartes/redresse/${refName}.png`;
+
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, preserveDrawingBuffer: true });
+const card = await createCardRenderer(gl, './');
+window.__bench = { S, ready: true };
+
+function saveHash() {
+  const h = new URLSearchParams();
+  for (const k in S) if (S[k] !== DEF[k]) h.set(k, String(+S[k].toFixed(4)));
+  if (refName !== 'IMG_0063') h.set('ref', refName);
+  if (document.body.classList.contains('noref')) h.set('noref', '');
+  if (document.body.classList.contains('noui')) h.set('noui', '');
+  history.replaceState(null, '', '#' + h.toString());
+}
+
+// réglages
+const ui = document.getElementById('ui');
+for (const k in RANGES) {
+  const [a, b, st] = RANGES[k];
+  const l = document.createElement('label');
+  l.innerHTML = `<span>${k}</span><input type=range min=${a} max=${b} step=${st} value=${S[k]}><span>${S[k]}</span>`;
+  const inp = l.children[1], out = l.children[2];
+  inp.oninput = () => { S[k] = +inp.value; out.textContent = inp.value; saveHash(); };
+  ui.appendChild(l);
+}
+const row = document.createElement('div'); row.className = 'row';
+row.innerHTML = '<button id=flip>retourner (F)</button><button id=tref>référence (R)</button><button id=reset>défaut</button>';
+ui.appendChild(row);
+const flip = () => { S.ry = Math.abs(S.ry % (2 * Math.PI)) < 1e-3 ? Math.PI : 0; saveHash(); };
+const tref = () => { document.body.classList.toggle('noref'); saveHash(); };
+document.getElementById('flip').onclick = flip;
+document.getElementById('tref').onclick = tref;
+document.getElementById('reset').onclick = () => { history.replaceState(null, '', '#'); location.reload(); };
+addEventListener('keydown', e => { if (e.key === 'f') flip(); if (e.key === 'r') tref(); });
+
+// glisser = incliner
+let drag = null;
+canvas.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY, S.rx, S.ry]; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => {
+  if (!drag) return;
+  S.ry = drag[3] + (e.clientX - drag[0]) * 0.008; S.rx = drag[2] + (e.clientY - drag[1]) * 0.008;
+});
+canvas.addEventListener('pointerup', () => { drag = null; saveHash(); });
+
+function frame() {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  const W = Math.round(canvas.clientWidth * dpr), H = Math.round(canvas.clientHeight * dpr);
+  if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+  gl.viewport(0, 0, W, H);
+  gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1);
+  gl.enable(gl.DEPTH_TEST);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  // cadrage : la carte remplit le volet comme la photo redressée (object-fit: contain)
+  const fov = S.fov * Math.PI / 180, aspect = W / H;
+  const halfH = Math.max(CARD.h / 2, CARD.w / 2 / aspect);
+  const dist = halfH / Math.tan(fov / 2);
+  const eye = [0, 0, dist];
+  const vp = M4.mul(M4.perspective(fov, aspect, dist * 0.5, dist * 2), M4.lookAt(eye, [0, 0, 0], [0, 1, 0]));
+  const az = S.lightAz * Math.PI / 180, el = S.lightEl * Math.PI / 180;
+  const lightPos = [S.lightDist * Math.cos(el) * Math.cos(az), S.lightDist * Math.cos(el) * Math.sin(az), S.lightDist * Math.sin(el)];
+  card.draw(vp, eye, { ...S, lightPos }, { model: M4.model(S.rx, S.ry, 0), logoOff: [S.lx, S.ly], logoScale: [S.lsx, S.lsy], paperXf: [0, 0, 0, 0] });
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);

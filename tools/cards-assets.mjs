@@ -171,7 +171,7 @@ const logo = await page.evaluate(async ({ svg, N }) => {
 console.log('logo boîte (px de 2048) :', logo.x0, logo.x1, logo.y0, logo.y1);
 
 
-// Encodage : distance signée en mm, ±LOGO_RANGE → 0..255 (128 = contour), carré de LOGO_SQ mm
+// Encodage : distance signée en mm, ±LOGO_RANGE → 16 bits (R = octet fort, V = octet faible ; 0,5 = contour), carré de LOGO_SQ mm
 // (le SVG : boîte du logo mesurée sur le dos redressé ≈ 33,2 mm de large, 33 mm de haut).
 const LOGO_W_MM = 33.2, LOGO_RANGE = 2;
 const unitsPerPx = 1254 / logo.S, logoWUnits = (logo.x1 - logo.x0) * unitsPerPx;
@@ -179,7 +179,7 @@ const mmPerUnit = LOGO_W_MM / logoWUnits, mmPerPx2048 = mmPerUnit * unitsPerPx;
 const LOGO_SQ = 1254 * mmPerUnit;
 const logoPng = await page.evaluate(async ({ sd, N, k, R }) => {
   const cv = new OffscreenCanvas(N, N), cx = cv.getContext('2d'), im = cx.createImageData(N, N);
-  for (let i = 0; i < N * N; i++) { const v = Math.max(0, Math.min(255, Math.round(128 + 127 * sd[i] * k / R))); im.data[4 * i] = im.data[4 * i + 1] = im.data[4 * i + 2] = v; im.data[4 * i + 3] = 255; }
+  for (let i = 0; i < N * N; i++) { const v = Math.max(0, Math.min(65535, Math.round((0.5 + 0.5 * sd[i] * k / R) * 65535))); im.data[4 * i] = v >> 8; im.data[4 * i + 1] = v & 255; im.data[4 * i + 2] = 0; im.data[4 * i + 3] = 255; }
   cx.putImageData(im, 0, 0);
   const blob = await cv.convertToBlob({ type: 'image/png' });
   return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
@@ -248,6 +248,6 @@ console.log('papier :', JSON.stringify(paper.stats));
 
 await browser.close();
 const meta = { carte: { largeur: CARD_W, hauteur: CARD_H, rayon: 3 }, papier: { pxmm: PXMM, encodage: 'R = 1 + (v - 128) / 255' },
-  logo: { carre: +LOGO_SQ.toFixed(3), largeur: LOGO_W_MM, encodage: `d_mm = (v - 128) / 127 × ${LOGO_RANGE}, < 0 dedans` } };
+  logo: { carre: +LOGO_SQ.toFixed(3), largeur: LOGO_W_MM, encodage: `v = (R·256 + V) / 65535 ; d_mm = (2v − 1) × ${LOGO_RANGE}, < 0 dedans` } };
 fs.writeFileSync(path.join(OUT_PUB, 'cards.json'), JSON.stringify(meta, null, 1));
 console.log(JSON.stringify(meta));

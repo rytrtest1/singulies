@@ -11,6 +11,6 @@
  "logo": {
   "carre": 38.501,
   "largeur": 33.2,
-  "encodage": "d_mm = (v - 128) / 127 × 2, < 0 dedans"
+  "encodage": "v = (R·256 + V) / 65535 ; d_mm = (2v − 1) × 2, < 0 dedans"
  }
 }
