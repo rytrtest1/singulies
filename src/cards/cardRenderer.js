@@ -137,6 +137,8 @@ uniform float uLogoSq, uLogoRange;
 uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
 uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
 uniform vec3 uLightPos, uEye, uRoomUp;
+// lumière de reflet : ne donne que des reflets (le papier reste noir), concentrée sur la carte active
+uniform vec3 uL2Pos; uniform vec2 uL2Target; uniform float uL2, uL2Spread;
 uniform float uLight, uLightR, uEnv, uAlbedo, uExposure;
 uniform float uH, uB, uCrease, uFiber, uFoot, uFootW, uParallax;
 uniform float uRough, uSpec, uSheen, uGlint, uEdge, uGrain, uDiffRough, uEnvSpec, uToe;
@@ -321,7 +323,16 @@ void main() {
     float Fv = 0.04 + 0.96 * pow(1.0 - NV, 5.0);
     vec3 Rv = reflect(-V, n);
     float amb = uEnv * (alb * env(n, L) + uEnvSpec * Fv * env(Rv, L));
-    col = vec3((alb * irr * diff + irr * NL * sh * (spec + sheen + glint) + amb) * crease);
+    // reflet : lueur douce qui glisse sur la carte active quand on incline le téléphone / bouge la souris
+    vec3 L2 = uL2Pos - vWorld; float d2 = length(L2); L2 /= d2;
+    float NL2 = max(dot(n, L2), 0.0);
+    vec3 H2 = normalize(L2 + V); float NH2 = max(dot(n, H2), 0.0), VH2 = max(dot(V, H2), 0.0);
+    float F2 = 0.04 + 0.96 * pow(1.0 - VH2, 5.0);
+    vec2 dT = vWorld.xy - uL2Target;
+    float focus = exp(-dot(dT, dT) / (2.0 * uL2Spread * uL2Spread));
+    float refl2 = uL2 * focus * NL2 * (uSpec * D_GGX(NH2, a) * V_Smith(NL2, NV, a) * F2 * (1.0 - 0.6 * ink)
+      + uGlint * smoothstep(1.06, 1.35, R0) * pow(max(dot(ng, H2), 0.0), 220.0));
+    col = vec3((alb * irr * diff + irr * NL * sh * (spec + sheen + glint) + amb + refl2) * crease);
   }
   col *= uExposure * uShade;
   // courbe « photo » : pied qui écrase les noirs (papier presque noir), hautes lumières intactes
@@ -400,6 +411,8 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform3fv(u.uWarp, card.warp || [0, 0, 0]);
     gl.uniform1f(u.uSeed, card.seed || 0);
     gl.uniform3fv(u.uLightPos, params.lightPos); gl.uniform3fv(u.uEye, eye);
+    gl.uniform3fv(u.uL2Pos, params.l2Pos || [0, 0, 1000]); gl.uniform2fv(u.uL2Target, params.l2Target || [0, 0]);
+    gl.uniform1f(u.uL2, params.l2 || 0); gl.uniform1f(u.uL2Spread, params.l2Spread || 40);
     gl.uniform3fv(u.uRoomUp, params.roomUp || [0, 0, 1]);
     for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'Parallax', 'EnvSpec', 'Toe', 'InkAlb', 'InkPress', 'InkWear', 'InkThr', 'InkVar', 'InkPaper', 'InkOrg']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, paperTex); gl.uniform1i(u.uPaper, 0);

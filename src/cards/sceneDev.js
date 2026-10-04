@@ -42,14 +42,17 @@ requestAnimationFrame(frame);
 
 // lumière : la souris la fait varier un peu (micro-variation) ; sur téléphone, l'inclinaison de l'appareil
 // (par rapport à la position de départ), comme un reflet sur du verre. Le doigt ne sert qu'à toucher.
+// repli sans gyroscope (refusé, absent) : le doigt qui glisse fait comme la souris
+let gyroLive = false;
 addEventListener('pointermove', e => {
-  if (e.pointerType !== 'mouse') return;
+  if (e.pointerType !== 'mouse' && gyroLive) return;
   scene.setTilt((e.clientX / innerWidth - 0.5) * 0.7, (0.5 - e.clientY / innerHeight) * 0.7);
 });
 let g0 = null;
 function onOrient(e) {
   if (e.beta == null || e.gamma == null) return;
   if (!g0) g0 = { b: e.beta, g: e.gamma };
+  gyroLive = true;
   scene.setTilt((e.gamma - g0.g) / 25, -(e.beta - g0.b) / 25);
 }
 let orientAsked = false;
@@ -61,8 +64,10 @@ function askOrientation() {
   } else addEventListener('deviceorientation', onOrient);
 }
 if (!(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')) askOrientation();
+// iPhone : la demande d'accès au mouvement n'est acceptée qu'après un vrai geste (doigt relevé)
+addEventListener('touchend', askOrientation, { passive: true });
+addEventListener('click', askOrientation);
 addEventListener('pointerdown', e => {
-  askOrientation();
   const r = scene.tap(e.clientX, e.clientY, (performance.now() - t0) / 1000);
   if (r.type) log.textContent = r.type + (r.id ? ' ' + r.id : '');
 });
@@ -97,6 +102,7 @@ window.__scene.measure = () => {
       inkAlb: [0, 4, 0.05, 'encre : blancheur'], inkThr: [0.15, 0.7, 0.01, 'encre : finesse du trait'], inkVar: [0, 3, 0.05, 'encre : variations'],
       inkPaper: [0, 30, 0.5, 'encre : papier visible'], inkOrg: [0, 3, 0.05, 'encre : contours irréguliers'], inkWear: [0, 3, 0.05, 'encre : usure'],
       inkPress: [0, 0.1, 0.002, 'encre : creusement'],
+      l2: [0, 0.4, 0.002, 'reflet : force'], l2Amp: [0, 3, 0.05, 'reflet : déplacement'], l2Spread: [0.1, 2, 0.05, 'reflet : étendue'],
     };
     const init = { ...scene.look };
     const wrap = document.createElement('div');

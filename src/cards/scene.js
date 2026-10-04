@@ -11,13 +11,14 @@ import QUESTIONS from './questions.json';
 
 // matière et lumière (calage du banc, éclairage du site : neutre, venant d'en haut à gauche, devant)
 export const LOOK = {
-  // cartes les plus noires possible (04/10) : lampe lointaine (1 × hauteur de scène, 210 mm de haut à l'échelle
-  // téléphone) dont le pointeur choisit la direction ; éclairage doux de face pour l'encre ; pied de courbe
-  // qui écrase les noirs du papier. Frappe de la scène moins variée qu'au banc (lisible). Mesures : ETAT.md.
-  light: 0.066, lightR: 160, env: 0.25, albedo: 0.025, exposure: 1.0, lightAz: 1.99, lightR0: 1.0, lightZ: 210, tiltAmp: 0.55,
-  h: 0.5, b: 1.0, crease: 0.3, fiber: 0.012, foot: 0.4, footW: 0.12, parallax: 0,
-  rough: 0.45, spec: 0.8, sheen: 0.15, glint: 0.35, edge: 1.0, grain: 1.8, diffRough: 0.25, envSpec: 0.02, toe: 0.0068,
-  inkAlb: 0.8, inkPress: 0.04, inkWear: 0.7, inkThr: 0.37, inkVar: 0.6, inkPaper: 5, inkOrg: 0.7,
+  // réglé par Maxence sur téléphone (04/10). Cartes noires ; lampe principale dont l'inclinaison du téléphone
+  // (ou la souris, ou le doigt en repli) fait tourner la direction ; lumière de reflet (l2) concentrée sur la
+  // carte active, qui ne donne que des reflets et glisse avec l'inclinaison.
+  light: 0.111, lightR: 400, env: 0.28, albedo: 0.029, exposure: 0.74, lightAz: 0.67, lightR0: 1.0, lightZ: 210, tiltAmp: 1.45,
+  l2: 0.12, l2Amp: 0.9, l2Spread: 0.55,
+  h: 0.19, b: 1.32, crease: 0, fiber: 0.06, foot: 0.76, footW: 0.165, parallax: 0,
+  rough: 0.64, spec: 3.1, sheen: 0, glint: 0.35, edge: 3, grain: 1.25, diffRough: 0.65, envSpec: 0.32, toe: 0.0078,
+  inkAlb: 0.35, inkPress: 0.1, inkWear: 3, inkThr: 0.35, inkVar: 0.6, inkPaper: 11.5, inkOrg: 0,
 };
 const FOV = 26 * Math.PI / 180;
 const TILT = 0.3;                  // la caméra regarde un peu d'en haut : les cartes fuient légèrement
@@ -115,9 +116,10 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // lumière : direction fixe (en haut à gauche) ; seules l'inclinaison du téléphone et, sur ordinateur, la
   // position de la souris la font varier un peu (comme un reflet sur du verre) — jamais sa force.
   // tilt : décalage normalisé [-1, 1] (x à droite, y en haut), fourni par la page (gyroscope ou souris).
-  const tilt = { x: 0, y: 0 };
+  const tilt = { x: 0, y: 0 }, ts = { x: 0, y: 0 };   // ts : inclinaison lissée (≈ 0,35 s)
   const lp = { x: Math.cos(L.lightAz), y: Math.sin(L.lightAz), vx: 0, vy: 0 };
   function stepLight(dt) {
+    const kk = Math.min(1, dt * 3); ts.x += (tilt.x - ts.x) * kk; ts.y += (tilt.y - ts.y) * kk;
     let tx = Math.cos(L.lightAz) + L.tiltAmp * tilt.x, ty = Math.sin(L.lightAz) + L.tiltAmp * tilt.y;
     const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
     const w = 2.2, z = 0.85;
@@ -144,7 +146,11 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const k = lay.Hw / 235;
     const ln = Math.hypot(lp.x, lp.y) || 1, cyL = (lay.yDeck + lay.yBlank) / 2;
     const lightPos = [lp.x / ln * L.lightR0 * lay.Hw, cyL + lp.y / ln * L.lightR0 * lay.Hw, L.lightZ * k];
-    const P = { ...L, lightPos, light: L.light * k * k };
+    // reflet : la lampe de reflet est près de la caméra, décalée par l'inclinaison (le reflet glisse en sens
+    // inverse) ; elle vise la carte active (question sur le paquet, sinon le paquet)
+    const tgt = face ? poseAt(face, t) : { x: 0, y: lay.yDeck };
+    const l2Pos = [eye[0] + ts.x * L.l2Amp * lay.Hw, eye[1] + ts.y * L.l2Amp * lay.Hw, eye[2]];
+    const P = { ...L, lightPos, light: L.light * k * k, l2Pos, l2Target: [tgt.x, tgt.y], l2: L.l2 * (lay.D / 600) ** 2, l2Spread: L.l2Spread * CARD.w };
     gl.enable(gl.DEPTH_TEST);
     // pile (maillage léger, de plus en plus dans l'ombre vers le bas) ; dessus en maillage fin
     const n = visibleStack();
