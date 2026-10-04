@@ -16,7 +16,7 @@ export const LOOK = {
   light: 0.066, lightR: 160, env: 0.25, albedo: 0.025, exposure: 1.0, lightAz: 1.99, lightR0: 1.0, lightZ: 210,
   h: 0.5, b: 1.0, crease: 0.3, fiber: 0.012, foot: 0.4, footW: 0.12, parallax: 0,
   rough: 0.45, spec: 0.8, sheen: 0.15, glint: 0.35, edge: 1.0, grain: 1.8, diffRough: 0.25, envSpec: 0.02, toe: 0.0068,
-  inkAlb: 1.5, inkPress: 0.04, inkWear: 0.7, inkThr: 0.37, inkVar: 0.6, inkPaper: 5, inkOrg: 0.7,
+  inkAlb: 0.8, inkPress: 0.04, inkWear: 0.7, inkThr: 0.37, inkVar: 0.6, inkPaper: 5, inkOrg: 0.7,
 };
 const FOV = 26 * Math.PI / 180;
 const TILT = 0.3;                  // la caméra regarde un peu d'en haut : les cartes fuient légèrement
@@ -198,5 +198,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   }
   function pointer(x, y) { ptr.x = x / lay.W; ptr.y = y / lay.H; ptr.seen = true; }
   const current = () => (face ? face.id : null);
-  return { frame, tap, pointer, current, layout: lay };
+  // direction (unitaire, écran : x à droite, y en haut) d'où vient la lumière — le prénom s'en sert
+  const lightDir = () => { const l = Math.hypot(lp.x, lp.y) || 1; return [lp.x / l, lp.y / l]; };
+  return { frame, tap, pointer, current, lightDir, look: L, layout: lay };
 }
