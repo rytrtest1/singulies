@@ -23,7 +23,7 @@ export const LOOK = {
   nameFlat: 0.42,   // prénom à plat (gris en retrait) ; 0 → prénom en relief (nameAlb, nameRelief…)
   nameAlb: 0.5, nameRelief: 0.05, nameBevel: 0.07, nameSpec: 0.4, nameGrain: 1.25, nameFiber: 0.06, nameGlint: 0.35,
   inkAlb: 0.35, inkPress: 0.1, inkWear: 3, inkThr: 0.35, inkVar: 0.6, inkPaper: 11.5, inkOrg: 0,
-  cornerDelay: 3,    // s avant que le coin se corne
+  cornerDelay: 5,    // s avant que le coin se corne
 };
 const FOV = 26 * Math.PI / 180;
 const TILT = 0.22;
@@ -93,6 +93,10 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   const restPose = c => c === question ? centerPose(c.v, dragging ? dragX : 0) : c.place === 'center' ? centerPose(c.v) : answerPose(c.v);
   function poseOf(c, t) {
     const u = clamp01((t - c.t0) / c.dur);
+    if (c.anim === 'slide') {                         // la carte réponse glisse de dessous la question
+      const a = c.from, b = restPose(c), e = ease(u), p = lerpPose(a, b, e);
+      p.z = lerp(a.z, b.z, sstep(0.55, 1, u)); return p;      // reste sous la question tant qu'elle la recouvre
+    }
     if (c.anim === 'draw' || c.anim === 'answer') {   // soulevée du paquet, retournée en l'air, posée
       const a = c.from, b = restPose(c), up = sstep(0, 0.35, u), down = sstep(0.6, 1, u), e = ease(u);
       const p = lerpPose(a, b, e);
@@ -134,7 +138,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // ---------- la carte réponse ----------
   function makeAnswer(t) {
     const v = { ...variant(), noLogo: true };
-    const a = { v, ink: null, text: '', cursorMM: null, first: 0, place: 'below', anim: 'answer', t0: t, dur: ANSWER_T, from: deckPose(STACK - 1, v) };
+    const q = centerPose(question.v);
+    const a = { v, ink: null, text: '', cursorMM: null, first: 0, place: 'below', anim: 'slide', t0: t, dur: ANSWER_T, from: { ...q, z: q.z - 0.8, ry: Math.PI } };
     a.cursorMM = makeAnswerInk('', Math.floor(v.seed * 1000) + 7).cursor;
     return a;
   }
@@ -196,13 +201,10 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     for (let i = 0; i < glow.length; i++) glow[i] = (glow[i] || 0) * Math.exp(-dt / 1.4);
     const endU = ended ? clamp01((t - ended.t0) / 2.2) : 0;
 
-    // caméra ; clavier ouvert : la vue recule et remonte pour que la question et la réponse tiennent
-    // au-dessus du clavier
-    const vis = 1 - kbPx / H;
-    const yTop = lay.yDeck + CARD.h / 2 + 6, yBot = (answer && answer.place !== 'center' ? lay.yAns : lay.yDeck) - CARD.h / 2 - 6;
-    const sK = Math.max(1, (yTop - yBot) / (vis * lay.Hw * 0.92));
-    const scale = lerp(1, sK, kb), Hs = lay.Hw * scale, Ds = lay.D * scale;
-    const cyK = (yTop + yBot) / 2 - (0.5 - vis / 2) * Hs;
+    // caméra ; clavier ouvert : la carte réponse (à sa taille) au milieu de la partie visible, le reste s'efface
+    const vis = 1 - kbPx / H, scale = 1, Hs = lay.Hw, Ds = lay.D;
+    const yA = answer && answer.place !== 'center' ? lay.yAns : lay.yDeck;
+    const cyK = yA - (0.5 - (vis / 2 + 0.03)) * Hs;      // la carte réponse au milieu de la partie visible
     const cy = lerp((lay.yDeck + lay.yAns) / 2, cyK, kb);
     eye = [0, cy - Ds * Math.sin(TILT), Ds * Math.cos(TILT)];
     vp = M4.mul(M4.perspective(FOV, W / H, Ds * 0.3, Ds * 3), M4.lookAt(eye, [0, cy, 0], [0, 1, 0]));
@@ -232,18 +234,18 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const wQ = 1 - focusAns, wA = focusAns;
     const Gq = group(0, lay.yDeck, 0, 0.0, wQ), Ga = answer && answer.place === 'center' ? Gq : group(0, lay.yAns, 0, 2.3, wA);
     const endShade = 1 - endU;
-    const dimQ = (1 - L.unfocusDim * (1 - wQ)) * endShade, dimA = (1 - L.unfocusDim * (1 - wA)) * endShade;
+    const dimQ = (1 - L.unfocusDim * (1 - wQ)) * endShade * (1 - (answer && answer.place !== 'center' ? kb : 0)), dimA = (1 - L.unfocusDim * (1 - wA)) * endShade;
     gl.enable(gl.DEPTH_TEST);
     const model = (G, p) => M4.mul(G, M4.model(p.rx, p.ry, p.rz, p.x, p.y, p.z));
     const occQ = question ? { x: qp.x, y: qp.y, z: qp.z, rz: qp.rz } : null;
     // paquet (d'un bloc avec la question posée dessus)
-    const n = visibleStack();
+    const n = dimQ > 0.02 ? visibleStack() : 0;     // effacés (clavier ouvert) : on ne les dessine plus
     for (let i = 0; i < n; i++) {
       const v = stack[STACK - n + i], p = deckPose(i, v);
       card.draw(vp, eye, P, { model: model(Gq, p), lod: i === n - 1 ? 'fine' : 'coarse', shade: (0.55 + 0.45 * (i + 1) / n) * dimQ, occ: occQ, ...v });
     }
     for (const c of leaving) card.draw(vp, eye, P, { model: model(Gq, poseOf(c, t)), lod: 'fine', ink: c.ink, shade: dimQ, ...c.v });
-    if (question) {
+    if (question && dimQ > 0.02) {
       // coin supérieur droit corné, seulement après cornerDelay s : il se soulève de temps en temps
       // (comme une page qu'on va tourner) puis retombe — invitation à prendre une autre question
       const idleFor = question.anim ? -1 : t - question.landedAt;
@@ -251,7 +253,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       question.curlA = (question.curlA || 0) + (on - (question.curlA || 0)) * Math.min(1, dt * 1.5);
       const ph = ((idleFor - L.cornerDelay) % 4.5 + 4.5) % 4.5;   // cycle de 4,5 s : soulèvement, retombée
       const peek = sstep(0, 0.5, ph) * (1 - sstep(0.7, 1.5, ph));
-      const lift = -(0.5 + 2.6 * peek) * question.curlA;           // vers la caméra (carte retournée)
+      const lift = -(0.25 + 1.3 * peek) * question.curlA;          // vers la caméra (carte retournée)
       card.draw(vp, eye, P, { model: model(Gq, qp), lod: 'fine', ink: question.ink, shade: dimQ, ...question.v, curl: [-1, 1, lift] });
     }
     if (answer) {
@@ -271,7 +273,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
         nameR.layout(nameText, 0, py, capPx * Hs / H, lay.Ww * scale * 0.86, g);
         nameKey = key;
       }
-      nameR.draw(vp, eye, P, L, occQ);
+      if (kb > 0.02) gl.disable(gl.DEPTH_TEST);           // clavier ouvert : le prénom reste devant
+      nameR.draw(vp, eye, P, L, dimQ > 0.02 ? occQ : null);
+      gl.enable(gl.DEPTH_TEST);
     }
     if (ended && !ended.done && t - ended.t0 > 2.6) { ended.done = true; emit('end', { kind: ended.kind, text: ended.text, id: ended.id }); }
   }

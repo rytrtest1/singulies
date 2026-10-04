@@ -116,8 +116,8 @@ void main() {
   float z = uWarp.x * q.x * q.x + uWarp.y * q.y * q.y + uWarp.z * q.x * q.y;
   float dzx = (2.0 * uWarp.x * q.x + uWarp.z * q.y) * 2.0 / uCard.x;
   float dzy = (2.0 * uWarp.y * q.y + uWarp.z * q.x) * 2.0 / uCard.y;
-  // coin corné : le papier se soulève en douceur sur un triangle de 14 mm (courbe quadratique)
-  float cc = 14.0, cd = (uCurl.x * aPos.x - (uCard.x * 0.5 - cc)) + (uCurl.y * aPos.y - (uCard.y * 0.5 - cc));
+  // coin corné : le papier se soulève en douceur sur un petit triangle de 8 mm (courbe quadratique)
+  float cc = 8.0, cd = (uCurl.x * aPos.x - (uCard.x * 0.5 - cc)) + (uCurl.y * aPos.y - (uCard.y * 0.5 - cc));
   if (cd > 0.0 && uCurl.z != 0.0) {
     float k = cd / cc;
     z += uCurl.z * k * k;
