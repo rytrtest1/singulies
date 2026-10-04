@@ -139,6 +139,8 @@ uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
 uniform vec3 uLightPos, uEye, uRoomUp;
 // ombre portée par une autre carte (la carte retournée au-dessus du paquet) : rectangle à la hauteur uOccZ
 uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc;
+// projecteur de mise en valeur (carte active) : cône doux
+uniform vec3 uSpotPos, uSpotDir; uniform float uSpot, uSpotCosOut, uSpotCosIn;
 uniform float uLight, uLightR, uEnv, uAlbedo, uExposure;
 uniform float uH, uB, uCrease, uFiber, uFoot, uFootW, uParallax;
 uniform float uRough, uSpec, uSheen, uGlint, uEdge, uGrain, uDiffRough, uEnvSpec, uToe;
@@ -341,6 +343,15 @@ void main() {
     vec3 Rv = reflect(-V, n);
     float amb = uEnv * (alb * env(n, L) + uEnvSpec * Fv * env(Rv, L));
     sh *= occShadow(L, dist);
+    // projecteur : éclaire la carte active (l'encre surtout, le papier reste sombre), cône à bord doux
+    vec3 Ls = uSpotPos - vWorld; float ds = length(Ls); Ls /= ds;
+    float cone = smoothstep(uSpotCosOut, uSpotCosIn, dot(-Ls, uSpotDir));
+    float irrS = uSpot * 250000.0 / (ds * ds) * cone;
+    float NLs = max(dot(n, Ls), 0.0);
+    vec3 Hs = normalize(Ls + V);
+    float specS = uSpec * D_GGX(max(dot(n, Hs), 0.0), a) * V_Smith(NLs, NV, a) * (0.04 + 0.96 * pow(1.0 - max(dot(V, Hs), 0.0), 5.0));
+    // surtout l'encre (la question ressort), à peine le papier (il reste noir)
+    amb += irrS * NLs * (alb * mix(0.1, 1.0, ink) + 0.25 * specS * (1.0 - 0.6 * ink));
     // le bord cassé accroche la lumière : reflet renforcé sur le liseré, du côté de la lampe
     spec *= 1.0 + 2.5 * rim;
     col = vec3((alb * irr * diff + irr * NL * sh * (spec + sheen + glint) + amb) * crease);
@@ -424,6 +435,8 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform3fv(u.uLightPos, params.lightPos); gl.uniform3fv(u.uEye, eye);
     const oc = card.occ;
     gl.uniform1f(u.uHasOcc, oc ? 1 : 0);
+    gl.uniform3fv(u.uSpotPos, params.spotPos || [0, 0, 1000]); gl.uniform3fv(u.uSpotDir, params.spotDir || [0, 0, -1]);
+    gl.uniform1f(u.uSpot, params.spotI || 0); gl.uniform1f(u.uSpotCosOut, params.spotCosOut || 0.9); gl.uniform1f(u.uSpotCosIn, params.spotCosIn || 0.95);
     if (oc) { gl.uniform4f(u.uOcc, oc.x, oc.y, CARD.w / 2, CARD.h / 2); gl.uniform1f(u.uOccZ, oc.z); gl.uniform1f(u.uOccRot, oc.rz); }
     gl.uniform3fv(u.uRoomUp, params.roomUp || [0, 0, 1]);
     for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'Parallax', 'EnvSpec', 'Toe', 'InkAlb', 'InkPress', 'InkWear', 'InkThr', 'InkVar', 'InkPaper', 'InkOrg']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);

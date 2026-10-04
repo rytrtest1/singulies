@@ -18,16 +18,37 @@ in vec2 vUV; in vec3 vWorld; in float vGlow;
 uniform sampler2D uAtlas, uPaper;
 uniform float uGrain, uFiber, uGlint, uSeed;
 uniform vec2 uOrigin;
+uniform float uFlat;                 // > 0 : prénom à plat, gris uFlat (affiché), seulement assombri par l'ombre d'une carte
+uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc, uLightR;
 uniform vec2 uTexel;                 // taille d'un texel de l'atlas (uv)
 uniform float uTexelEm;              // taille d'un texel (em)
 uniform vec3 uLightPos, uEye;
 uniform float uLight, uEnv, uAlb, uRelief, uBevel, uExposure, uToe, uSpec;
 out vec4 o;
+float occShadow(vec3 L, float dist) {
+  if (uHasOcc < 0.5 || L.z <= 1e-3) return 1.0;
+  float s = (uOccZ - vWorld.z) / L.z;
+  if (s <= 0.05) return 1.0;
+  vec2 q = vWorld.xy + L.xy * s - uOcc.xy;
+  float c = cos(uOccRot), sn = sin(uOccRot);
+  q = vec2(c * q.x + sn * q.y, -sn * q.x + c * q.y);
+  vec2 e = abs(q) - (uOcc.zw - 3.0);
+  float d = length(max(e, 0.0)) + min(max(e.x, e.y), 0.0) - 3.0;
+  float pen = max(0.4, s * uLightR / dist);
+  return 1.0 - 0.85 * (1.0 - smoothstep(-pen, pen, d));
+}
 void main() {
   float d = texture(uAtlas, vUV).r;                       // em, > 0 dans la lettre
   float aa = max(fwidth(d) * 0.7, 1e-4);
   float cov = smoothstep(-aa, aa, d);
   if (cov <= 0.0) discard;
+  if (uFlat > 0.0) {
+    vec3 Lf = uLightPos - vWorld; float df = length(Lf);
+    float shf = occShadow(Lf / df, df);
+    float g = uFlat * shf + vGlow * 0.5;
+    o = vec4(vec3(g) * cov, cov);
+    return;
+  }
   // bombé : le bord monte sur uBevel em puis plateau ; normale par différences dans l'atlas
   float gx = (texture(uAtlas, vUV + vec2(uTexel.x, 0.0)).r - texture(uAtlas, vUV - vec2(uTexel.x, 0.0)).r) / (2.0 * uTexelEm);
   float gy = (texture(uAtlas, vUV + vec2(0.0, uTexel.y)).r - texture(uAtlas, vUV - vec2(0.0, uTexel.y)).r) / (2.0 * uTexelEm);
@@ -93,7 +114,7 @@ export async function createNameRelief(gl, paperTex, family = '"SG Garamond", se
     count = v.length / 5;
   }
 
-  function draw(vp, eye, P, look) {
+  function draw(vp, eye, P, look, occ) {
     if (!count) return;
     const u = prog.u;
     gl.useProgram(prog.p);
@@ -103,6 +124,9 @@ export async function createNameRelief(gl, paperTex, family = '"SG Garamond", se
     gl.uniform1f(u.uExposure, P.exposure); gl.uniform1f(u.uToe, P.toe);
     gl.uniform1f(u.uAlb, look.nameAlb); gl.uniform1f(u.uRelief, look.nameRelief); gl.uniform1f(u.uBevel, look.nameBevel);
     gl.uniform1f(u.uSpec, look.nameSpec);
+    gl.uniform1f(u.uFlat, look.nameFlat || 0); gl.uniform1f(u.uLightR, P.lightR);
+    gl.uniform1f(u.uHasOcc, occ ? 1 : 0);
+    if (occ) { gl.uniform4f(u.uOcc, occ.x, occ.y, 43.5, 25.75); gl.uniform1f(u.uOccZ, occ.z); gl.uniform1f(u.uOccRot, occ.rz); }
     gl.uniform2f(u.uTexel, 1 / atlas.width, 1 / atlas.height); gl.uniform1f(u.uTexelEm, 1 / 128);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(u.uAtlas, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, paperTex); gl.uniform1i(u.uPaper, 1);

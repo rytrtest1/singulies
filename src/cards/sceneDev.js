@@ -80,6 +80,10 @@ window.__scene.measure = () => {
   // valeurs (seulement celles changées) se recopie, et se passe aussi dans l'adresse
   if (P.has('reglages')) {
     const R = {
+      lightMode: [0, 3, 1, 'MANIÈRE : 0 orbite · 1 + hauteur · 2 lampe de poche · 3 cartes inclinées'],
+      elevAmp: [0, 1.2, 0.02, '1 : variation de hauteur'], flashZ: [20, 200, 2, '2 : hauteur de la lampe de poche'], cardTilt: [0, 0.4, 0.005, '3 : inclinaison des cartes'],
+      spot: [0, 0.4, 0.002, 'projecteur sur la carte active'],
+      nameFlat: [0, 1, 0.01, 'prénom à plat : gris (0 = relief)'],
       light: [0, 0.3, 0.001, 'lampe : force'], lightAz: [0, 6.28, 0.01, 'lampe : direction'], lightZ: [20, 600, 5, 'lampe : hauteur'],
       lightR0: [0.2, 3, 0.05, 'lampe : distance'], lightR: [5, 400, 5, 'lampe : taille (ombres douces)'], tiltAmp: [0, 2, 0.05, 'variation (inclinaison)'],
       env: [0, 1, 0.01, 'lumière de face'], envSpec: [0, 0.5, 0.005, 'reflet de la pièce'], exposure: [0.2, 3, 0.01, 'exposition'], toe: [0, 0.015, 0.0002, 'noir du papier'],
