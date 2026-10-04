@@ -72,7 +72,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 
 ## Frappe automatique du prénom (04/10)
 - Visiteur qui revient : son prénom **se tape tout seul à l'arrivée, lettre par lettre, comme à la machine** (≈ 0,09–0,19 s par lettre, plus après un espace), la lumière du champ suit la frappe (ondes normales). Remplacent l'ancien « lettres déjà allumées sans onde ».
-- Prénom proposé par le clavier / remplissage automatique : même frappe lettre par lettre à partir de ce qui était déjà écrit (le modèle a tout le prénom tout de suite). Toute frappe réelle coupe l'animation. Pas pendant la transition ni en mouvement réduit.
+- Prénom proposé par le clavier / remplissage automatique : même frappe lettre par lettre à partir de ce qui était déjà écrit (le modèle a tout le prénom tout de suite). **iPhone : la suggestion arrive en composition** → la frappe démarre dès l'aperçu (le prénom entier n'apparaît jamais d'un bloc). Toute frappe réelle coupe l'animation. Pas pendant la transition ni en mouvement réduit.
 
 ## Validation
 - **Passage à la suite** (05/10) : on ne devine jamais comment continuer — soit c'est évident, soit c'est automatique. **Toucher le prénom = la suite** (confirmé ou non) ; Entrée confirme, 2e Entrée = la suite ; **automatique dès que la dernière lettre allumée a atteint sa clarté, et jamais moins de 3 s après le dernier geste** (toucher, glisser, clic, molette, touche ; un simple mouvement de souris ne compte pas). **Le clavier ne sort que si l'on touche la zone du curseur / du prénom** (ailleurs : rien — plus tard, toucher un prénom du champ ouvrira son acrostiche) ; sur ordinateur, une touche de lettre rend le focus au champ. Retour en arrière toujours possible (flèche discrète).

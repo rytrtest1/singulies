@@ -264,6 +264,26 @@ await run('Zone du curseur (prénom vide) -> champ focalisé ; touche au clavier
   const c = await flags(p);
   return [same('clic ailleurs : pas de focus', false, a.foc), same('clic zone du curseur : focus', true, b.foc), same('lettre tapée : focus + texte', [true, 'L'], [c.foc, c.text])];
 });
+await run('Suggestion en composition (iPhone) : frappe lettre par lettre dès l’aperçu', async (p) => {
+  const r = await p.evaluate(() => {
+    const i = document.getElementById('in');
+    i.dispatchEvent(new CompositionEvent('compositionstart', { data: '' }));
+    i.value = 'Léa';
+    i.dispatchEvent(new CompositionEvent('compositionupdate', { data: 'Léa' }));
+    const rev = window.__sg.S.rev;
+    return { rev: !!rev, n: rev ? rev.n : null };
+  });
+  await sleep(150);
+  const mid = await p.evaluate(() => { const r = window.__sg.S.rev; return r ? r.n : 99; });
+  await p.evaluate(() => {
+    const i = document.getElementById('in');
+    i.dispatchEvent(new CompositionEvent('compositionend', { data: 'Léa' }));
+    i.dispatchEvent(new InputEvent('input', { inputType: 'insertCompositionText', data: 'Léa' }));
+  });
+  await p.waitForFunction(() => window.__sg.S.rev == null, null, { timeout: 15000 });
+  const s = await st(p);
+  return [same('frappe démarrée dès l’aperçu', true, r.rev), same('aucune lettre affichée d’un coup', 0, r.n), same('pas tout affiché après 150 ms', true, mid < 3), same('modèle', 'LEA', s.text)];
+});
 await run('Remplissage auto simulé', async (p) => {
   await p.evaluate(() => {
     const i = document.getElementById('in');
