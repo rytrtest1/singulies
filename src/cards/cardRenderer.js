@@ -1,4 +1,4 @@
-// Carte SINGULIÉS en volume : 87 × 51,5 × 0,25 mm, coins arrondis, tranche, léger gondolage.
+// Carte SINGULIÉS en volume : 87 × 51,5 × 0,125 mm, coins arrondis, tranche, léger gondolage.
 // Dos : logo gaufré en relief ; recto : même logo en creux, vu en miroir. Papier = relief relatif
 // tiré de la photo du dos (public/cards/paper.jpg) ; relief du logo = distance signée (logo.png).
 // Unités du monde : mm. Lumière : lampe étendue (disque, ombres douces) + pièce (environnement neutre).
@@ -6,7 +6,7 @@
 // fibres qui scintillent ; tranche plus claire, bords un peu cassés, irréguliers.
 import { program } from '../gl/gl.js';
 
-export const CARD = { w: 87, h: 51.5, r: 3, t: 0.25, logoSq: 38.501, logoRange: 2 };
+export const CARD = { w: 87, h: 51.5, r: 3, t: 0.125, logoSq: 38.501, logoRange: 2 };
 
 // ---------- petites matrices (colonnes, comme WebGL) ----------
 export const M4 = {
@@ -137,8 +137,8 @@ uniform float uLogoSq, uLogoRange;
 uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
 uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
 uniform vec3 uLightPos, uEye, uRoomUp;
-// lumière de reflet : ne donne que des reflets (le papier reste noir), concentrée sur la carte active
-uniform vec3 uL2Pos; uniform vec2 uL2Target; uniform float uL2, uL2Spread;
+// ombre portée par une autre carte (la carte retournée au-dessus du paquet) : rectangle à la hauteur uOccZ
+uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc;
 uniform float uLight, uLightR, uEnv, uAlbedo, uExposure;
 uniform float uH, uB, uCrease, uFiber, uFoot, uFootW, uParallax;
 uniform float uRough, uSpec, uSheen, uGlint, uEdge, uGrain, uDiffRough, uEnvSpec, uToe;
@@ -224,6 +224,21 @@ float orenNayar(vec3 n, vec3 L, vec3 V, float sig) {
   return NL * (A + B * max(cphi, 0.0) * sin(a) * tan(min(b, 1.5)));
 }
 
+// ombre douce d'une carte posée au-dessus (rectangle arrondi à la hauteur uOccZ, tourné de uOccRot) :
+// on suit le rayon vers la lampe jusqu'à ce plan ; pénombre ∝ distance × taille apparente de la lampe
+float occShadow(vec3 L, float dist) {
+  if (uHasOcc < 0.5 || L.z <= 1e-3) return 1.0;
+  float s = (uOccZ - vWorld.z) / L.z;
+  if (s <= 0.05) return 1.0;
+  vec2 q = vWorld.xy + L.xy * s - uOcc.xy;
+  float c = cos(uOccRot), sn = sin(uOccRot);
+  q = vec2(c * q.x + sn * q.y, -sn * q.x + c * q.y);
+  vec2 e = abs(q) - (uOcc.zw - 3.0);
+  float d = length(max(e, 0.0)) + min(max(e.x, e.y), 0.0) - 3.0;     // distance au rectangle arrondi (mm)
+  float pen = max(0.4, s * uLightR / dist);
+  return 1.0 - 0.9 * (1.0 - smoothstep(-pen, pen, d));
+}
+
 void main() {
   vec3 Ng = normalize(vN), T = normalize(vT), Bv = normalize(vB);
   vec3 L = uLightPos - vWorld; float dist = length(L); L /= dist;
@@ -235,7 +250,9 @@ void main() {
     float n1 = noise1(atan(vMM.y, vMM.x) * 180.0);
     float alb = uAlbedo * (1.6 + 0.5 * n1);
     float NL = max(dot(Ng, L), 0.0);
-    col = vec3(alb * (irr * NL + uEnv * env(Ng, L)));
+    vec3 He = normalize(L + V);
+    float specE = uSpec * D_GGX(max(dot(Ng, He), 0.0), 0.35) * 0.25;
+    col = vec3(alb * (irr * NL * occShadow(L, dist) + uEnv * env(Ng, L)) + irr * NL * specE);
   } else {
     float s = vFace == 0 ? 1.0 : -1.0;
     // relief du logo (dos : bosse, recto : creux) ; le pied est élargi à l'empreinte du pixel
@@ -323,16 +340,10 @@ void main() {
     float Fv = 0.04 + 0.96 * pow(1.0 - NV, 5.0);
     vec3 Rv = reflect(-V, n);
     float amb = uEnv * (alb * env(n, L) + uEnvSpec * Fv * env(Rv, L));
-    // reflet : lueur douce qui glisse sur la carte active quand on incline le téléphone / bouge la souris
-    vec3 L2 = uL2Pos - vWorld; float d2 = length(L2); L2 /= d2;
-    float NL2 = max(dot(n, L2), 0.0);
-    vec3 H2 = normalize(L2 + V); float NH2 = max(dot(n, H2), 0.0), VH2 = max(dot(V, H2), 0.0);
-    float F2 = 0.04 + 0.96 * pow(1.0 - VH2, 5.0);
-    vec2 dT = vWorld.xy - uL2Target;
-    float focus = exp(-dot(dT, dT) / (2.0 * uL2Spread * uL2Spread));
-    float refl2 = uL2 * focus * NL2 * (uSpec * D_GGX(NH2, a) * V_Smith(NL2, NV, a) * F2 * (1.0 - 0.6 * ink)
-      + uGlint * smoothstep(1.06, 1.35, R0) * pow(max(dot(ng, H2), 0.0), 220.0));
-    col = vec3((alb * irr * diff + irr * NL * sh * (spec + sheen + glint) + amb + refl2) * crease);
+    sh *= occShadow(L, dist);
+    // le bord cassé accroche la lumière : reflet renforcé sur le liseré, du côté de la lampe
+    spec *= 1.0 + 2.5 * rim;
+    col = vec3((alb * irr * diff + irr * NL * sh * (spec + sheen + glint) + amb) * crease);
   }
   col *= uExposure * uShade;
   // courbe « photo » : pied qui écrase les noirs (papier presque noir), hautes lumières intactes
@@ -411,8 +422,9 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform3fv(u.uWarp, card.warp || [0, 0, 0]);
     gl.uniform1f(u.uSeed, card.seed || 0);
     gl.uniform3fv(u.uLightPos, params.lightPos); gl.uniform3fv(u.uEye, eye);
-    gl.uniform3fv(u.uL2Pos, params.l2Pos || [0, 0, 1000]); gl.uniform2fv(u.uL2Target, params.l2Target || [0, 0]);
-    gl.uniform1f(u.uL2, params.l2 || 0); gl.uniform1f(u.uL2Spread, params.l2Spread || 40);
+    const oc = card.occ;
+    gl.uniform1f(u.uHasOcc, oc ? 1 : 0);
+    if (oc) { gl.uniform4f(u.uOcc, oc.x, oc.y, CARD.w / 2, CARD.h / 2); gl.uniform1f(u.uOccZ, oc.z); gl.uniform1f(u.uOccRot, oc.rz); }
     gl.uniform3fv(u.uRoomUp, params.roomUp || [0, 0, 1]);
     for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'Parallax', 'EnvSpec', 'Toe', 'InkAlb', 'InkPress', 'InkWear', 'InkThr', 'InkVar', 'InkPaper', 'InkOrg']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, paperTex); gl.uniform1i(u.uPaper, 0);

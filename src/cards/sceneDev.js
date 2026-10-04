@@ -3,11 +3,7 @@
 import { createCardScene } from './scene.js';
 
 const P = new URLSearchParams(location.search);
-// prénom : une lettre par élément, éclairée selon la direction de la lumière de la scène
-const nameEl = document.getElementById('name');
-const letters = [...(P.get('prenom') || 'LEA').toUpperCase()].map(ch => {
-  const s = document.createElement('span'); s.textContent = ch; nameEl.appendChild(s); return s;
-});
+const PRENOM = (P.get('prenom') || 'LEA').toUpperCase();   // dessiné en relief par la scène
 const log = document.getElementById('log');
 const canvas = document.getElementById('c');
 const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: P.has('shot') });
@@ -16,6 +12,7 @@ const look = {}; for (const k in LOOK) if (P.has(k)) look[k] = +P.get(k);
 // (pas d'await au niveau du module : cible Safari 14)
 createCardScene(gl, { base: './', seed: P.has('seed') ? +P.get('seed') : undefined, look }).then(start);
 function start(scene) {
+scene.setName(PRENOM);
 window.__scene = { scene, ready: true, frames: 0 };
 
 let t0 = performance.now(), last = t0;
@@ -27,14 +24,6 @@ function frame(now) {
   gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   scene.frame(t, dt, W, H);
-  // chaque lettre : un peu plus claire du côté d'où vient la lumière (retrait 0,30–0,52)
-  const [lx, ly] = scene.lightDir(), nr = nameEl.getBoundingClientRect();
-  for (const s of letters) {
-    const r = s.getBoundingClientRect();
-    const ox = (r.left + r.width / 2 - (nr.left + nr.width / 2)) / Math.max(1, nr.width / 2);
-    const k = Math.max(0, Math.min(1, 0.5 + 0.5 * (lx * ox * 1.3 + ly * 0.45)));
-    s.style.color = `rgba(236,236,236,${(0.14 + 0.56 * Math.pow(k, 1.6)).toFixed(3)})`;
-  }
   window.__scene.frames++; window.__scene.t = t;
   requestAnimationFrame(frame);
 }
@@ -102,7 +91,7 @@ window.__scene.measure = () => {
       inkAlb: [0, 4, 0.05, 'encre : blancheur'], inkThr: [0.15, 0.7, 0.01, 'encre : finesse du trait'], inkVar: [0, 3, 0.05, 'encre : variations'],
       inkPaper: [0, 30, 0.5, 'encre : papier visible'], inkOrg: [0, 3, 0.05, 'encre : contours irréguliers'], inkWear: [0, 3, 0.05, 'encre : usure'],
       inkPress: [0, 0.1, 0.002, 'encre : creusement'],
-      l2: [0, 0.4, 0.002, 'reflet : force'], l2Amp: [0, 3, 0.05, 'reflet : déplacement'], l2Spread: [0.1, 2, 0.05, 'reflet : étendue'],
+      nameAlb: [0, 2, 0.01, 'prénom : clarté'], nameRelief: [0, 0.3, 0.005, 'prénom : relief'], nameBevel: [0.01, 0.2, 0.005, 'prénom : arrondi'], nameSpec: [0, 3, 0.05, 'prénom : brillance'],
     };
     const init = { ...scene.look };
     const wrap = document.createElement('div');

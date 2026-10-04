@@ -6,29 +6,33 @@
 // fait varier un peu, jamais sa force.
 import { createCardRenderer, M4, CARD } from './cardRenderer.js';
 import { loadTypeFont, makeInkMap } from './ink.js';
+import { createNameRelief } from './nameRelief.js';
 import { createRng } from '../field/rng.js';
 import QUESTIONS from './questions.json';
 
 // matière et lumière (calage du banc, éclairage du site : neutre, venant d'en haut à gauche, devant)
 export const LOOK = {
   // réglé par Maxence sur téléphone (04/10). Cartes noires ; lampe principale dont l'inclinaison du téléphone
-  // (ou la souris, ou le doigt en repli) fait tourner la direction ; lumière de reflet (l2) concentrée sur la
-  // carte active, qui ne donne que des reflets et glisse avec l'inclinaison.
+  // (ou la souris, ou le doigt en repli) fait tourner la direction (pas de lumière de reflet : grisait les cartes) ;
+  // la carte retournée projette son ombre douce sur le paquet ; les bords cassés accrochent la lumière.
   light: 0.111, lightR: 400, env: 0.28, albedo: 0.029, exposure: 0.74, lightAz: 0.67, lightR0: 1.0, lightZ: 210, tiltAmp: 1.45,
-  l2: 0.12, l2Amp: 0.9, l2Spread: 0.55,
   h: 0.19, b: 1.32, crease: 0, fiber: 0.06, foot: 0.76, footW: 0.165, parallax: 0,
   rough: 0.64, spec: 3.1, sheen: 0, glint: 0.35, edge: 3, grain: 1.25, diffRough: 0.65, envSpec: 0.32, toe: 0.0078,
+  nameAlb: 0.5, nameRelief: 0.05, nameBevel: 0.07, nameSpec: 0.4,
   inkAlb: 0.35, inkPress: 0.1, inkWear: 3, inkThr: 0.35, inkVar: 0.6, inkPaper: 11.5, inkOrg: 0,
 };
 const FOV = 26 * Math.PI / 180;
 const TILT = 0.3;                  // la caméra regarde un peu d'en haut : les cartes fuient légèrement
 const STACK = 12;                   // cartes visibles dans la pile
-const PITCH = 0.27;                 // épaisseur d'une carte dans la pile (mm)
+const PITCH = 0.15;                 // pas d'une carte dans la pile (mm) : carte 0,125 + air
 const DRAW_T = 1.3, DISCARD_T = 0.9;
 const REDRAW_DELAY = DISCARD_T * 0.88;   // la suivante ne part qu'une fois la place libre au-dessus du paquet
 const FLIP_H = CARD.w / 2 + 7;          // hauteur de retournement : la demi-carte qui plonge ne touche jamais le paquet
 const sstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
 
+const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const mul3 = (a, k) => [a[0] * k, a[1] * k, a[2] * k], norm3 = a => mul3(a, 1 / Math.hypot(...a));
+const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const ease = u => u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
 const easeIn = u => u * u * u;
 const clamp01 = u => Math.min(1, Math.max(0, u));
@@ -36,6 +40,8 @@ const clamp01 = u => Math.min(1, Math.max(0, u));
 export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {} } = {}) {
   // look : surcharge de LOOK (page de dev : ?light=…&env=…)
   const card = await createCardRenderer(gl, base);
+  const nameR = await createNameRelief(gl);
+  let nameText = '', nameKey = '';
   await loadTypeFont(base);
   const L = { ...LOOK, ...look };
   const rnd = createRng(seed);
@@ -146,24 +152,36 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const k = lay.Hw / 235;
     const ln = Math.hypot(lp.x, lp.y) || 1, cyL = (lay.yDeck + lay.yBlank) / 2;
     const lightPos = [lp.x / ln * L.lightR0 * lay.Hw, cyL + lp.y / ln * L.lightR0 * lay.Hw, L.lightZ * k];
-    // reflet : la lampe de reflet est près de la caméra, décalée par l'inclinaison (le reflet glisse en sens
-    // inverse) ; elle vise la carte active (question sur le paquet, sinon le paquet)
-    const tgt = face ? poseAt(face, t) : { x: 0, y: lay.yDeck };
-    const l2Pos = [eye[0] + ts.x * L.l2Amp * lay.Hw, eye[1] + ts.y * L.l2Amp * lay.Hw, eye[2]];
-    const P = { ...L, lightPos, light: L.light * k * k, l2Pos, l2Target: [tgt.x, tgt.y], l2: L.l2 * (lay.D / 600) ** 2, l2Spread: L.l2Spread * CARD.w };
+    const P = { ...L, lightPos, light: L.light * k * k };
     gl.enable(gl.DEPTH_TEST);
     // pile (maillage léger, de plus en plus dans l'ombre vers le bas) ; dessus en maillage fin
+    // la carte retournée (ou en train de l'être) projette son ombre sur le paquet
+    const fp = face ? poseAt(face, t) : null, occ = fp ? { x: fp.x, y: fp.y, z: fp.z, rz: fp.rz } : null;
     const n = visibleStack();
     for (let i = 0; i < n; i++) {
       const v = stack[STACK - n + i], p = stackPose(i, v), top = i === n - 1;
-      card.draw(vp, eye, P, { model: M4.model(p.rx, p.ry, p.rz, p.x, p.y, p.z), lod: top ? 'fine' : 'coarse', shade: 0.55 + 0.45 * (i + 1) / n, ...v });
+      card.draw(vp, eye, P, { model: M4.model(p.rx, p.ry, p.rz, p.x, p.y, p.z), lod: top ? 'fine' : 'coarse', shade: 0.55 + 0.45 * (i + 1) / n, occ, ...v });
     }
     for (const c of [...leaving, ...(face ? [face] : [])]) {
       const p = poseAt(c, t);
       card.draw(vp, eye, P, { model: M4.model(p.rx, p.ry, p.rz, p.x, p.y, p.z), lod: 'fine', ink: c.ink, ...c.v });
     }
+    // prénom en relief, en haut (dans le plan z = 0, à 13 % de la hauteur de l'écran)
+    if (nameText) {
+      const key = nameText + W + 'x' + H;
+      if (key !== nameKey) {
+        const fy = 0.135, ndcY = 1 - 2 * fy, tf = Math.tan(FOV / 2);
+        const fwd = norm3(sub3([0, cy, 0], eye)), right = norm3(cross3(fwd, [0, 1, 0])), up = cross3(right, fwd);
+        const dir = norm3(add3(fwd, mul3(up, ndcY * tf)));
+        const s = -eye[2] / dir[2], py = eye[1] + dir[1] * s;
+        const capPx = Math.min(52, Math.max(26, 0.052 * H)) * 0.66, capMm = capPx * lay.Hw / H;
+        nameR.layout(nameText, 0, py, capMm, lay.Ww * 0.86);
+        nameKey = key;
+      }
+    }
     // carte vierge (recto vers la caméra, sans texte)
     card.draw(vp, eye, P, { model: M4.model(0, Math.PI, blank.jr, blank.jx, lay.yBlank, 0), lod: 'fine', ...blank });
+    if (nameText) nameR.draw(vp, eye, P, L);
   }
 
   // sélection : coins de la carte projetés à l'écran (px CSS), point dans le quadrilatère
@@ -200,9 +218,10 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (inside(screenQuad({ x: blank.jx, y: lay.yBlank, z: 0, rx: 0, ry: Math.PI, rz: blank.jr }), x, y)) return { type: 'blank' };
     return { type: null };
   }
+  function setName(s) { nameText = s || ''; nameKey = ''; }
   function setTilt(x, y) { tilt.x = Math.max(-1, Math.min(1, x)); tilt.y = Math.max(-1, Math.min(1, y)); }
   const current = () => (face ? face.id : null);
   // direction (unitaire, écran : x à droite, y en haut) d'où vient la lumière — le prénom s'en sert
   const lightDir = () => { const l = Math.hypot(lp.x, lp.y) || 1; return [lp.x / l, lp.y / l]; };
-  return { frame, tap, setTilt, current, lightDir, look: L, layout: lay };
+  return { frame, tap, setTilt, setName, current, lightDir, look: L, layout: lay };
 }
