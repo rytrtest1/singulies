@@ -7,8 +7,8 @@
 import { CARD } from './cardRenderer.js';
 import { createRng } from '../field/rng.js';
 
-export const INK_PXMM = 16;
-export const TYPE = { pitch: 2.54, lead: 8.6, size: 2.54 / 0.6, xScale: 1.0, yScale: 1.1, maxChars: 24, weight: 0.09 };
+export const INK_PXMM = 24;
+export const TYPE = { pitch: 2.54, lead: 8.6, size: 2.54 / 0.6, xScale: 1.0, yScale: 1.1, maxChars: 24, weight: 0.035 };
 const FAMILY = 'SG Machine';
 
 let fontReady = null;
@@ -88,9 +88,9 @@ export function makeInkMap(question, seed = 1) {
     const drift = g() * 0.04;                           // la ligne monte ou descend un peu
     [...line].forEach((ch, ci) => {
       if (ch === ' ' || ch === ' ') return;
-      const x = margin + ci * TYPE.pitch + g() * 0.05;
-      const y = base + drift * ci / Math.max(1, line.length) + g() * 0.06;
-      const press = Math.min(1, Math.max(0.35, 0.82 + g() * 0.13));
+      const x = margin + ci * TYPE.pitch + g() * 0.06;
+      const y = base + drift * ci / Math.max(1, line.length) + g() * 0.09;
+      const press = Math.min(1, Math.max(0.35, 0.8 + g() * 0.16));
       const rot = g() * 0.5 * Math.PI / 180;
       // vignette : caractère seul, puis frappe partielle (dégradé d'un côté), puis report sur la carte
       gx.setTransform(1, 0, 0, 1, 0, 0);
@@ -101,15 +101,15 @@ export function makeInkMap(question, seed = 1) {
       gx.translate(ox, oyB); gx.scale(TYPE.xScale, TYPE.yScale);
       gx.fillText(ch, 0, 0);
       // graisse : la frappe écrase l'encre un peu au-delà du dessin
-      gx.lineWidth = TYPE.weight * PX + (CLOG.has(ch) && rnd() < 0.14 ? 0.22 * PX : 0);
+      gx.lineWidth = TYPE.weight * PX + (CLOG.has(ch) && rnd() < 0.12 ? 0.12 * PX : 0);
       gx.lineJoin = 'round';
       gx.strokeText(ch, 0, 0);
       gx.setTransform(1, 0, 0, 1, 0, 0);
       const side = rnd();                               // frappe partielle : haut, bas, gauche ou droite plus légers
-      if (side < 0.55) {
+      if (side < 0.4) {
         const a = rnd() * Math.PI * 2, r = glyph.width * 0.6;
         const gr = gx.createLinearGradient(glyph.width / 2 - Math.cos(a) * r, glyph.height / 2 - Math.sin(a) * r, glyph.width / 2 + Math.cos(a) * r, glyph.height / 2 + Math.sin(a) * r);
-        const k = rnd.range(0.25, 0.8);
+        const k = rnd.range(0.5, 0.9);
         gr.addColorStop(0, `rgba(255,255,255,${k})`); gr.addColorStop(1, 'rgba(255,255,255,1)');
         gx.globalCompositeOperation = 'destination-in'; gx.fillStyle = gr; gx.fillRect(0, 0, glyph.width, glyph.height);
       }

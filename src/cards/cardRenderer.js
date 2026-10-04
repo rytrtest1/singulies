@@ -107,7 +107,7 @@ const FS = /* glsl */`#version 300 es
 precision highp float;
 in vec3 vWorld, vT, vB, vN; in vec2 vMM; flat in int vFace;
 uniform sampler2D uPaper, uLogo, uInk;
-uniform float uHasInk, uInkAlb, uInkGrain, uInkPress;
+uniform float uHasInk, uInkAlb, uInkGrain, uInkPress, uInkDot;
 uniform vec2 uCard;          // largeur, hauteur (mm)
 uniform float uLogoSq, uLogoRange;
 uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
@@ -147,6 +147,11 @@ float paper(vec2 p) {
 float paperHF(vec2 p) { vec2 uv = paperUV(p); return texture(uPaper, uv).r - texture(uPaper, uv, 3.0).r; }
 // encre du recto : la face est lue retournée (axe x local vers la gauche de l'écran)
 vec2 inkUV(vec2 p) { return vec2(0.5 - p.x / uCard.x, 0.5 - p.y / uCard.y); }
+float hash1(vec2 c) { return fract(sin(dot(c, vec2(127.1, 311.7)) + uSeed) * 43758.5453); }
+float vnoise(vec2 x) {
+  vec2 i = floor(x), f = fract(x), u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash1(i), hash1(i + vec2(1, 0)), u.x), mix(hash1(i + vec2(0, 1)), hash1(i + vec2(1, 1)), u.x), u.y);
+}
 vec2 hash2(vec2 c) { c = vec2(dot(c, vec2(127.1, 311.7)), dot(c, vec2(269.5, 183.3))) + uSeed; return fract(sin(c) * 43758.5453); }
 float noise1(float x) {
   float i = floor(x), f = fract(x);
@@ -203,12 +208,24 @@ void main() {
       float ie = 0.06;
       hx -= uInkPress * (texture(uInk, inkUV(p + vec2(ie, 0.0)), 1.5).r - texture(uInk, inkUV(p - vec2(ie, 0.0)), 1.5).r) / (2.0 * ie);
       hy -= uInkPress * (texture(uInk, inkUV(p + vec2(0.0, ie)), 1.5).r - texture(uInk, inkUV(p - vec2(0.0, ie)), 1.5).r) / (2.0 * ie);
-      float c = texture(uInk, inkUV(p)).r;
-      // l'encre se dépose sur les sommets des fibres ; le creux du logo est moins bien frappé
-      float hfp = paperHF(p) * uGrain;
-      float dep = mix(1.0 - uInkGrain, 1.0, smoothstep(-0.05, 0.04, hfp + 0.05 * (c - 0.7)));
+      // carte d'encre : c = forme × pression (0–1). Le carbone se dépose en grains serrés (≈ 0,07 mm),
+      // plus denses sur le bord de la lettre (le caractère y appuie plus), avec des manques ;
+      // les grains accrochent les sommets des fibres ; le creux du logo est moins bien frappé.
+      vec2 iuv = inkUV(p);
+      float c = texture(uInk, iuv).r;
+      float cw = max(fwidth(c) * 0.75, 0.04);
+      float shape = smoothstep(0.22 - cw, 0.22 + cw, c);                 // bord net
+      float rimI = clamp((c - texture(uInk, iuv, 2.5).r) * 2.5, 0.0, 1.0); // intérieur du bord
       float hollow = prof(logoD(p));
-      ink = clamp(pow(c, 0.8) * dep * (1.0 - 0.5 * hollow), 0.0, 1.0);
+      float dens = clamp((0.3 + 0.55 * c) * (0.85 + 0.4 * rimI) * (1.0 - 0.4 * hollow), 0.0, 0.92);
+      vec2 g = p / uInkDot;
+      float nz = 0.6 * vnoise(g) + 0.4 * vnoise(g * 2.3 + 17.0) + 1.5 * paperHF(p) * uGrain;
+      float th = 1.0 - dens;                                             // moins de pression → plus de manques
+      float gw = clamp(fwidth(g.x) * 0.35, 0.04, 0.5);
+      float grains = smoothstep(th - gw, th + gw, mix(nz, 0.5, 1.0 - uInkGrain));
+      // vu de loin (grain plus petit qu'un pixel), le pointillé se fond en sa densité moyenne
+      grains = mix(grains, dens, clamp(fwidth(g.x) - 0.6, 0.0, 1.0));
+      ink = shape * grains;
     }
     // hauteur comptée le long de la normale sortante de la face (Ng) : n = Ng − hx T − hy B
     vec3 n = normalize(Ng - hx * T - hy * Bv);
@@ -324,7 +341,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uSeed, card.seed || 0);
     gl.uniform3fv(u.uLightPos, params.lightPos); gl.uniform3fv(u.uEye, eye);
     gl.uniform3fv(u.uRoomUp, params.roomUp || [0, 0, 1]);
-    for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'InkAlb', 'InkGrain', 'InkPress']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
+    for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'InkAlb', 'InkGrain', 'InkPress', 'InkDot']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, paperTex); gl.uniform1i(u.uPaper, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, logoTex); gl.uniform1i(u.uLogo, 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, card.ink || null); gl.uniform1i(u.uInk, 2);
