@@ -15,7 +15,7 @@ export const LOOK = {
   // moins variée qu'au banc (lisible à taille réelle). Mesures : voir ETAT.md.
   light: 0.012, lightR: 70, env: 0.25, albedo: 0.025, exposure: 1.0, lightX: -0.6, lightY: 0.45, lightZ: 90, follow: 0,
   h: 0.5, b: 1.0, crease: 0.3, fiber: 0.03, foot: 0.4, footW: 0.12, parallax: 0,
-  rough: 0.45, spec: 0.8, sheen: 0.15, glint: 2, edge: 1.0, grain: 3, diffRough: 0.25, envSpec: 0.02, toe: 0.0045,
+  rough: 0.45, spec: 0.8, sheen: 0.15, glint: 2, edge: 1.0, grain: 3, diffRough: 0.25, envSpec: 0.02, toe: 0.0058,
   inkAlb: 3.5, inkPress: 0.04, inkWear: 0.7, inkThr: 0.33, inkVar: 0.6, inkPaper: 5, inkOrg: 0.7,
 };
 const FOV = 26 * Math.PI / 180;
@@ -107,7 +107,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   const ptr = { x: 0.5, y: 0.35 }, lp = { x: 0, y: 0, vx: 0, vy: 0 };
   function stepLight(dt, t) {
     // lumière fixe par défaut (04/10 : les cartes restent noires quand on bouge le doigt) ; follow > 0 la rend mobile
-    const tx = (ptr.x - 0.5) * lay.Ww * 0.9 * L.follow + L.lightX * lay.Ww;
+    const tx = (ptr.x - 0.5) * lay.Ww * 0.9 * L.follow + L.lightX * lay.Hw * 0.28;
     const ty = (0.5 - ptr.y) * lay.Hw * 0.7 * L.follow + L.lightY * lay.Hw;
     const w = 2.2, z = 0.85;
     for (const [k, v, tg] of [['x', 'vx', tx], ['y', 'vy', ty]]) {
@@ -128,8 +128,11 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const target = [0, cy, 0];
     const aspect = W / H;
     vp = M4.mul(M4.perspective(FOV, aspect, lay.D * 0.3, lay.D * 3), M4.lookAt(eye, target, [0, 1, 0]));
-    const lightPos = [lp.x, lp.y, L.lightZ];
-    const P = { ...L, lightPos };
+    // toute la lumière à l'échelle de la scène (réglée pour une scène de 235 mm de haut, téléphone) :
+    // même rendu quel que soit le format
+    const k = lay.Hw / 235;
+    const lightPos = [lp.x, lp.y, L.lightZ * k];
+    const P = { ...L, lightPos, light: L.light * k * k };
     gl.enable(gl.DEPTH_TEST);
     // pile (maillage léger, de plus en plus dans l'ombre vers le bas) ; dessus en maillage fin
     const n = visibleStack();
