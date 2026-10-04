@@ -81,7 +81,7 @@ window.__scene.measure = () => {
   if (P.has('reglages')) {
     const R = {
       lightMode: [0, 2, 1, 'LUMIÈRE : 0 orbite · 1 orbite + hauteur (défaut) · 2 lampe de poche'],
-      elevAmp: [0, 1.2, 0.02, '1 : variation de hauteur'], flashZ: [20, 200, 2, '2 : hauteur de la lampe de poche'], cardTilt: [0, 0.5, 0.005, 'inclinaison des cartes'], lightVar: [0, 2, 0.05, 'ampleur du mouvement de la lumière'], sway: [0, 0.15, 0.002, 'respiration des cartes'],
+      elevAmp: [0, 1.2, 0.02, '1 : variation de hauteur'], flashZ: [20, 200, 2, '2 : hauteur de la lampe de poche'], cardTilt: [0, 0.5, 0.005, 'inclinaison des cartes'], lightVar: [0, 2, 0.05, 'ampleur du mouvement de la lumière'], sway: [0, 0.15, 0.002, 'respiration (carte en attente : moitié)'], unfocusDim: [0, 1, 0.01, 'baisse de la carte en attente'],
       spot: [0, 0.4, 0.002, 'projecteur sur la carte active'],
       nameFlat: [0, 1, 0.01, 'prénom à plat : gris (0 = relief)'],
       light: [0, 0.3, 0.001, 'lampe : force'], lightAz: [0, 6.28, 0.01, 'lampe : direction'], lightZ: [20, 600, 5, 'lampe : hauteur'],
