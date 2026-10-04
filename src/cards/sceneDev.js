@@ -1,7 +1,8 @@
 // Page de développement de la scène 2 (publiée en essai, sans lien) : /scene-cartes.html?prenom=LEA&seed=3
-// Gestes : toucher la carte = répondre (elle se retourne ; clavier) ; glisser la carte de côté ou toucher le
-// paquet = une autre ; toucher la carte blanche offerte = écrire librement ; « terminé » ferme le clavier ;
-// le signe sous la carte écrite = donner ; PASSER = improvisation. &reglages : panneau de réglages.
+// La carte réponse se pose sous la question : le clavier s'ouvre tout seul (iPhone : au premier toucher, Safari
+// n'ouvre le clavier que dans la foulée d'un geste). Coin corné / glisser la question / toucher le paquet = une
+// autre ; « terminé » ferme le clavier ; molette ou glissé vertical sur la réponse = relire ; le signe sous la
+// réponse = donner ; PASSER = thème libre, puis la fin. &reglages : panneau de réglages.
 import { createCardScene, LOOK } from './scene.js';
 
 const P = new URLSearchParams(location.search);
@@ -20,7 +21,8 @@ function finish(d) {
   window.dispatchEvent(new CustomEvent('singulies:card-chosen', { detail }));
   veil.style.opacity = 1;
 }
-createCardScene(gl, { base: './', seed: P.has('seed') ? +P.get('seed') : undefined, look, on: { end: finish } }).then(start);
+function focusAnswer() { if (document.activeElement !== answer) answer.focus({ preventScroll: true }); }
+createCardScene(gl, { base: './', seed: P.has('seed') ? +P.get('seed') : undefined, look, on: { end: finish, write: focusAnswer, discard: () => { answer.value = ''; } } }).then(start);
 
 function start(scene) {
   scene.setName(PRENOM);
@@ -40,7 +42,7 @@ function start(scene) {
     const canGive = st.active && st.active.text && !st.writing && !st.ended && r;
     giveEl.classList.toggle('on', !!canGive);
     if (r) { giveEl.style.left = ((r.left + r.right) / 2 - 22) + 'px'; giveEl.style.top = (r.bottom + 10) + 'px'; }
-    passEl.classList.toggle('on', !!st.active && !st.writing && !st.ended);
+    passEl.classList.toggle('on', !st.ended);
     window.__scene.frames++;
     requestAnimationFrame(frame);
   }
@@ -56,11 +58,17 @@ function start(scene) {
 
   // ---- pointeur : toucher, glisser la carte, et inclinaison (souris ; doigt en repli sans gyroscope) ----
   let down = null, gyroLive = false;
-  canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false }; askOrientation(); });
+  canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false }; askOrientation(); });
+  // premier geste : si l'écriture attend le clavier, on l'ouvre (iPhone)
+  addEventListener('touchend', () => { if (scene.state().writing) focusAnswer(); }, { passive: true });
+  // relire la réponse validée : molette
+  canvas.addEventListener('wheel', e => { e.preventDefault(); if (Math.abs(e.deltaY) > 4) scene.scrollAnswer(e.deltaY > 0 ? 1 : -1); }, { passive: false });
   addEventListener('pointermove', e => {
     if (down) {
       const dx = e.clientX - down.x, dy = e.clientY - down.y;
-      if (!down.moved && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) down.moved = true;
+      if (!down.moved && !down.v && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) down.moved = true;
+      if (!down.moved && Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) down.v = true;
+      if (down.v) { const steps = Math.trunc(-dy / 28); if (steps !== (down.vs || 0)) { scene.scrollAnswer(steps - (down.vs || 0)); down.vs = steps; } return; }
       if (down.moved) { scene.drag(dx); return; }
     }
     // souris (ou doigt sans gyroscope) : sur la carte, elle est parfaitement droite ; elle s'incline à mesure
@@ -77,14 +85,14 @@ function start(scene) {
     if (!down) return;
     const dx = e.clientX - down.x, dtm = Math.max(1, performance.now() - down.t);
     if (down.moved) { const r = scene.release(dx, dx / dtm, now()); if (r.type) log.textContent = r.type; down = null; return; }
+    if (down.v) { down = null; return; }
     down = null;
     const r = scene.tap(e.clientX, e.clientY, now());
     if (r.type) log.textContent = r.type;
-    if (r.type === 'write' || r.type === 'take') { answer.value = scene.state().active?.text || ''; answer.focus({ preventScroll: true }); }
-    else if (r.type === 'reread') answer.blur();
+    if (r.type === 'write') { answer.value = scene.state().active?.text || ''; focusAnswer(); }
   });
   giveEl.addEventListener('click', () => { if (scene.give(now())) { answer.blur(); log.textContent = 'donné'; } });
-  passEl.addEventListener('click', () => { const r = scene.pass(now()); if (r) { answer.blur(); log.textContent = r === 'end' ? 'passé' : 'carte vierge'; } });
+  passEl.addEventListener('click', () => { const r = scene.pass(now()); if (r) { answer.value = ''; if (r === 'end') answer.blur(); log.textContent = r === 'end' ? 'passé' : 'thème libre'; } });
 
   // ---- gyroscope (iPhone : demande au premier geste) ----
   let g0 = null, orientAsked = false;
