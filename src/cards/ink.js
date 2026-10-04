@@ -178,14 +178,15 @@ export function answerLines(text, max = TYPE.maxChars) {
 
 export const ANSWER_MARGIN = (CARD.w - TYPE.maxChars * TYPE.pitch) / 2;
 // first : première ligne visible (par défaut : les dernières, pour écrire ; 0 = le début, pour relire)
-export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null) {
+// margin : marge gauche (mm) — celle de la question pour s'aligner sur elle ; la ligne ne touche jamais le bord droit
+export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null, margin = ANSWER_MARGIN) {
   const PX = INK_PXMM, W = Math.round(CARD.w * PX), H = Math.round(CARD.h * PX);
   const cv = new OffscreenCanvas(W, H), cx = cv.getContext('2d');
   cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
   const r0 = createRng(seed);
   // bloc de 3 lignes centré, au même endroit sur toutes les cartes (marge d'une ligne pleine centrée)
-  const margin = ANSWER_MARGIN, lead = TYPE.lead, y0 = CARD.h / 2 - lead + 1.2;
-  const lines = answerLines(text);
+  const lead = TYPE.lead, y0 = CARD.h / 2 - lead + 1.2;
+  const lines = answerLines(text, answerMax(margin));
   first = first == null ? Math.max(0, lines.length - maxLines) : Math.max(0, Math.min(first, lines.length - 1));
   const shown = Math.min(lines.length, first + maxLines);
   const fontPx = TYPE.size * PX;
@@ -286,11 +287,12 @@ export function makeQAInk(question, answer, seed = 1) {
 // de la question) : hauteur = 2 × interligne − hauteur d'x ; ligne de base à un interligne du bord de la question.
 const XH = 0.42 * TYPE.size * TYPE.yScale;
 export const STRIP = 2 * TYPE.lead - XH, STRIP_BASE = CARD.h - STRIP + TYPE.lead;
-export function makeStripInk(text, seed = 1) {
+export const answerMax = margin => Math.max(8, Math.min(TYPE.maxChars, Math.floor((CARD.w - margin - 8.5) / TYPE.pitch)));
+export function makeStripInk(text, seed = 1, margin = ANSWER_MARGIN) {
   const PX = INK_PXMM, W = Math.round(CARD.w * PX), H = Math.round(CARD.h * PX);
   const cv = new OffscreenCanvas(W, H), cx = cv.getContext('2d');
   cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
-  const lines = answerLines(text), n = lines.length, margin = ANSWER_MARGIN, lead = TYPE.lead;
+  const lines = answerLines(text, answerMax(margin)), n = lines.length, lead = TYPE.lead;
   const fontPx = TYPE.size * PX;
   const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
   const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;

@@ -225,3 +225,9 @@ Fond
 
 ## Reste
 Voir « Point de reprise » en tête de fichier.
+
+## 04/10 — Scène 2 v9
+- Réponse alignée sur la marge de la question (bande et carte sortie), longueur de ligne bornée.
+- Réponse sortie dessous : le focus (inclinaison, lumière) reste sur elle.
+- Fin de scène (donner / PASSER) : la réponse se glisse sous la question (paire, 1 s), la paire s’éloigne dans le noir (1,9 s), le paquet s’efface, le prénom s’allume lettre à lettre, fondu ; événement à 3,3 s.
+- Reste : vérification iPhone réel.
