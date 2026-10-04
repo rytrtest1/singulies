@@ -1,0 +1,16 @@
+{
+ "carte": {
+  "largeur": 87,
+  "hauteur": 51.5,
+  "rayon": 3
+ },
+ "papier": {
+  "pxmm": 24,
+  "encodage": "R = 1 + (v - 128) / 255"
+ },
+ "logo": {
+  "carre": 38.501,
+  "largeur": 33.2,
+  "encodage": "d_mm = (v - 128) / 127 × 2, < 0 dedans"
+ }
+}

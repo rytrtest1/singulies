@@ -3,3 +3,8 @@ dist/
 captures/
 test-results/
 *.log
+
+# photos des cartes réelles (privées, lourdes)
+ressources/cartes/photoscartes.zip
+ressources/cartes/photos/
+ressources/cartes/redresse/
