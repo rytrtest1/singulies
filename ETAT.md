@@ -243,3 +243,4 @@ Voir « Point de reprise » en tête de fichier.
 ## 04/10 — Scène 2 v13 : déroulé paquet → carte blanche → PASSER
 - Shader des cartes : uFade = fondu vers la couleur du fond (6/255) ; arrivées/départs/fins sans rectangle noir.
 - Paquet seul au début (fondu + petite montée, tirage à 1,1 s). Carte blanche après une question passée : monte du bas (haut à 82 %), « carte blanche » à la machine au centre, saut « touche-moi » toutes les 4,5 s. Toucher : tour sur elle-même (1,2 s, l'encre change quand le recto est caché) vers la place du paquet, qui recule et se fond. Retour (flèche haut gauche) : l'inverse. PASSER seulement sur la carte blanche (3 s sans frappe, vide).
+- v14 : fin sans recul/dézoom : la carte descend de 26 mm en se fondant dans le fond (1,6 s), événement de fin à 2,9 s. Transition vers l'acrostiche (feuille A5, carte dessous, réponse visible, toucher = retourner) : à faire dans une autre conversation.

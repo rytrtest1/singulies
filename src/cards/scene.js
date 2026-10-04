@@ -306,9 +306,10 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     let anp = answer ? poseOf(answer, t) : null, bp = blank ? poseOf(blank, t) : null;
     if (ended) {
       // 1) la carte réponse remonte se glisser sous la question, un peu décalée : une paire (1 s)
-      // 2) la paire s'éloigne lentement dans le noir en pivotant à peine (1,9 s) ; le paquet s'efface
-      const u1 = sstep(0, 1.0, te), u2 = Math.pow(ease(clamp01((te - 0.9) / 1.9)), 1.4);
-      const recede = p => ({ ...p, z: p.z - 650 * u2, y: p.y + 18 * u2, rz: p.rz + 0.12 * u2, rx: p.rx - 0.25 * u2 });
+      // 2) la paire descend doucement et se fond dans le fond (provisoire : la suite — prénom en acrostiche sur
+      //    une feuille A5, la carte dessous — sera la transition vers la scène suivante) ; le paquet s'efface
+      const u1 = sstep(0, 1.0, te), u2 = ease(clamp01((te - 0.9) / 1.6));
+      const recede = p => ({ ...p, y: p.y - 26 * u2 });
       if (question && ended.qFrom) qp = recede(lerpPose(ended.qFrom, centerPose(question.v), ease(u1)));
       if (ended.kind === 'reponse' && ended.aFrom) {
         const host = centerPose(question.v);
@@ -344,12 +345,11 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     // Fin sans paire : il s'éloigne dans le noir. Jamais d'assombrissement vers le noir (rectangle sur le fond).
     const intro = ease(clamp01((t - startT) / 1.4));
     const qVis = mode === 'free' ? 1 - ease(clamp01((t - freeT) / 0.9)) : backT >= 0 ? ease(clamp01((t - backT - 0.2) / 0.9)) : 1;
-    const uEnd = ended && ended.kind !== 'reponse' ? Math.pow(ease(clamp01(te / 1.9)), 1.4) : 0;
     const Gq0 = group(0, lay.yDeck, 0, 0.0, ended ? 0 : wQ);
-    const Gq = M4.mul(M4.model(0, 0, 0, 0, 6 * (1 - qVis) + 18 * uEnd, -30 * (1 - intro) - 140 * (1 - qVis) - 650 * uEnd), Gq0);
+    const Gq = M4.mul(M4.model(0, 0, 0, 0, 6 * (1 - qVis), -30 * (1 - intro) - 140 * (1 - qVis)), Gq0);
     const Ga = !ended && answer && answer.place === 'below' && !answer.anim ? group(0, lay.yAns, 0, 2.3, wA) : Gq;
     const Gb = !ended && blank && blank.place === 'up' && !blank.anim ? group(0, lay.yDeck, 0, 2.3, wA) : group(0, bp ? bp.y : 0, 0, 4.1, 0);
-    const endFade = ended ? 1 - sstep(2.4, 3.2, te) : 1;
+    const endFade = ended ? 1 - sstep(0.15, 1, ease(clamp01((te - 0.9) / 1.6))) : 1;   // la carte se fond en descendant
     const deckFade = ended ? 1 - sstep(0.3, 1.6, te) : 1;           // le paquet s'efface pendant que la paire part
     const vq = intro * Math.pow(qVis, 1.5);
     const fadeD = vq * deckFade * endFade;
@@ -392,7 +392,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       const fwd = norm3(sub3([0, cy, 0], eye)), right = norm3(cross3(fwd, [0, 1, 0])), up = cross3(right, fwd);
       const dir = norm3(add3(fwd, mul3(up, ndcY * tf)));
       const s = -eye[2] / dir[2], py = eye[1] + dir[1] * s;
-      const g = [...nameText].map((_, i) => Math.max(glow[i] || 0, ended ? sstep(0.9 + i * 0.12, 1.5 + i * 0.12, te) * 0.9 * (1 - sstep(2.9, 3.3, te) * 0.3) : 0));
+      const g = [...nameText].map((_, i) => Math.max(glow[i] || 0, ended ? sstep(0.9 + i * 0.12, 1.5 + i * 0.12, te) * 0.9 : 0));
       const key = nameText + W + 'x' + H + Math.round(py * 10) + Math.round(scale * 100) + g.map(x => x.toFixed(2)).join();
       if (key !== nameKey) {
         const capPx = Math.min(52, Math.max(26, 0.052 * H)) * 0.66;
@@ -403,7 +403,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       nameR.draw(vp, eye, P, L, fadeQ > 0.5 ? occQ : null);
       gl.enable(gl.DEPTH_TEST);
     }
-    if (ended && !ended.done && te > 3.3) { ended.done = true; emit('end', { kind: ended.kind, text: ended.text, id: ended.id }); }
+    if (ended && !ended.done && te > 2.9) { ended.done = true; emit('end', { kind: ended.kind, text: ended.text, id: ended.id }); }
   }
   // curseur à une position (mm depuis le coin haut-gauche de la face lue, recto) : trait fin qui respire
   function cursorAt(cm, t) {
