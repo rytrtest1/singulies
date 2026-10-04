@@ -282,7 +282,10 @@ export function makeQAInk(question, answer, seed = 1) {
 
 // Bande d'écriture : la carte réponse ne dépasse sous la question que d'une ligne ; la ligne en cours est
 // dans cette bande (STRIP_BASE mm du haut de la carte), les précédentes au-dessus, cachées sous la question.
-export const STRIP = 11.5, STRIP_BASE = CARD.h - 4.2;
+// La bande visible fait un interligne au-dessus de la ligne et un en dessous (même blanc qu'entre deux lignes
+// de la question) : hauteur = 2 × interligne − hauteur d'x ; ligne de base à un interligne du bord de la question.
+const XH = 0.42 * TYPE.size * TYPE.yScale;
+export const STRIP = 2 * TYPE.lead - XH, STRIP_BASE = CARD.h - STRIP + TYPE.lead;
 export function makeStripInk(text, seed = 1) {
   const PX = INK_PXMM, W = Math.round(CARD.w * PX), H = Math.round(CARD.h * PX);
   const cv = new OffscreenCanvas(W, H), cx = cv.getContext('2d');
@@ -295,7 +298,7 @@ export function makeStripInk(text, seed = 1) {
   let idx = 0;
   for (let li = 0; li < n; li++) {
     const line = lines[li], base = STRIP_BASE - (n - 1 - li) * lead;
-    if (base > STRIP_BASE - 2 * lead) [...line].forEach((ch, ci) => {
+    if (li === n - 1) [...line].forEach((ch, ci) => {      // seule la ligne en cours (les précédentes sont sous la question)
       const r = createRng((seed * 7919 + (idx + ci) * 104729) >>> 0);
       const g = () => { let s = 0; for (let i = 0; i < 4; i++) s += r(); return (s - 2) / 0.58; };
       if (ch === ' ') return;
