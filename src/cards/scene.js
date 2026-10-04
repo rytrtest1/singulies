@@ -40,7 +40,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
   const variant = () => ({
     seed: rnd() * 100,
-    paperXf: [rnd.range(-12, 12), rnd.range(-8, 8), rnd() < 0.5 ? 0 : Math.PI, 0],
+    paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0],
     logoOff: [rnd.range(-0.15, 0.15), rnd.range(-0.15, 0.15)],   // logo centré (marquage : ±0,15 mm)
     warp: [rnd.range(0.05, 0.35), rnd.range(-0.2, 0.05), rnd.range(-0.12, 0.12)],
     jx: rnd.range(-0.5, 0.5), jy: rnd.range(-0.4, 0.4), jr: rnd.range(-0.012, 0.012),

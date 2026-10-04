@@ -9,7 +9,9 @@ const canvas = document.getElementById('c');
 const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: P.has('shot') });
 import { LOOK } from './scene.js';
 const look = {}; for (const k in LOOK) if (P.has(k)) look[k] = +P.get(k);
-const scene = await createCardScene(gl, { base: './', seed: P.has('seed') ? +P.get('seed') : undefined, look });
+// (pas d'await au niveau du module : cible Safari 14)
+createCardScene(gl, { base: './', seed: P.has('seed') ? +P.get('seed') : undefined, look }).then(start);
+function start(scene) {
 window.__scene = { scene, ready: true, frames: 0 };
 
 let t0 = performance.now(), last = t0;
@@ -47,3 +49,4 @@ window.__scene.measure = () => {
   const bg = x.getImageData(2, Math.round(canvas.height * 0.95), 1, 1).data[0];
   return { papier: Math.round(v[Math.floor(v.length * 0.5)]), papierSombre: Math.round(v[Math.floor(v.length * 0.1)]), encre: Math.round(v[Math.floor(v.length * 0.995)]), fond: bg };
 };
+}
