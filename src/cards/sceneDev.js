@@ -40,7 +40,7 @@ function start(scene) {
     const canGive = st.active && st.active.text && !st.writing && !st.ended && r;
     giveEl.classList.toggle('on', !!canGive);
     if (r) { giveEl.style.left = ((r.left + r.right) / 2 - 22) + 'px'; giveEl.style.top = (r.bottom + 10) + 'px'; }
-    passEl.classList.toggle('on', st.offered && !st.writing && !st.ended);
+    passEl.classList.toggle('on', !!st.active && !st.writing && !st.ended);
     window.__scene.frames++;
     requestAnimationFrame(frame);
   }
@@ -84,7 +84,7 @@ function start(scene) {
     else if (r.type === 'reread') answer.blur();
   });
   giveEl.addEventListener('click', () => { if (scene.give(now())) { answer.blur(); log.textContent = 'donné'; } });
-  passEl.addEventListener('click', () => { if (scene.pass(now())) { answer.blur(); log.textContent = 'passé'; } });
+  passEl.addEventListener('click', () => { const r = scene.pass(now()); if (r) { answer.blur(); log.textContent = r === 'end' ? 'passé' : 'carte vierge'; } });
 
   // ---- gyroscope (iPhone : demande au premier geste) ----
   let g0 = null, orientAsked = false;

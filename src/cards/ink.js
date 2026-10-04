@@ -223,7 +223,7 @@ export function makeAnswerInk(text, seed = 1, maxLines = 3) {
 // Feuille réponse glissée sous la carte question : comme dans une machine, la ligne en cours reste toujours
 // à la même hauteur (SHEET_LINE mm du haut de la feuille) et c'est la feuille qui monte d'un cran à chaque
 // retour à la ligne ; les lignes passées montent et disparaissent sous la carte question.
-export const SHEET_LINE = 10 + 2 * TYPE.lead;   // ligne en cours ; les deux précédentes restent visibles au-dessus
+export const SHEET_LINE = 48;   // ligne en cours : dans la bande qui dépasse sous la carte (les précédentes passent dessous)
 export function makeSheetInk(text, seed = 1) {
   const PX = INK_PXMM, W = Math.round(CARD.w * PX), H = Math.round(CARD.h * PX);
   const cv = new OffscreenCanvas(W, H), cx = cv.getContext('2d');

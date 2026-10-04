@@ -96,6 +96,7 @@ layout(location=2) in float aFace;
 uniform mat4 uVP, uModel;
 uniform vec2 uCard;
 uniform vec3 uWarp;          // gondolage (mm) : courbure en x, en y, torsion
+uniform vec3 uCurl;          // coin corné : sens du coin (x, y : ±1, repère de la carte), soulèvement (mm, signé)
 uniform sampler2D uLogo;
 uniform float uLogoSq, uLogoRange, uH, uB, uFoot, uFootW, uNoLogo;
 uniform vec2 uLogoOff, uLogoScale;
@@ -115,6 +116,14 @@ void main() {
   float z = uWarp.x * q.x * q.x + uWarp.y * q.y * q.y + uWarp.z * q.x * q.y;
   float dzx = (2.0 * uWarp.x * q.x + uWarp.z * q.y) * 2.0 / uCard.x;
   float dzy = (2.0 * uWarp.y * q.y + uWarp.z * q.x) * 2.0 / uCard.y;
+  // coin corné : le papier se soulève en douceur sur un triangle de 14 mm (courbe quadratique)
+  float cc = 14.0, cd = (uCurl.x * aPos.x - (uCard.x * 0.5 - cc)) + (uCurl.y * aPos.y - (uCard.y * 0.5 - cc));
+  if (cd > 0.0 && uCurl.z != 0.0) {
+    float k = cd / cc;
+    z += uCurl.z * k * k;
+    dzx += uCurl.z * 2.0 * k / cc * uCurl.x;
+    dzy += uCurl.z * 2.0 * k / cc * uCurl.y;
+  }
   int f = int(aFace + 0.5);
   // la feuille entière est poussée vers le dos : bosse au dos, creux au recto (même déplacement)
   float g = f == 2 ? 0.0 : gaufrage(aPos.xy);
@@ -450,6 +459,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uNoLogo, card.noLogo ? 1 : 0);
     gl.uniform4fv(u.uPaperXf, card.paperXf || [0, 0, 0, 0]);
     gl.uniform3fv(u.uWarp, card.warp || [0, 0, 0]);
+    gl.uniform3fv(u.uCurl, card.curl || [0, 0, 0]);
     gl.uniform1f(u.uSeed, card.seed || 0);
     gl.uniform3fv(u.uLightPos, params.lightPos); gl.uniform3fv(u.uEye, eye);
     const oc = card.occ;

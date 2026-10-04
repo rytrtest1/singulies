@@ -83,7 +83,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     lay.yOffer = (0.5 - 0.76) * lay.Hw;              // carte blanche offerte : dessous
   }
   const FACE_Z = STACK * PITCH + 2.4;                // carte posée sur le paquet ; la feuille glisse dessous (−1 mm)
-  const SHEET_PEEK = -6, SHEET_OUT = -(CARD.h + 6 - 10);   // décalage de la feuille (mm) : 3 lignes visibles sous la carte
+  // feuille : dépasse tout juste d'une ligne (on écrit dans cette bande) ; déroulée à la validation (réponse entière)
+  const SHEET_PEEK = -11, SHEET_OUT = -(CARD.h - 3);
   const deckPose = (i, v) => ({ x: v.jx, y: lay.yDeck + v.jy, z: i * PITCH, rx: 0, ry: 0, rz: v.jr });
   const centerPose = (side, v, dx = 0) => ({ x: v.jx * 3 + 1.2 + dx, y: lay.yDeck + v.jy * 2 - 0.8, z: FACE_Z, rx: 0, ry: side === 'q' ? Math.PI : 0, rz: v.jr * 1.5 + dx * 0.0015 });
   const offerPose = v => ({ x: v.jx, y: lay.yOffer + v.jy, z: 0, rx: 0, ry: Math.PI, rz: v.jr });
@@ -136,7 +137,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (active.kind === 'question') discards++;
     active = null;
     pendingDraw = t + DISCARD_T * 0.45;
-    if (!offered && discards >= L.offerAfter) {
+    if (false) {   // (carte blanche offerte : remplacée par PASSER, toujours visible)
       const v = variant();
       offered = { kind: 'blank', v: { ...v, noLogo: true }, ink: null, side: 'q', anim: 'offer', t0: t + 0.5, dur: OFFER_T, from: deckPose(STACK - 1, v), text: '' };
       emit('offer', {});
@@ -177,6 +178,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       const sh = active.sheet, m = makeSheetInk(clean, Math.floor(sh.v.seed * 1000) + 7);
       if (sh.ink) card.freeInk(sh.ink);
       sh.ink = card.makeInk(m.canvas); sh.cursorMM = m.cursor; sh.scroll = m.scroll;
+      if (sh.inkR) { card.freeInk(sh.inkR); sh.inkR = null; }
     } else {                                   // carte blanche : trois lignes visibles
       const m = makeAnswerInk(clean, Math.floor(active.v.seed * 1000) + 7);
       if (active.ink) card.freeInk(active.ink);
@@ -190,7 +192,19 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     else if (!active.cursorMM) active.cursorMM = makeAnswerInk('', Math.floor(active.v.seed * 1000) + 7).cursor;
     return true;
   }
-  function stopWriting() { writing = false; }
+  function stopWriting() {
+    writing = false;
+    if (active && active.kind === 'question' && active.text) {      // feuille déroulée : la réponse entière
+      const sh = active.sheet, m = makeAnswerInk(active.text, Math.floor(sh.v.seed * 1000) + 7, 5);
+      if (sh.inkR) card.freeInk(sh.inkR);
+      sh.inkR = card.makeInk(m.canvas);
+    }
+    if (active && active.kind === 'blank' && active.text) {
+      const m = makeAnswerInk(active.text, Math.floor(active.v.seed * 1000) + 7, 5);
+      if (active.ink) card.freeInk(active.ink);
+      active.ink = card.makeInk(m.canvas);
+    }
+  }
 
   // ---------- lumière (manière 1) + inclinaison de la carte en focus ----------
   const tilt = { x: 0, y: 0 }, ts = { x: 0, y: 0 };
@@ -218,14 +232,14 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     kb += ((writing && kbPx > 40 ? 1 : 0) - kb) * Math.min(1, dt * 4);
     for (let i = 0; i < glow.length; i++) glow[i] = (glow[i] || 0) * Math.exp(-dt / 1.4);
     if (active && active.sheet) {
-      const target = active.anim === 'draw' ? 0 : (writing || active.text) ? 2 : 1;
+      const target = active.anim === 'draw' ? 0 : (!writing && active.text) ? 2 : 1;
       active.sheet.sp += (target - active.sheet.sp) * Math.min(1, dt * (target === 2 ? 4 : 2.5));
     }
     const endU = ended ? clamp01((t - ended.t0) / 2.2) : 0;
 
     // caméra ; clavier ouvert : la carte remonte au milieu de la partie visible de l'écran
     const fK = 0.5 * (1 - kbPx / H) + 0.04;
-    const yF = lay.yDeck - (active && active.kind === 'question' ? CARD.h * 0.55 : 0);   // à garder visible : la ligne en cours
+    const yF = lay.yDeck - (active && active.kind === 'question' ? CARD.h * 0.45 : 0);   // à garder visible : la ligne en cours
     const cy = lerp((lay.yDeck + lay.yOffer) / 2, yF - (0.5 - fK) * lay.Hw, kb);
     eye = [0, cy - lay.D * Math.sin(TILT), lay.D * Math.cos(TILT)];
     vp = M4.mul(M4.perspective(FOV, W / H, lay.D * 0.3, lay.D * 3), M4.lookAt(eye, [0, cy, 0], [0, 1, 0]));
@@ -269,8 +283,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
     const drawSheet = (c, cur = {}) => {
       if (!c.sheet || c.sheet.sp < 0.02 || c.anim === 'draw') return;
-      const sh = c.sheet, p = sheetPose(c, t), v = { ...sh.v, paperXf: [sh.v.paperXf[0], sh.v.paperXf[1] - 0.7 * sh.scroll, 0, 0] };
-      card.draw(vp, eye, P, { model: model(Gc, p), lod: 'fine', ink: sh.ink, shade: endShade, occ: { x: poseOf(c, t).x, y: poseOf(c, t).y, z: poseOf(c, t).z, rz: poseOf(c, t).rz }, ...v, ...cur });
+      const sh = c.sheet, p = sheetPose(c, t), rev = sh.sp > 1.5 && sh.inkR;
+      const v = { ...sh.v, paperXf: [sh.v.paperXf[0], sh.v.paperXf[1] - (rev ? 0 : 0.7 * sh.scroll), 0, 0] };
+      card.draw(vp, eye, P, { model: model(Gc, p), lod: 'fine', ink: rev ? sh.inkR : sh.ink, shade: endShade, occ: { x: poseOf(c, t).x, y: poseOf(c, t).y, z: poseOf(c, t).z, rz: poseOf(c, t).rz }, ...v, ...cur });
     };
     for (const c of leaving) { drawSheet(c); card.draw(vp, eye, P, { model: model(Gc, poseOf(c, t)), lod: 'fine', ink: c.ink, shade: endShade, ...c.v }); }
     let occ = null;
@@ -279,12 +294,15 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       occ = { x: p.x, y: p.y, z: p.z, rz: p.rz };
       if (active.kind === 'question') {
         // la feuille : curseur sur la ligne en cours (dégagée) ou sur la bande qui dépasse (au repos)
-        const sh = active.sheet, peekCur = { x: 10.5, y: CARD.h - 2.2 };
-        const cm = active.sheet.sp > 1.5 ? (sh.cursorMM || { x: 10.5, y: SHEET_LINE }) : peekCur;
+        const sh = active.sheet, cm = sh.cursorMM || { x: 10.5, y: SHEET_LINE };
         drawSheet(active, active.anim === 'draw' || active.text && !writing ? {} : cursorAt(cm, t));
-        card.draw(vp, eye, P, { model: model(Gc, p), lod: 'fine', ink: active.ink, shade: endShade, ...active.v });
+        // coin supérieur droit corné (invitation à prendre une autre question), qui respire doucement
+        const idle = !active.anim && !writing && !ended;
+        active.curlA = (active.curlA || 0) + ((idle ? 1 : 0) - (active.curlA || 0)) * Math.min(1, dt * 2);
+        const lift = -(1.5 + 0.5 * Math.sin(t * 1.3)) * active.curlA;   // vers la caméra (carte retournée)
+        card.draw(vp, eye, P, { model: model(Gc, p), lod: 'fine', ink: active.ink, shade: endShade, ...active.v, curl: [-1, 1, lift] });
       } else {
-        const cur = writing && !busy(active, t) ? cursorOf(active, t, 'front') : {};
+        const cur = !busy(active, t) && (writing || !active.text) ? cursorOf(active, t, 'front') : {};   // invite à écrire
         card.draw(vp, eye, P, { model: model(Gc, p), lod: 'fine', ink: active.ink, shade: endShade, ...active.v, ...cur });
       }
     }
@@ -347,6 +365,13 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (n && inside(screenQuad(deckPose(n - 1, stack[STACK - 1])), x, y)) return 'deck';
     return null;
   }
+  // coin supérieur droit (à l'écran) de la carte au centre : près du coin corné ?
+  function nearCorner(x, y) {
+    const q = screenQuad(poseOf(active, lastT));
+    let best = q[0]; for (const p of q) if (p[0] - p[1] > best[0] - best[1]) best = p;    // le plus en haut à droite
+    const w = Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]);
+    return Math.hypot(x - best[0], y - best[1]) < w * 0.22;
+  }
   // rectangle écran (px CSS) de la carte question (ou du paquet) : zone où la souris laisse la carte droite
   function cardRect() {
     if (!vp) return null;
@@ -368,6 +393,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function tap(x, y, t) {
     if (ended) return { type: null };
     const h = hit(x, y);
+    if (h === 'card' && active.kind === 'question' && !writing && !busy(active, t) && nearCorner(x, y)) {
+      return discard(t, 1) ? { type: 'discard' } : { type: null };
+    }
     if (h === 'card') {
       if (busy(active, t)) return { type: null };
       startWriting(t); return { type: 'write' };
@@ -391,7 +419,18 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     ended = { t0: t, kind: active.kind === 'question' ? 'reponse' : 'theme', text: active.text, id: active.id };
     return true;
   }
-  function pass(t) { if (ended) return false; writing = false; ended = { t0: t, kind: 'improvisation' }; return true; }
+  // PASSER : sur une question → une carte vierge (thème libre) la remplace ; sur la carte vierge → la fin
+  function pass(t) {
+    if (ended || writing) return null;
+    if (active && active.kind === 'blank') { ended = { t0: t, kind: 'improvisation' }; return 'end'; }
+    if (active && busy(active, t)) return null;
+    if (active) { leaving.push({ ...active, anim: 'discard', t0: t, dur: DISCARD_T, dir: -1, from: poseOf(active, t) }); emit('discard', { id: active.id, kind: active.kind }); }
+    const v = { ...variant(), noLogo: true };
+    active = { kind: 'blank', v, ink: null, anim: 'draw', t0: t + DISCARD_T * 0.45, dur: DRAW_T, from: deckPose(STACK - 1, v), text: '' };
+    pendingDraw = -1;
+    emit('blank', {});
+    return 'blank';
+  }
 
   function start(t) { pendingDraw = t + 0.6; }
   function setName(s) { nameText = (s || '').toUpperCase(); nameKey = ''; glow = []; }
