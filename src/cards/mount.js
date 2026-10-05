@@ -52,6 +52,12 @@ export async function mountCards(opts) {
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');
   const giveEl = el('div', 'sc-sign', '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
   const passEl = el('div', 'sc-pass', 'PASSER'); passEl.setAttribute('role', 'button');
+  // l'enveloppe : POSTER (même signe que PASSER), dès que l'adresse a deux lignes, même clavier ouvert
+  const postEl = el('div', 'sc-pass', 'POSTER'); postEl.setAttribute('role', 'button'); postEl.tabIndex = 0;
+  // pointerdown sans effet par défaut : le champ garde le focus, le clavier ne se ferme pas sous le doigt avant le clic
+  postEl.addEventListener('pointerdown', e => { e.preventDefault(); });
+  postEl.addEventListener('click', () => { if (sheet && sheet.post(now())) { answer.blur(); log('postée'); } });
+  postEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); postEl.click(); } });
   const backEl = el('div', 'sc-sign sc-back', '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M14.5 6 L8.5 12 L14.5 18" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
   backEl.setAttribute('role', 'button'); backEl.setAttribute('aria-label', 'Retour');
   const veil = el('div', 'sc-veil');
@@ -109,7 +115,7 @@ export async function mountCards(opts) {
   }
   function closeSheet() {
     if (!sheet) return;
-    sheet.free(); sheet = null; api.sheet = null; placeHits(); note.classList.remove('on');
+    sheet.free(); sheet = null; api.sheet = null; placeHits(); note.classList.remove('on'); postEl.classList.remove('on');
     answer.setAttribute('aria-label', 'Réponse'); answer.setAttribute('enterkeyhint', 'done');
     answer.setAttribute('autocomplete', 'off'); answer.setAttribute('autocapitalize', 'none');
     scene.reopen(now());
@@ -145,10 +151,15 @@ export async function mountCards(opts) {
         const ar = sheet.addrRect(), es = sheet.state().env;
         if (ar) Object.assign(answer.style, { left: ar.left + 'px', top: ar.top + 'px', width: (ar.right - ar.left) + 'px', height: (ar.bottom - ar.top) + 'px' });
         else { answer.style.width = '1px'; answer.style.height = '1px'; }
-        giveEl.classList.toggle('on', !!(es && es.canPost && ar));
+        giveEl.classList.remove('on');
+        postEl.classList.toggle('on', !!(es && es.canPost && ar));
+        if (ar) {
+          // sous l'adresse ; clavier ouvert : entre l'adresse et le haut du clavier
+          const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
+          postEl.style.top = Math.max(ar.bottom - 6, Math.min(kbTop - 50, ar.bottom + 40)) + 'px';
+        }
         const ss = sheet.state();
         note.classList.toggle('on', !ss.backing && (es ? !es.posted && !es.back && !(es.writing && vv && innerHeight - vv.height > 40) : ss.view === 'commande'));
-        if (ar) { giveEl.style.left = ((ar.left + ar.right) / 2 - 22) + 'px'; giveEl.style.top = Math.min(innerHeight - 54, ar.bottom + 6) + 'px'; }
         const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
         sheet.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
         placeHits();

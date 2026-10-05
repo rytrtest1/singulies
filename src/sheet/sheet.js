@@ -563,8 +563,8 @@ export function createSheetScene(gl, opts) {
   function startWriting() { if (!env || env.back || env.pu > 0.5) return false; env.writing = true; emit('write', { text: env.text }); return true; }
   function stopWriting() { if (env) env.writing = false; }
   function post(t) {
-    if (!env || env.writing || env.postT >= 0 || env.text.split('\n').filter(l => l.trim()).length < 2) return false;
-    gesture(t); env.postT = t; env.sent = false; return true;
+    if (!env || env.back || env.postT >= 0 || env.text.split('\n').filter(l => l.trim()).length < 2) return false;
+    gesture(t); env.writing = false; env.postT = t; env.sent = false; return true;
   }
   function setKeyboard(px) { kbPx = px; }
   // rectangle écran du bloc d'adresse (face lue : mm depuis le coin haut-gauche)
@@ -597,7 +597,7 @@ export function createSheetScene(gl, opts) {
   return {
     frame, tap, press, release, scroll, back, setTilt, free, focusRect, gesture,
     startWriting, stopWriting, setAddress, post, setKeyboard, addrRect,
-    state: () => ({ env: env ? { writing: env.writing, text: env.text, canPost: !env.writing && env.pu < 0.5 && !env.back && envClock(lastT) >= E.write && env.text.split('\n').filter(l => l.trim()).length >= 2, posted: env.postT >= 0, back: !!env.back, write: !env.back && envClock(lastT) >= E.write } : null, tau: tau(lastT), view: sv > 0.5 ? 'commande' : 'feuille', orders: orderAt >= 0, backing: !!backing, cursor: cursorOn(tau(lastT)) > 0.5, chosen: chosen ? chosen.id : null }),
+    state: () => ({ env: env ? { writing: env.writing, text: env.text, canPost: env.pu < 0.5 && !env.back && envClock(lastT) >= E.write && env.text.split('\n').filter(l => l.trim()).length >= 2, posted: env.postT >= 0, back: !!env.back, write: !env.back && envClock(lastT) >= E.write } : null, tau: tau(lastT), view: sv > 0.5 ? 'commande' : 'feuille', orders: orderAt >= 0, backing: !!backing, cursor: cursorOn(tau(lastT)) > 0.5, chosen: chosen ? chosen.id : null }),
     // tests / captures
     showOrders: () => showOrders(lastT), choose: id => { const o = orders.find(x => x.id === id); const q = quads[id]; if (o && q) { const r = rectOf(q); return tap((r.left + r.right) / 2, (r.top + r.bottom) / 2, lastT); } return null; },
     timing: { landAll, CURSOR_AT, INTRO_END },
