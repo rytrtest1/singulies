@@ -195,7 +195,7 @@ export function createSheetScene(gl, opts) {
     if (backing && tu <= 0 && !backing.fired) { backing.fired = true; emit('back', {}); }
 
     // passage automatique vers la commande : le curseur posé, et jamais moins de 3 s après le dernier geste
-    if (!backing && orderAt < 0 && tu > CURSOR_AT + 1.6 && t - lastGesture > 3) showOrders(t);
+    if (!backing && orderAt < 0 && tu > CURSOR_AT + 3.2 && t - lastGesture > 3) showOrders(t);
     if (backing) sT = 0;
     // ressort de la vue (feuille ↔ commande)
     { const w2 = reduced ? 30 : 2.4; svV += (w2 * w2 * (sT - sv) - 2 * w2 * svV) * dt; sv += svV * dt; }
@@ -417,6 +417,9 @@ export function createSheetScene(gl, opts) {
     // tests / captures
     showOrders: () => showOrders(lastT), choose: id => { const o = orders.find(x => x.id === id); const q = quads[id]; if (o && q) { const r = rectOf(q); return tap((r.left + r.right) / 2, (r.top + r.bottom) / 2, lastT); } return null; },
     timing: { landAll, CURSOR_AT, INTRO_END },
+    // zones écran (px CSS) de ce qu'on peut toucher : la carte, les deux cartes de la commande
+    rects: () => ({ card: quads.C || null, poste: quads.poste || null, direct: quads.direct || null }),
+    tapId(id, t) { const q = id === 'card' ? quads.C : quads[id]; if (!q) return { type: null }; const r = rectOf(q); return tap((r.left + r.right) / 2, (r.top + r.bottom) / 2, t); },
     debug: () => ({ quads, C: C && { flips: C.flips, flipT0: C.flipT0, phi0: C.phi0, phi1: C.phi1 }, SY }),
   };
 }

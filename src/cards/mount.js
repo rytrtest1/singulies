@@ -21,6 +21,10 @@ const CSS = `
   font: 500 12px/44px 'SG Garamond', serif; letter-spacing: 0.4em; padding-left: 0.4em; color: #fff; }
 .sc-pass.on { opacity: .4; pointer-events: auto; }
 .sc-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); }
+/* feuille : boutons accessibles (clavier, lecteur d'écran) posés sur la carte et la commande ; le toucher passe au canvas */
+.sc-hit { position: fixed; margin: 0; padding: 0; border: 0; background: transparent; color: transparent; font-size: 1px;
+  pointer-events: none; z-index: 13; outline: none; }
+.sc-hit:focus-visible { outline: 1px solid rgba(255,255,255,.35); outline-offset: 4px; }
 .sc-veil { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 1.4s; pointer-events: none; z-index: 14; }
 `;
 
@@ -64,6 +68,21 @@ export async function mountCards(opts) {
   }
   // ---- la feuille (scène 3) : même canvas, même rendu ; la scène des cartes lui passe la main ----
   let sheet = null, sheetAt = 0;
+  const hits = [['card', 'retourner la carte'], ['poste', 'par la poste'], ['direct', 'en direct']].map(([id, label]) => {
+    const b = el('button', 'sc-hit'); b.type = 'button'; b.textContent = label; b.setAttribute('aria-label', label); b.hidden = true;
+    b.addEventListener('click', () => { if (sheet) { const r = sheet.tapId(id, now()); if (r.type) log(r.type); } });
+    return { id, b };
+  });
+  function placeHits() {
+    const R = sheet ? sheet.rects() : {};
+    for (const { id, b } of hits) {
+      const q = R[id];
+      b.hidden = !q;
+      if (!q) continue;
+      const xs = q.map(p => p[0]), ys = q.map(p => p[1]), x0 = Math.min(...xs), y0 = Math.min(...ys);
+      Object.assign(b.style, { left: x0 + 'px', top: y0 + 'px', width: (Math.max(...xs) - x0) + 'px', height: (Math.max(...ys) - y0) + 'px' });
+    }
+  }
   function openSheet() {
     answer.blur();
     sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced,
@@ -73,7 +92,7 @@ export async function mountCards(opts) {
   }
   function closeSheet() {
     if (!sheet) return;
-    sheet.free(); sheet = null; api.sheet = null;
+    sheet.free(); sheet = null; api.sheet = null; placeHits();
     scene.reopen(now());
     log('retour aux cartes');
   }
@@ -106,6 +125,7 @@ export async function mountCards(opts) {
         answer.style.width = '1px'; answer.style.height = '1px';
         const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
         sheet.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
+        placeHits();
         api.frames++;
         if (manualDt == null) requestAnimationFrame(frame);
         return;
