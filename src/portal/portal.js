@@ -30,7 +30,7 @@ const SIG = 'ETERNEL';
 const FOV = 26 * Math.PI / 180, TILT = 0.22, PITCH = 0.15, DECK = 10;
 const INTRO_T = 1.4, DEAL_AT = 0.7, DEAL_T = 1.2, DEAL_GAP = 0.34, FLIP_T = 1.2, HOLD = 2.2, LEAVE_T = 1.3;
 // la lumière : d'abord le poème, puis chaque carte à son tour (s)
-const DWELL = [6.5, 2.8, 2.8, 2.8];
+const DWELL = [6.5, 2.8, 2.8];      // les trois cartes seulement (le paquet ne fait pas signe)
 
 const CSS = `
 #portal { position: fixed; inset: 0; z-index: 20; background: #060606; transition: opacity .8s ease; touch-action: pinch-zoom; }
@@ -125,25 +125,31 @@ export async function mountPortal(opts = {}) {
     return { dx: sd * rnd.range(0.0, 0.1), dy: rnd.range(-0.04, 0.04), rz: (rnd() < 0.7 ? -sd : sd) * rnd.range(0.015, 0.1) };
   });
   const lay = { W: 1, H: 1, D: 300, slot: [] };
+  // les trois cartes sont le centre de l'attention (grandes, au milieu) ; le paquet, qui les a distribuées, reste en
+  // bas de page, à moitié sorti de l'écran (comme la carte blanche de la scène des cartes) : là si on veut l'acheter
   function layout(W, H) {
     lay.W = W; lay.H = H;
     const asp = CARD.w / CARD.h, portrait = W < H * 1.1;
-    const top = H * (portrait ? 0.115 : 0.14), bot = H * 0.97, zone = bot - top;
-    // longueur de la donne, en hauteurs (portrait) ou largeurs (paysage) de carte : 3 cartes qui se recouvrent, un
-    // petit écart, le paquet, la marge des biais
-    const span = 1 + 2 * (1 - OV) + (1 - OV) + 0.12 + 0.14;
+    const top = H * (portrait ? 0.115 : 0.14);
+    const deckTop = H * (portrait ? 0.865 : 0.84);           // haut du paquet ; le reste sort par le bas
+    const zone = deckTop - H * 0.03 - top;
+    const span = 1 + 2 * (1 - OV) + 0.14;                     // trois cartes qui se recouvrent + marge des biais
     let h;
-    if (portrait) h = Math.min(W * 0.78 / asp, zone / span);
-    else h = Math.min(zone * 0.62, W * 0.88 / (asp * span));
+    if (portrait) h = Math.min(W * 0.84 / asp, zone / span);
+    else h = Math.min(zone * 0.8, W * 0.8 / (asp * span));
     const w = h * asp, s = CARD.w / w;
     lay.D = s * (H / 2) / Math.tan(FOV / 2);
     const len = (portrait ? h : w) * (span - 0.14);
     const a0 = portrait ? top + (zone - len) / 2 : (W - len) / 2;
     lay.slot = ITEMS.map((_, i) => {
-      const along = (portrait ? h : w) * (0.5 + i * (1 - OV) + (i === JEU ? 0.12 : 0));
       const o = lie[i];
-      const px = portrait ? W / 2 + o.dx * w : a0 + along + o.dx * w * 0.3;
-      const py = portrait ? a0 + along + o.dy * h : H * (portrait ? 0.5 : 0.55) + o.dy * h + (i % 2 ? 0.08 : -0.08) * h * (i === JEU ? 0 : 1);
+      let px, py;
+      if (i === JEU) { px = W / 2 + o.dx * w; py = deckTop + h * 0.5; }
+      else {
+        const along = (portrait ? h : w) * (0.5 + i * (1 - OV));
+        px = portrait ? W / 2 + o.dx * w : a0 + along + o.dx * w * 0.3;
+        py = portrait ? a0 + along + o.dy * h : top + zone / 2 + o.dy * h + (i % 2 ? 0.08 : -0.08) * h;
+      }
       return { x: (px - W / 2) * s, y: (H / 2 - py) * s / Math.cos(TILT), rz: o.rz, z: i === JEU ? 0 : i * Z_STEP };
     });
     sig.style.top = `calc(max(env(safe-area-inset-top), 0px) + ${(top * 0.48).toFixed(0)}px)`;
