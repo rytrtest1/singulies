@@ -73,7 +73,8 @@ export async function mountPortal(opts = {}) {
 
   // ---- cartes : papier, relief, encre (au plus vite) ----
   const [card] = await Promise.all([createCardRenderer(gl, base), fontP]);
-  const L = { ...LOOK };
+  // intitulés lus d'un coup d'œil, même petits : frappe un peu plus franche que sur les questions
+  const L = { ...LOOK, inkThr: 0.22, inkWear: 1.5, inkVar: 0.4 };
   const variant = (k = 1) => ({
     seed: rnd() * 100,
     paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0],

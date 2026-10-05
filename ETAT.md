@@ -258,3 +258,9 @@ Voir « Point de reprise » en tête de fichier.
 - 05/10 (suite) : effacement = rembobinage de l'allumage (tests/unit/light.test.js) ; plus de baisse d'opacité des lettres éteintes (S.dim = 1) ; suite automatique ≥ 3 s après le dernier geste.
 - 05/10 cohérence lumineuse : prénom 0,85 partout (NAME_REST ; la recharge y ramène, plus de gris 0,42 dans les cartes), encre 75–100 → ≈ 197, papier 12 → 19, signes 0,5 partout. Mesuré par tools/luminance.mjs (390×844).
 - 05/10 (suite) : cartes revenues aux valeurs d'avant (encre 75–100, papier 12) ; prénom 0,62 partout (158) ; signes 0,4.
+
+## 05/10 — Portail (première page), prototype v1
+- `src/portal/portal.js` (canvas WebGL2 propre, au-dessus de l'accueil, z 20) : ETERNEL tapé en silence (Courier Prime, spans, 90–190 ms/lettre), 4 cartes face visible (cardRenderer + makeInkMap, LOOK de la scène 2), paquet = 9 cartes désalignées dessous (dessinées après la carte du dessus : profondeur). Survol (souris) : la carte monte ; appui : elle s'enfonce ; inclinaison d'ensemble + respiration ; lampe qui suit. Boutons accessibles posés sur les cartes (`inert` quand caché).
+- `main.js` : le portail d'abord ; le champ (police, atlas, champ vécu) se prépare 1,2 s après les cartes posées, ou tout de suite si l'on choisit ; rAF de l'accueil lancé au choix du poème (S.t = OPEN_DARK − 0,3 : pas de noir) ; focus du champ dans le geste ; flèche retour à 1,5 s ; retour = portail, accueil arrêté une fois couvert. Garde `S.portal` sur clavier / clic / molette / double-clic. Tests e2e en `?portail=0` (port réglable `E2E_PORT`).
+- Tests : 45 unitaires + 108 e2e OK. Captures `captures/portail/` (`tools/portal-shot.mjs`). SwiftShader : ≈ 9 s par image (cartes) — rien à voir avec un téléphone ; à mesurer sur iPhone dans Instagram.
+- Reste : liens réels, son (plus tard), mesure du délai d'affichage en 4G dans Instagram, lisibilité des intitulés (petits en 390 × 664).

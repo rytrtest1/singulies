@@ -2,7 +2,7 @@
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
 
-const PORT = 5198;
+const PORT = +process.env.E2E_PORT || 5198;
 const BASE = `http://localhost:${PORT}/`;
 const results = [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -18,7 +18,8 @@ async function open({ query = '', init, viewport = { width: 1280, height: 800 },
   page.hosts = new Set(); page.errors = [];
   page.on('request', (r) => { try { const u = new URL(r.url()); if (/^https?:$/.test(u.protocol)) page.hosts.add(u.hostname); } catch {} });
   page.on('pageerror', (e) => page.errors.push(String(e)));
-  await page.goto(BASE + query);
+  // le portail (première page) a ses propres tests : ici, directement le champ
+  await page.goto(BASE + (query.includes('portail=') ? query : (query ? query + '&' : '?') + 'portail=0'));
   await page.waitForFunction(waitAtlas ? () => window.__sg && window.__sg.atlas : () => window.__sg, null, { timeout: 30000 });
   if (!waitAtlas) await sleep(1500);
   await page.focus('#in');

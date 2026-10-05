@@ -3,6 +3,13 @@
 Périmètre : ouverture de la page → saisie du prénom → validation → écran noir. **Hors périmètre** : serveur, enregistrement, RGPD. **Phase de tests : RGPD et appels réseau des essais (voix) non pris en compte pour l'instant** (03/10).
 Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni la référence en entier (constantes déjà extraites dans ETAT.md).
 
+## Portail — la première page (05/10, prototype `src/portal/portal.js`)
+- Public : ≈ 95 % téléphone, arrivée par le lien en bio Instagram / TikTok (navigateur intégré), après une vidéo d'Eternel (nom d'artiste, connu ; Singuliés ne l'est pas) qui écrit un acrostiche à un inconnu dans la rue. Un seul lien pour tout.
+- Ouverture : **ETERNEL tapé à la machine, en silence** (petit, en haut), pendant que les cartes se préparent ; les cartes s'affichent au plus vite (fondu depuis le fond). Peut être retiré s'il ralentit. **Pas de son pour l'instant.**
+- **Quatre cartes du jeu, même rang, le poème d'abord** (téléphone : en colonne ; ordinateur : 2 × 2), même papier / lumière / frappe que la scène des cartes, minuscules : *ton prénom, ton poème* · *une lettre chez toi, chaque mois* · *mes livres* · *le jeu* (le paquet lui-même, à vendre ; mène à sa page d'achat, pas de prix affiché).
+- Toucher le poème = le champ de prénoms, **clavier ouvert dans le même geste** (iPhone). Les autres : leur lien (`LINKS` dans portal.js ; liens d'attente pour l'instant : la carte se retourne, « bientôt », revient). Flèche retour / Échap depuis le champ = le portail. `?portail=0` = directement le champ (tests).
+- Commande (poème payé, option « en direct » plus chère) : à la fin du parcours, hors de ce chantier. Exception voulue aux « aucun texte d'interface / contenu commercial » : les intitulés des cartes.
+
 ## Ressources (`ressources/`)
 - `imageref.png` : image cible 1672×941 (= « reference.png » de la consigne). Elle montre des accents et des minuscules : **seule la composition/luminance compte**, pas le texte.
 - `SINGULIÉS — mouvement.html` : prototype Canvas 2D (= « mon-rendu/singulies-mouvement.html »). Fixe comportement + look ; réécrire en WebGL2, ne pas copier. Ne jamais lire `plus-tard/`.
