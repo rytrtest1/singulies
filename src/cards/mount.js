@@ -11,14 +11,14 @@ const CSS = `
   overflow: hidden; -webkit-tap-highlight-color: transparent; -webkit-user-select: text; z-index: 12; }
 .sc-sign { position: fixed; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
   color: #fff; opacity: 0; transition: opacity .8s; pointer-events: none; z-index: 13; cursor: pointer; }
-/* signes discrets : une seule opacité dans toute l'app (0,5 ; survol 0,7) */
-.sc-sign.on { opacity: .5; pointer-events: auto; }
-.sc-sign.on:hover, .sc-pass.on:hover { opacity: .7; }
+/* signes discrets : une seule opacité dans toute l'app (0,4 ; survol 0,6) */
+.sc-sign.on { opacity: .4; pointer-events: auto; }
+.sc-sign.on:hover, .sc-pass.on:hover { opacity: .6; }
 /* PASSER (sur la carte blanche, après quelques secondes sans frappe) : discret, placé par le script */
 .sc-pass { position: fixed; left: 0; right: 0; top: 85%; text-align: center; z-index: 13; cursor: pointer;
   opacity: 0; transition: opacity 1.2s; pointer-events: none;
   font: 500 12px/44px 'SG Garamond', serif; letter-spacing: 0.4em; padding-left: 0.4em; color: #fff; }
-.sc-pass.on { opacity: .5; pointer-events: auto; }
+.sc-pass.on { opacity: .4; pointer-events: auto; }
 .sc-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); }
 .sc-veil { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 1.4s; pointer-events: none; z-index: 14; }
 `;

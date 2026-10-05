@@ -30,6 +30,9 @@ const CFG = {
   transition: ['lumiere', 'energie'].includes(P.get('transition')) ? P.get('transition') : 'lettres',
   wheel: P.get('saisie') === 'roue',   // saisie par roue de lettres (sans clavier virtuel)
   voice: P.get('saisie') === 'voix',   // « dis ou écris ton prénom » (essai)
+  // portail (05/10) : ETERNEL + les cartes du jeu (ton prénom ton poème, la lettre, les livres, le jeu) avant le
+  // champ ; ?portail=0 → directement le champ (tests)
+  portal: P.get('portail') !== '0',
 };
 const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
@@ -251,6 +254,7 @@ function enterBlack(restored) {
 }
 
 function goBack() {
+  if (S.phase === 'input' && portal && !S.portal && S.trans == null) { toPortal(); return; }
   if (S.phase === 'input' || S.phase === 'scene') return;
   clearStored();             // le prénom mémorisé est effacé, il reste affiché pour cette visite
   S.phase = 'input'; S.phaseAt = S.t; S.validatedName = null; S.trans = null; S.confirmed = !!finalName(model.text);   // retour : prénom conservé, toucher pour repartir
@@ -262,17 +266,17 @@ function goBack() {
 backEl.addEventListener('click', goBack);
 // ordinateur : une touche de lettre tapée alors que le champ a perdu le focus (clic ailleurs) le lui rend
 window.addEventListener('keydown', (e) => {
-  if (TOUCH || wheel || S.phase !== 'input' || S.trans != null || document.activeElement === input) return;
+  if (TOUCH || wheel || S.portal || S.phase !== 'input' || S.trans != null || document.activeElement === input) return;
   if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); }
 }, true);
 // Entrée quand le champ a perdu le focus (prénom confirmé, clavier fermé) : 2e Entrée = colonne
-window.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.defaultPrevented && !wheel && S.confirmed && document.activeElement !== input) { e.preventDefault(); submitName(); } });
+window.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.defaultPrevented && !wheel && !S.portal && S.confirmed && document.activeElement !== input) { e.preventDefault(); submitName(); } });
 // Échap fonctionne aussi quand le champ n'a plus le focus (écran noir)
-window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.activeElement !== input) goBack(); });
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !S.portal && document.activeElement !== input) goBack(); });
 
 // Toucher n'importe où : focus du champ (ouvre le clavier mobile, geste utilisateur)
 document.addEventListener('click', (e) => {
-  if (S.phase !== 'input' || S.trans != null || e.target === backEl || backEl.contains(e.target) || nextEl.contains(e.target)) return;
+  if (S.portal || S.phase !== 'input' || S.trans != null || e.target === backEl || backEl.contains(e.target) || nextEl.contains(e.target)) return;
   const b = S.nameBox;
   // seule la zone du prénom / du curseur répond (ailleurs, plus tard : toucher un prénom du champ pour lire son
   // acrostiche) : prénom écrit → aller à la suite ; vide → écrire (le clavier sort)
@@ -286,7 +290,7 @@ document.addEventListener('click', (e) => {
 const MODE_ORDER = ['melange', 'profondeur', 'horizontal'];
 function toggleMode() { CFG.mode = MODE_ORDER[(MODE_ORDER.indexOf(CFG.mode) + 1) % MODE_ORDER.length]; }
 window.addEventListener('keydown', (e) => { if (e.key === 'Tab' && !e.altKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleMode(); } });
-document.addEventListener('dblclick', (e) => { if (S.trans == null && !wheel) toggleMode(); });
+document.addEventListener('dblclick', (e) => { if (S.trans == null && !wheel && !S.portal) toggleMode(); });
 // le signe sous le prénom confirmé : aller à la suite ; sans geste pendant 10 s, on y va tout seul
 nextEl.addEventListener('click', (e) => { e.stopPropagation(); startTransition(); });
 for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart', 'touchmove']) window.addEventListener(ev, () => { S.actAt = S.t; }, { passive: true, capture: true });
@@ -333,7 +337,7 @@ document.addEventListener('pointerleave', () => { PAR.tx = 0; PAR.ty = 0; });
 // (pas de pincement : le zoom du navigateur reste disponible pour l'accessibilité)
 // un seul facteur pour l'avance ET les courants latéraux (accélération proportionnelle) :
 // jusqu'à ×16 en avant, ×−10 en arrière
-const addBoost = (v) => { if (!CFG.reduced) S.boost = Math.max(-11, Math.min(15, S.boost + v)); };
+const addBoost = (v) => { if (!CFG.reduced && !S.portal) S.boost = Math.max(-11, Math.min(15, S.boost + v)); };
 if (!CFG.wheel) {
   // molette vers le bas = avancer, vers le haut = reculer (un cran ≈ ±2,2 : un seul cran fait nettement reculer)
   window.addEventListener('wheel', (e) => addBoost(Math.max(-5, Math.min(5, e.deltaY * (e.deltaMode === 1 ? 1.4 : 0.045)))), { passive: true });
@@ -586,10 +590,49 @@ function drawVoice(L, glyphs, fade, dt, text) {
 
 function smooth(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 
+// ---------- portail : la première page (avant le champ) ----------
+let portal = null, portalGo = null, booted = false;
+// toucher « ton prénom, ton poème » : dans le même geste, le champ prend le focus (iPhone : le clavier s'ouvre)
+// et le champ apparaît sous le portail qui s'efface
+function enterFromPortal() {
+  S.portal = false;
+  if (S.t < OPEN_DARK) S.t = OPEN_DARK - 0.3;   // première fois : pas de noir d'ouverture, le champ naît en fondu
+  else { S.phaseAt = S.t; }                      // retour : fondu d'entrée
+  input.readOnly = false; input.classList.remove('rest');
+  if (!wheel) input.focus({ preventScroll: true });
+  setTimeout(() => { if (!S.portal) backEl.classList.add('on'); }, 1500);
+  portalGo?.();
+  if (booted && !rafId && !document.hidden) { last = 0; rafId = requestAnimationFrame(frame); }
+}
+// retour (flèche, Échap) depuis le champ : le portail revient, le champ s'arrête une fois couvert
+function toPortal() {
+  S.portal = true;
+  input.blur(); backEl.classList.remove('on');
+  portal.show();
+  setTimeout(() => { if (S.portal) { cancelAnimationFrame(rafId); rafId = 0; } }, 1000);
+}
+function mountPortalPage() {
+  S.portal = true;
+  const go = new Promise(res => { portalGo = res; });
+  const ready = new Promise(res => {
+    import('./portal/portal.js')
+      .then(({ mountPortal }) => mountPortal({ base: './', reduced: CFG.reduced, onReady: res, onPoem: enterFromPortal }))
+      .then(p => { portal = p; if (!p) { S.portal = false; portalGo(); res(); } })
+      .catch(e => { console.warn('portail', e); document.getElementById('portal')?.remove(); S.portal = false; portalGo(); res(); });
+  });
+  return { go, ready };
+}
+
 // ---------- amorçage ----------
 let metrics = null;
 async function boot() {
   measure();
+  // le portail d'abord ; le champ se prépare une fois les cartes posées (ou tout de suite si l'on choisit le poème)
+  let gate = null;
+  if (CFG.portal && S.phase === 'input') {
+    gate = mountPortalPage();
+    await Promise.race([gate.ready.then(() => new Promise(r => setTimeout(r, 1200))), gate.go]);
+  }
   // rechargement après la suite : directement la scène des cartes (le prénom à sa place, le paquet arrive)
   if (S.phase === 'scene') {
     canvas.style.visibility = 'hidden'; input.readOnly = true;
@@ -621,17 +664,19 @@ async function boot() {
     canvas.addEventListener('webglcontextrestored', () => { renderer.restore(); last = 0; if (!document.hidden) rafId = requestAnimationFrame(frame); });
   }
   if (S.phase === 'black') { S.phaseAt = 0; enterBlack(true); }
-  else if (!wheel && window.matchMedia('(pointer: fine)').matches) input.focus({ preventScroll: true });
-  rafId = requestAnimationFrame(frame);
+  else if (!wheel && !S.portal && !gate && window.matchMedia('(pointer: fine)').matches) input.focus({ preventScroll: true });
+  booted = true;
+  if (gate) await gate.go;
+  if (!rafId) rafId = requestAnimationFrame(frame);
 }
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { cancelAnimationFrame(rafId); rafId = 0; }
-  else if (!rafId && S.phase !== 'scene' && (!gl || !gl.isContextLost())) { last = 0; rafId = requestAnimationFrame(frame); }
+  else if (!rafId && S.phase !== 'scene' && !S.portal && booted && (!gl || !gl.isContextLost())) { last = 0; rafId = requestAnimationFrame(frame); }
 });
 
 // accès de test / mesure
 const stats = { drawCalls: 0, gpuMB: 0, letters: 0, warmupMs: 0 };
-window.__sg = { stats, model, S, CFG, get atlas() { return atlas; }, get field() { return field; }, get voice() { return voice; }, validate, submitName, startTransition, goBack, get bridge() { return bridge; } };
+window.__sg = { stats, model, S, CFG, get portal() { return portal; }, get atlas() { return atlas; }, get field() { return field; }, get voice() { return voice; }, validate, submitName, startTransition, goBack, get bridge() { return bridge; } };
 
 boot();
