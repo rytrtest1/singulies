@@ -90,10 +90,9 @@ export async function mountCards(opts) {
       if (st.kb && r) passEl.style.top = Math.max(r.bottom + 2, (r.bottom + kbTop) / 2 - 22) + 'px';
       else if (mk) passEl.style.top = (mk.deckBottom + 34) + 'px';
       // respiration : la lumière et la carte en focus bougent d'elles-mêmes, très peu (le vivant, sans gyroscope)
-      // lampe : respiration large (05/10 : elle fait vivre reliefs, bords et ombres comme quand le téléphone bougeait) ;
-      // carte en focus : elle respire aussi, moins que celle en attente (Maxence 05/10)
+      // la lampe respire d'elle-même (scene.js : breathAz / breathEl) ; carte en focus : elle respire aussi, moins que
+      // celle en attente (Maxence 05/10)
       const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
-      scene.setBreath(br.x, br.y);
       scene.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
       backEl.classList.toggle('on', !st.ended && (st.mode === 'free' || (!!onExit && t > 3 && !st.kb)));
       // le champ natif est posé, invisible, sur la carte réponse : la toucher ouvre le clavier (iPhone : seul un

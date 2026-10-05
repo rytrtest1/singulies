@@ -375,7 +375,7 @@ void main() {
     vec3 Hs = normalize(Ls + V);
     float specS = uSpec * D_GGX(max(dot(n, Hs), 0.0), a) * V_Smith(NLs, NV, a) * (0.04 + 0.96 * pow(1.0 - max(dot(V, Hs), 0.0), 5.0));
     // surtout l'encre (la question ressort), à peine le papier (il reste noir)
-    amb += irrS * NLs * (alb * mix(0.35, 1.0, ink) + 0.25 * specS * (1.0 - 0.6 * ink));
+    amb += irrS * NLs * (alb * mix(0.1, 1.0, ink) + 0.25 * specS * (1.0 - 0.6 * ink));
     // le bord cassé accroche la lumière : reflet renforcé sur le liseré, du côté de la lampe
     spec *= 1.0 + 2.5 * rim;
     col = vec3((alb * irr * diff + irr * NL * sh * (spec + sheen + glint) + amb) * crease);
