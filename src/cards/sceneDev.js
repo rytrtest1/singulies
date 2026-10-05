@@ -5,6 +5,8 @@
 // réponse = donner ; carte blanche (après une question passée) ; retour = le paquet ; PASSER (sur la carte blanche) = la fin. &reglages : réglages.
 import { LOOK } from './scene.js';
 import { mountCards } from './mount.js';
+import { installSend } from '../app/send.js';
+installSend();
 
 const P = new URLSearchParams(location.search);
 const PRENOM = (P.get('prenom') || 'LEA').toUpperCase();

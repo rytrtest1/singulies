@@ -9,6 +9,7 @@ import { buildAtlas } from './gl/atlas.js';
 import { createRenderer } from './render/renderer.js';
 import { layoutName } from './name/layout.js';
 import { loadState, saveValidated, clearStored, clearValidated } from './app/storage.js';
+import { installSend } from './app/send.js';
 import { createField, MODES } from './field/field.js';
 import { createRng } from './field/rng.js';
 import { createLight } from './field/light.js';
@@ -686,4 +687,5 @@ document.addEventListener('visibilitychange', () => {
 const stats = { drawCalls: 0, gpuMB: 0, letters: 0, warmupMs: 0 };
 window.__sg = { stats, model, S, CFG, get portal() { return portal; }, get atlas() { return atlas; }, get field() { return field; }, get voice() { return voice; }, validate, submitName, startTransition, goBack, get bridge() { return bridge; } };
 
+installSend();   // la demande part par email quand l'enveloppe est postée (ou « en direct »)
 boot();

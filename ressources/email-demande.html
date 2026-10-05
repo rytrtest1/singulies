@@ -1,0 +1,42 @@
+<!-- Modèle EmailJS « nouvelle demande » — à coller dans l'éditeur du modèle (mode code / HTML).
+     Sujet conseillé : {{prenom}} — {{mode}}
+     Les {{{…}}} (trois accolades) insèrent du HTML préparé par le site (src/app/send.js). -->
+<div style="margin:0;padding:0;background:#060606;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#060606;">
+<tr><td align="center" style="padding:48px 16px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:460px;">
+
+    <!-- la feuille : le prénom en colonne -->
+    <tr><td style="background:#0d0d0d;border:1px solid #1c1c1c;padding:44px 0 40px 64px;">
+      <div style="font-family:'EB Garamond',Garamond,Georgia,'Times New Roman',serif;font-size:22px;line-height:30px;letter-spacing:2px;color:#cfcfcf;">
+        {{{colonne_html}}}
+      </div>
+    </td></tr>
+
+    <tr><td style="height:28px;line-height:28px;font-size:0;">&nbsp;</td></tr>
+
+    <!-- la carte : la question et la réponse (ou le thème) -->
+    <tr><td style="background:#101010;border:1px solid #1f1f1f;border-radius:6px;padding:26px 28px;font-family:'Courier Prime','Courier New',Courier,monospace;font-size:14px;line-height:24px;color:#bdbdbd;">
+      <div style="color:#6f6f6f;font-size:11px;letter-spacing:3px;padding-bottom:10px;">{{genre}}</div>
+      <div style="color:#d6d6d6;">{{question}}</div>
+      <div style="padding-top:12px;">{{reponse}}{{theme}}</div>
+    </td></tr>
+
+    <tr><td style="height:28px;line-height:28px;font-size:0;">&nbsp;</td></tr>
+
+    <!-- l'enveloppe : l'adresse tapée -->
+    <tr><td style="background:#0b0b0b;border:1px solid #1c1c1c;padding:34px 28px 34px 46%;font-family:'Courier Prime','Courier New',Courier,monospace;font-size:14px;line-height:22px;color:#c4c4c4;">
+      {{{adresse_html}}}
+    </td></tr>
+
+    <tr><td style="padding:30px 0 0;text-align:center;font-family:'EB Garamond',Garamond,Georgia,serif;font-size:11px;letter-spacing:5px;color:#7a7a7a;">
+      {{mode}} &nbsp;·&nbsp; {{date}}
+    </td></tr>
+    <tr><td style="padding:18px 0 0;text-align:center;font-family:'Courier Prime','Courier New',Courier,monospace;font-size:11px;letter-spacing:6px;color:#4a4a4a;">
+      SINGULIES
+    </td></tr>
+
+  </table>
+</td></tr>
+</table>
+</div>
