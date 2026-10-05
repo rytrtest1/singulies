@@ -24,7 +24,9 @@ export const LOOK = {
   lightMode: 1, elevAmp: 0.45, flashZ: 70, cardTilt: 0.2, lightVar: 0.6, sway: 0.11, unfocusDim: 0.25, spot: 0.06,
   // respiration de la lampe (05/10) : elle tourne lentement autour des cartes et monte/descend un peu, sans changer
   // de force — ombres, reliefs, creux et bords bougent même sans interaction (rad)
-  breathAz: 1.1, breathEl: 0.16, breathFixAz: NaN, breathFixEl: NaN,
+  breathAz: 0.85, breathEl: 0.14, breathFixAz: NaN, breathFixEl: NaN,
+  lampGap: 1.22,       // la lampe reste à ≥ 70° du côté du regard (sinon carte délavée)
+  elBase: 0.6, elMin: 0.3, elMax: 0.73,   // hauteur de la lampe (rad) : 34° au repos, 17° très rasante ↔ 42° (hauteur d'origine)
   h: 0.19, b: 1.32, crease: 0, fiber: 0.06, foot: 0.76, footW: 0.165, parallax: 0,
   rough: 0.64, spec: 3.1, sheen: 0, glint: 0.35, edge: 3, grain: 1.25, diffRough: 0.65, envSpec: 0.32, toe: 0.0078,
   nameFlat: 0.62,   // prénom à plat, même clarté que sur l'accueil (NAME_REST, 05/10) ; 0 → prénom en relief (nameAlb, nameRelief…)
@@ -315,23 +317,34 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   const tilt = { x: 0, y: 0 }, ts = { x: 0, y: 0 };
   const breath = { x: 0, y: 0 };      // (réservé ; la respiration de la lampe est calculée ici, voir breathAz / breathEl)
   const lp = { x: Math.cos(L.lightAz), y: Math.sin(L.lightAz), vx: 0, vy: 0 };
-  // deux sinus lents non synchronisés (périodes ≈ 19 s et 9 s ; hauteur ≈ 23 s et 10 s) : jamais un va-et-vient mécanique
-  // (mesures : &breathFixAz= / &breathFixEl= figent la respiration à une valeur, en rad)
-  // jamais vers le haut de la carte (la caméra la regarde d'en bas : la lampe au-dessus renvoie son reflet vers
-  // l'œil et la carte se délave en gris clair) : l'orbite ne respire que du côté rasant, la hauteur seulement vers le bas
-  const lampBreathAz = t => Number.isFinite(L.breathFixAz) ? L.breathFixAz : L.breathAz * (-0.5 + 0.5 * (0.72 * Math.sin(t * 0.33) + 0.28 * Math.sin(t * 0.69 + 1.3)));
-  const lampBreathEl = t => Number.isFinite(L.breathFixEl) ? L.breathFixEl : -L.breathEl * (0.5 + 0.5 * (0.7 * Math.sin(t * 0.27 + 2.1) + 0.3 * Math.sin(t * 0.61 + 0.4)));
+  // Lumière cinématique (05/10). Ce qui délave la carte en gris clair, c'est une lampe du même côté que le regard
+  // (la caméra la voit presque d'au-dessus, un peu depuis le bas de l'écran) : le papier mat renvoie la lumière vers
+  // l'œil et les ombres du gaufrage passent derrière les reliefs. Belle lumière = au-dessus mais rasante, de côté ou
+  // de l'arrière. Donc : la lampe orbite librement (respiration + inclinaison) mais reste tenue en douceur hors du
+  // secteur du regard (≥ lampGap de part et d'autre), et sa hauteur respire entre très rasante et la hauteur
+  // d'origine, jamais au-delà. Force compensée (clarté d'ensemble inchangée) : seuls ombres et reliefs vivent.
+  // Respiration : deux sinus lents non synchronisés (≈ 19 s et 9 s ; hauteur ≈ 23 s et 10 s).
+  // (mesures : &breathFixAz= / &breathFixEl= figent la respiration, en rad)
+  const CAM_AZ = -Math.PI / 2;                       // le regard vient du bas de l'écran
+  const wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
+  const lampBreathAz = t => Number.isFinite(L.breathFixAz) ? L.breathFixAz : L.breathAz * (0.72 * Math.sin(t * 0.33) + 0.28 * Math.sin(t * 0.69 + 1.3));
+  const lampBreathEl = t => Number.isFinite(L.breathFixEl) ? L.breathFixEl : L.breathEl * (0.7 * Math.sin(t * 0.27 + 2.1) + 0.3 * Math.sin(t * 0.61 + 0.4));
+  const lamp = { a: L.lightAz, va: 0, e: L.elBase, ve: 0 };
   function stepLight(dt) {
     const kk = Math.min(1, dt * 3); ts.x += (tilt.x - ts.x) * kk; ts.y += (tilt.y - ts.y) * kk;
-    const m = L.lightMode | 0, ax = tilt.x * L.lightVar, ay = (m === 1 ? 0 : tilt.y) * L.lightVar;
-    const az = L.lightAz + lampBreathAz(lastT);
-    let tx = Math.cos(az) + L.tiltAmp * ax, ty = Math.sin(az) + L.tiltAmp * ay;
-    const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+    // orbite : angle compté depuis l'opposé du regard (0 = contre-jour, haut de l'écran), adouci aux limites
+    const back = CAM_AZ + Math.PI, lim = Math.PI - L.lampGap;
+    let rel = wrapA(L.lightAz + lampBreathAz(lastT) + 1.2 * L.tiltAmp * L.lightVar * ts.x - back);
+    rel = lim * Math.tanh(rel / lim);
+    // hauteur : rasante ↔ hauteur d'origine, adoucie aux bornes
+    const mid = (L.elMin + L.elMax) / 2, half = (L.elMax - L.elMin) / 2;
+    let e = L.elBase + lampBreathEl(lastT) + ts.y * L.elevAmp * L.lightVar;
+    e = mid + half * Math.tanh((e - mid) / half);
     const w = 2.2, z = 0.85;
-    for (const [k, v, tg] of [['x', 'vx', tx], ['y', 'vy', ty]]) {
-      const acc = -2 * z * w * lp[v] - w * w * (lp[k] - tg);
-      lp[v] += acc * dt; lp[k] += lp[v] * dt;
-    }
+    const da = wrapA(back + rel - lamp.a);
+    lamp.va += (w * w * da - 2 * z * w * lamp.va) * dt; lamp.a += lamp.va * dt;
+    lamp.ve += (w * w * (e - lamp.e) - 2 * z * w * lamp.ve) * dt; lamp.e += lamp.ve * dt;
+    lp.x = Math.cos(lamp.a); lp.y = Math.sin(lamp.a);
   }
 
   let vp = null, eye = null, lastT = 0, focusAns = 0;
@@ -421,7 +434,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
     const ap = focusAns > 0.5 ? (mode === 'free' ? bp : anp) || qp : qp;      // carte en focus : la lampe et le projecteur la suivent
     const R = L.lightR0 * lay.Hw, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R), ln = Math.hypot(lp.x, lp.y) || 1;
-    const el = (L.lightMode | 0) === 1 ? Math.min(1.35, Math.max(0.18, el0 + ts.y * L.elevAmp * L.lightVar + lampBreathEl(t))) : el0;
+    const el = lamp.e;
     const lightPos = [ap.x + lp.x / ln * D0 * Math.cos(el), ap.y + lp.y / ln * D0 * Math.cos(el), D0 * Math.sin(el)];
     const light = L.light * k * k * Math.sin(el0) / Math.sin(el);
     const spotPos = [ap.x, ap.y + 0.35 * lay.Hw, lay.D * 0.55];
