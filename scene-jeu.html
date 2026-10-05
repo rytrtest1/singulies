@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Le jeu</title>
+<style>html, body { margin: 0; height: 100%; background: #060606; overflow: hidden; touch-action: pinch-zoom; }</style>
+</head>
+<body>
+<script type="module">
+  // page d'essai de « le jeu » (le portail y mène dans le parcours)
+  import { mountJeu } from './src/jeu/jeu.js';
+  mountJeu({ base: './', reduced: matchMedia('(prefers-reduced-motion: reduce)').matches, onBack: () => location.reload() }).then(j => { window.__jeu = j; });
+</script>
+</body>
+</html>

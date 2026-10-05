@@ -611,12 +611,18 @@ function toPortal() {
   portal.show();
   setTimeout(() => { if (S.portal) { cancelAnimationFrame(rafId); rafId = 0; } }, 1000);
 }
+// « le jeu » : sa page par-dessus le portail (qui s'arrête une fois couvert) ; retour = le portail, qui redistribue
+function openJeu() {
+  import('./jeu/jeu.js').then(({ mountJeu }) => mountJeu({ base: './', reduced: CFG.reduced, onBack: () => portal?.show() }))
+    .then(j => { if (j) setTimeout(() => portal?.hide(), 1000); })
+    .catch(e => console.warn('jeu', e));
+}
 function mountPortalPage() {
   S.portal = true;
   const go = new Promise(res => { portalGo = res; });
   const ready = new Promise(res => {
     import('./portal/portal.js')
-      .then(({ mountPortal }) => mountPortal({ base: './', reduced: CFG.reduced, onReady: res, onPoem: enterFromPortal }))
+      .then(({ mountPortal }) => mountPortal({ base: './', reduced: CFG.reduced, onReady: res, onPoem: enterFromPortal, onJeu: openJeu }))
       .then(p => { portal = p; if (!p) { S.portal = false; portalGo(); res(); } })
       .catch(e => { console.warn('portail', e); document.getElementById('portal')?.remove(); S.portal = false; portalGo(); res(); });
   });

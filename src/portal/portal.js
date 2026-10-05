@@ -59,7 +59,7 @@ const lerpPose = (a, b, u) => ({ x: lerp(a.x, b.x, u), y: lerp(a.y, b.y, u), z: 
 // petit saut « touche-moi » (celui de la carte blanche)
 const hop = ph => 3.2 * sstep(0, 0.16, ph) * (1 - sstep(0.16, 0.45, ph)) + 1.1 * sstep(0.45, 0.57, ph) * (1 - sstep(0.57, 0.85, ph));
 
-// opts : { base, reduced, onPoem() (dans le geste : la page ouvre le clavier), onReady?() }
+// opts : { base, reduced, onPoem() (dans le geste : la page ouvre le clavier), onReady?(), onJeu?() (la page du jeu) }
 export async function mountPortal(opts = {}) {
   const { base = './', reduced = false } = opts;
   if (!document.getElementById('pt-style')) {
@@ -266,6 +266,8 @@ export async function mountPortal(opts = {}) {
     }
     const url = LINKS[c.id];
     if (url) { location.href = url; return; }
+    // le jeu : sa page, dans le même monde (jeu/jeu.js) — proposition ; la page la recouvre, le portail s'arrête
+    if (c.id === 'jeu' && opts.onJeu) { opts.onJeu(); return; }
     if (cards.some(k => k.anim)) return;          // une seule carte se retourne à la fois
     if (!soonInk) soonInk = inkOf('bientôt', c.v);
     c.anim = { t0: t, off: slideFor(c) };
