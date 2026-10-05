@@ -90,8 +90,11 @@ export async function mountCards(opts) {
       if (st.kb && r) passEl.style.top = Math.max(r.bottom + 2, (r.bottom + kbTop) / 2 - 22) + 'px';
       else if (mk) passEl.style.top = (mk.deckBottom + 34) + 'px';
       // respiration : la lumière et la carte en focus bougent d'elles-mêmes, très peu (le vivant, sans gyroscope)
-      const br = { x: 0.16 * Math.sin(t * 0.676) + 0.07 * Math.sin(t * 1.1 + 1), y: 0.12 * Math.sin(t * 0.566 + 2) + 0.05 * Math.sin(t * 0.91) };
-      scene.setTilt(ptr.x + br.x, ptr.y + br.y);
+      // lampe : respiration large (05/10 : elle fait vivre reliefs, bords et ombres comme quand le téléphone bougeait) ;
+      // carte en focus : elle respire aussi, moins que celle en attente (Maxence 05/10)
+      const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
+      scene.setBreath(br.x, br.y);
+      scene.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
       backEl.classList.toggle('on', !st.ended && (st.mode === 'free' || (!!onExit && t > 3 && !st.kb)));
       // le champ natif est posé, invisible, sur la carte réponse : la toucher ouvre le clavier (iPhone : seul un
       // toucher direct sur le champ l'ouvre)
@@ -123,10 +126,11 @@ export async function mountCards(opts) {
   if (vv) { vv.addEventListener('resize', onVV); vv.addEventListener('scroll', onVV); }
 
   // ---- pointeur : toucher, glisser la carte (gauche : la suivante, droite : la précédente ; carte blanche : vers
-  // le haut), inclinaison à la souris ou au doigt (pas de gyroscope : aucune autorisation demandée) ----
-  let down = null;
+  // le haut) ; inclinaison : téléphone (gyroscope — iPhone : autorisation au premier toucher, Android : sans
+  // demande), souris sur ordinateur, doigt en repli ----
+  let down = null, gyroLive = false;
   const ptr = { x: 0, y: 0 };
-  canvas.addEventListener('pointerdown', e => { if (!started) return; down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false, on: scene.hitAt(e.clientX, e.clientY) }; });
+  canvas.addEventListener('pointerdown', e => { if (!started) return; down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false, on: scene.hitAt(e.clientX, e.clientY) }; askOrientation(); });
   // premier geste : si l'écriture attend le clavier, on l'ouvre (iPhone)
   addEventListener('touchend', () => { if (started && scene.state().writing) focusAnswer(); }, { passive: true });
   // relire la réponse validée : molette
@@ -143,6 +147,7 @@ export async function mountCards(opts) {
     }
     // souris (ou doigt sans gyroscope) : sur la carte, elle est parfaitement droite ; elle s'incline à mesure
     // que le pointeur s'en éloigne
+    if (e.pointerType !== 'mouse' && gyroLive) return;
     const r = scene.cardRect(); if (!r) return;
     const x = e.clientX, y = e.clientY;
     const ox = x < r.left ? x - r.left : x > r.right ? x - r.right : 0;
@@ -167,6 +172,24 @@ export async function mountCards(opts) {
   giveEl.addEventListener('click', () => { if (scene.give(now())) { answer.blur(); log('donné'); } });
   passEl.addEventListener('click', () => { const r = scene.pass(now()); if (r) { answer.blur(); log('passé'); } });
 
+
+  // ---- gyroscope : zéro = tenue normale de lecture (≈ 50° vers l'arrière, à plat de côté) ----
+  function onOrient(e) {
+    if (e.beta == null || e.gamma == null) return;
+    gyroLive = true;
+    ptr.x = Math.max(-1, Math.min(1, e.gamma / 25)); ptr.y = Math.max(-1, Math.min(1, -(e.beta - 50) / 25));
+  }
+  let orientAsked = false;
+  function askOrientation() {
+    if (orientAsked) return;
+    const DO = window.DeviceOrientationEvent;
+    if (DO && typeof DO.requestPermission === 'function') {          // iPhone : demande système, dans un geste
+      orientAsked = true;
+      DO.requestPermission().then(s => { if (s === 'granted') addEventListener('deviceorientation', onOrient); }).catch(() => { orientAsked = false; });
+    } else if (DO) { orientAsked = true; addEventListener('deviceorientation', onOrient); }   // Android : sans demande
+  }
+  addEventListener('touchend', () => { if (started) askOrientation(); }, { passive: true });
+  if (!(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')) askOrientation();
 
   // préparation invisible (textures, compilation des shaders) : une image dessinée puis effacée, avant start()
   api.warm = () => {

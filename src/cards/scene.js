@@ -21,7 +21,7 @@ export const LOOK = {
   // réglé par Maxence sur téléphone (04/10). Cartes noires ; lampe en orbite + hauteur (manière 1, 60 %) ; la
   // carte en focus s'incline vers la souris / le mouvement du téléphone, celle en attente respire et est baissée.
   light: 0.111, lightR: 400, env: 0.28, albedo: 0.029, exposure: 0.74, lightAz: 0.67, lightR0: 1.0, lightZ: 210, tiltAmp: 1.45,
-  lightMode: 1, elevAmp: 0.45, flashZ: 70, cardTilt: 0.2, lightVar: 0.6, sway: 0.06, unfocusDim: 0.25, spot: 0.06,
+  lightMode: 1, elevAmp: 0.45, flashZ: 70, cardTilt: 0.2, lightVar: 0.6, sway: 0.11, unfocusDim: 0.25, spot: 0.06,
   h: 0.19, b: 1.32, crease: 0, fiber: 0.06, foot: 0.76, footW: 0.165, parallax: 0,
   rough: 0.64, spec: 3.1, sheen: 0, glint: 0.35, edge: 3, grain: 1.25, diffRough: 0.65, envSpec: 0.32, toe: 0.0078,
   nameFlat: 0.62,   // prénom à plat, même clarté que sur l'accueil (NAME_REST, 05/10) ; 0 → prénom en relief (nameAlb, nameRelief…)
@@ -310,10 +310,11 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
 
   // ---------- lumière (manière 1) + inclinaison de la carte en focus ----------
   const tilt = { x: 0, y: 0 }, ts = { x: 0, y: 0 };
+  const breath = { x: 0, y: 0 };      // respiration de la lampe seule (la carte en focus reste immobile au repos)
   const lp = { x: Math.cos(L.lightAz), y: Math.sin(L.lightAz), vx: 0, vy: 0 };
   function stepLight(dt) {
     const kk = Math.min(1, dt * 3); ts.x += (tilt.x - ts.x) * kk; ts.y += (tilt.y - ts.y) * kk;
-    const m = L.lightMode | 0, ax = tilt.x * L.lightVar, ay = (m === 1 ? 0 : tilt.y) * L.lightVar;
+    const m = L.lightMode | 0, ax = (tilt.x + breath.x) * L.lightVar, ay = (m === 1 ? 0 : tilt.y + breath.y) * L.lightVar;
     let tx = Math.cos(L.lightAz) + L.tiltAmp * ax, ty = Math.sin(L.lightAz) + L.tiltAmp * ay;
     const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
     const w = 2.2, z = 0.85;
@@ -410,7 +411,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
     const ap = focusAns > 0.5 ? (mode === 'free' ? bp : anp) || qp : qp;      // carte en focus : la lampe et le projecteur la suivent
     const R = L.lightR0 * lay.Hw, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R), ln = Math.hypot(lp.x, lp.y) || 1;
-    const el = (L.lightMode | 0) === 1 ? Math.min(1.35, Math.max(0.18, el0 + ts.y * L.elevAmp * L.lightVar)) : el0;
+    const el = (L.lightMode | 0) === 1 ? Math.min(1.35, Math.max(0.18, el0 + (ts.y + breath.y) * L.elevAmp * L.lightVar)) : el0;
     const lightPos = [ap.x + lp.x / ln * D0 * Math.cos(el), ap.y + lp.y / ln * D0 * Math.cos(el), D0 * Math.sin(el)];
     const light = L.light * k * k * Math.sin(el0) / Math.sin(el);
     const spotPos = [ap.x, ap.y + 0.35 * lay.Hw, lay.D * 0.55];
@@ -607,8 +608,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   }
   function setTilt(x, y) { tilt.x = Math.max(-1, Math.min(1, x)); tilt.y = Math.max(-1, Math.min(1, y)); }
   function setKeyboard(px) { kbPx = px; }
+  function setBreath(x, y) { breath.x = x; breath.y = y; }
   return {
-    frame, tap, drag, release, give, pass, back, start, prepare, setName, hitAt: (x, y) => hit(x, y), setTilt, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
+    frame, tap, drag, release, give, pass, back, start, prepare, setName, hitAt: (x, y) => hit(x, y), setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
     state: () => ({ freeFor: mode === 'free' ? lastT - freeT : 0, hasPrev: hasPrev(), idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),
