@@ -261,7 +261,7 @@ function goBack() {
   backEl.classList.remove('on');
   bridge.refresh();
   input.classList.remove('rest'); input.readOnly = false;
-  if (wheel) wheel.enable(true); else if (!(S.confirmed && TOUCH)) input.focus({ preventScroll: true });   // téléphone : pas de clavier, toucher le prénom pour repartir
+  if (wheel) wheel.enable(true);   // pas de focus automatique : le clavier ne sort qu'au toucher de la zone du curseur
 }
 backEl.addEventListener('click', goBack);
 // ordinateur : une touche de lettre tapée alors que le champ a perdu le focus (clic ailleurs) le lui rend
@@ -599,7 +599,7 @@ function enterFromPortal() {
   if (S.t < OPEN_DARK) S.t = OPEN_DARK - 0.3;   // première fois : pas de noir d'ouverture, le champ naît en fondu
   else { S.phaseAt = S.t; }                      // retour : fondu d'entrée
   input.readOnly = false; input.classList.remove('rest');
-  if (!wheel) input.focus({ preventScroll: true });
+  // pas de focus automatique : le clavier ne sort que si l'on touche la zone du curseur (Maxence 05/10)
   setTimeout(() => { if (!S.portal) backEl.classList.add('on'); }, 1500);
   portalGo?.();
   if (booted && !rafId && !document.hidden) { last = 0; rafId = requestAnimationFrame(frame); }
@@ -665,7 +665,7 @@ async function boot() {
     canvas.addEventListener('webglcontextrestored', () => { renderer.restore(); last = 0; if (!document.hidden) rafId = requestAnimationFrame(frame); });
   }
   if (S.phase === 'black') { S.phaseAt = 0; enterBlack(true); }
-  else if (!wheel && !S.portal && !gate && window.matchMedia('(pointer: fine)').matches) input.focus({ preventScroll: true });
+  // pas de focus automatique à l'ouverture (ordinateur : une touche de lettre donne le focus au champ)
   booted = true;
   if (gate) await gate.go;
   if (!rafId) rafId = requestAnimationFrame(frame);
