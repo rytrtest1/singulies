@@ -26,8 +26,8 @@ const ITEMS = [
 const JEU = 3;
 const SIG = 'ETERNEL';
 // mêmes valeurs que la scène des cartes
-// caméra plus penchée que dans la scène des cartes (0,22) : on voit une table, les cartes y sont posées
-const FOV = 26 * Math.PI / 180, TILT = 0.42, PITCH = 0.15, DECK = 10;
+// même caméra que la scène des cartes (pas de table : Maxence 05/10)
+const FOV = 26 * Math.PI / 180, TILT = 0.22, PITCH = 0.15, DECK = 10;
 const INTRO_T = 1.4, DEAL_AT = 0.7, DEAL_T = 1.2, DEAL_GAP = 0.34, FLIP_T = 1.2, HOLD = 2.2, LEAVE_T = 1.3;
 // la lumière : d'abord le poème, puis chaque carte à son tour (s)
 const DWELL = [6.5, 2.8, 2.8, 2.8];
