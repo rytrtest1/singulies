@@ -26,7 +26,8 @@ const ITEMS = [
 const JEU = 3;
 const SIG = 'ETERNEL';
 // mêmes valeurs que la scène des cartes
-const FOV = 26 * Math.PI / 180, TILT = 0.22, PITCH = 0.15, DECK = 10;
+// caméra plus penchée que dans la scène des cartes (0,22) : on voit une table, les cartes y sont posées
+const FOV = 26 * Math.PI / 180, TILT = 0.42, PITCH = 0.15, DECK = 10;
 const INTRO_T = 1.4, DEAL_AT = 0.7, DEAL_T = 1.2, DEAL_GAP = 0.34, FLIP_T = 1.2, HOLD = 2.2, LEAVE_T = 1.3;
 // la lumière : d'abord le poème, puis chaque carte à son tour (s)
 const DWELL = [6.5, 2.8, 2.8, 2.8];
@@ -68,7 +69,9 @@ export async function mountPortal(opts = {}) {
   if (!gl) { root.remove(); return null; }
   gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT);
 
-  const t0 = performance.now(), now = () => (performance.now() - t0) / 1000;
+  const t0 = performance.now();
+  let frozen = null;                       // captures : horloge figée (seek)
+  const now = () => frozen ?? (performance.now() - t0) / 1000;
   const rnd = createRng();
 
   // ---- ETERNEL, tapé à la machine en silence, dès que la police (locale, légère) est là ----
@@ -88,6 +91,8 @@ export async function mountPortal(opts = {}) {
 
   // ---- cartes : papier, relief, encre (celles de la scène des cartes) ----
   const [card] = await Promise.all([createCardRenderer(gl, base), fontP]);
+  // les valeurs de la scène des cartes ; seule différence : les cartes hors de la lumière sont moins baissées (ici,
+  // il faut pouvoir lire les quatre)
   const L = { ...LOOK };
   const variant = () => ({
     seed: rnd() * 100,
@@ -107,35 +112,52 @@ export async function mountPortal(opts = {}) {
   });
   cards[JEU].w = 1;
 
-  // ---- disposition (mm ; la caméra regarde le milieu, inclinée comme dans la scène des cartes) ----
+  // ---- disposition : une donne sur une table, pas une grille (Maxence 05/10). Le paquet en bas, un peu de biais ;
+  // chaque carte posée de travers (gauche, droite, en alternance), qui recouvre un peu le bord de la précédente
+  // (jamais son texte) et y fait son ombre. Biais et décalages tirés à chaque visite, dans des bornes. ----
+  const OV = 0.16;                          // part de la carte précédente recouverte
+  const Z_STEP = 1.6;                       // mm : posée sur la précédente (épaisseur + gondolage + respiration)
+  const side0 = rnd() < 0.5 ? -1 : 1;
+  // chaque carte tombe où elle tombe : biais et décalage libres (un côté plus souvent que l'autre, jamais une alternance)
+  const lie = ITEMS.map((_, i) => {
+    if (i === JEU) return { dx: rnd.range(-0.04, 0.04), dy: 0, rz: rnd.range(-0.05, 0.05) };
+    const sd = rnd() < 0.5 ? -1 : 1;
+    return { dx: sd * rnd.range(0.0, 0.1), dy: rnd.range(-0.04, 0.04), rz: (rnd() < 0.7 ? -sd : sd) * rnd.range(0.015, 0.1) };
+  });
   const lay = { W: 1, H: 1, D: 300, slot: [] };
   function layout(W, H) {
     lay.W = W; lay.H = H;
     const asp = CARD.w / CARD.h, portrait = W < H * 1.1;
     const top = H * (portrait ? 0.115 : 0.14), bot = H * 0.97, zone = bot - top;
-    let h, cols, gx, gy;
-    if (portrait) { cols = 1; h = Math.min(W * 0.8 / asp, zone / 4.5); gy = 0.17 * h; gx = 0; }
-    else { cols = 2; h = Math.min(zone * 0.4, W * 0.32 / asp); gy = 0.24 * h; gx = 0.2 * h * asp; }
-    const w = h * asp, rows = Math.ceil(ITEMS.length / cols);
-    const bw = cols * w + (cols - 1) * gx, bh = rows * h + (rows - 1) * gy;
-    const x0 = (W - bw) / 2, y0 = top + (zone - bh) / 2;
-    const s = CARD.w / w;
+    // longueur de la donne, en hauteurs (portrait) ou largeurs (paysage) de carte : 3 cartes qui se recouvrent, un
+    // petit écart, le paquet, la marge des biais
+    const span = 1 + 2 * (1 - OV) + (1 - OV) + 0.12 + 0.14;
+    let h;
+    if (portrait) h = Math.min(W * 0.78 / asp, zone / span);
+    else h = Math.min(zone * 0.62, W * 0.88 / (asp * span));
+    const w = h * asp, s = CARD.w / w;
     lay.D = s * (H / 2) / Math.tan(FOV / 2);
+    const len = (portrait ? h : w) * (span - 0.14);
+    const a0 = portrait ? top + (zone - len) / 2 : (W - len) / 2;
     lay.slot = ITEMS.map((_, i) => {
-      const r = Math.floor(i / cols), ci = i % cols;
-      const px = x0 + ci * (w + gx) + w / 2, py = y0 + r * (h + gy) + h / 2;
-      return { x: (px - W / 2) * s, y: (H / 2 - py) * s };
+      const along = (portrait ? h : w) * (0.5 + i * (1 - OV) + (i === JEU ? 0.12 : 0));
+      const o = lie[i];
+      const px = portrait ? W / 2 + o.dx * w : a0 + along + o.dx * w * 0.3;
+      const py = portrait ? a0 + along + o.dy * h : H * (portrait ? 0.5 : 0.55) + o.dy * h + (i % 2 ? 0.08 : -0.08) * h * (i === JEU ? 0 : 1);
+      return { x: (px - W / 2) * s, y: (H / 2 - py) * s / Math.cos(TILT), rz: o.rz, z: i === JEU ? 0 : i * Z_STEP };
     });
     sig.style.top = `calc(max(env(safe-area-inset-top), 0px) + ${(top * 0.48).toFixed(0)}px)`;
     sig.style.transform = 'translateY(-50%)';
   }
-  const deckPose = (j, v) => ({ x: lay.slot[JEU].x + v.jx, y: lay.slot[JEU].y + v.jy, z: j * PITCH, rx: 0, ry: 0, rz: v.jr });
+  const deckPose = (j, v) => { const s = lay.slot[JEU]; return { x: s.x + v.jx, y: s.y + v.jy, z: j * PITCH, rx: 0, ry: 0, rz: s.rz + v.jr }; };
   // sur le paquet, dos visible, avant la donne (le poème au-dessus : il part le premier)
   const onDeckPose = c => deckPose(DECK + (ITEMS.length - 1 - c.i), c.v);
   const restPose = c => {
-    const s = lay.slot[c.i], z = c.i === JEU ? (DECK + 1) * PITCH : 0;
-    return { x: s.x + c.v.jx, y: s.y + c.v.jy, z, rx: 0, ry: Math.PI, rz: c.v.jr };
+    const s = lay.slot[c.i], z = c.i === JEU ? DECK * PITCH + 1.4 : s.z;   // au-dessus du paquet, sans le toucher (gondolages)
+    return { x: s.x + c.v.jx, y: s.y + c.v.jy, z, rx: 0, ry: Math.PI, rz: s.rz + c.v.jr };
   };
+  // respiration propre à chaque carte (phase et rythme), pour qu'elles vivent séparément
+  for (const c of cards) { c.bph = rnd() * 6.28; c.bf = rnd.range(0.8, 1.25); }
 
   // ---- états ----
   let startT = 0, leaving = null, visible = true, raf = 0, last = 0, vp = null, eye = null, lastGesture = -99;
@@ -282,35 +304,42 @@ export async function mountPortal(opts = {}) {
     const D = lay.D;
     eye = [0, -D * Math.sin(TILT), D * Math.cos(TILT)];
     vp = M4.mul(M4.perspective(FOV, W / H, D * 0.3, D * 3), M4.lookAt(eye, [0, 0, 0], [0, 1, 0]));
-    // lumière : celle de la scène des cartes, centrée sur la carte éclairée (lampe en orbite + projecteur) ; ses
-    // distances sont rapportées à la taille d'une carte (comme si elle était seule à l'écran, à sa taille de la scène)
-    const ref = CARD.h / 0.27, refD = ref / (2 * Math.tan(FOV / 2)), k = ref / 235;
-    const R = L.lightR0 * ref, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R), ln = Math.hypot(lp.x, lp.y) || 1;
+    // lumière : celle de la scène des cartes (mêmes formules, rapportées à l'écran) ; la lampe en orbite autour du
+    // milieu (toutes les cartes se lisent), le projecteur sur la carte éclairée (rapporté à la taille d'une carte)
+    const Hw = 2 * D * Math.tan(FOV / 2), k = Hw / 235;
+    const R = L.lightR0 * Hw, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R), ln = Math.hypot(lp.x, lp.y) || 1;
     const el = Math.min(1.35, Math.max(0.18, el0 + (ts.y + breath.y) * L.elevAmp * L.lightVar));
-    const lightPos = [ap.x + lp.x / ln * D0 * Math.cos(el), ap.y + lp.y / ln * D0 * Math.cos(el), D0 * Math.sin(el)];
+    const lightPos = [lp.x / ln * D0 * Math.cos(el), lp.y / ln * D0 * Math.cos(el), D0 * Math.sin(el)];
     const light = L.light * k * k * Math.sin(el0) / Math.sin(el);
-    const spotPos = [ap.x, ap.y + 0.35 * ref, refD * 0.55];
-    const sd = [0, -0.35 * ref, -spotPos[2]], sl = Math.hypot(...sd);
-    const P = { ...L, lightPos, light, spotPos, spotDir: sd.map(x => x / sl), spotI: L.spot * k * k * (sl / 300) ** 2,
-      spotCosOut: Math.cos(Math.atan(0.62 * CARD.w / sl)), spotCosIn: Math.cos(Math.atan(0.4 * CARD.w / sl)) };
+    const ref = CARD.h / 0.27, refD = ref / (2 * Math.tan(FOV / 2)), ks = ref / 235;
+    // flaque de lumière douce qui glisse sur la carte éclairée (celle de la scène des cartes) : respiration + inclinaison
+    const gx = Math.max(-1, Math.min(1, breath.x + ts.x)), gy = Math.max(-1, Math.min(1, breath.y + ts.y));
+    const tgt = [ap.x + gx * 0.42 * CARD.w, ap.y + gy * 0.4 * CARD.h, 0];
+    const spotPos = [tgt[0] - gx * 0.08 * ref, tgt[1] + 0.12 * ref, refD * 0.55];
+    const sd = [tgt[0] - spotPos[0], tgt[1] - spotPos[1], tgt[2] - spotPos[2]], sl = Math.hypot(...sd);
+    // pas de projecteur ici (« lampe de poche », Maxence 05/10) : la lampe seule
+    const P = { ...L, lightPos, light, spotPos, spotDir: sd.map(x => x / sl), spotI: 0,
+      spotCosOut: Math.cos(Math.atan(L.poolR * CARD.w / sl)), spotCosIn: Math.cos(Math.atan(0.12 * CARD.w / sl)) };
 
     // la carte éclairée s'incline (souris / téléphone), les autres respirent et sont baissées (group de la scène) ;
     // pendant la donne, tout est posé à plat (rien ne saute quand une carte se pose), puis la vie revient en douceur
     const live = reduced ? 0 : sstep(dEnd, dEnd + 1.6, t);
     const crx = -ts.y * L.cardTilt, cry = ts.x * L.cardTilt;
-    const group = (px, py, ph, wt) => {
-      const sw = L.sway * 0.5 * (1 - wt);
-      const rx = (crx * wt + sw * (0.6 * Math.sin(t * 0.61 + ph) + 0.4 * Math.sin(t * 1.37 + 2.1 * ph))) * live;
-      const ry = (cry * wt + sw * 1.2 * (0.6 * Math.sin(t * 0.47 + 1.7 * ph) + 0.4 * Math.sin(t * 1.13 + 0.6 * ph))) * live;
-      const dz = sw * 12 * Math.sin(t * 0.29 + ph) * live;
-      return M4.mul(M4.mul(M4.model(0, 0, 0, px, py, dz), M4.model(rx, ry, 0)), M4.model(0, 0, 0, -px, -py, 0));
+    // posées : la table entière s'incline (souris / téléphone) ; chaque carte respire à peine, à son rythme (ce qui
+    // les distingue), sans jamais toucher celle qui la recouvre
+    const Gtable = M4.model(crx * 0.35 * live, cry * 0.35 * live, 0);
+    const group = (px, py, ph, wt, f = 1) => {
+      const sw = 0.012, tt = t * f;
+      const rx = sw * (0.6 * Math.sin(tt * 0.61 + ph) + 0.4 * Math.sin(tt * 1.37 + 2.1 * ph)) * live;
+      const ry = sw * (0.6 * Math.sin(tt * 0.47 + 1.7 * ph) + 0.4 * Math.sin(tt * 1.13 + 0.6 * ph)) * live;
+      return M4.mul(M4.mul(M4.model(0, 0, 0, px, py, 0), M4.model(rx, ry, 0)), M4.model(0, 0, 0, -px, -py, 0));   // la table : dans Gin
     };
     // arrivée : fondu depuis le fond + petite montée (le paquet de la scène des cartes) ; départ : recul et fondu
     const intro = reduced ? sstep(0, 0.8, t - startT) : ease(clamp01((t - startT) / INTRO_T));
     const lu = leaving ? clamp01((t - leaving.t0) / LEAVE_T) : 0;
     const away = leaving ? ease(clamp01(lu / 0.75)) : 0;
     const recede = G => M4.mul(M4.model(0, 0, 0, 0, 6 * away, -140 * away), G);
-    const Gin = M4.model(0, 0, 0, 0, 0, -30 * (1 - intro));
+    const Gin = M4.mul(M4.model(0, 0, 0, 0, 0, -30 * (1 - intro)), Gtable);
     gl.enable(gl.DEPTH_TEST);
     const model = (G, p) => M4.mul(G, M4.model(p.rx, p.ry, p.rz, p.x, p.y, p.z));
 
@@ -320,7 +349,7 @@ export async function mountPortal(opts = {}) {
       if (c.anim && t - c.anim.t0 > 2 * FLIP_T + HOLD) c.anim = null;
     }
     const jeu = cards[JEU], sj = lay.slot[JEU];
-    const Gdeck0 = M4.mul(Gin, group(sj.x, sj.y, 0.9 + JEU * 1.7, leaving ? 0 : jeu.w));
+    const Gdeck0 = M4.mul(Gin, group(sj.x, sj.y, jeu.bph, leaving ? 0 : jeu.w, jeu.bf));
     const Gdeck = leaving && leaving.c !== jeu ? recede(Gdeck0) : Gdeck0;
 
     for (const c of cards) {
@@ -338,7 +367,7 @@ export async function mountPortal(opts = {}) {
       p = { ...p, z: p.z + dz - 1.5 * c.press };
       let fade = intro, G;
       if (onDeck || c.i === JEU) G = c === leaving?.c ? Gdeck0 : Gdeck;
-      else G = M4.mul(Gin, group(s.x, s.y, 0.9 + c.i * 1.7, leaving ? 0 : c.w));
+      else G = M4.mul(Gin, group(s.x, s.y, c.bph, leaving ? 0 : c.w, c.bf));
       if (leaving) {
         if (c === leaving.c) fade *= 1 - sstep(0.45, 1, lu);
         else { fade *= 1 - away; if (c.i !== JEU) G = recede(G); }
@@ -349,12 +378,18 @@ export async function mountPortal(opts = {}) {
         const tf = t - c.anim.t0, u1 = sstep(0.12, 0.85, clamp01(tf / FLIP_T)), u2 = sstep(0.12, 0.85, clamp01((tf - FLIP_T - HOLD) / FLIP_T));
         if (u1 >= 0.5 && u2 < 0.5) ink = soonInk;
       }
-      const dim = leaving ? 1 : 1 - L.unfocusDim * (1 - c.w);
-      if (fade > 0.01) card.draw(vp, eye, P, { model: model(G, p), lod: 'fine', ink, shade: dim, fade, ...c.v, curl: [-1, 1, -0.3 * c.curlA] });
+      const dim = 1;
+      // ombre de la carte posée par-dessus (la suivante de la donne)
+      const nx = c.i < JEU - 1 ? cards[c.i + 1] : null;
+      const occ = nx && !leaving && landed(nx, t) && !nx.anim ? (() => { const q = restPose(nx); return { x: q.x, y: q.y, z: q.z, rz: -q.rz }; })() : null;
+      if (fade > 0.01) card.draw(vp, eye, P, { model: model(G, p), lod: 'fine', ink, shade: dim, fade, ...c.v, curl: [-1, 1, -0.3 * c.curlA], occ });
       // bouton : rectangle écran de la carte au repos
-      const q = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => project(M4.mul(vp, M4.model(0, Math.PI, c.v.jr, s.x + c.v.jx, s.y + c.v.jy, 0)), sx * CARD.w / 2, sy * CARD.h / 2));
-      const xs = q.map(a => a[0]), ys = q.map(a => a[1]), b = buttons[c.i];
-      Object.assign(b.style, { left: Math.min(...xs) + 'px', top: Math.min(...ys) + 'px', width: (Math.max(...xs) - Math.min(...xs)) + 'px', height: (Math.max(...ys) - Math.min(...ys)) + 'px' });
+      const rp = restPose(c);
+      const q = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => project(M4.mul(vp, M4.model(0, Math.PI, rp.rz, rp.x, rp.y, rp.z)), sx * CARD.w / 2, sy * CARD.h / 2));
+      const xs = q.map(a => a[0]), ys = q.map(a => a[1]), b = buttons[c.i], bx = Math.min(...xs), by = Math.min(...ys);
+      // zone de toucher = la carte elle-même (de biais), pas son rectangle englobant
+      Object.assign(b.style, { left: bx + 'px', top: by + 'px', width: (Math.max(...xs) - bx) + 'px', height: (Math.max(...ys) - by) + 'px',
+        clipPath: `polygon(${q.map(([x, y]) => `${(x - bx).toFixed(1)}px ${(y - by).toFixed(1)}px`).join(',')})` });
       b.disabled = !landed(c, t) || !!leaving;
     }
     // le paquet sous « le jeu » : dos visible ; dessiné après les cartes (le test de profondeur écarte ce qu'elles
@@ -363,7 +398,7 @@ export async function mountPortal(opts = {}) {
     if (fadeDeck > 0.01) {
       const jp = poseOf(jeu, t);
       const occ = landed(jeu, t) && !leaving && !jeu.anim ? { x: jp.x, y: jp.y, z: jp.z, rz: jp.rz } : null;
-      const dimD = leaving ? 1 : 1 - L.unfocusDim * (1 - jeu.w);
+      const dimD = 1;
       for (let j = DECK - 1; j >= 0; j--) {
         const v = deck[j];
         card.draw(vp, eye, P, { model: model(Gdeck, deckPose(j, v)), lod: j === DECK - 1 ? 'fine' : 'coarse', shade: (0.55 + 0.45 * (j + 1) / DECK) * dimD, fade: fadeDeck, occ, ...v });
@@ -390,7 +425,8 @@ export async function mountPortal(opts = {}) {
     choose: id => choose(cards.find(c => c.id === id)),
     rect: id => buttons[cards.findIndex(c => c.id === id)].getBoundingClientRect(),
     // captures (rendu logiciel très lent) : aller à l'instant s de la page, état lissé atteint d'un coup
-    seek: s => { startT = now() - s; snap = true; },
+    seek: s => { frozen = startT + s; snap = true; },
+    run: () => { frozen = null; },
     state: () => ({ t: now() - startT, focus: ITEMS[focusIdx].id, dealt: now() >= dealEnd(), leaving: !!leaving }),
   };
   startT = now();
