@@ -15,6 +15,7 @@ mountCards({ name: PRENOM, base: './', seed: P.has('seed') ? +P.get('seed') : un
   window.__scene = m; m.ready = true;
   m.start();
   panel(m.scene);
+  autoplay(m);
 });
 
 function panel(scene) {
@@ -63,3 +64,25 @@ function panel(scene) {
     show(); document.body.appendChild(wrap);
   }
 }
+
+// essai direct de la feuille : &reponse=… (une réponse tapée puis donnée), &theme=… (carte blanche), &passer (improvisation)
+function autoplay(m) {
+  const sc = m.scene;
+  const give = () => setTimeout(() => { sc.stopWriting(); setTimeout(() => sc.give(m.now()), 500); }, 300);
+  if (P.has('reponse')) {
+    const iv = setInterval(() => { const st = sc.state(); if (st.active && st.writing) { clearInterval(iv); m.type(P.get('reponse')); give(); } }, 150);
+  } else if (P.has('theme')) {
+    const iv = setInterval(() => { const st = sc.state(); if (st.active && st.writing) { clearInterval(iv); sc.stopWriting(); if (sc.chooseBlank(m.now())) setTimeout(() => { m.type(P.get('theme')); give(); }, 1400); } }, 150);
+  } else if (P.has('passer')) {
+    setTimeout(() => sc.pass(m.now()), 2600);
+  }
+}
+
+// captures : horloge pilotée jusqu'à la feuille (__toSheet()), puis __at(τ) avance jusqu'au temps τ de la feuille
+window.__toSheet = async () => {
+  const m = window.__scene, sleep = ms => new Promise(r => setTimeout(r, ms));
+  m.manual(true);
+  for (let i = 0; i < 40 && !m.sheet; i++) { m.advance(0.5); await sleep(120); }
+  return !!m.sheet;
+};
+window.__at = tau => { const m = window.__scene; const d = tau - m.sheet.state().tau; if (d > 0) m.advance(d); return m.sheet.state(); };

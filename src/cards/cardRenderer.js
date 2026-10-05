@@ -44,23 +44,27 @@ function norm(a) { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, 
 // ---------- maillage indexé : deux faces en grille + tranche ----------
 // Pas de 0,2 mm sur la zone du logo (le gaufrage y déforme réellement la feuille : il dépasse de la
 // tranche vu de profil), 2 mm ailleurs (gondolage seulement).
-function axis(half, dense, fine, coarse) {
+// c : centre de la zone fine (la feuille A5 porte son logo plus bas)
+function axis(half, dense, fine, coarse, c = 0) {
   const out = [];
-  for (let x = -half; x < -dense - 1e-6; x += coarse) out.push(x);
-  for (let x = -dense; x < dense - 1e-6; x += fine) out.push(x);
-  for (let x = dense; x < half - 1e-6; x += coarse) out.push(x);
+  if (dense <= 0) { for (let x = -half; x < half - 1e-6; x += coarse) out.push(x); out.push(half); return out; }
+  for (let x = -half; x < c - dense - 1e-6; x += coarse) out.push(x);
+  for (let x = Math.max(-half, c - dense); x < Math.min(half, c + dense) - 1e-6; x += fine) out.push(x);
+  for (let x = Math.min(half, c + dense); x < half - 1e-6; x += coarse) out.push(x);
   out.push(half);
   return out;
 }
-function cardMesh(fine = true, seg = 12) {
-  const { w, h, r, t } = CARD, v = [], idx = [];
+// dims : { w, h, r, t, fine: [demi-largeur, demi-hauteur, pas, cx, cy] de la zone fine } (défaut : la carte)
+function cardMesh(fine = true, seg = 12, dims = null) {
+  const { w, h, r, t } = dims || CARD, v = [], idx = [];
   const fit = (x, y) => {   // point de grille ramené dans le rectangle arrondi (coins projetés sur l'arc)
     const cx = w / 2 - r, cy = h / 2 - r, qx = Math.abs(x) - cx, qy = Math.abs(y) - cy;
     if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy); if (l > r) return [Math.sign(x) * (cx + qx * r / l), Math.sign(y) * (cy + qy * r / l)]; }
     return [x, y];
   };
   // maillage léger (cartes de la pile, vues de loin ou par la tranche) : 2 mm partout
-  const xs = fine ? axis(w / 2, 22, 0.2, 2) : axis(w / 2, 0, 2, 2), ys = fine ? axis(h / 2, 23, 0.2, 2) : axis(h / 2, 0, 2, 2);
+  const fz = dims ? dims.fine : [22, 23, 0.2, 0, 0];
+  const xs = fine && fz ? axis(w / 2, fz[0], fz[2], 2, fz[3]) : axis(w / 2, 0, 2, 2), ys = fine && fz ? axis(h / 2, fz[1], fz[2], 2, fz[4]) : axis(h / 2, 0, 2, 2);
   const nx = xs.length, ny = ys.length;
   for (const [z, s, f] of [[t / 2, 1, 0], [-t / 2, -1, 1]]) {      // 0 = dos (+z), 1 = recto (−z)
     const base = v.length / 7;
@@ -145,6 +149,10 @@ uniform float uHasInkBack;
 uniform vec4 uCursor; uniform float uCursorFace;     // curseur de frappe : x, y (mm, bas), hauteur, opacité ; face (0/1, -1 aucun)
 uniform float uHasInk, uInkAlb, uInkPress, uInkWear, uInkThr, uInkVar, uInkPaper, uInkOrg;
 uniform vec2 uCard;          // largeur, hauteur (mm)
+uniform vec2 uPaperSize;     // la photo du papier, à l'échelle réelle (celle d'une carte ; une feuille plus grande la répète en miroir)
+uniform float uRadius;       // rayon des coins (mm)
+uniform float uPaperTile;    // > 0 : grande feuille — la partie centrale de la photo, répétée en miroir (taille d'un motif, mm)
+uniform float uPaperLo;      // part des nuages du papier (1 = carte ; la feuille, plus lisse, moins)
 uniform float uLogoSq, uLogoRange, uNoLogo;
 uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
 uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
@@ -197,16 +205,22 @@ vec2 parallax(vec2 p0, float s, vec3 Vt) {
 }
 vec2 paperUV(vec2 p) {
   float c = cos(uPaperXf.z), s = sin(uPaperXf.z);
+  if (uPaperTile > 0.0) {
+    // onde triangulaire : continue aux raccords, ne lit jamais les bords de la photo (redressement, zone du logo comblée)
+    vec2 r = (mat2(c, s, -s, c) * p + uPaperXf.xy) / uPaperTile;
+    vec2 tri = abs(fract(r * 0.5 + 0.25) * 2.0 - 1.0) * 2.0 - 1.0;
+    return vec2(0.5 + 0.3 * tri.x, 0.5 - 0.3 * tri.y);
+  }
   // la carte ne lit que les 70 % centraux de la photo du papier, agrandis (grain plus large, moins
   // « plastique ») ; le décalage propre à chaque carte (±2,5 mm) ne sort jamais de l'image
   vec2 q = (mat2(c, s, -s, c) * p) * 0.7 + uPaperXf.xy;
-  return vec2(q.x / uCard.x + 0.5, 0.5 - q.y / uCard.y);
+  return vec2(q.x / uPaperSize.x + 0.5, 0.5 - q.y / uPaperSize.y);
 }
 // grain : seul le détail fin (fibres) est amplifié, pas les nuages du papier
 float paper(vec2 p) {
   vec2 uv = paperUV(p);
   float r = texture(uPaper, uv).r, lo = texture(uPaper, uv, 3.0).r;
-  return 1.0 + ((lo - 0.502) + uGrain * (r - lo)) * 255.0 / 255.0;
+  return 1.0 + (uPaperLo * (lo - 0.502) + uGrain * (r - lo)) * 255.0 / 255.0;
 }
 float paperHF(vec2 p) { vec2 uv = paperUV(p); return texture(uPaper, uv).r - texture(uPaper, uv, 3.0).r; }
 // encre du recto : la face est lue retournée (axe x local vers la gauche de l'écran)
@@ -328,9 +342,9 @@ void main() {
     // hauteur comptée le long de la normale sortante de la face (Ng) : n = Ng − hx T − hy B
     vec3 n = normalize(Ng - hx * T - hy * Bv);
     // bord : la coupe arrondit et casse le papier sur ~0,15 mm (plus aux coins), irrégulier
-    vec2 q = abs(p) - (uCard * 0.5 - 3.0);
+    vec2 q = abs(p) - (uCard * 0.5 - uRadius);
     vec2 qo = max(q, 0.0);
-    float rr = length(qo) + min(max(q.x, q.y), 0.0) - 3.0;
+    float rr = length(qo) + min(max(q.x, q.y), 0.0) - uRadius;
     vec2 od = length(qo) > 0.0 ? normalize(qo) * sign(p) : (q.x > q.y ? vec2(sign(p.x), 0.0) : vec2(0.0, sign(p.y)));
     float per = p.x + 3.7 * p.y;
     float wr = uEdge * (0.10 + 0.10 * noise1(per * 1.3) + (length(qo) > 0.0 ? 0.08 : 0.0));
@@ -427,8 +441,7 @@ export async function createCardRenderer(gl, base = './') {
   const [paperImg, logoImg] = await Promise.all([loadImage(base + 'cards/paper.jpg'), loadImage(base + 'cards/logo.png')]);
   const prog = program(gl, VS, FS);
   const meshes = {};
-  for (const [name, fine] of [['fine', true], ['coarse', false]]) {
-    const mesh = cardMesh(fine);
+  function upload(name, mesh, dims = CARD) {
     const vao = gl.createVertexArray(), vbo = gl.createBuffer(), ibo = gl.createBuffer();
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
@@ -439,8 +452,11 @@ export async function createCardRenderer(gl, base = './') {
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 12);
     gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
     gl.bindVertexArray(null);
-    meshes[name] = { vao, count: mesh.indices.length };
+    meshes[name] = { vao, count: mesh.indices.length, dims };
   }
+  for (const [name, fine] of [['fine', true], ['coarse', false]]) upload(name, cardMesh(fine));
+  // autre format (feuille A5…) : dims = { w, h, r, t, fine } ; dessiné avec { lod: name }
+  function addShape(name, dims) { if (!meshes[name]) upload(name, cardMesh(true, 6, dims), dims); return name; }
   const paperTex = imageTexture(gl, paperImg), logoTex = await logoTexture(gl, logoImg);
   // papier en répétition miroir : la feuille réponse peut faire défiler son grain (le papier monte)
   gl.bindTexture(gl.TEXTURE_2D, paperTex);
@@ -453,7 +469,10 @@ export async function createCardRenderer(gl, base = './') {
     gl.useProgram(prog.p);
     gl.uniformMatrix4fv(u.uVP, false, vp);
     gl.uniformMatrix4fv(u.uModel, false, card.model);
-    gl.uniform2f(u.uCard, CARD.w, CARD.h);
+    const m = meshes[card.lod || 'fine'], dm = m.dims;
+    gl.uniform2f(u.uCard, dm.w, dm.h); gl.uniform1f(u.uRadius, dm.r);
+    gl.uniform2f(u.uPaperSize, CARD.w, CARD.h);
+    gl.uniform1f(u.uPaperTile, card.paperTile || 0); gl.uniform1f(u.uPaperLo, card.paperLo ?? 1);
     gl.uniform1f(u.uLogoSq, CARD.logoSq); gl.uniform1f(u.uLogoRange, CARD.logoRange);
     gl.uniform2fv(u.uLogoOff, card.logoOff || [0, 0]);
     gl.uniform2fv(u.uLogoScale, card.logoScale || [1, 1]);
@@ -477,7 +496,6 @@ export async function createCardRenderer(gl, base = './') {
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, card.inkBack || null); gl.uniform1i(u.uInkBack, 3);
     gl.uniform1f(u.uHasInkBack, card.inkBack ? 1 : 0);
     gl.uniform4fv(u.uCursor, card.cursor || [0, 0, 0, 0]); gl.uniform1f(u.uCursorFace, card.cursorFace ?? -1);
-    const m = meshes[card.lod || 'fine'];
     gl.uniform1f(u.uShade, card.shade ?? 1); gl.uniform1f(u.uFade, card.fade ?? 1);
     gl.bindVertexArray(m.vao);
     gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_INT, 0);
@@ -496,5 +514,5 @@ export async function createCardRenderer(gl, base = './') {
     return t;
   }
   const freeInk = t => gl.deleteTexture(t);
-  return { draw, makeInk, freeInk, paperTex };
+  return { draw, makeInk, freeInk, paperTex, addShape };
 }

@@ -52,7 +52,9 @@ const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], 
 // lettre sans accent, en capitale (pour faire réagir le prénom aux lettres tapées)
 const bare = ch => ch.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 
-export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {} } = {}) {
+// toSheet : la fin ne s'éloigne plus dans le noir — la paire (ou la carte blanche) reste où elle est et la scène de la
+// feuille (sheet/sheet.js) la reprend, avec le prénom, la caméra et la lampe (snapshot)
+export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false } = {}) {
   const card = await createCardRenderer(gl, base);
   const nameR = await createNameRelief(gl, card.paperTex);
   await loadTypeFont(base);
@@ -348,6 +350,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   }
 
   let vp = null, eye = null, lastT = 0, focusAns = 0;
+  // dernier état dessiné (matrices des cartes, prénom, caméra, lampe) : la feuille reprend la main depuis là
+  const snap = { q: null, a: null, b: null, name: null, glow: [], cam: null, lamp: null, ap: null };
+  let sheetHidesName = false;
   // coupure du prénom : la même que sur l'accueil (1 ou 2 lignes)
   const nameLines = (text, W, H) => layoutName(text, { adv: nameR.adv, capHeight: nameR.capHeight }, { w: W, h: H, cx: W / 2, cy: H / 2 }).lines.map(l => l.text);
   // prénom : 11 % du haut de l'écran, capitale ≈ 3,4 % de la hauteur (bornée), plan des cartes
@@ -418,9 +423,10 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     let anp = answer ? poseOf(answer, t) : null, bp = blank ? poseOf(blank, t) : null;
     if (ended) {
       // 1) la carte réponse remonte se glisser sous la question, un peu décalée : une paire (1 s)
-      // 2) la paire descend doucement et se fond dans le fond (provisoire : la suite — prénom en acrostiche sur
-      //    une feuille A5, la carte dessous — sera la transition vers la scène suivante) ; le paquet s'efface
-      const u1 = sstep(0, 1.0, te), u2 = ease(clamp01((te - 0.9) / 1.6));
+      // 2) la paire descend doucement et se fond dans le fond ; le paquet s'efface. Vers la feuille (toSheet) : la
+      //    paire reste, la feuille la reprend
+      const keep = toSheet && ended.kind !== 'improvisation';
+      const u1 = sstep(0, 1.0, te), u2 = keep ? 0 : ease(clamp01((te - 0.9) / 1.6));
       const recede = p => ({ ...p, y: p.y - 26 * u2 });
       if (question && ended.qFrom) qp = recede(lerpPose(ended.qFrom, centerPose(question.v), ease(u1)));
       if (ended.kind === 'reponse' && ended.aFrom) {
@@ -461,7 +467,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const Gq = M4.mul(M4.model(0, 0, 0, 0, 6 * (1 - qVis), -30 * (1 - intro) - 140 * (1 - qVis)), Gq0);
     const Ga = !ended && answer && answer.place === 'below' && !answer.anim ? group(0, lay.yAns, 0, 2.3, wA) : Gq;
     const Gb = !ended && blank && blank.place === 'up' && !blank.anim ? group(0, lay.yDeck, 0, 2.3, wA) : group(0, bp ? bp.y : 0, 0, 4.1, 0);
-    const endFade = ended ? 1 - sstep(0.15, 1, ease(clamp01((te - 0.9) / 1.6))) : 1;   // la carte se fond en descendant
+    const endFade = ended && !(toSheet && ended.kind !== 'improvisation') ? 1 - sstep(0.15, 1, ease(clamp01((te - 0.9) / 1.6))) : 1;   // la carte se fond en descendant
     const deckFade = ended ? 1 - sstep(0.3, 1.6, te) : 1;           // le paquet s'efface pendant que la paire part
     const vq = intro * Math.pow(qVis, 1.5);
     const fadeD = vq * deckFade * endFade;
@@ -485,18 +491,18 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       const on = idleFor > L.cornerDelay && !ended && mode === 'q' ? 1 : 0;
       question.curlA = (question.curlA || 0) + (on - (question.curlA || 0)) * Math.min(1, dt * 1.5);
       const lift = -0.3 * question.curlA;                          // vers la caméra (carte retournée)
-      card.draw(vp, eye, P, { model: model(Gq, qp), lod: 'fine', ink: question.ink, shade: dimQ, fade: fadeQ, ...question.v, curl: [-1, 1, lift] });
+      card.draw(vp, eye, P, { model: (snap.q = model(Gq, qp)), lod: 'fine', ink: question.ink, shade: dimQ, fade: fadeQ, ...question.v, curl: [-1, 1, lift] });
     }
     if (answer && fadeQ > 0.01) {
       const cur = mode === 'q' && !busy(answer, t) && (writing || !answer.text) && !ended ? cursorAt(answer.cursorMM, t) : {};
-      card.draw(vp, eye, P, { model: model(Ga, anp), lod: 'fine', ink: answer.ink, shade: mode === 'free' ? dimQ : dimA, fade: fadeQ, occ: answer.place === 'peek' && !ended ? occQ : null, ...answer.v, ...cur });
+      card.draw(vp, eye, P, { model: (snap.a = model(Ga, anp)), lod: 'fine', ink: answer.ink, shade: mode === 'free' ? dimQ : dimA, fade: fadeQ, occ: answer.place === 'peek' && !ended ? occQ : null, ...answer.v, ...cur });
     }
     if (blank && blank.out < 0.999 && fadeB > 0.01) {
       // « carte blanche » tapé au recto tant qu'elle attend ; pendant son tour, l'encre change quand le recto est caché
       const fu = blank.anim === 'flip' ? sstep(0.12, 0.85, clamp01((t - blank.t0) / blank.dur)) : 1;
       const label = blank.anim === 'flip' ? (blank.place === 'up' ? fu < 0.5 : fu >= 0.5) : blank.place === 'rest';
       const cur = mode === 'free' && !busy(blank, t) && (writing || !blank.text) && !ended ? cursorAt(blank.cursorMM || { x: 10, y: CARD.h / 2 - TYPE.lead + 1.2 }, t) : {};
-      card.draw(vp, eye, P, { model: model(Gb, bp), lod: 'fine', ink: label ? blank.labelInk : blank.ink, shade: dimB, fade: fadeB, ...blank.v, ...cur });
+      card.draw(vp, eye, P, { model: (snap.b = model(Gb, bp)), lod: 'fine', ink: label ? blank.labelInk : blank.ink, shade: dimB, fade: fadeB, ...blank.v, ...cur });
     }
     // prénom (à plat, en retrait) ; ses lettres s'éclairent quand on les tape ; tout s'allume à la fin
     if (nameText) {
@@ -504,13 +510,16 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       const g = [...nameText].map((_, i) => Math.max(glow[i] || 0, ended ? sstep(0.9 + i * 0.12, 1.5 + i * 0.12, te) * 0.9 : 0));
       const key = nameText + W + 'x' + H + Math.round(py * 10) + Math.round(scale * 100) + g.map(x => x.toFixed(2)).join();
       if (key !== nameKey) {
-        nameR.layout(nameText, 0, py, nameCap(H) * Hs / H, lay.Ww * scale * 0.86, g, nameLines(nameText, W, H));
+        snap.name = nameR.layout(nameText, 0, py, nameCap(H) * Hs / H, lay.Ww * scale * 0.86, g, nameLines(nameText, W, H));
         nameKey = key;
       }
       if (kb > 0.02) gl.disable(gl.DEPTH_TEST);           // clavier ouvert : le prénom reste devant
-      nameR.draw(vp, eye, P, L, fadeQ > 0.5 ? occQ : null, t);
+      if (!sheetHidesName) nameR.draw(vp, eye, P, L, fadeQ > 0.5 ? occQ : null, t);
       gl.enable(gl.DEPTH_TEST);
+      snap.glow = g;
     }
+    snap.cam = { cy, D: Ds, eye, vp, Hw: lay.Hw, W, H }; snap.lamp = { ...lamp }; snap.ap = { x: ap.x, y: ap.y, z: ap.z || 0 };
+    if (ended && !ended.done && toSheet && te > (ended.kind === 'improvisation' ? 2.2 : 1.7)) { ended.done = true; emit('end', { kind: ended.kind, text: ended.text, id: ended.id }); }
     if (ended && !ended.done && te > 2.9) { ended.done = true; emit('end', { kind: ended.kind, text: ended.text, id: ended.id }); }
   }
   // curseur à une position (mm depuis le coin haut-gauche de la face lue, recto) : trait fin qui respire
@@ -621,6 +630,26 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   }
 
   function start(t) { startT = t; pendingDraw = t + 1.1; }      // le paquet arrive (fondu), puis il tire
+  // retour depuis la feuille : la scène revient telle qu'on l'a laissée (question, réponse, carte blanche), en
+  // fondu depuis le fond ; les lettres du prénom, revenues d'elles-mêmes à leur place, redescendent au repos
+  function reopen(t) {
+    if (!ended) return;
+    const kind = ended.kind; ended = null; startT = t; sheetHidesName = false; nameKey = '';
+    if (kind === 'improvisation' && mode === 'free') { backT = -1; }
+    for (let i = 0; i < nameText.length; i++) { glowP[i] = { att: 0.001, dec: 1.8 + 0.6 * rnd(), k: 0.9 }; glowT[i] = t; }
+  }
+  function snapshot() {
+    const kind = ended ? ended.kind : null;
+    return {
+      kind, text: ended?.text || '', id: ended?.id ?? null,
+      question: question && kind === 'reponse' ? { id: question.id, q: question.q, v: question.v, margin: question.margin, ink: question.ink, M: snap.q } : null,
+      answer: answer && kind === 'reponse' ? { v: answer.v, text: answer.text, M: snap.a } : null,
+      blank: blank && kind === 'theme' ? { v: blank.v, text: blank.text, labelInk: blank.labelInk, M: snap.b } : null,
+      name: nameText, glyphs: snap.name ? snap.name.glyphs : [], em: snap.name ? snap.name.em : 1, glow: snap.glow.slice(),
+      cam: snap.cam, lamp: snap.lamp, ap: snap.ap, ts: { ...ts },
+    };
+  }
+  function hideName(on) { sheetHidesName = on; }
   function setName(s) { nameText = (s || '').toUpperCase(); nameKey = ''; glow = []; glowT = []; glowP = []; }
   // une lettre du prénom s'allume (si elle l'est déjà, elle repart de sa clarté actuelle, sans saut)
   function lightName(i) {
@@ -633,7 +662,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function setKeyboard(px) { kbPx = px; }
   function setBreath(x, y) { breath.x = x; breath.y = y; }
   return {
-    frame, tap, drag, release, give, pass, back, start, prepare, setName, hitAt: (x, y) => hit(x, y), setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
+    frame, tap, drag, release, give, pass, back, start, prepare, reopen, snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
     state: () => ({ freeFor: mode === 'free' ? lastT - freeT : 0, hasPrev: hasPrev(), idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),

@@ -2,6 +2,7 @@
 // retour) et gestes (toucher, glisser, relire, inclinaison). Utilisée par l'accueil (après la transition) et par
 // la page d'essai scene-cartes.html. Rien n'est dessiné avant start().
 import { createCardScene } from './scene.js';
+import { createSheetScene } from '../sheet/sheet.js';
 
 const CSS = `
 .sc-c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: pinch-zoom; }
@@ -23,9 +24,12 @@ const CSS = `
 .sc-veil { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 1.4s; pointer-events: none; z-index: 14; }
 `;
 
-// opts : { name, base, seed, look, canvas?, onEnd(detail), onExit?() (retour depuis le paquet), log?(s), shot? }
+// opts : { name, base, seed, look, canvas?, onEnd(detail), onExit?() (retour depuis le paquet), log?(s), shot?,
+//          sheet? (défaut : oui ; ?feuille=0 → l'ancienne fin, fondu au noir), onOrder?(detail) }
 export async function mountCards(opts) {
   const { name, base = './', seed, look = {}, onEnd, onExit, log = () => {} } = opts;
+  const toSheet = opts.sheet ?? new URLSearchParams(location.search).get('feuille') !== '0';
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!document.getElementById('sc-style')) {
     const st = document.createElement('style'); st.id = 'sc-style'; st.textContent = CSS; document.head.appendChild(st);
   }
@@ -44,7 +48,9 @@ export async function mountCards(opts) {
 
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: !!opts.shot });
   if (!gl) return null;
-  const t0 = performance.now(), now = () => (performance.now() - t0) / 1000;
+  // horloge : réelle, ou pilotée image par image (tests, captures : api.manual / api.advance)
+  let vclock = null;
+  const t0 = performance.now(), now = () => vclock ?? (performance.now() - t0) / 1000;
   const vv = window.visualViewport;
 
   function finish(d) {
@@ -52,12 +58,28 @@ export async function mountCards(opts) {
     const detail = { name, ...d };
     try { if (typeof window.onCardChosen === 'function') window.onCardChosen(detail); } catch (e) { console.error(e); }
     window.dispatchEvent(new CustomEvent('singulies:card-chosen', { detail }));
+    if (toSheet) { openSheet(); onEnd?.(detail); return; }
     veil.style.opacity = 1;
     onEnd?.(detail);
   }
+  // ---- la feuille (scène 3) : même canvas, même rendu ; la scène des cartes lui passe la main ----
+  let sheet = null, sheetAt = 0;
+  function openSheet() {
+    answer.blur();
+    sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced,
+      on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); } } });
+    scene.hideName(true);
+    sheetAt = now(); api.sheet = sheet;
+  }
+  function closeSheet() {
+    if (!sheet) return;
+    sheet.free(); sheet = null; api.sheet = null;
+    scene.reopen(now());
+    log('retour aux cartes');
+  }
   function focusAnswer() { if (document.activeElement !== answer) answer.focus({ preventScroll: true }); }
   const setValue = (s) => { if (answer.value !== s) { answer.value = s; try { answer.setSelectionRange(s.length, s.length); } catch { /* */ } } };
-  const scene = await createCardScene(gl, { base, seed, look, on: { end: finish, write: focusAnswer, text: (d) => setValue(d.text) } });
+  const scene = await createCardScene(gl, { base, seed, look, toSheet, on: { end: finish, write: focusAnswer, text: (d) => setValue(d.text) } });
   scene.setName(name);
 
   let started = false;
@@ -67,13 +89,27 @@ export async function mountCards(opts) {
     if (started) return; started = true;
     scene.start(now());
     let last = performance.now();
-    function frame(n) {
-      const t = now(), dt = Math.min(0.05, (n - last) / 1000); last = n;
+    function frame(n, manualDt) {
+      if (vclock != null && manualDt == null) return;            // horloge pilotée : pas de boucle
+      const t = now(), dt = manualDt ?? Math.min(0.05, (n - last) / 1000); last = n;
       const dpr = Math.min(2, devicePixelRatio || 1), W = canvas.clientWidth, H = canvas.clientHeight;
       if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      if (sheet) {
+        const sh = sheet;
+        sh.frame(t, dt, W, H);
+        if (sheet !== sh) { if (manualDt == null) requestAnimationFrame(frame); return; }     // retour : la scène des cartes reprend
+        for (const e of [giveEl, passEl]) e.classList.remove('on');
+        backEl.classList.toggle('on', t - sheetAt > 2.5 && !sheet.state().backing);
+        answer.style.width = '1px'; answer.style.height = '1px';
+        const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
+        sheet.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
+        api.frames++;
+        if (manualDt == null) requestAnimationFrame(frame);
+        return;
+      }
       scene.frame(t, dt, W, H);
       // signes : donner (sous la carte écrite, clavier fermé) ; passer (avec la carte blanche offerte)
       const st = scene.state(), r = scene.activeRect();
@@ -102,8 +138,9 @@ export async function mountCards(opts) {
         answer.style.width = (r.right - r.left) + 'px'; answer.style.height = (r.bottom - r.top) + 'px';
       } else { answer.style.width = '1px'; answer.style.height = '1px'; }
       api.frames++;
-      requestAnimationFrame(frame);
+      if (manualDt == null) requestAnimationFrame(frame);
     }
+    api.step = frame;
     requestAnimationFrame(frame);
   }
 
@@ -129,13 +166,29 @@ export async function mountCards(opts) {
   // demande), souris sur ordinateur, doigt en repli ----
   let down = null, gyroLive = false;
   const ptr = { x: 0, y: 0 };
-  canvas.addEventListener('pointerdown', e => { if (!started) return; down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false, on: scene.hitAt(e.clientX, e.clientY) }; });
+  canvas.addEventListener('pointerdown', e => { if (!started) return; if (sheet) { sheet.press(e.clientX, e.clientY); down = { x: e.clientX, y: e.clientY, sheet: true, d: 0 }; return; } down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false, on: scene.hitAt(e.clientX, e.clientY) }; });
   // premier geste : si l'écriture attend le clavier, on l'ouvre (iPhone)
   addEventListener('touchend', () => { if (started && scene.state().writing) focusAnswer(); }, { passive: true });
   // relire la réponse validée : molette
-  canvas.addEventListener('wheel', e => { e.preventDefault(); if (started && Math.abs(e.deltaY) > 4) scene.scrollAnswer(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (!started || Math.abs(e.deltaY) <= 4) return;
+    if (sheet) { sheet.scroll(e.deltaY > 0 ? -1 : 1, now()); return; }
+    scene.scrollAnswer(e.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+  addEventListener('keydown', e => {
+    if (!sheet) return;
+    if (e.key === 'Escape') { sheet.back(now()); backEl.classList.remove('on'); }
+    else if (e.key === 'ArrowDown' || e.key === 'PageDown') sheet.scroll(-1, now());
+    else if (e.key === 'ArrowUp' || e.key === 'PageUp') sheet.scroll(1, now());
+  });
   addEventListener('pointermove', e => {
     if (!started) return;
+    if (down && down.sheet) {
+      const dy = e.clientY - down.y;
+      if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(e.clientX - down.x) && Math.sign(dy) !== down.d) { down.d = Math.sign(dy); down.moved = true; sheet?.scroll(dy < 0 ? -1 : 1, now()); sheet?.release(); }
+      return;
+    }
     if (down) {
       const dx = e.clientX - down.x, dy = e.clientY - down.y;
       if (!down.moved && !down.v && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) down.moved = true;
@@ -147,7 +200,7 @@ export async function mountCards(opts) {
     // souris (ou doigt sans gyroscope) : sur la carte, elle est parfaitement droite ; elle s'incline à mesure
     // que le pointeur s'en éloigne
     if (e.pointerType !== 'mouse' && gyroLive) return;
-    const r = scene.cardRect(); if (!r) return;
+    const r = sheet ? sheet.focusRect() : scene.cardRect(); if (!r) return;
     const x = e.clientX, y = e.clientY;
     const ox = x < r.left ? x - r.left : x > r.right ? x - r.right : 0;
     const oy = y < r.top ? y - r.top : y > r.bottom ? y - r.bottom : 0;
@@ -155,6 +208,7 @@ export async function mountCards(opts) {
   });
   canvas.addEventListener('pointerup', e => {
     if (!down) return;
+    if (down.sheet) { const mv = down.moved; down = null; sheet?.release(); if (!mv && sheet) { const r = sheet.tap(e.clientX, e.clientY, now()); if (r.type) log(r.type); } return; }
     const dx = e.clientX - down.x, dtm = Math.max(1, performance.now() - down.t);
     if (down.moved) { const r = scene.release(dx, dx / dtm, now()); if (r.type) log(r.type); down = null; return; }
     if (down.took) { down = null; setValue(''); focusAnswer(); log('carte blanche'); return; }   // iPhone : le clavier s'ouvre au lâcher
@@ -165,6 +219,7 @@ export async function mountCards(opts) {
     if (r.type === 'write') { answer.value = scene.state().active?.text || ''; focusAnswer(); }
   });
   backEl.addEventListener('click', () => {
+    if (sheet) { if (sheet.back(now())) { backEl.classList.remove('on'); log('retour'); } return; }
     if (scene.state().mode !== 'free') { if (onExit) { answer.blur(); onExit(); } return; }
     if (scene.back(now())) { answer.value = scene.state().active?.text || ''; focusAnswer(); log('retour'); }
   });
@@ -203,6 +258,9 @@ export async function mountCards(opts) {
     gl.finish();
   };
 
+  // horloge pilotée : manual(true) fige le temps ; advance(s, fps) calcule les images une à une
+  api.manual = on => { if (on) vclock = now(); else { vclock = null; requestAnimationFrame(api.step); } };
+  api.advance = (sec, fps = 30) => { const n = Math.max(1, Math.round(sec * fps)); for (let i = 0; i < n; i++) { vclock += 1 / fps; api.step(0, 1 / fps); } return vclock; };
   // tests : tapAt(fx, fy) en fractions de l'écran ; type(s)
   api.tapAt = (fx, fy) => scene.tap(fx * canvas.clientWidth, fy * canvas.clientHeight, now());
   api.type = s => { answer.value = s; scene.setText(s); };

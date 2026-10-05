@@ -8,9 +8,10 @@ const VS = /* glsl */`#version 300 es
 layout(location=0) in vec2 aPos;     // monde (mm), plan z = 0
 layout(location=1) in vec2 aUV;
 layout(location=2) in float aGlow;
-uniform mat4 uVP;
+uniform mat4 uVP, uModel;            // uModel : identité (prénom posé à plat), ou lettre seule (en em) placée dans le monde
+uniform float uGlowU;
 out vec2 vUV; out vec3 vWorld; out float vGlow;
-void main() { vUV = aUV; vGlow = aGlow; vWorld = vec3(aPos, 0.0); gl_Position = uVP * vec4(aPos, 0.0, 1.0); }`;
+void main() { vUV = aUV; vGlow = aGlow + uGlowU; vWorld = (uModel * vec4(aPos, 0.0, 1.0)).xyz; gl_Position = uVP * vec4(vWorld, 1.0); }`;
 
 const FS = /* glsl */`#version 300 es
 precision highp float;
@@ -19,6 +20,7 @@ uniform sampler2D uAtlas, uPaper;
 uniform float uGrain, uFiber, uGlint, uSeed;
 uniform vec2 uOrigin;
 uniform float uFlat;
+uniform float uAlpha;                // fondu d'une lettre (vol vers la feuille)
 uniform float uTime;                 // clarté qui circule dans les lettres allumées                 // > 0 : prénom à plat, gris uFlat (affiché), seulement assombri par l'ombre d'une carte
 uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc, uLightR;
 uniform vec2 uTexel;                 // taille d'un texel de l'atlas (uv)
@@ -54,7 +56,7 @@ void main() {
     vec2 q = vWorld.xy * 0.42 + vec2(0.17, -0.11) * uTime;
     float n = 0.5 * fbm2(q) + 0.25 * fbm2(q * 2.1 + 7.3 - vec2(-0.05, 0.21) * uTime);
     float g = uFlat * shf + vGlow * 0.62 * clamp(0.55 + 1.6 * n, 0.15, 1.6);
-    o = vec4(vec3(g) * cov, cov);
+    o = vec4(vec3(g) * cov, cov) * uAlpha;
     return;
   }
   // bombé : le bord monte sur uBevel em puis plateau ; normale par différences dans l'atlas
@@ -82,7 +84,7 @@ void main() {
   col += vec3(vGlow) * 0.6;                                // allumage intérieur (réponse tapée)
   col *= uExposure;
   col = max(col - uToe, 0.0) / (1.0 - uToe);
-  o = vec4(pow(col, vec3(1.0 / 2.2)) * cov, cov);          // alpha prémultiplié
+  o = vec4(pow(col, vec3(1.0 / 2.2)) * cov, cov) * uAlpha; // alpha prémultiplié
 }`;
 
 export async function createNameRelief(gl, paperTex, family = '"SG Garamond", serif') {
@@ -134,11 +136,12 @@ export async function createNameRelief(gl, paperTex, family = '"SG Garamond", se
     return { em, glyphs: pens };   // monde (mm) : origine de chasse et ligne de base de chaque lettre
   }
 
-  function draw(vp, eye, P, look, occ, time = 0) {
-    if (!count) return;
+  const ID = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+  function common(vp, eye, P, look, occ, time) {
     const u = prog.u;
     gl.useProgram(prog.p);
     gl.uniformMatrix4fv(u.uVP, false, vp);
+    gl.uniformMatrix4fv(u.uModel, false, ID); gl.uniform1f(u.uGlowU, 0); gl.uniform1f(u.uAlpha, 1);
     gl.uniform3fv(u.uLightPos, P.lightPos); gl.uniform3fv(u.uEye, eye);
     gl.uniform1f(u.uLight, P.light); gl.uniform1f(u.uEnv, P.env);
     gl.uniform1f(u.uExposure, P.exposure); gl.uniform1f(u.uToe, P.toe);
@@ -153,10 +156,51 @@ export async function createNameRelief(gl, paperTex, family = '"SG Garamond", se
     gl.uniform1f(u.uGrain, look.nameGrain); gl.uniform1f(u.uFiber, look.nameFiber); gl.uniform1f(u.uGlint, look.nameGlint); gl.uniform1f(u.uSeed, 11.0); gl.uniform2fv(u.uOrigin, origin);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.depthMask(false);
+  }
+  function done() { gl.bindVertexArray(null); gl.depthMask(true); gl.disable(gl.BLEND); }
+  function draw(vp, eye, P, look, occ, time = 0) {
+    if (!count) return;
+    common(vp, eye, P, look, occ, time);
     gl.bindVertexArray(vao);
     gl.drawArrays(gl.TRIANGLES, 0, count);
-    gl.bindVertexArray(null);
-    gl.depthMask(true); gl.disable(gl.BLEND);
+    done();
   }
-  return { layout, draw, capHeight: atlas.capHeight, adv: ch => atlas.glyphs[ch]?.adv ?? 0.6 };
+
+  // ---- lettres seules (scène de la feuille : chaque lettre du prénom vole jusqu'à sa ligne) ----
+  // quads en em, origine de chasse en (0, 0), ligne de base y = 0 ; chaque lettre est placée par sa matrice
+  const lvao = gl.createVertexArray(), lvbo = gl.createBuffer();
+  gl.bindVertexArray(lvao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, lvbo);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 20, 0);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 20, 8);
+  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 20, 16);
+  gl.bindVertexArray(null);
+  let lfirst = [];
+  function letters(chars) {
+    const v = []; lfirst = [];
+    for (const ch of chars) {
+      const g = atlas.glyphs[ch];
+      lfirst.push(g ? v.length / 5 : -1);
+      if (!g) continue;
+      const q = [[g.x0, -g.y0, g.u0, g.v0], [g.x1, -g.y0, g.u1, g.v0], [g.x1, -g.y1, g.u1, g.v1], [g.x0, -g.y1, g.u0, g.v1]];
+      for (const k of [0, 1, 2, 0, 2, 3]) v.push(q[k][0], q[k][1], q[k][2], q[k][3], 0);
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, lvbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+  }
+  // list : [{ i, model (em → monde), glow, alpha }]
+  function drawLetters(vp, eye, P, look, list, time = 0) {
+    if (!list.length) return;
+    common(vp, eye, P, look, null, time);
+    const u = prog.u;
+    gl.bindVertexArray(lvao);
+    for (const L of list) {
+      const f = lfirst[L.i];
+      if (f == null || f < 0 || L.alpha <= 0.002) continue;
+      gl.uniformMatrix4fv(u.uModel, false, L.model); gl.uniform1f(u.uGlowU, L.glow || 0); gl.uniform1f(u.uAlpha, L.alpha);
+      gl.drawArrays(gl.TRIANGLES, f, 6);
+    }
+    done();
+  }
+  return { layout, draw, letters, drawLetters, capHeight: atlas.capHeight, adv: ch => atlas.glyphs[ch]?.adv ?? 0.6 };
 }
