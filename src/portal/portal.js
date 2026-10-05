@@ -28,7 +28,10 @@ const SIG = 'ETERNEL';
 // mêmes valeurs que la scène des cartes
 // même caméra que la scène des cartes (pas de table : Maxence 05/10)
 const FOV = 26 * Math.PI / 180, TILT = 0.22, PITCH = 0.15, DECK = 10;
-const INTRO_T = 1.4, DEAL_AT = 0.7, DEAL_T = 1.2, DEAL_GAP = 0.34, FLIP_T = 1.2, HOLD = 2.2, LEAVE_T = 1.3;
+const INTRO_T = 1.4, DEAL_AT = 0.7, DEAL_T = 1.5, DEAL_GAP = 0.4, FLIP_T = 1.7, HOLD = 2.2, LEAVE_T = 1.6;
+// ordre de la donne = ordre d'empilement : la carte donnée plus tard se pose sur la précédente. Le poème en dernier,
+// tout en haut (rien ne passe jamais à travers une autre carte) ; le paquet ne bouge pas
+const RANK = [2, 1, 0, 3];
 // la lumière : d'abord le poème, puis chaque carte à son tour (s)
 const DWELL = [6.5, 2.8, 2.8];      // les trois cartes seulement (le paquet ne fait pas signe)
 
@@ -122,42 +125,43 @@ export async function mountPortal(opts = {}) {
   const lie = ITEMS.map((_, i) => {
     if (i === JEU) return { dx: rnd.range(-0.04, 0.04), dy: 0, rz: rnd.range(-0.05, 0.05) };
     const sd = rnd() < 0.5 ? -1 : 1;
-    return { dx: sd * rnd.range(0.0, 0.1), dy: rnd.range(-0.04, 0.04), rz: (rnd() < 0.7 ? -sd : sd) * rnd.range(0.015, 0.1) };
+    return { dx: sd * rnd.range(0.0, 0.06), dy: rnd.range(-0.04, 0.04), rz: (rnd() < 0.7 ? -sd : sd) * rnd.range(0.015, 0.08) };
   });
   const lay = { W: 1, H: 1, D: 300, slot: [] };
-  // les trois cartes sont le centre de l'attention (grandes, au milieu) ; le paquet, qui les a distribuées, reste en
-  // bas de page, à moitié sorti de l'écran (comme la carte blanche de la scène des cartes) : là si on veut l'acheter
+  // les trois cartes sont le centre de l'attention ; le paquet, qui les a distribuées, en bas de page, entier, « le
+  // jeu » lisible. Tout tient dans l'écran (biais compris), cartes à la taille de la scène des cartes ou moins
   function layout(W, H) {
     lay.W = W; lay.H = H;
     const asp = CARD.w / CARD.h, portrait = W < H * 1.1;
-    const top = H * (portrait ? 0.115 : 0.14);
-    const deckTop = H * (portrait ? 0.865 : 0.84);           // haut du paquet ; le reste sort par le bas
-    const zone = deckTop - H * 0.03 - top;
+    const top = H * (portrait ? 0.115 : 0.14), bot = H * 0.965;
+    const GAPD = 0.34;                                        // écart avec le paquet (une carte peut y glisser)
     const span = 1 + 2 * (1 - OV) + 0.14;                     // trois cartes qui se recouvrent + marge des biais
     let h;
-    if (portrait) h = Math.min(W * 0.84 / asp, zone / span);
-    else h = Math.min(zone * 0.8, W * 0.8 / (asp * span));
+    if (portrait) h = Math.min(W * 0.7 / asp, H * 0.27 * 0.85, (bot - top) / (span + GAPD + 1.08));
+    else h = Math.min((bot - top) / (1.3 + GAPD + 1.08), W * 0.78 / (asp * span));
     const w = h * asp, s = CARD.w / w;
     lay.D = s * (H / 2) / Math.tan(FOV / 2);
+    const deckC = bot - h * 0.55;                             // centre du paquet (son épaisseur dessous)
+    const zoneB = deckC - h * (0.5 + GAPD);                   // bas de la zone des trois cartes
     const len = (portrait ? h : w) * (span - 0.14);
-    const a0 = portrait ? top + (zone - len) / 2 : (W - len) / 2;
+    const a0 = portrait ? top + (zoneB - top - len) / 2 : (W - len) / 2;
     lay.slot = ITEMS.map((_, i) => {
       const o = lie[i];
       let px, py;
-      if (i === JEU) { px = W / 2 + o.dx * w; py = deckTop + h * 0.5; }
+      if (i === JEU) { px = W / 2 + o.dx * w; py = deckC; }
       else {
         const along = (portrait ? h : w) * (0.5 + i * (1 - OV));
         px = portrait ? W / 2 + o.dx * w : a0 + along + o.dx * w * 0.3;
-        py = portrait ? a0 + along + o.dy * h : top + zone / 2 + o.dy * h + (i % 2 ? 0.08 : -0.08) * h;
+        py = portrait ? a0 + along + o.dy * h : (top + zoneB) / 2 + o.dy * h + (i % 2 ? 0.08 : -0.08) * h;
       }
-      return { x: (px - W / 2) * s, y: (H / 2 - py) * s / Math.cos(TILT), rz: o.rz, z: i === JEU ? 0 : i * Z_STEP };
+      return { x: (px - W / 2) * s, y: (H / 2 - py) * s / Math.cos(TILT), rz: o.rz, z: i === JEU ? 0 : RANK[i] * Z_STEP };
     });
     sig.style.top = `calc(max(env(safe-area-inset-top), 0px) + ${(top * 0.48).toFixed(0)}px)`;
     sig.style.transform = 'translateY(-50%)';
   }
   const deckPose = (j, v) => { const s = lay.slot[JEU]; return { x: s.x + v.jx, y: s.y + v.jy, z: j * PITCH, rx: 0, ry: 0, rz: s.rz + v.jr }; };
   // sur le paquet, dos visible, avant la donne (le poème au-dessus : il part le premier)
-  const onDeckPose = c => deckPose(DECK + (ITEMS.length - 1 - c.i), c.v);
+  const onDeckPose = c => deckPose(DECK + (ITEMS.length - 1 - RANK[c.i]), c.v);
   const restPose = c => {
     const s = lay.slot[c.i], z = c.i === JEU ? DECK * PITCH + 1.4 : s.z;   // au-dessus du paquet, sans le toucher (gondolages)
     return { x: s.x + c.v.jx, y: s.y + c.v.jy, z, rx: 0, ry: Math.PI, rz: s.rz + c.v.jr };
@@ -168,36 +172,45 @@ export async function mountPortal(opts = {}) {
   // ---- états ----
   let startT = 0, leaving = null, visible = true, raf = 0, last = 0, vp = null, eye = null, lastGesture = -99;
   let hoverIdx = -1, pressIdx = -1, focusIdx = JEU, snap = false;
-  const dealAt = c => startT + DEAL_AT + c.i * DEAL_GAP;
+  const dealAt = c => startT + DEAL_AT + RANK[c.i] * DEAL_GAP;
   const landed = (c, t) => reduced ? t - startT > 0.3 : t >= dealAt(c) + DEAL_T;
   const dealEnd = () => startT + (reduced ? 0.6 : DEAL_AT + (ITEMS.length - 1) * DEAL_GAP + DEAL_T);
 
+  // retournement organique : la carte se soulève d'abord (assez haut pour ne rien toucher en tournant), tourne en
+  // douceur avec un léger roulis, puis se repose ; turns = nombre de demi-tours
+  function turn(p, u, turns) {
+    const up = sstep(0, 0.3, u), down = sstep(0.66, 1, u), sw = Math.sin(Math.PI * sstep(0.08, 0.92, u));
+    p.z += (CARD.w / 2 + 10) * (up - down);
+    p.ry += turns * Math.PI * sstep(0.18, 0.8, u);
+    p.rz += 0.09 * sw; p.rx += -0.1 * sw;
+    return p;
+  }
   function poseOf(c, t) {
     const rest = restPose(c);
     if (leaving) {
       const u = clamp01((t - leaving.t0) / LEAVE_T), a = leaving.from[c.i];
       if (c !== leaving.c || reduced) return a;
       // un tour sur elle-même en montant, puis elle se fond dans le fond
-      const p = { ...a };
-      p.ry = a.ry + 2 * Math.PI * sstep(0.05, 0.75, u);
-      p.z += (CARD.w / 2 + 6) * Math.sin(Math.PI * Math.min(1, u * 1.15)) + 18 * ease(u); p.rx = -0.1 * Math.sin(Math.PI * u);
+      const p = turn({ ...a }, Math.min(1, u * 1.1), 2);
+      p.z += 30 * sstep(0.6, 1, u);            // elle ne retombe pas : elle monte et se fond
       return p;
     }
     if (reduced) return rest;
     const td = t - dealAt(c);
     if (td < 0) return onDeckPose(c);
     if (td < DEAL_T) {                 // la donne (le tirage de la scène des cartes) : soulevée, retournée en l'air, posée
-      const u = td / DEAL_T, a = onDeckPose(c), up = sstep(0, 0.35, u), down = sstep(0.6, 1, u);
-      const p = lerpPose(a, rest, ease(u));
-      p.z += (CARD.w / 2 + 8) * (up - down) * 0.9; p.ry = Math.PI * sstep(0.2, 0.7, u); p.rx = -0.12 * (up - down);
-      return p;
+      const u = td / DEAL_T, a = onDeckPose(c);
+      const p = lerpPose(a, rest, sstep(0.08, 0.95, u));
+      p.ry = 0;
+      return turn(p, u, 1);
     }
     if (c.anim) {                      // lien d'attente : un tour (« bientôt »), puis un autre tour (celui de la carte blanche)
+      // une carte recouverte (la lettre, les livres) glisse d'abord vers le bas pour sortir de dessous la carte
+      // qui la recouvre, se retourne, et ne revient dessous qu'une fois reposée : rien ne traverse rien
       const tf = t - c.anim.t0, u1 = clamp01(tf / FLIP_T), u2 = clamp01((tf - FLIP_T - HOLD) / FLIP_T);
-      const p = { ...rest }, b = Math.sin(Math.PI * u1) + Math.sin(Math.PI * u2);
-      p.ry = Math.PI + 2 * Math.PI * (sstep(0.12, 0.85, u1) + sstep(0.12, 0.85, u2));
-      p.z += (CARD.w / 2 + 6) * b * 0.5; p.rx = -0.1 * b;
-      return p;
+      const out = RANK[c.i] < RANK[0] ? (CARD.h * OV + 2.5) * (sstep(0, 0.16, u1) - sstep(0.86, 1, u2)) : 0;
+      const q = { ...rest, y: rest.y - out };
+      return turn(turn(q, clamp01((u1 - 0.12) / 0.88), 2), clamp01(u2 / 0.88), 2);
     }
     return rest;
   }
@@ -231,25 +244,34 @@ export async function mountPortal(opts = {}) {
     b.addEventListener('pointercancel', () => { if (pressIdx === c.i) pressIdx = -1; });
     b.addEventListener('focus', () => { hoverIdx = c.i; });
     b.addEventListener('blur', () => { if (hoverIdx === c.i) hoverIdx = -1; });
-    b.addEventListener('click', e => { e.stopPropagation(); choose(c); });
+    b.style.zIndex = String(1 + RANK[c.i]);           // la carte du dessus reçoit le toucher
+    b.addEventListener('click', e => { e.stopPropagation(); askOrientation(); choose(c); });
     root.appendChild(b);
     return b;
   });
 
-  // ---- inclinaison : souris (ordinateur) ; gyroscope sur Android (sans demande). Sur iPhone, aucune demande ici :
-  // le premier toucher est un choix ----
+  // ---- inclinaison : souris (ordinateur) ; gyroscope : Android sans demande, iPhone au tout premier toucher (Safari
+  // n'autorise la demande que dans un geste : touchend / click, jamais pointerdown) ----
   const ptr = { x: 0, y: 0 }, tilt = { x: 0, y: 0 }, ts = { x: 0, y: 0 }, breath = { x: 0, y: 0 };
   addEventListener('pointermove', e => {
     if (e.pointerType !== 'mouse' || !lay.W) return;
     ptr.x = Math.max(-1, Math.min(1, (e.clientX / lay.W - 0.5) * 2)); ptr.y = Math.max(-1, Math.min(1, -(e.clientY / lay.H - 0.5) * 2));
   });
   const DO = window.DeviceOrientationEvent;
-  if (DO && typeof DO.requestPermission !== 'function') {
-    addEventListener('deviceorientation', e => {
-      if (e.beta == null || e.gamma == null) return;
-      ptr.x = Math.max(-1, Math.min(1, e.gamma / 25)); ptr.y = Math.max(-1, Math.min(1, -(e.beta - 50) / 25));
-    });
+  let orientOn = false, orientAsked = false;
+  function onOrient(e) {
+    if (e.beta == null || e.gamma == null) return;
+    ptr.x = Math.max(-1, Math.min(1, e.gamma / 25)); ptr.y = Math.max(-1, Math.min(1, -(e.beta - 50) / 25));
   }
+  function listenOrient() { if (!orientOn) { orientOn = true; addEventListener('deviceorientation', onOrient); } }
+  function askOrientation() {
+    if (orientAsked || !DO || typeof DO.requestPermission !== 'function') return;
+    orientAsked = true;
+    DO.requestPermission().then(r => { if (r === 'granted') listenOrient(); }).catch(() => { orientAsked = false; });
+  }
+  if (DO && typeof DO.requestPermission !== 'function') listenOrient();
+  root.addEventListener('touchend', askOrientation, { passive: true });
+  root.addEventListener('click', askOrientation);
   // lampe (manière 1) : stepLight de la scène des cartes
   const lp = { x: Math.cos(L.lightAz), y: Math.sin(L.lightAz), vx: 0, vy: 0 };
   function stepLight(dt) {
@@ -370,7 +392,7 @@ export async function mountPortal(opts = {}) {
         if (c.i === 0 && ph > 0.8 && ph < 0.8 + 4.5 * 2) dz = hop((ph - 0.8) % 4.5);
       }
       c.curlA += (curlOn - c.curlA) * (snap ? 1 : Math.min(1, dt * 1.5));
-      p = { ...p, z: p.z + dz - 1.5 * c.press };
+      p = { ...p, z: p.z + dz - 0.5 * c.press };   // s'enfonce à peine (jamais dans la carte dessous)
       let fade = intro, G;
       if (onDeck || c.i === JEU) G = c === leaving?.c ? Gdeck0 : Gdeck;
       else G = M4.mul(Gin, group(s.x, s.y, c.bph, leaving ? 0 : c.w, c.bf));
@@ -381,7 +403,7 @@ export async function mountPortal(opts = {}) {
       // l'encre change quand le recto est caché (tour « bientôt »)
       let ink = c.labelInk;
       if (c.anim) {
-        const tf = t - c.anim.t0, u1 = sstep(0.12, 0.85, clamp01(tf / FLIP_T)), u2 = sstep(0.12, 0.85, clamp01((tf - FLIP_T - HOLD) / FLIP_T));
+        const tf = t - c.anim.t0, u1 = sstep(0.18, 0.8, clamp01((tf / FLIP_T - 0.12) / 0.88)), u2 = sstep(0.18, 0.8, clamp01((tf - FLIP_T - HOLD) / FLIP_T / 0.88));
         if (u1 >= 0.5 && u2 < 0.5) ink = soonInk;
       }
       const dim = 1;
