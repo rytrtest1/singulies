@@ -28,7 +28,9 @@ const SIG = 'ETERNEL';
 // mêmes valeurs que la scène des cartes
 // même caméra que la scène des cartes (pas de table : Maxence 05/10)
 const FOV = 26 * Math.PI / 180, TILT = 0.22, PITCH = 0.15, DECK = 10;
-const INTRO_T = 1.4, DEAL_AT = 0.7, DEAL_T = 1.5, DEAL_GAP = 0.4, FLIP_T = 1.7, HOLD = 2.2, LEAVE_T = 1.6;
+// donne : une seule carte en l'air à la fois — la suivante quitte le paquet quand la précédente, presque posée, en
+// est loin (sinon leurs vols se croisent et elles se traversent)
+const INTRO_T = 1.4, DEAL_AT = 0.7, DEAL_T = 1.3, DEAL_GAP = 1.3 * 0.8, FLIP_T = 1.4, HOLD = 2.4, LEAVE_T = 1.3;
 // ordre de la donne = ordre d'empilement : la carte donnée plus tard se pose sur la précédente. Le poème en dernier,
 // tout en haut (rien ne passe jamais à travers une autre carte) ; le paquet ne bouge pas
 const RANK = [2, 1, 0, 3];
@@ -119,7 +121,7 @@ export async function mountPortal(opts = {}) {
   // chaque carte posée de travers (gauche, droite, en alternance), qui recouvre un peu le bord de la précédente
   // (jamais son texte) et y fait son ombre. Biais et décalages tirés à chaque visite, dans des bornes. ----
   const OV = 0.16;                          // part de la carte précédente recouverte
-  const Z_STEP = 1.6;                       // mm : posée sur la précédente (épaisseur + gondolage + respiration)
+  const Z_STEP = 2.4;                       // mm : posée sur la précédente (gondolages des deux + respiration < 2,4)
   const side0 = rnd() < 0.5 ? -1 : 1;
   // chaque carte tombe où elle tombe : biais et décalage libres (un côté plus souvent que l'autre, jamais une alternance)
   const lie = ITEMS.map((_, i) => {
@@ -160,12 +162,48 @@ export async function mountPortal(opts = {}) {
     sig.style.transform = 'translateY(-50%)';
   }
   const deckPose = (j, v) => { const s = lay.slot[JEU]; return { x: s.x + v.jx, y: s.y + v.jy, z: j * PITCH, rx: 0, ry: 0, rz: s.rz + v.jr }; };
-  // sur le paquet, dos visible, avant la donne (le poème au-dessus : il part le premier)
+  // sur le paquet, dos visible, avant la donne (la première donnée au-dessus)
   const onDeckPose = c => deckPose(DECK + (ITEMS.length - 1 - RANK[c.i]), c.v);
   const restPose = c => {
     const s = lay.slot[c.i], z = c.i === JEU ? DECK * PITCH + 1.4 : s.z;   // au-dessus du paquet, sans le toucher (gondolages)
     return { x: s.x + c.v.jx, y: s.y + c.v.jy, z, rx: 0, ry: Math.PI, rz: s.rz + c.v.jr };
   };
+  // glissement qui dégage une carte de toutes celles posées au-dessus d'elle (rectangles au repos, biais compris,
+  // 2 mm de marge), sans sortir de l'écran : la plus courte des directions essayées. Une carte qui se retourne ne
+  // traverse ainsi jamais rien (vérifié : tools/portal-collisions.mjs)
+  const rect = (p, flip) => ({ x: p.x, y: p.y, a: flip ? -p.rz : p.rz });
+  function overlap(A, B, m) {
+    const ax = [[Math.cos(A.a), Math.sin(A.a)], [-Math.sin(A.a), Math.cos(A.a)], [Math.cos(B.a), Math.sin(B.a)], [-Math.sin(B.a), Math.cos(B.a)]];
+    const d = [B.x - A.x, B.y - A.y], hx = CARD.w / 2 + m / 2, hy = CARD.h / 2 + m / 2;
+    for (const n of ax) {
+      const r = R => hx * Math.abs(Math.cos(R.a) * n[0] + Math.sin(R.a) * n[1]) + hy * Math.abs(-Math.sin(R.a) * n[0] + Math.cos(R.a) * n[1]);
+      if (Math.abs(d[0] * n[0] + d[1] * n[1]) > r(A) + r(B)) return false;
+    }
+    return true;
+  }
+  function slideFor(c) {
+    const me = restPose(c), above = [];
+    for (const k of cards) if (k !== c && restPose(k).z > me.z) above.push(rect(restPose(k), true));
+    if (c.i !== JEU) above.push(rect(deckPose(DECK - 1, deck[DECK - 1]), false));
+    const Hw = 2 * lay.D * Math.tan(FOV / 2), Ww = Hw * lay.W / lay.H;
+    const fits = (x, y) => Math.abs(x) < Ww / 2 - CARD.w / 2 - 1 && Math.abs(y * Math.cos(TILT)) < Hw / 2 - CARD.h / 2 - 1;
+    // la plus courte qui reste dans l'écran ; à défaut (écran court), la plus courte tout court : dépasser un peu
+    // du bord vaut mieux que traverser une carte
+    let fit = { d: Infinity }, any = { d: Infinity };
+    for (let k = 0; k < 24; k++) {
+      const a = k * Math.PI / 12, ux = Math.cos(a), uy = Math.sin(a);
+      for (let d = 0; d < 120; d += 0.5) {
+        const x = me.x + ux * d, y = me.y + uy * d;
+        if (!above.some(A => overlap({ x, y, a: -me.rz }, A, 4))) {
+          if (d < any.d) any = { x: ux * d, y: uy * d, d };
+          if (fits(x, y) && d < fit.d) fit = { x: ux * d, y: uy * d, d };
+          break;
+        }
+      }
+    }
+    return fit.d < Infinity ? fit : any;
+  }
+
   // respiration propre à chaque carte (phase et rythme), pour qu'elles vivent séparément
   for (const c of cards) { c.bph = rnd() * 6.28; c.bf = rnd.range(0.8, 1.25); }
 
@@ -190,10 +228,9 @@ export async function mountPortal(opts = {}) {
     if (leaving) {
       const u = clamp01((t - leaving.t0) / LEAVE_T), a = leaving.from[c.i];
       if (c !== leaving.c || reduced) return a;
-      // un tour sur elle-même en montant, puis elle se fond dans le fond
-      const p = turn({ ...a }, Math.min(1, u * 1.1), 2);
-      p.z += 30 * sstep(0.6, 1, u);            // elle ne retombe pas : elle monte et se fond
-      return p;
+      // on la prend : elle se soulève vers soi, s'incline à peine, et se fond (aucun tour)
+      const e = ease(u), sw = Math.sin(Math.PI * Math.min(1, u * 1.4));
+      return { ...a, z: a.z + 46 * e, y: a.y + 6 * e, rx: a.rx - 0.08 * sw, rz: a.rz + 0.04 * sw };
     }
     if (reduced) return rest;
     const td = t - dealAt(c);
@@ -204,13 +241,13 @@ export async function mountPortal(opts = {}) {
       p.ry = 0;
       return turn(p, u, 1);
     }
-    if (c.anim) {                      // lien d'attente : un tour (« bientôt »), puis un autre tour (celui de la carte blanche)
-      // une carte recouverte (la lettre, les livres) glisse d'abord vers le bas pour sortir de dessous la carte
-      // qui la recouvre, se retourne, et ne revient dessous qu'une fois reposée : rien ne traverse rien
+    if (c.anim) {                      // lien d'attente : un demi-tour (son dos, « bientôt »), puis un demi-tour retour
+      // une carte recouverte glisse d'abord (à plat) hors de dessous les cartes posées sur elle, puis se retourne ;
+      // au retour, elle se repose d'abord, puis glisse à sa place : les trois temps ne se chevauchent jamais
       const tf = t - c.anim.t0, u1 = clamp01(tf / FLIP_T), u2 = clamp01((tf - FLIP_T - HOLD) / FLIP_T);
-      const out = RANK[c.i] < RANK[0] ? (CARD.h * OV + 2.5) * (sstep(0, 0.16, u1) - sstep(0.86, 1, u2)) : 0;
-      const q = { ...rest, y: rest.y - out };
-      return turn(turn(q, clamp01((u1 - 0.12) / 0.88), 2), clamp01(u2 / 0.88), 2);
+      const o = c.anim.off, out = sstep(0, 0.2, u1) - sstep(0.82, 1, u2);
+      const q = { ...rest, x: rest.x + o.x * out, y: rest.y + o.y * out };
+      return turn(turn(q, clamp01((u1 - 0.2) / 0.8), 1), clamp01(u2 / 0.8), 1);
     }
     return rest;
   }
@@ -229,9 +266,9 @@ export async function mountPortal(opts = {}) {
     }
     const url = LINKS[c.id];
     if (url) { location.href = url; return; }
-    if (c.anim) return;
+    if (cards.some(k => k.anim)) return;          // une seule carte se retourne à la fois
     if (!soonInk) soonInk = inkOf('bientôt', c.v);
-    c.anim = { t0: t };
+    c.anim = { t0: t, off: slideFor(c) };
   }
 
   // ---- boutons (accessibles, posés sur les cartes au repos) ----
@@ -374,7 +411,7 @@ export async function mountPortal(opts = {}) {
     for (const c of cards) {
       c.w += ((c.i === focusIdx ? 1 : 0) - c.w) * (snap ? 1 : Math.min(1, dt * (reduced ? 20 : 2.2)));
       c.press += ((pressIdx === c.i ? 1 : 0) - c.press) * Math.min(1, dt * 14);
-      if (c.anim && t - c.anim.t0 > 2 * FLIP_T + HOLD) c.anim = null;
+      if (c.anim && t - c.anim.t0 > 2 * FLIP_T + HOLD + 0.05) c.anim = null;
     }
     const jeu = cards[JEU], sj = lay.slot[JEU];
     const Gdeck0 = M4.mul(Gin, group(sj.x, sj.y, jeu.bph, leaving ? 0 : jeu.w, jeu.bf));
@@ -401,16 +438,13 @@ export async function mountPortal(opts = {}) {
         else { fade *= 1 - away; if (c.i !== JEU) G = recede(G); }
       }
       // l'encre change quand le recto est caché (tour « bientôt »)
-      let ink = c.labelInk;
-      if (c.anim) {
-        const tf = t - c.anim.t0, u1 = sstep(0.18, 0.8, clamp01((tf / FLIP_T - 0.12) / 0.88)), u2 = sstep(0.18, 0.8, clamp01((tf - FLIP_T - HOLD) / FLIP_T / 0.88));
-        if (u1 >= 0.5 && u2 < 0.5) ink = soonInk;
-      }
+      // « bientôt » est tapé au dos (sur le logo gaufré), visible le temps du demi-tour
+      const ink = c.labelInk, inkBack = c.anim ? soonInk : null;
       const dim = 1;
       // ombre de la carte posée par-dessus (la suivante de la donne)
       const nx = c.i < JEU - 1 ? cards[c.i + 1] : null;
       const occ = nx && !leaving && landed(nx, t) && !nx.anim ? (() => { const q = restPose(nx); return { x: q.x, y: q.y, z: q.z, rz: -q.rz }; })() : null;
-      if (fade > 0.01) card.draw(vp, eye, P, { model: model(G, p), lod: 'fine', ink, shade: dim, fade, ...c.v, curl: [-1, 1, -0.3 * c.curlA], occ });
+      if (fade > 0.01) card.draw(vp, eye, P, { model: model(G, p), lod: 'fine', ink, inkBack, shade: dim, fade, ...c.v, curl: [-1, 1, -0.3 * c.curlA], occ });
       // bouton : rectangle écran de la carte au repos
       const rp = restPose(c);
       const q = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => project(M4.mul(vp, M4.model(0, Math.PI, rp.rz, rp.x, rp.y, rp.z)), sx * CARD.w / 2, sy * CARD.h / 2));
@@ -454,6 +488,16 @@ export async function mountPortal(opts = {}) {
     rect: id => buttons[cards.findIndex(c => c.id === id)].getBoundingClientRect(),
     // captures (rendu logiciel très lent) : aller à l'instant s de la page, état lissé atteint d'un coup
     seek: s => { frozen = startT + s; snap = true; },
+    // vérification géométrique : matrices des cartes (et de la carte du dessus du paquet) à l'instant s, avec, au
+    // besoin, un lien d'attente lancé à l'instant a0 sur la carte anim (respiration ignorée : < 0,5 mm)
+    probe(s, anim = null, a0 = 0) {
+      const t = startT + s, keep = cards.map(c => c.anim);
+      cards.forEach(c => { c.anim = c.id === anim ? { t0: startT + a0, off: slideFor(c) } : null; });
+      const out = cards.map(c => ({ id: c.id, pile: !reduced && t - dealAt(c) < 0.06 * DEAL_T, m: Array.from(M4.model(...(p => [p.rx, p.ry, p.rz, p.x, p.y, p.z])(poseOf(c, t)))) }));
+      out.push({ id: 'paquet', pile: true, m: Array.from(M4.model(...(p => [p.rx, p.ry, p.rz, p.x, p.y, p.z])(deckPose(DECK - 1, deck[DECK - 1])))) });
+      cards.forEach((c, i) => { c.anim = keep[i]; });
+      return out;
+    },
     run: () => { frozen = null; },
     state: () => ({ t: now() - startT, focus: ITEMS[focusIdx].id, dealt: now() >= dealEnd(), leaving: !!leaving }),
   };
