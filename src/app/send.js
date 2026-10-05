@@ -4,7 +4,7 @@
 // ?envoi=0 : rien n'est envoyé (essais).
 import QUESTIONS from '../cards/questions.json';
 
-const EMAILJS = { service: 'service_8wqf489', template: 'template_arafuuh', key: 'XreMhhJCN9l5J6V5J' };   // identifiants publics (aucun secret)
+const EMAILJS = { service: 'service_8wqf489', template: 'template_cuh5tub', key: 'XreMhhJCN9l5J6V5J' };   // identifiants publics (aucun secret)
 const K_PENDING = 'singulies.pending';
 const OFF = (() => { try { return new URLSearchParams(location.search).get('envoi') === '0'; } catch { return false; } })();
 const ready = () => !OFF && EMAILJS.service && EMAILJS.template && EMAILJS.key;
