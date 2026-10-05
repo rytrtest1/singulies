@@ -21,7 +21,7 @@ export const LOOK = {
   // réglé par Maxence sur téléphone (04/10). Cartes noires ; lampe en orbite + hauteur (manière 1, 60 %) ; la
   // carte en focus s'incline vers la souris / le mouvement du téléphone, celle en attente respire et est baissée.
   light: 0.111, lightR: 400, env: 0.28, albedo: 0.029, exposure: 0.74, lightAz: 0.67, lightR0: 1.0, lightZ: 210, tiltAmp: 1.45,
-  lightMode: 1, elevAmp: 0.45, flashZ: 70, cardTilt: 0.2, lightVar: 0.6, sway: 0.11, unfocusDim: 0.25, spot: 0.06,
+  lightMode: 1, elevAmp: 0.45, flashZ: 70, cardTilt: 0.2, lightVar: 0.6, sway: 0.11, unfocusDim: 0.25, spot: 0.22, poolR: 0.5,
   h: 0.19, b: 1.32, crease: 0, fiber: 0.06, foot: 0.76, footW: 0.165, parallax: 0,
   rough: 0.64, spec: 3.1, sheen: 0, glint: 0.35, edge: 3, grain: 1.25, diffRough: 0.65, envSpec: 0.32, toe: 0.0078,
   nameFlat: 0.62,   // prénom à plat, même clarté que sur l'accueil (NAME_REST, 05/10) ; 0 → prénom en relief (nameAlb, nameRelief…)
@@ -414,10 +414,14 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const el = (L.lightMode | 0) === 1 ? Math.min(1.35, Math.max(0.18, el0 + (ts.y + breath.y) * L.elevAmp * L.lightVar)) : el0;
     const lightPos = [ap.x + lp.x / ln * D0 * Math.cos(el), ap.y + lp.y / ln * D0 * Math.cos(el), D0 * Math.sin(el)];
     const light = L.light * k * k * Math.sin(el0) / Math.sin(el);
-    const spotPos = [ap.x, ap.y + 0.35 * lay.Hw, lay.D * 0.55];
-    const sd = [ap.x - spotPos[0], ap.y - spotPos[1], ap.z - spotPos[2]], sl = Math.hypot(...sd);
+    // flaque de lumière douce qui glisse sur la carte en focus (05/10) : la variation de lumière qu'on voit vraiment ;
+    // elle suit la respiration, puis l'inclinaison (téléphone / souris)
+    const gx = Math.max(-1, Math.min(1, breath.x + ts.x)), gy = Math.max(-1, Math.min(1, breath.y + ts.y));
+    const tgt = [ap.x + gx * 0.42 * CARD.w, ap.y + gy * 0.4 * CARD.h, ap.z];
+    const spotPos = [tgt[0] - gx * 0.08 * lay.Hw, tgt[1] + 0.12 * lay.Hw, lay.D * 0.55];
+    const sd = [tgt[0] - spotPos[0], tgt[1] - spotPos[1], tgt[2] - spotPos[2]], sl = Math.hypot(...sd);
     const P = { ...L, lightPos, light, spotPos, spotDir: sd.map(x => x / sl), spotI: L.spot * k * k * (sl / 300) ** 2,
-      spotCosOut: Math.cos(Math.atan(0.62 * CARD.w / sl)), spotCosIn: Math.cos(Math.atan(0.4 * CARD.w / sl)) };
+      spotCosOut: Math.cos(Math.atan(L.poolR * CARD.w / sl)), spotCosIn: Math.cos(Math.atan(0.12 * CARD.w / sl)) };
 
     // la carte en focus s'incline (souris / téléphone), l'autre respire et est baissée
     const crx = -ts.y * L.cardTilt, cry = ts.x * L.cardTilt;

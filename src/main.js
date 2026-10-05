@@ -631,7 +631,8 @@ async function boot() {
   let gate = null;
   if (CFG.portal && S.phase === 'input') {
     gate = mountPortalPage();
-    await Promise.race([gate.ready.then(() => new Promise(r => setTimeout(r, 1200))), gate.go]);
+    // après la donne des cartes (≈ 3,2 s) : la préparation du champ (lourde) ne doit pas faire hoqueter la donne
+    await Promise.race([gate.ready.then(() => new Promise(r => setTimeout(r, 3600))), gate.go]);
   }
   // rechargement après la suite : directement la scène des cartes (le prénom à sa place, le paquet arrive)
   if (S.phase === 'scene') {

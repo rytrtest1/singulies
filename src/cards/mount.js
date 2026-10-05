@@ -130,7 +130,7 @@ export async function mountCards(opts) {
   // demande), souris sur ordinateur, doigt en repli ----
   let down = null, gyroLive = false;
   const ptr = { x: 0, y: 0 };
-  canvas.addEventListener('pointerdown', e => { if (!started) return; down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false, on: scene.hitAt(e.clientX, e.clientY) }; askOrientation(); });
+  canvas.addEventListener('pointerdown', e => { if (!started) return; down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false, on: scene.hitAt(e.clientX, e.clientY) }; });
   // premier geste : si l'écriture attend le clavier, on l'ouvre (iPhone)
   addEventListener('touchend', () => { if (started && scene.state().writing) focusAnswer(); }, { passive: true });
   // relire la réponse validée : molette
@@ -188,7 +188,9 @@ export async function mountCards(opts) {
       DO.requestPermission().then(s => { if (s === 'granted') addEventListener('deviceorientation', onOrient); }).catch(() => { orientAsked = false; });
     } else if (DO) { orientAsked = true; addEventListener('deviceorientation', onOrient); }   // Android : sans demande
   }
+  // iPhone : la demande n'est acceptée qu'au lâcher du doigt (touchend / click), jamais au pointerdown
   addEventListener('touchend', () => { if (started) askOrientation(); }, { passive: true });
+  addEventListener('click', () => { if (started) askOrientation(); });
   if (!(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')) askOrientation();
 
   // préparation invisible (textures, compilation des shaders) : une image dessinée puis effacée, avant start()
