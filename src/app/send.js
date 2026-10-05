@@ -3,6 +3,7 @@
 // Une demande qui n'a pas pu partir (pas de réseau) est gardée et renvoyée au retour du réseau / à la visite suivante.
 // ?envoi=0 : rien n'est envoyé (essais).
 import QUESTIONS from '../cards/questions.json';
+import { encodeDemande } from '../demande/lien.js';
 
 const EMAILJS = { service: 'service_8wqf489', template: 'template_cuh5tub', key: 'XreMhhJCN9l5J6V5J' };   // identifiants publics (aucun secret)
 const K_PENDING = 'singulies.pending';
@@ -27,6 +28,8 @@ export function params(d) {
     adresse_html: (d.address || []).map(esc).join('<br>'),
     adresse: (d.address || []).join('\n'),
     date: new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }),
+    // la demande, rendue par le site (feuille, carte, enveloppe) : tout est dans le lien, après « # »
+    lien: new URL('./demande.html', document.baseURI).href + '#' + encodeDemande(d),
   };
 }
 

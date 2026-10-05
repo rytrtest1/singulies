@@ -23,11 +23,11 @@ export const ORDER_LINKS = { poste: null, direct: null };
 const ORDERS = [{ id: 'poste', label: 'par la poste' }, { id: 'direct', label: 'en direct' }];
 
 const FOV = 26 * Math.PI / 180, TILT = 0.22, TF = Math.tan(FOV / 2);
-const LOGO_Y = SHEET.h / 2 - 21;                 // logo en tête de feuille (centre, mm)
-const LOGO_K = 0.4;                              // ≈ 15 mm (le logo des cartes fait 38,5)
-const COL_X = -SHEET.w / 2 + 34;                 // marge de la colonne (un bloc de poème centré sur la page)
+export const LOGO_Y = SHEET.h / 2 - 21;                 // logo en tête de feuille (centre, mm)
+export const LOGO_K = 0.4;                              // ≈ 15 mm (le logo des cartes fait 38,5)
+export const COL_X = -SHEET.w / 2 + 34;                 // marge de la colonne (un bloc de poème centré sur la page)
 const C_OVER = 15;                               // la carte recouvre le bas de la feuille (mm)
-const C_POSE = { x: 26, y: -SHEET.h / 2 + C_OVER - CARD.h / 2, rz: -0.07 };
+export const C_POSE = { x: 26, y: -SHEET.h / 2 + C_OVER - CARD.h / 2, rz: -0.07 };
 const O_GAP = 13;
 const O_X = 10;                                  // la commande descend en cascade depuis la carte, un peu à droite
 
@@ -41,17 +41,17 @@ const CAM_T = 2.4;
 // l'enveloppe (C5 noire, 229 × 162 mm, même papier) : poche ouverte en haut, rabat pointu. « par la poste » : la
 // carte se pose sur la feuille, la feuille pivote et se glisse dans la poche avec elle, le rabat se ferme,
 // l'enveloppe se retourne ; on tape l'adresse dessus, à la machine.
-const ENV = { w: 229, h: 162, r: 0.8, t: 0.12 };
+export const ENV = { w: 229, h: 162, r: 0.8, t: 0.12 };
 const ENV_BACK_H = 155, FLAP_H = 78, ENV_Z = -3;   // le dos monte presque jusqu'en haut (la poche) : rien ne se voit à l'intérieur une fois fermée
 const E = { fade: [0, 0.7], cam: [0.1, 2.1], rise: [0.4, 2.1], cIn: [1.3, 2.4], rot: [2.2, 3.4], slide: [3.3, 4.7],
   flap: [4.8, 6.0], flip: [6.1, 7.6], cam2: [6.0, 7.9], write: 7.9 };
-const ADDR = { x: 106, y: 96, lead: 6.35, lines: 5, chars: 34 };   // bloc d'adresse (mm, depuis le coin haut-gauche)
+export const ADDR = { x: 106, y: 96, lead: 6.35, lines: 5, chars: 34 };   // bloc d'adresse (mm, depuis le coin haut-gauche)
 const C_IN = { x: 14, y: -56, rz: -0.03, z: 0.3 };                  // la carte, posée sur la feuille pour entrer
 const ENVELOPE = new URLSearchParams(location.search).get('enveloppe') !== '0';   // ?enveloppe=0 : « bientôt » comme avant
 
 // encre de l'adresse (face de l'enveloppe, 10 px/mm), frappes comme celles des cartes, défauts tirés du rang
 const ENV_PX = 10;
-function addressInk(text, seed) {
+export function addressInk(text, seed) {
   const PX = ENV_PX, Wc = Math.round(ENV.w * PX), Hc = Math.round(ENV.h * PX);
   const cv = new OffscreenCanvas(Wc, Hc), cx = cv.getContext('2d');
   cx.fillStyle = '#000'; cx.fillRect(0, 0, Wc, Hc);

@@ -1,42 +1,78 @@
-<!-- Modèle EmailJS « nouvelle demande » — à coller dans l'éditeur du modèle (mode code / HTML).
+<!doctype html>
+<html lang="fr" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<!-- Modèle EmailJS « nouvelle demande » (v2) — à coller tel quel dans l'éditeur du modèle, en mode code.
      Sujet conseillé : {{prenom}} — {{mode}}
-     Les {{{…}}} (trois accolades) insèrent du HTML préparé par le site (src/app/send.js). -->
-<div style="margin:0;padding:0;background:#060606;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#060606;">
-<tr><td align="center" style="padding:48px 16px;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:460px;">
+     {{{…}}} (trois accolades) : HTML préparé par le site (src/app/send.js).
+     Mode sombre : le fond est une image (le vrai papier noir des cartes, hébergé sur le site) — Gmail n'inverse
+     jamais une image ; le texte est protégé de l'inversion de Gmail iPhone par les classes gmail-screen / gmail-diff. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>{{prenom}}</title>
+<style>
+  u + .body .gmail-screen { background: #000; mix-blend-mode: screen; }
+  u + .body .gmail-diff { background: #000; mix-blend-mode: difference; }
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
+  a { text-decoration: none; }
+</style>
+</head>
+<body class="body" style="margin:0;padding:0;background:#060606;" bgcolor="#060606">
+<u></u>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#060606"
+  background="https://rytrtest1.github.io/singulies/email/papier.jpg"
+  style="background-color:#060606;background-image:url('https://rytrtest1.github.io/singulies/email/papier.jpg');background-repeat:repeat;">
+<tr><td align="center" style="padding:40px 14px 48px;">
+<div class="gmail-screen"><div class="gmail-diff">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:440px;">
 
-    <!-- la feuille : le prénom en colonne -->
-    <tr><td style="background:#0d0d0d;border:1px solid #1c1c1c;padding:44px 0 40px 64px;">
-      <div style="font-family:'EB Garamond',Garamond,Georgia,'Times New Roman',serif;font-size:22px;line-height:30px;letter-spacing:2px;color:#cfcfcf;">
+    <!-- le sceau : le logo gaufré sur le papier -->
+    <tr><td align="center" style="padding:0 0 26px;">
+      <img src="https://rytrtest1.github.io/singulies/email/sceau.png" width="92" height="92" alt="" style="display:block;border:0;width:92px;height:92px;">
+    </td></tr>
+    <tr><td align="center" style="padding:0 0 34px;font-family:Georgia,'Times New Roman',serif;font-size:11px;letter-spacing:6px;color:#8c8c8c;">
+      UNE DEMANDE
+    </td></tr>
+
+    <!-- la feuille : l'acrostiche -->
+    <tr><td style="border:1px solid #1e1e1e;background-color:#0b0b0b;background-image:url('https://rytrtest1.github.io/singulies/email/papier.jpg');padding:46px 0 46px 34%;">
+      <div style="font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:31px;letter-spacing:3px;color:#d2d2d2;">
         {{{colonne_html}}}
       </div>
     </td></tr>
 
-    <tr><td style="height:28px;line-height:28px;font-size:0;">&nbsp;</td></tr>
+    <tr><td style="height:26px;line-height:26px;font-size:0;">&nbsp;</td></tr>
 
-    <!-- la carte : la question et la réponse (ou le thème) -->
-    <tr><td style="background:#101010;border:1px solid #1f1f1f;border-radius:6px;padding:26px 28px;font-family:'Courier Prime','Courier New',Courier,monospace;font-size:14px;line-height:24px;color:#bdbdbd;">
-      <div style="color:#6f6f6f;font-size:11px;letter-spacing:3px;padding-bottom:10px;">{{genre}}</div>
-      <div style="color:#d6d6d6;">{{question}}</div>
-      <div style="padding-top:12px;">{{reponse}}{{theme}}</div>
+    <!-- la carte : la question tirée, puis ce qu'on y a répondu (ou le thème) -->
+    <tr><td style="border:1px solid #232323;border-radius:7px;background-color:#0e0e0e;background-image:url('https://rytrtest1.github.io/singulies/email/papier.jpg');padding:28px 26px 26px;font-family:'Courier New',Courier,monospace;font-size:14px;line-height:23px;color:#c2c2c2;">
+      <div style="font-family:Georgia,serif;font-size:10px;letter-spacing:4px;color:#7a7a7a;padding-bottom:14px;">{{genre}}</div>
+      <div style="color:#e0e0e0;">{{question}}</div>
+      <div style="padding-top:14px;color:#b5b5b5;">{{reponse}}{{theme}}</div>
     </td></tr>
 
-    <tr><td style="height:28px;line-height:28px;font-size:0;">&nbsp;</td></tr>
+    <tr><td style="height:26px;line-height:26px;font-size:0;">&nbsp;</td></tr>
 
     <!-- l'enveloppe : l'adresse tapée -->
-    <tr><td style="background:#0b0b0b;border:1px solid #1c1c1c;padding:34px 28px 34px 46%;font-family:'Courier Prime','Courier New',Courier,monospace;font-size:14px;line-height:22px;color:#c4c4c4;">
+    <tr><td style="border:1px solid #1e1e1e;background-color:#0a0a0a;background-image:url('https://rytrtest1.github.io/singulies/email/papier.jpg');padding:58px 22px 40px 44%;font-family:'Courier New',Courier,monospace;font-size:13px;line-height:21px;color:#cfcfcf;">
       {{{adresse_html}}}
     </td></tr>
 
-    <tr><td style="padding:30px 0 0;text-align:center;font-family:'EB Garamond',Garamond,Georgia,serif;font-size:11px;letter-spacing:5px;color:#7a7a7a;">
+    <!-- la demande, en vrai (le site) -->
+    <tr><td align="center" style="padding:38px 0 0;">
+      <a href="{{lien}}" style="display:inline-block;border:1px solid #3a3a3a;padding:15px 26px;font-family:Georgia,'Times New Roman',serif;font-size:11px;letter-spacing:5px;color:#e6e6e6;text-decoration:none;">OUVRIR LA DEMANDE</a>
+    </td></tr>
+
+    <tr><td align="center" style="padding:34px 0 0;font-family:Georgia,serif;font-size:11px;letter-spacing:3px;color:#7a7a7a;">
       {{mode}} &nbsp;·&nbsp; {{date}}
     </td></tr>
-    <tr><td style="padding:18px 0 0;text-align:center;font-family:'Courier Prime','Courier New',Courier,monospace;font-size:11px;letter-spacing:6px;color:#4a4a4a;">
+    <tr><td align="center" style="padding:16px 0 0;font-family:'Courier New',Courier,monospace;font-size:10px;letter-spacing:6px;color:#4d4d4d;">
       SINGULIES
     </td></tr>
 
   </table>
+</div></div>
 </td></tr>
 </table>
-</div>
+</body>
+</html>
