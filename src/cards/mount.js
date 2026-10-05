@@ -86,13 +86,18 @@ export async function mountCards(opts) {
   function openSheet() {
     answer.blur();
     sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced,
-      on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); } } });
+      on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); },
+        // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)
+        write: d => { answer.value = d.text || ''; answer.setAttribute('aria-label', 'Adresse'); answer.setAttribute('enterkeyhint', 'enter'); focusAnswer(); },
+        stopWrite: () => answer.blur(),
+        address: d => { log('adresse : ' + d.address.join(' / ')); opts.onAddress?.(d); } } });
     scene.hideName(true);
     sheetAt = now(); api.sheet = sheet;
   }
   function closeSheet() {
     if (!sheet) return;
     sheet.free(); sheet = null; api.sheet = null; placeHits();
+    answer.setAttribute('aria-label', 'Réponse'); answer.setAttribute('enterkeyhint', 'done');
     scene.reopen(now());
     log('retour aux cartes');
   }
@@ -120,9 +125,14 @@ export async function mountCards(opts) {
         const sh = sheet;
         sh.frame(t, dt, W, H);
         if (sheet !== sh) { if (manualDt == null) requestAnimationFrame(frame); return; }     // retour : la scène des cartes reprend
-        for (const e of [giveEl, passEl]) e.classList.remove('on');
+        passEl.classList.remove('on');
         backEl.classList.toggle('on', t - sheetAt > 2.5 && !sheet.state().backing);
-        answer.style.width = '1px'; answer.style.height = '1px';
+        // l'enveloppe : le champ natif sur le bloc d'adresse ; le signe « donner » = poster
+        const ar = sheet.addrRect(), es = sheet.state().env;
+        if (ar) Object.assign(answer.style, { left: ar.left + 'px', top: ar.top + 'px', width: (ar.right - ar.left) + 'px', height: (ar.bottom - ar.top) + 'px' });
+        else { answer.style.width = '1px'; answer.style.height = '1px'; }
+        giveEl.classList.toggle('on', !!(es && es.canPost && ar));
+        if (ar) { giveEl.style.left = ((ar.left + ar.right) / 2 - 22) + 'px'; giveEl.style.top = Math.min(innerHeight - 54, ar.bottom + 6) + 'px'; }
         const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
         sheet.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
         placeHits();
@@ -165,10 +175,21 @@ export async function mountCards(opts) {
   }
 
   // ---- clavier : le champ natif reçoit la frappe, la carte affiche ----
-  answer.addEventListener('input', () => scene.setText(answer.value));
-  answer.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); answer.blur(); } });
-  answer.addEventListener('blur', () => scene.stopWriting());
-  answer.addEventListener('focus', () => { if (started && !scene.state().writing) scene.startWriting(); });
+  answer.addEventListener('input', () => {
+    if (sheet) { const c = sheet.setAddress(answer.value); if (c !== answer.value) setValue(c); return; }
+    scene.setText(answer.value);
+  });
+  answer.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    // adresse : Entrée = ligne suivante (5 lignes au plus) ; sinon Entrée = terminé
+    if (sheet && sheet.state().env && answer.value.split('\n').length < 5) return;
+    e.preventDefault(); answer.blur();
+  });
+  answer.addEventListener('blur', () => { if (sheet) sheet.stopWriting(); else scene.stopWriting(); });
+  answer.addEventListener('focus', () => {
+    if (sheet) { const es = sheet.state().env; if (es && es.write && !es.writing) sheet.startWriting(); return; }
+    if (started && !scene.state().writing) scene.startWriting();
+  });
   // relire en glissant verticalement sur la carte réponse (le champ est dessus)
   let ty = null, tvs = 0;
   answer.addEventListener('touchstart', e => { ty = e.touches[0].clientY; tvs = 0; }, { passive: true });
@@ -178,7 +199,7 @@ export async function mountCards(opts) {
     if (steps !== tvs) { scene.scrollAnswer(steps - tvs); tvs = steps; }
   }, { passive: true });
   answer.addEventListener('wheel', e => { e.preventDefault(); if (Math.abs(e.deltaY) > 4) scene.scrollAnswer(e.deltaY > 0 ? 1 : -1); }, { passive: false });
-  const onVV = () => scene.setKeyboard(vv ? Math.max(0, innerHeight - vv.height) : 0);
+  const onVV = () => { const k = vv ? Math.max(0, innerHeight - vv.height) : 0; scene.setKeyboard(k); sheet?.setKeyboard(k); };
   if (vv) { vv.addEventListener('resize', onVV); vv.addEventListener('scroll', onVV); }
 
   // ---- pointeur : toucher, glisser la carte (gauche : la suivante, droite : la précédente ; carte blanche : vers
@@ -188,7 +209,7 @@ export async function mountCards(opts) {
   const ptr = { x: 0, y: 0 };
   canvas.addEventListener('pointerdown', e => { if (!started) return; if (sheet) { sheet.press(e.clientX, e.clientY); down = { x: e.clientX, y: e.clientY, sheet: true, d: 0 }; return; } down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false, on: scene.hitAt(e.clientX, e.clientY) }; });
   // premier geste : si l'écriture attend le clavier, on l'ouvre (iPhone)
-  addEventListener('touchend', () => { if (started && scene.state().writing) focusAnswer(); }, { passive: true });
+  addEventListener('touchend', () => { if (started && (sheet ? sheet.state().env?.writing : scene.state().writing)) focusAnswer(); }, { passive: true });
   // relire la réponse validée : molette
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
@@ -198,6 +219,9 @@ export async function mountCards(opts) {
   }, { passive: false });
   addEventListener('keydown', e => {
     if (!sheet) return;
+    const es = sheet.state().env;
+    if (es && es.write && document.activeElement !== answer && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { sheet.startWriting(); return; }
+    if (es && document.activeElement === answer && e.key !== 'Escape') return;
     if (e.key === 'Escape') { sheet.back(now()); backEl.classList.remove('on'); }
     else if (e.key === 'ArrowDown' || e.key === 'PageDown') sheet.scroll(-1, now());
     else if (e.key === 'ArrowUp' || e.key === 'PageUp') sheet.scroll(1, now());
@@ -243,7 +267,10 @@ export async function mountCards(opts) {
     if (scene.state().mode !== 'free') { if (onExit) { answer.blur(); onExit(); } return; }
     if (scene.back(now())) { answer.value = scene.state().active?.text || ''; focusAnswer(); log('retour'); }
   });
-  giveEl.addEventListener('click', () => { if (scene.give(now())) { answer.blur(); log('donné'); } });
+  giveEl.addEventListener('click', () => {
+    if (sheet) { if (sheet.post(now())) { answer.blur(); log('postée'); } return; }
+    if (scene.give(now())) { answer.blur(); log('donné'); }
+  });
   passEl.addEventListener('click', () => { const r = scene.pass(now()); if (r) { answer.blur(); log('passé'); } });
 
 

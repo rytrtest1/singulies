@@ -153,6 +153,7 @@ uniform vec2 uPaperSize;     // la photo du papier, à l'échelle réelle (celle
 uniform float uRadius;       // rayon des coins (mm)
 uniform float uPaperTile;    // > 0 : grande feuille — la partie centrale de la photo, répétée en miroir (taille d'un motif, mm)
 uniform float uPaperLo;      // part des nuages du papier (1 = carte ; la feuille, plus lisse, moins)
+uniform vec4 uClip;          // rabat d'enveloppe : (actif, base y, hauteur, demi-largeur) — triangle, pointe en haut
 uniform float uLogoSq, uLogoRange, uNoLogo;
 uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
 uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
@@ -271,6 +272,14 @@ float occShadow(vec3 L, float dist) {
 }
 
 void main() {
+  if (uClip.x > 0.5) {
+    // triangle à pointe adoucie : bords droits, pointe arrondie (≈ 5 mm)
+    float yy = vMM.y - uClip.y, ax = abs(vMM.x), k = uClip.w / uClip.z;
+    float d = (ax + k * yy - uClip.w) / sqrt(1.0 + k * k);
+    float tipY = uClip.z - 5.0 * sqrt(1.0 + k * k) / k;
+    if (yy > tipY) d = max(d, length(vec2(ax, yy - tipY)) - 5.0);
+    if (d > 0.0) discard;
+  }
   vec3 Ng = normalize(vN), T = normalize(vT), Bv = normalize(vB);
   vec3 L = uLightPos - vWorld; float dist = length(L); L /= dist;
   vec3 V = normalize(uEye - vWorld);
@@ -472,6 +481,7 @@ export async function createCardRenderer(gl, base = './') {
     const m = meshes[card.lod || 'fine'], dm = m.dims;
     gl.uniform2f(u.uCard, dm.w, dm.h); gl.uniform1f(u.uRadius, dm.r);
     gl.uniform2f(u.uPaperSize, CARD.w, CARD.h);
+    gl.uniform4fv(u.uClip, card.clip || [0, 0, 1, 1]);
     gl.uniform1f(u.uPaperTile, card.paperTile || 0); gl.uniform1f(u.uPaperLo, card.paperLo ?? 1);
     gl.uniform1f(u.uLogoSq, CARD.logoSq); gl.uniform1f(u.uLogoRange, CARD.logoRange);
     gl.uniform2fv(u.uLogoOff, card.logoOff || [0, 0]);

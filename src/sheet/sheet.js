@@ -38,6 +38,60 @@ const CARD_MOVE = [0.35, 2.0];                   // la carte va se poser sur la 
 const FLY_AT = 1.05, FLY_GAP = 0.27, FLY_T = 1.35;
 const CAM_T = 2.4;
 
+// l'enveloppe (C5 noire, 229 × 162 mm, même papier) : poche ouverte en haut, rabat pointu. « par la poste » : la
+// carte se pose sur la feuille, la feuille pivote et se glisse dans la poche avec elle, le rabat se ferme,
+// l'enveloppe se retourne ; on tape l'adresse dessus, à la machine.
+const ENV = { w: 229, h: 162, r: 0.8, t: 0.12 };
+const ENV_BACK_H = 155, FLAP_H = 78, ENV_Z = -3;   // le dos monte presque jusqu'en haut (la poche) : rien ne se voit à l'intérieur une fois fermée
+const E = { fade: [0, 0.7], cam: [0.1, 2.1], rise: [0.4, 2.1], cIn: [1.3, 2.4], rot: [2.2, 3.4], slide: [3.3, 4.7],
+  flap: [4.8, 6.0], flip: [6.1, 7.6], cam2: [6.0, 7.9], write: 7.9 };
+const ADDR = { x: 106, y: 96, lead: 6.35, lines: 5, chars: 34 };   // bloc d'adresse (mm, depuis le coin haut-gauche)
+const C_IN = { x: 14, y: -56, rz: -0.03, z: 0.3 };                  // la carte, posée sur la feuille pour entrer
+const ENVELOPE = new URLSearchParams(location.search).get('enveloppe') !== '0';   // ?enveloppe=0 : « bientôt » comme avant
+
+// encre de l'adresse (face de l'enveloppe, 10 px/mm), frappes comme celles des cartes, défauts tirés du rang
+const ENV_PX = 10;
+function addressInk(text, seed) {
+  const PX = ENV_PX, Wc = Math.round(ENV.w * PX), Hc = Math.round(ENV.h * PX);
+  const cv = new OffscreenCanvas(Wc, Hc), cx = cv.getContext('2d');
+  cx.fillStyle = '#000'; cx.fillRect(0, 0, Wc, Hc);
+  const lines = text.split('\n');
+  const fontPx = TYPE.size * PX;
+  const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
+  const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;
+  cx.globalCompositeOperation = 'lighter';
+  let idx = 0;
+  lines.forEach((line, li) => {
+    const base = ADDR.y + li * ADDR.lead;
+    [...line].forEach((ch, ci) => {
+      const r = createRng((seed * 7919 + (idx + ci) * 104729) >>> 0);
+      const g = () => { let s = 0; for (let i = 0; i < 4; i++) s += r(); return (s - 2) / 0.58; };
+      if (ch === ' ') return;
+      const x = ADDR.x + ci * TYPE.pitch + g() * 0.06, y = base + g() * 0.09;
+      const press = Math.min(1, Math.max(0.5, 0.82 + g() * 0.14)), rot = g() * 0.5 * Math.PI / 180;
+      gx.setTransform(1, 0, 0, 1, 0, 0); gx.globalCompositeOperation = 'source-over';
+      gx.clearRect(0, 0, glyph.width, glyph.height);
+      gx.font = fontPx + 'px "SG Machine"'; gx.fillStyle = '#fff'; gx.strokeStyle = '#fff';
+      gx.translate(ox, oyB); gx.scale(TYPE.xScale, TYPE.yScale);
+      gx.fillText(ch, 0, 0);
+      gx.lineWidth = TYPE.weight * PX; gx.lineJoin = 'round'; gx.strokeText(ch, 0, 0);
+      gx.setTransform(1, 0, 0, 1, 0, 0);
+      if (r() < 0.4) {
+        const a = r() * Math.PI * 2, rr = glyph.width * 0.6;
+        const gr = gx.createLinearGradient(glyph.width / 2 - Math.cos(a) * rr, glyph.height / 2 - Math.sin(a) * rr, glyph.width / 2 + Math.cos(a) * rr, glyph.height / 2 + Math.sin(a) * rr);
+        gr.addColorStop(0, 'rgba(255,255,255,' + r.range(0.5, 0.9) + ')'); gr.addColorStop(1, 'rgba(255,255,255,1)');
+        gx.globalCompositeOperation = 'destination-in'; gx.fillStyle = gr; gx.fillRect(0, 0, glyph.width, glyph.height);
+      }
+      cx.save(); cx.translate(x * PX, y * PX); cx.rotate(rot); cx.globalAlpha = press;
+      cx.drawImage(glyph, -ox, -oyB); cx.restore();
+    });
+    idx += line.length + 1;
+  });
+  const last = lines[lines.length - 1] || '';
+  return { canvas: cv, cursor: { x: ADDR.x + last.length * TYPE.pitch - 0.35, y: ADDR.y + (lines.length - 1) * ADDR.lead } };
+}
+
+
 const clamp01 = u => Math.min(1, Math.max(0, u));
 const sstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
 const ease = u => u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
@@ -65,6 +119,12 @@ export function createSheetScene(gl, opts) {
   const emit = (k, d) => { try { on[k] && on[k](d); } catch (e) { console.error(e); } };
   const P_LOGO = (P => new URLSearchParams(location.search).get(P))('logoFeuille') !== '0';
   card.addShape('sheet', { ...SHEET, fine: P_LOGO ? [10, 10, 0.25, 0, LOGO_Y] : null });
+  card.addShape('env', { ...ENV, fine: null });
+  card.addShape('envBack', { ...ENV, h: ENV_BACK_H, fine: null });
+  card.addShape('flap', { ...ENV, h: FLAP_H, fine: P_LOGO ? [9, 9, 0.25, 0, FLAP_H / 2 - 24] : null });
+  const pv = () => ({ seed: rnd() * 100, paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0],
+    warp: [rnd.range(0.05, 0.15), rnd.range(-0.08, 0), 0], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35, noLogo: true });
+  const envV = { front: pv(), back: pv(), flap: { ...pv(), noLogo: !P_LOGO, logoOff: [0, FLAP_H / 2 - 24], logoScale: [0.34, 0.34], warp: [0, 0, 0] } };
 
   const sheetV = {
     seed: rnd() * 100, paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0],
@@ -106,6 +166,7 @@ export function createSheetScene(gl, opts) {
   const gb = from.glyphs.length ? from.glyphs : [{ base: 0 }];
   const nameBot = Math.min(...gb.map(g => g.base)), nameTop = Math.max(...gb.map(g => g.base)) + from.em * nameR.capHeight;
   const SY = nameBot - 14 - SHEET.h / 2;
+  const EC_Y = SY - 156;                                    // l'enveloppe : sa poche juste sous la feuille (pivotée)
   const flyers = [];
   { let k = 0; chars.forEach((ch, i) => { if (ch === ' ' || !starts[i]) return; flyers.push({ i, ch, at: FLY_AT + k * FLY_GAP + rnd.range(-0.05, 0.06), dur: FLY_T * rnd.range(0.92, 1.1), side: rnd.range(24, 34), lift: rnd.range(6, 12), g0: from.glow[i] ?? 0.9, k: 0.8 + 0.2 * rnd(), dec: 1.4 + 1.2 * rnd() }); k++; }); }
   const landAll = flyers.length ? Math.max(...flyers.map(f => f.at + f.dur)) : FLY_AT;
@@ -127,7 +188,7 @@ export function createSheetScene(gl, opts) {
   const oPose = o => ({ x: O_X + o.v.jx, y: SY + oTop - CARD.h / 2 - o.k * (CARD.h + O_GAP), rz: o.v.jr });
 
   // ---- caméra : départ = celle de la scène des cartes ; A = la feuille et sa carte ; B = la commande ----
-  const frames = { A: null, B: null, AN: null };
+  const frames = { A: null, B: null, AN: null, E: null, F: null };
   function frameFor(y0, y1, x0, x1, wantW, W, H) {
     const Hw = Math.max((y1 - y0) * 1.1, Math.max(wantW, (x1 - x0) * 1.08) * H / W);
     return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, D: Hw / (2 * TF), Hw };
@@ -139,6 +200,10 @@ export function createSheetScene(gl, opts) {
     frames.AN = frameFor(SY + cBot - 8, Math.max(SY + SHEET.h / 2 + 4, nameTop + 8), -SHEET.w / 2, SHEET.w / 2, SHEET.w * 1.1, W, H);
     const oBot = oTop - 2 * CARD.h - O_GAP;
     const x0 = O_X - CARD.w / 2 - 2, x1 = Math.max(O_X + CARD.w / 2, C ? C_POSE.x + CARD.w / 2 : 0) + 2;
+    // l'enveloppe sous la feuille ; puis l'adresse (téléphone : de près ; ordinateur : l'enveloppe entière)
+    frames.E = frameFor(EC_Y - ENV.h / 2 - 8, SY + SHEET.h / 2 + 8, -ENV.w / 2, ENV.w / 2, ENV.w * 1.1, W, H);
+    const ax = -ENV.w / 2 + ADDR.x + 12 * TYPE.pitch, ay = EC_Y + ENV.h / 2 - (ADDR.y + ADDR.lead * 1.5);
+    frames.F = W < H * 1.1 ? frameFor(ay - 30, ay + 30, ax - 47, ax + 47, 0, W, H) : frameFor(EC_Y - ENV.h / 2 - 12, EC_Y + ENV.h / 2 + 12, -ENV.w / 2 - 8, ENV.w / 2 + 8, 0, W, H);
     frames.B = frameFor(SY + oBot - 6, SY + (C ? C_POSE.y + CARD.h / 2 : -SHEET.h / 2 + 30) + 6, x0, x1, CARD.w / 0.78, W, H);
   }
 
@@ -150,7 +215,11 @@ export function createSheetScene(gl, opts) {
   const lamp = { ...from.lamp };
   const ap = { x: from.ap.x, y: from.ap.y, vx: 0, vy: 0 };
   const tilt = { x: 0, y: 0 }, ts = { x: from.ts?.x || 0, y: from.ts?.y || 0 };
-  let vp = null, eye = null, W = 1, H = 1, lastMsheet = T(0, 0, 0);
+  let vp = null, eye = null, W = 1, H = 1, lastMsheet = T(0, 0, 0), lastMenv = null;
+  // enveloppe : { t0, back: null | { t0, e0 }, postT, pu, writing, text, ink, cursor, sent }
+  let env = null, kbPx = 0, kb = 0;
+  const EC = { x: 0, y: EC_Y, z: ENV_Z };
+  const envClock = t => !env ? 0 : env.back ? Math.max(0, env.back.e0 - (t - env.back.t0) * 2.2 / SLOW) : (t - env.t0) / SLOW;
   const quads = {};
 
   // τ : temps de la scène ; au retour il redescend (le temps remonte)
@@ -193,6 +262,10 @@ export function createSheetScene(gl, opts) {
     layout(W, H);
     const tu = tau(t);
     if (backing && tu <= 0 && !backing.fired) { backing.fired = true; emit('back', {}); }
+    const ev = envClock(t);
+    if (env && env.back && ev <= 0) closeEnv();
+    const inEnv = !!env;
+    const writePhase = inEnv && !env.back && ev >= E.write && env.pu < 0.5;
 
     // passage automatique vers la commande : le curseur posé, et jamais moins de 3 s après le dernier geste
     if (!backing && orderAt < 0 && tu > CURSOR_AT + 3.2 && t - lastGesture > 3) showOrders(t);
@@ -200,44 +273,78 @@ export function createSheetScene(gl, opts) {
     // ressort de la vue (feuille ↔ commande)
     { const w2 = reduced ? 30 : 2.4; svV += (w2 * w2 * (sT - sv) - 2 * w2 * svV) * dt; sv += svV * dt; }
     const s = clamp01(sv);
+    const uCam = inEnv ? sstep(E.cam[0], E.cam[1], ev) : 0;
+    const sL = s * (1 - uCam);                                // ce que la vue « commande » retire à la feuille
+    kb += ((env && env.writing && kbPx > 40 ? 1 : 0) - kb) * Math.min(1, dt * 4);
+    if (env) env.pu += ((env.postT >= 0 ? 1 : 0) - env.pu) * Math.min(1, dt * 1.1);
 
-    // caméra : de celle des cartes à la feuille (τ), puis feuille ↔ commande (s)
+    // caméra : de celle des cartes à la feuille (τ), puis feuille ↔ commande (s), puis l'enveloppe
     const ci = reduced ? sstep(0, 0.6, tu) : ease(clamp01(tu / CAM_T));
     const fB = frames.B, an = sstep(landAll - 0.5, landAll + 1.9, tu);
     const fA = { cx: lerp(frames.AN.cx, frames.A.cx, an), cy: lerp(frames.AN.cy, frames.A.cy, an), D: Math.exp(lerp(Math.log(frames.AN.D), Math.log(frames.A.D), an)) };
     const es = ease(s);
-    const cxAB = lerp(fA.cx, fB.cx, es), cyAB = lerp(fA.cy, fB.cy, es), DAB = Math.exp(lerp(Math.log(fA.D), Math.log(fB.D), es));
-    camS.cx = lerp(0, cxAB, ci); camS.cy = lerp(from.cam.cy, cyAB, ci); camS.D = Math.exp(lerp(Math.log(from.cam.D), Math.log(DAB), ci));
+    let cxT = lerp(fA.cx, fB.cx, es), cyT = lerp(fA.cy, fB.cy, es), lD = lerp(Math.log(fA.D), Math.log(fB.D), es);
+    if (inEnv) {
+      const u1 = ease(uCam), u2 = ease(span(E.cam2, ev)), fE = frames.E, fF = frames.F;
+      // clavier ouvert : l'adresse au milieu de la partie visible
+      const vis = 1 - kbPx / H, fcy = fF.cy - (0.5 - (vis / 2 + 0.04)) * fF.Hw * kb;
+      cxT = lerp(lerp(cxT, fE.cx, u1), fF.cx, u2); cyT = lerp(lerp(cyT, fE.cy, u1), fcy, u2);
+      lD = lerp(lerp(lD, Math.log(fE.D), u1), Math.log(fF.D), u2);
+    }
+    camS.cx = lerp(0, cxT, ci); camS.cy = lerp(from.cam.cy, cyT, ci); camS.D = Math.exp(lerp(Math.log(from.cam.D), lD, ci));
     const cx = camS.cx, cy = camS.cy, D = camS.D, Hw = 2 * D * TF;
     eye = [cx, cy - D * Math.sin(TILT), D * Math.cos(TILT)];
     vp = M4.mul(M4.perspective(FOV, W / H, D * 0.25, D * 3), M4.lookAt(eye, [cx, cy, 0], [0, 1, 0]));
 
-    // lumière : la lampe suit ce qu'on regarde (la feuille, puis la commande)
+    // lumière : la lampe suit ce qu'on regarde (la feuille, la commande, l'enveloppe)
     stepLight(dt, t);
-    const fy = SY + lerp(0, oTop - CARD.h, s), fxT = lerp(0, O_X, s);
+    let fy = SY + lerp(0, oTop - CARD.h, s), fxT = lerp(0, O_X, s);
+    if (inEnv) { fy = lerp(fy, EC.y + 20, uCam); fxT = lerp(fxT, 0, uCam); }
     { const w2 = 1.8; for (const [k, v, tg] of [['x', 'vx', fxT], ['y', 'vy', fy]]) { ap[v] += (w2 * w2 * (tg - ap[k]) - 2 * w2 * ap[v]) * dt; ap[k] += ap[v] * dt; } }
-    const k = Hw / 235;
-    const R = L.lightR0 * Hw, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R), el = lamp.e;
+    // grande surface (l'enveloppe) : lampe plus loin (même force reçue), sinon le côté opposé tombe dans le noir
+    const kf = inEnv ? lerp(1, 2.2, uCam) : 1, k = Hw / 235 * kf;
+    const R = L.lightR0 * Hw * kf, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R), el = lamp.e;
     const lightPos = [ap.x + Math.cos(lamp.a) * D0 * Math.cos(el), ap.y + Math.sin(lamp.a) * D0 * Math.cos(el), D0 * Math.sin(el)];
     const light = L.light * k * k * Math.sin(el0) / Math.sin(el);
     const spotPos = [ap.x, ap.y + 0.35 * Hw, D * 0.55];
     const sd = [ap.x - spotPos[0], ap.y - spotPos[1], -spotPos[2]], sl = Math.hypot(...sd);
-    const P = { ...L, lightPos, light, spotPos, spotDir: sd.map(x => x / sl), spotI: L.spot * k * k * (sl / 300) ** 2,
+    const P = { ...L, lightPos, light, spotPos, spotDir: sd.map(x => x / sl), spotI: 0,   // pas de projecteur ici : sur une grande surface son cercle se voit (flaque, bannie)
       spotCosOut: Math.cos(Math.atan(0.62 * CARD.w / sl)), spotCosIn: Math.cos(Math.atan(0.4 * CARD.w / sl)) };
 
     gl.enable(gl.DEPTH_TEST);
     const live = reduced ? 0 : sstep(1.2, 3.5, tu);
-    // ---- la feuille : arrive du fond, un peu d'en dessous ; en focus tant qu'on la regarde ----
+    // ---- l'enveloppe : monte du fond sous la feuille ; rabat ; retournement ; postée = elle descend et se fond ----
+    let Menv = null;
+    const uI = inEnv ? ease(span(E.rise, ev)) : 0, uFlap = inEnv ? ease(span(E.flap, ev)) : 0, uFlip = inEnv ? ease(span(E.flip, ev)) : 0;
+    if (inEnv) {
+      const wr = sstep(E.write, E.write + 1.5, ev) * (1 - kb);   // en écrivant : l'enveloppe s'incline et respire
+      const G = M4.model(-ts.y * L.cardTilt * 0.5 * wr, ts.x * L.cardTilt * 0.5 * wr, 0);
+      const pu = ease(clamp01(env.pu));
+      Menv = M4.mul(T(EC.x, EC.y - 110 * (1 - uI) - 40 * pu, EC.z - 50 * (1 - uI) + 70 * Math.sin(Math.PI * uFlip) * (reduced ? 0 : 1)),
+        M4.mul(G, M4.model(0, Math.PI * uFlip, 0)));
+      lastMenv = Menv;
+    }
+    const envFade = inEnv ? uI * (1 - sstep(0.3, 1, env.pu)) : 0;
+    // ---- la feuille : arrive du fond, un peu d'en dessous ; en focus tant qu'on la regarde ; « par la poste » :
+    // elle pivote (paysage), descend sous le bord de la poche et s'y glisse ----
     const sIn = reduced ? sstep(SHEET_IN[0], SHEET_IN[0] + 0.8, tu) : ease(span(SHEET_IN, tu));
-    const Gs = group(0, SY, 0.7, 1 - s, 0.45 * live, t);
-    const Msheet = M4.mul(T(0, -70 * (1 - sIn), -60 * (1 - sIn)), M4.mul(Gs, T(0, SY, 0)));
+    const Gs = group(0, SY, 0.7, 1 - sL, 0.45 * live, t);
+    let Msheet = M4.mul(T(0, -70 * (1 - sIn), -60 * (1 - sIn)), M4.mul(Gs, T(0, SY, 0)));
+    const uR = inEnv ? ease(span(E.rot, ev)) : 0, uS = inEnv ? ease(span(E.slide, ev)) : 0;
+    if (inEnv && ev >= E.slide[1]) Msheet = M4.mul(Menv, M4.mul(T(0, -2, 0.6), M4.model(0, 0, Math.PI / 2)));
+    else if (uR > 0) {
+      const Rm = lerpM(rotOf(Gs), T(0, 0, 0), uR);
+      Msheet = M4.mul(M4.mul(T(0, lerp(SY, EC.y - 2, uS), lerp(0, EC.z + 0.6, uR)), Rm), M4.model(0, 0, Math.PI / 2 * uR));
+    }
     lastMsheet = Msheet;
-    const dimS = 1 - L.unfocusDim * s;
+    const dimS = 1 - L.unfocusDim * sL;
+    const hideInside = inEnv && ev > E.flip[0] + 0.9;          // retournée : ce qui est dans la poche est caché
     // ---- la carte ----
-    let Mc = null, cFade = 1;
+    let Mc = null;
+    const uC = inEnv ? ease(span(E.cIn, ev)) : 0;
     if (C) {
-      const target = M4.mul(Msheet, T(C_POSE.x + C.v.jx, C_POSE.y + C.v.jy * 2, 2.2));
-      const target2 = M4.mul(target, M4.model(0, 0, C_POSE.rz));
+      const rel = { x: lerp(C_POSE.x + C.v.jx, C_IN.x, uC), y: lerp(C_POSE.y + C.v.jy * 2, C_IN.y, uC), z: lerp(2.2, C_IN.z, uC) + 9 * Math.sin(Math.PI * uC), rz: lerp(C_POSE.rz, C_IN.rz, uC) };
+      const target2 = M4.mul(Msheet, M4.model(0, 0, rel.rz, rel.x, rel.y, rel.z));
       const u = reduced ? sstep(CARD_MOVE[0], CARD_MOVE[0] + 0.5, tu) : span(CARD_MOVE, tu);
       const e = ease(u), sw = Math.sin(Math.PI * sstep(0.2, 0.8, u));
       // retournement : demi-tour (réponse) dans la partie haute du trajet ; toucher = un demi-tour de plus
@@ -249,25 +356,32 @@ export function createSheetScene(gl, opts) {
       const unflip = M4.mul(C.M0, M4.model(0, -Math.PI, 0));
       Mc = M4.mul(blendM(unflip, target2, e, [0, 0, lift]), M4.model(-0.12 * sw, phi, 0));
       // ombre de la carte sur la feuille
-      C.occ = u > 0.9 && C.flipT0 < 0 ? (p => ({ x: p[0], y: p[1], z: p[2], rz: C_POSE.rz }))(posOf(target2)) : null;
+      C.occ = u > 0.9 && C.flipT0 < 0 && !inEnv ? (p => ({ x: p[0], y: p[1], z: p[2], rz: C_POSE.rz }))(posOf(target2)) : null;
     }
-    // ---- la feuille, puis la carte (dessus) ----
-    if (sIn > 0.004) card.draw(vp, eye, P, { model: Msheet, lod: 'sheet', fade: sIn, shade: dimS, occ: C?.occ || null, ...sheetV,
-      ...(cursorOn(tu) > 0 ? { cursor: [cursorMM.x, cursorMM.y, TYPE.size * 0.92, cursorOn(tu) * (0.55 + 0.4 * Math.sin(t * 2.4))], cursorFace: 0 } : {}) });
+    // ---- dessin : enveloppe (fond), feuille, carte, lettres, puis le dos de l'enveloppe et le rabat (devant) ----
+    if (Menv && envFade > 0.004) {
+      const cur = writePhase && (env.writing || !env.text) ? { cursor: [ENV.w / 2 - env.cursor.x, ENV.h / 2 - env.cursor.y - 0.8, TYPE.size * 0.92, (0.55 + 0.4 * Math.sin(t * 2.4)) * sstep(E.write, E.write + 0.8, ev)], cursorFace: 1 } : {};
+      card.draw(vp, eye, P, { model: Menv, lod: 'env', ink: env.ink, fade: envFade, shade: 1, ...envV.front, ...cur });
+      quads.env = screenQuad(Menv, ENV.w, ENV.h);
+    } else quads.env = null;
+    if (sIn > 0.004 && !hideInside) card.draw(vp, eye, P, { model: Msheet, lod: 'sheet', fade: sIn, shade: dimS, occ: C?.occ || null, ...sheetV,
+      warp: sheetV.warp.map(x => x * (1 - uR)),
+      ...(cursorOn(tu) > 0 && !inEnv ? { cursor: [cursorMM.x, cursorMM.y, TYPE.size * 0.92, cursorOn(tu) * (0.55 + 0.4 * Math.sin(t * 2.4))], cursorFace: 0 } : {}) });
     if (C && from.answer && tu < MERGE[1] + 0.05) {
       // la carte réponse se glisse exactement sous la question et s'y fond
       const u = span(MERGE, tu), under = M4.mul(Mc, M4.model(0, 0, 0, 0, 0, 0.9));
       card.draw(vp, eye, P, { model: lerpM(C.A0, under, ease(u)), lod: 'fine', ink: null, fade: 1 - sstep(0.15, 1, u), shade: 1, ...C.av });
     }
-    if (C) {
-      card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink: C.front, inkBack: C.back, fade: cFade, shade: dimS, ...C.v });
-      quads.C = screenQuad(Mc);
-    }
+    if (C && !hideInside) {
+      card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink: C.front, inkBack: C.back, fade: 1, shade: dimS, ...C.v, ...(uC > 0 ? { warp: C.v.warp.map(x => x * (1 - uC)) } : {}) });
+      quads.C = inEnv ? null : screenQuad(Mc);
+    } else quads.C = null;
     // ---- la commande ----
+    const envAway = inEnv ? 1 - sstep(E.fade[0], E.fade[1], ev) : 1;
     for (const o of orders) {
       const appear = orderAt < 0 ? 0 : reduced ? sstep(0, 0.6, t - orderAt - o.k * 0.2) : ease(clamp01((t - orderAt - 0.35 - o.k * 0.3) / 1.3));
       const away = backing ? 1 - sstep(0, 0.5, t - backing.t0) : 1;
-      let fade = appear * away;
+      let fade = appear * away * envAway;
       if (chosen && chosen.o !== o) fade *= 1 - sstep(0, 0.6, t - chosen.t0) * 0.75;
       o.a = fade;
       if (fade < 0.004) { quads[o.id] = null; continue; }
@@ -286,22 +400,23 @@ export function createSheetScene(gl, opts) {
       const Go = group(p.x, p.y, o.bph, s, 1, t);
       const M = M4.mul(M4.mul(T(0, -24 * (1 - appear), -30 * (1 - appear)), Go), M4.model(0, ry, p.rz, p.x, p.y, 1 + dz - 0.5 * o.press));
       card.draw(vp, eye, P, { model: M, lod: 'fine', ink: o.ink, inkBack: o.anim ? soonInk : null, fade, shade: 1 - L.unfocusDim * (1 - s), ...o.v });
-      quads[o.id] = appear > 0.6 && !backing ? screenQuad(M) : null;
+      quads[o.id] = appear > 0.6 && !backing && !inEnv ? screenQuad(M) : null;
     }
 
     // ---- les lettres : de leur place en haut jusqu'à leur ligne sur la feuille ----
     const list = [];
+    const zL = lerp(1.0, 0.18, uR);                           // dans la poche : presque à plat sur la feuille
     for (const f of flyers) {
+      if (hideInside) break;
       const u = reduced ? (tu > f.at ? 1 : 0) : clamp01((tu - f.at) / f.dur);
-      const end = M4.mul(Msheet, M4.mul(T(COL_X, baseOf(f.i), SHEET.t / 2 + 0.3), S(emT)));
+      const end = M4.mul(Msheet, M4.mul(T(COL_X, baseOf(f.i), SHEET.t / 2 + zL), S(emT)));
       const start = M4.mul(starts[f.i], S(from.em));
-      let M, alpha = 1;
+      let M;
       if (u <= 0) M = start;
       else if (u >= 1) M = end;
       else {
-        // départ doux, arrivée franche ; légère courbe, la lettre se soulève un peu en route
-        // elle descend à droite de la colonne, puis glisse dans sa ligne par la droite (comme le chariot d'une
-        // machine) : elle ne passe jamais sur les lettres déjà posées
+        // départ doux, arrivée franche ; elle descend à droite de la colonne, puis glisse dans sa ligne par la droite
+        // (comme le chariot d'une machine) : elle ne passe jamais sur les lettres déjà posées
         const e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2.2) / 2;
         const a = posOf(start), b = posOf(end);
         const c = [b[0] + f.side, b[1], (a[2] + b[2]) / 2];
@@ -309,7 +424,6 @@ export function createSheetScene(gl, opts) {
         const L0 = lerp(a[0], b[0], e), L1 = lerp(a[1], b[1], e), L2 = lerp(a[2], b[2], e);
         M = blendM(start, end, e, [q[0] - L0, q[1] - L1, q[2] - L2 + f.lift * Math.sin(Math.PI * e)]);
       }
-      if (reduced && u > 0 && u < 1) alpha = 1;
       // clarté : celle qu'elle avait (allumée), qui se calme en route ; à l'arrivée elle s'allume un peu (absorbée),
       // puis la lumière parcourt la colonne de haut en bas
       const land = tu - (f.at + f.dur);
@@ -318,18 +432,32 @@ export function createSheetScene(gl, opts) {
       const rk = tu - (READ_AT + flyers.indexOf(f) * READ_GAP);
       if (rk > 0) g += 0.5 * sstep(0, 0.5, rk) * Math.exp(-Math.max(0, rk - 0.5) / 1.6);
       // vue « commande » : la colonne passe au second plan
-      list.push({ i: f.i, model: M, glow: g * (1 - 0.8 * s), alpha: alpha * (1 - 0.75 * s) });
+      list.push({ i: f.i, model: M, glow: g * (1 - 0.8 * sL), alpha: 1 - 0.75 * sL });
     }
-    gl.disable(gl.DEPTH_TEST);
+    // avec le test de profondeur : le dos de l'enveloppe, dessiné ensuite, cache les lettres entrées dans la poche
     nameR.drawLetters(vp, eye, P, L, list, t);
     gl.enable(gl.DEPTH_TEST);
+    if (Menv && envFade > 0.004) {
+      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', fade: envFade, shade: 1, ...envV.back });
+      const th = Math.PI * uFlap, hz = 1.9 * uFlap;
+      const Mf = M4.mul(Menv, M4.mul(M4.mul(T(0, ENV.h / 2, hz), M4.model(th, 0, 0)), T(0, FLAP_H / 2, 0)));
+      card.draw(vp, eye, P, { model: Mf, lod: 'flap', fade: envFade, shade: 1, ...envV.flap, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2] });
+    }
+    // postée : l'événement, une fois partie
+    if (env && env.postT >= 0 && !env.sent && t - env.postT > 1.7) {
+      env.sent = true;
+      const detail = { name: from.name, kind: from.kind, id: from.id, text: from.text, mode: 'poste', address: env.text.split('\n').filter(l => l.trim()) };
+      try { if (typeof window.onAddress === 'function') window.onAddress(detail); } catch (e) { console.error(e); }
+      window.dispatchEvent(new CustomEvent('singulies:address', { detail }));
+      emit('address', detail);
+    }
   }
   function cursorOn(tu) { return first < 0 ? 0 : sstep(CURSOR_AT, CURSOR_AT + 0.9, tu); }
 
-  function screenQuad(M) {
+  function screenQuad(M, w = CARD.w, h = CARD.h, x0 = 0, y0 = 0) {
     const mvp = M4.mul(vp, M);
     return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => {
-      const x = sx * CARD.w / 2, y = sy * CARD.h / 2;
+      const x = x0 + sx * w / 2, y = y0 + sy * h / 2;
       const cx = mvp[0] * x + mvp[4] * y + mvp[12], cy = mvp[1] * x + mvp[5] * y + mvp[13], cw = mvp[3] * x + mvp[7] * y + mvp[15];
       return [(cx / cw * 0.5 + 0.5) * W, (0.5 - cy / cw * 0.5) * H];
     });
@@ -356,6 +484,10 @@ export function createSheetScene(gl, opts) {
   function tap(x, y, t) {
     gesture(t);
     if (backing) return { type: null };
+    if (env) {
+      if (!env.back && env.pu < 0.5 && envClock(t) >= E.write && inside(quads.env, x, y)) return startWriting() ? { type: 'write' } : { type: null };
+      return { type: null };
+    }
     const h = hit(x, y);
     if (h === 'card') {
       if (tau(t) < CARD_MOVE[1] || C.flipT0 >= 0) return { type: null };
@@ -371,6 +503,7 @@ export function createSheetScene(gl, opts) {
       emit('order', detail);
       const url = ORDER_LINKS[h.id];
       if (url) { setTimeout(() => { location.href = url; }, 400); return { type: 'order' }; }
+      if (h.id === 'poste' && ENVELOPE) { openEnv(t); return { type: 'order' }; }
       if (!soonInk) soonInk = card.makeInk(makeInkMap('bientôt', 77).canvas);
       h.anim = { t0: t };
       setTimeout(() => { if (chosen && chosen.o === h) chosen = null; }, 4800);
@@ -387,21 +520,71 @@ export function createSheetScene(gl, opts) {
     if (d < 0) showOrders(t); else sT = 0;
   }
   function back(t) {
+    if (env) {
+      gesture(t);
+      if (env.postT >= 0) { env.postT = -1; env.sent = false; return true; }     // postée : elle revient
+      if (env.back) return false;
+      env.writing = false; emit('stopWrite', {});
+      env.back = { t0: t, e0: Math.min(envClock(t), E.write) };
+      return true;
+    }
     if (backing) return false;
     gesture(t);
     backing = { t0: t, tau0: Math.min(tau(t), INTRO_END), fired: false };
     if (C && C.flips % 2) { C.flipTo = C.flips + 1; C.flipT0 = t; C.flipA = 0; }   // la carte revient côté question
     return true;
   }
+  // ---- l'enveloppe ----
+  function openEnv(t) {
+    env = { t0: t, back: null, postT: -1, pu: 0, writing: false, text: savedAddr, ink: null, cursor: { x: ADDR.x, y: ADDR.y }, sent: false };
+    renderAddress();
+  }
+  let savedAddr = '';                                        // l'adresse reste si l'on revient en arrière
+  function closeEnv() {
+    if (env?.ink) card.freeInk(env.ink);
+    if (env) savedAddr = env.text;
+    env = null; chosen = null; kb = 0;
+  }
+  // adresse tapée à la machine : 5 lignes au plus, 34 caractères par ligne, casse et accents gardés
+  function cleanAddress(v) {
+    return v.replace(/\r/g, '').replace(/[’‘`´]/g, "'").replace(/\t/g, ' ').split('\n').slice(0, ADDR.lines).map(l => l.slice(0, ADDR.chars)).join('\n');
+  }
+  function renderAddress() {
+    const m = addressInk(env.text, 991);
+    if (env.ink) card.freeInk(env.ink);
+    env.ink = card.makeInk(m.canvas); env.cursor = m.cursor;
+  }
+  function setAddress(v) {
+    if (!env || !env.writing) return env ? env.text : v;
+    const c = cleanAddress(v);
+    if (c !== env.text) { env.text = c; renderAddress(); }
+    return c;
+  }
+  function startWriting() { if (!env || env.back || env.pu > 0.5) return false; env.writing = true; emit('write', { text: env.text }); return true; }
+  function stopWriting() { if (env) env.writing = false; }
+  function post(t) {
+    if (!env || env.writing || env.postT >= 0 || env.text.split('\n').filter(l => l.trim()).length < 2) return false;
+    gesture(t); env.postT = t; env.sent = false; return true;
+  }
+  function setKeyboard(px) { kbPx = px; }
+  // rectangle écran du bloc d'adresse (face lue : mm depuis le coin haut-gauche)
+  function addrRect() {
+    if (!env || !lastMenv || envClock(lastT) < E.write) return null;
+    const w = ADDR.chars * TYPE.pitch + 6, h = (ADDR.lines - 1) * ADDR.lead + 12;
+    const cxm = ADDR.x - 3 + w / 2, cym = ADDR.y - 7 + h / 2;
+    return rectOf(screenQuad(M4.mul(lastMenv, M4.model(0, Math.PI, 0)), w, h, cxm - ENV.w / 2, ENV.h / 2 - cym));
+  }
   function setTilt(x, y) { tilt.x = Math.max(-1, Math.min(1, x)); tilt.y = Math.max(-1, Math.min(1, y)); }
   function free() {
     for (const o of orders) card.freeInk(o.ink);
+    if (env?.ink) card.freeInk(env.ink);
     if (C) { if (C.ownBack) card.freeInk(C.back); if (C.ownFront) card.freeInk(C.front); }
     if (soonInk) card.freeInk(soonInk);
   }
   // rectangle écran de ce que le pointeur incline (la feuille ou la commande) : souris dessus = droit
   function focusRect() {
     if (!vp) return null;
+    if (env && quads.env) return rectOf(quads.env);
     if (sv > 0.5) { const qs = orders.map(o => quads[o.id]).filter(Boolean); if (qs.length) return rectOf(qs.flat()); }
     const mvp = M4.mul(vp, lastMsheet);
     const c = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => {
@@ -413,7 +596,8 @@ export function createSheetScene(gl, opts) {
   }
   return {
     frame, tap, press, release, scroll, back, setTilt, free, focusRect, gesture,
-    state: () => ({ tau: tau(lastT), view: sv > 0.5 ? 'commande' : 'feuille', orders: orderAt >= 0, backing: !!backing, cursor: cursorOn(tau(lastT)) > 0.5, chosen: chosen ? chosen.id : null }),
+    startWriting, stopWriting, setAddress, post, setKeyboard, addrRect,
+    state: () => ({ env: env ? { writing: env.writing, text: env.text, canPost: !env.writing && env.pu < 0.5 && !env.back && envClock(lastT) >= E.write && env.text.split('\n').filter(l => l.trim()).length >= 2, posted: env.postT >= 0, back: !!env.back, write: !env.back && envClock(lastT) >= E.write } : null, tau: tau(lastT), view: sv > 0.5 ? 'commande' : 'feuille', orders: orderAt >= 0, backing: !!backing, cursor: cursorOn(tau(lastT)) > 0.5, chosen: chosen ? chosen.id : null }),
     // tests / captures
     showOrders: () => showOrders(lastT), choose: id => { const o = orders.find(x => x.id === id); const q = quads[id]; if (o && q) { const r = rectOf(q); return tap((r.left + r.right) / 2, (r.top + r.bottom) / 2, lastT); } return null; },
     timing: { landAll, CURSOR_AT, INTRO_END },
