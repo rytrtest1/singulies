@@ -25,6 +25,12 @@ const CSS = `
 .sc-hit { position: fixed; margin: 0; padding: 0; border: 0; background: transparent; color: transparent; font-size: 1px;
   pointer-events: none; z-index: 13; outline: none; }
 .sc-hit:focus-visible { outline: 1px solid rgba(255,255,255,.35); outline-offset: 4px; }
+/* au moment de confier ses mots (commande, enveloppe) : une ligne discrète, vers « ce que tu me confies » */
+.sc-note { position: fixed; left: 16px; right: 16px; bottom: max(14px, env(safe-area-inset-bottom)); text-align: center; z-index: 13;
+  font: 500 12px/1.5 'SG Garamond', Georgia, serif; letter-spacing: .08em; color: #fff; opacity: 0; transition: opacity 1.2s;
+  pointer-events: none; text-decoration: none; }
+.sc-note.on { opacity: .4; pointer-events: auto; }
+.sc-note.on:hover { opacity: .6; }
 .sc-veil { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 1.4s; pointer-events: none; z-index: 14; }
 `;
 
@@ -49,6 +55,8 @@ export async function mountCards(opts) {
   const backEl = el('div', 'sc-sign sc-back', '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M14.5 6 L8.5 12 L14.5 18" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
   backEl.setAttribute('role', 'button'); backEl.setAttribute('aria-label', 'Retour');
   const veil = el('div', 'sc-veil');
+  const note = el('a', 'sc-note', 'ce que tu me confies ne sert qu’à ton poème');
+  Object.assign(note, { href: './confidentialite.html', target: '_blank' });   // nouvel onglet : l'enveloppe reste où elle en est
 
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: !!opts.shot });
   if (!gl) return null;
@@ -88,7 +96,12 @@ export async function mountCards(opts) {
     sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced,
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); },
         // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)
-        write: d => { answer.value = d.text || ''; answer.setAttribute('aria-label', 'Adresse'); answer.setAttribute('enterkeyhint', 'enter'); focusAnswer(); },
+        write: d => {
+          answer.value = d.text || ''; answer.setAttribute('aria-label', 'Adresse'); answer.setAttribute('enterkeyhint', 'enter');
+          // l'adresse : le clavier du téléphone peut la proposer (fiche contact), majuscules aux mots
+          answer.setAttribute('autocomplete', 'shipping street-address'); answer.setAttribute('autocapitalize', 'words');
+          focusAnswer();
+        },
         stopWrite: () => answer.blur(),
         address: d => { log('adresse : ' + d.address.join(' / ')); opts.onAddress?.(d); } } });
     scene.hideName(true);
@@ -96,8 +109,9 @@ export async function mountCards(opts) {
   }
   function closeSheet() {
     if (!sheet) return;
-    sheet.free(); sheet = null; api.sheet = null; placeHits();
+    sheet.free(); sheet = null; api.sheet = null; placeHits(); note.classList.remove('on');
     answer.setAttribute('aria-label', 'Réponse'); answer.setAttribute('enterkeyhint', 'done');
+    answer.setAttribute('autocomplete', 'off'); answer.setAttribute('autocapitalize', 'none');
     scene.reopen(now());
     log('retour aux cartes');
   }
@@ -132,6 +146,8 @@ export async function mountCards(opts) {
         if (ar) Object.assign(answer.style, { left: ar.left + 'px', top: ar.top + 'px', width: (ar.right - ar.left) + 'px', height: (ar.bottom - ar.top) + 'px' });
         else { answer.style.width = '1px'; answer.style.height = '1px'; }
         giveEl.classList.toggle('on', !!(es && es.canPost && ar));
+        const ss = sheet.state();
+        note.classList.toggle('on', !ss.backing && (es ? !es.posted && !es.back && !(es.writing && vv && innerHeight - vv.height > 40) : ss.view === 'commande'));
         if (ar) { giveEl.style.left = ((ar.left + ar.right) / 2 - 22) + 'px'; giveEl.style.top = Math.min(innerHeight - 54, ar.bottom + 6) + 'px'; }
         const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
         sheet.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);

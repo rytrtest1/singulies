@@ -271,7 +271,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); }
 }, true);
 // Entrée quand le champ a perdu le focus (prénom confirmé, clavier fermé) : 2e Entrée = colonne
-window.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.defaultPrevented && !wheel && !S.portal && S.confirmed && document.activeElement !== input) { e.preventDefault(); submitName(); } });
+window.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.defaultPrevented && !wheel && !S.portal && S.phase === 'input' && S.confirmed && document.activeElement !== input && document.activeElement?.tagName !== 'TEXTAREA') { e.preventDefault(); submitName(); } });
 // Échap fonctionne aussi quand le champ n'a plus le focus (écran noir)
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !S.portal && document.activeElement !== input) goBack(); });
 
