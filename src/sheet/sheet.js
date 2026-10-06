@@ -73,6 +73,9 @@ export const fieldsOut = f => ({
 });
 const C_IN = { x: 14, y: -56, rz: -0.03, z: 0.3 };                  // la carte, posée sur la feuille pour entrer
 const ENVELOPE = new URLSearchParams(location.search).get('enveloppe') !== '0';   // ?enveloppe=0 : « bientôt » comme avant
+// ?adresse=0 (essai avec des amis, 06/10) : pas de choix ni d'adresse — après l'acrostiche, l'enveloppe se fait
+// et part seule, la demande est envoyée (sans adresse ni contact), puis l'écran principal
+export const NOADDR = new URLSearchParams(location.search).get('adresse') === '0';
 
 // frappe à la machine (mêmes défauts que les cartes, tirés du rang de chaque caractère) : lignes à partir de (x0, y0) mm
 function typeLines(cx, PX, lines, x0, y0, lead, seed, alpha = 1) {
@@ -351,7 +354,9 @@ export function createSheetScene(gl, opts) {
     const ev = envClock(t);
     if (env && env.back && ev <= 0) closeEnv();
     const inEnv = !!env;
-    const writePhase = inEnv && !env.back && ev >= E.write && env.pu < 0.5;
+    const writePhase = inEnv && !env.back && ev >= E.write && env.pu < 0.5 && !NOADDR;
+    // essai sans adresse : retournée, l'enveloppe part d'elle-même
+    if (NOADDR && inEnv && !env.back && env.postT < 0 && ev >= E.write + 0.5) { env.postT = t; env.sent = false; }
 
     // passage automatique vers la commande : le curseur posé, et jamais moins de 3 s après le dernier geste
     if (!backing && orderAt < 0 && tu > CURSOR_AT + 1.8 && t - lastGesture > 3) showOrders(t);
@@ -574,7 +579,7 @@ export function createSheetScene(gl, opts) {
     if (env && env.postT >= 0 && !env.sent && t - env.postT > 1.7) {
       env.sent = true;
       // la page demande ensuite l'email ou le numéro (sur le noir), puis envoie (singulies:address)
-      const detail = { name: from.name, kind: from.kind, id: from.id, text: from.text, mode: 'poste', ...fieldsOut(env.f), fields: { ...env.f } };
+      const detail = { name: from.name, kind: from.kind, id: from.id, text: from.text, mode: 'poste', ...fieldsOut(env.f), fields: { ...env.f }, ...(NOADDR ? { test: true } : {}) };
       emit('address', detail);
     }
   }
@@ -599,7 +604,10 @@ export function createSheetScene(gl, opts) {
   };
   const rectOf = q => { const xs = q.map(p => p[0]), ys = q.map(p => p[1]); return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) }; };
 
-  function showOrders(t) { if (orderAt < 0) orderAt = t; sT = 1; }
+  function showOrders(t) {
+    if (NOADDR && ENVELOPE) { if (!env && !chosen) { const o = orders.find(x => x.id === 'poste'); chosen = { id: 'poste', o, t0: t }; openEnv(t); } return; }
+    if (orderAt < 0) orderAt = t; sT = 1;
+  }
   let pressO = null;
   function hit(x, y) {
     for (const o of orders) if (inside(quads[o.id], x, y)) return o;
@@ -700,6 +708,7 @@ export function createSheetScene(gl, opts) {
   // un champ : une ligne, tapée à la machine (casse et accents gardés), à sa longueur
   const cleanField = (d, v) => v.replace(/[\r\n\t]/g, ' ').replace(/[’‘`´]/g, "'").replace(/\s{2,}/g, ' ').replace(/^\s+/, '').slice(0, d.chars);
   function renderAddress() {
+    if (NOADDR) { env.ink = null; return; }
     const m = fieldsInk(env.f, 991, env.writing || !env.f[env.field] ? env.field : null);
     if (env.ink) card.freeInk(env.ink);
     env.ink = card.makeInk(m.canvas); env.cursor = m.cursor;

@@ -107,6 +107,8 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 
 - **Encore 06/10** : plus de curseur à côté de l'acrostiche (on croyait devoir écrire) ; le champ de prénoms s'ouvre en fondu **après** l'effacement du portail ; dans l'email, contact en liens gris posés par nous (`mailto:` / `tel:`) et adresse non détectable (Gmail les mettait en bleu, inversé en orange par l'astuce du mode sombre) — le modèle EmailJS a aussi une règle CSS à recoller (`ressources/email-demande.html`).
 
+- **Lien d'essai pour les amis** `?adresse=0` (06/10) : pas de commande ni d'adresse ni de contact — après l'acrostiche, l'enveloppe se fait, part seule, la demande est envoyée (marquée « essai, sans adresse »), puis l'écran principal.
+
 ## Scène 3 — la feuille (proposition de la nuit du 05 au 06/10, branche `nuit`, `src/sheet/sheet.js` — à valider par Maxence)
 - **Sans coupure** : même canvas, même caméra, même lampe que les cartes (snapshot). `?feuille=0` = l'ancienne fin (fondu au noir).
 - **La paire devient une carte à deux faces** : la carte réponse se glisse exactement sous la question et s'y fond ; la carte se soulève, se retourne en l'air (la réponse au dos de la question) et se pose sur le bas d'une **feuille A5 noire** (148 × 210 mm, même papier, plus lisse) qui arrive du fond, **sous le prénom**. Logo SS-cœur gaufré à sec en tête de feuille (≈ 15 mm ; `?logoFeuille=0` pour l'enlever). Carte blanche : le thème au recto, « carte blanche » au dos. Improvisation : la feuille seule.

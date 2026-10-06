@@ -61,7 +61,7 @@ export function params(d) {
     question: q.toLowerCase(),
     reponse: d.kind === 'reponse' ? d.text || '' : '',
     theme: d.kind === 'theme' ? d.text || '' : '',
-    mode: d.mode === 'direct' ? 'en direct' : 'par la poste',
+    mode: (d.mode === 'direct' ? 'en direct' : 'par la poste') + (d.test ? ' (essai, sans adresse)' : ''),
     adresse_html: (d.address || []).map(l => quiet(esc(l))).join('<br>'),
     adresse: (d.address || []).join('\n'),
     contact: d.contact || '',

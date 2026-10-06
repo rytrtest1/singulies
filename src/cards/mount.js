@@ -144,7 +144,11 @@ export async function mountCards(opts) {
         stopWrite: () => answer.blur(),
         address: d => {
           log('adresse : ' + d.address.join(' / '));
-          if (d.mode === 'poste') { askContact(d); return; }          // « en direct » : le contact est déjà sur la carte
+          if (d.mode === 'poste' && !d.test) { askContact(d); return; }          // « en direct » : le contact est déjà sur la carte
+          if (d.test) {                                                     // essai sans adresse : la demande part telle quelle
+            try { if (typeof window.onAddress === 'function') window.onAddress(d); } catch (e) { console.error(e); }
+            window.dispatchEvent(new CustomEvent('singulies:address', { detail: d }));
+          }
           opts.onAddress?.(d); if (opts.onDone) setTimeout(() => opts.onDone(d), 1400);
         } } });
     scene.hideName(true);
