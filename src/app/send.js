@@ -17,13 +17,13 @@ const KIND = { reponse: 'une question du jeu', theme: 'carte blanche', improvisa
 // paramètres du modèle EmailJS (voir ressources/email-demande.html) ; *_html : à insérer avec {{{ }}}
 // Gmail ne charge pas les polices du site : le prénom est composé d'images de lettres (EB Garamond, rendues une
 // fois : tools/email-assets.mjs), la carte est l'image de la vraie carte (les 73 questions, la carte blanche)
-const NAME_W = 400;                               // largeur max d'une ligne du prénom dans l'email (px)
+const NAME_W = 288;                               // largeur max d'une ligne du prénom (px) : tient dans un téléphone de 320 px
 function nameHtml(name, base) {
   const words = name.split(' ').filter(Boolean), lines = [];
   for (const w of words) { const l = lines[lines.length - 1]; if (l && (l + ' ' + w).length <= 11) lines[lines.length - 1] = l + ' ' + w; else lines.push(w); }
   const width = l => [...l].reduce((s, c) => s + (c === ' ' ? 22 : (LETTERS[c]?.[0] || 40)), 0);
   const k = Math.min(1, NAME_W / Math.max(1, ...lines.map(width)));
-  return lines.map(l => '<div style="font-size:0;line-height:0;padding:0 0 ' + Math.round(14 * k) + 'px ' + Math.round(18 * k) + 'px;">' +
+  return lines.map(l => '<div style="font-size:0;line-height:0;white-space:nowrap;padding:0 0 ' + Math.round(14 * k) + 'px ' + Math.round(18 * k) + 'px;">' +
     [...l].map(c => c === ' '
       ? '<span style="display:inline-block;width:' + Math.round(22 * k) + 'px;"></span>'
       : '<img src="' + base + 'l/' + c + '.png" width="' + Math.round(LETTERS[c][0] * k) + '" height="' + Math.round(40 * k) + '" alt="' + c + '" style="display:inline-block;border:0;vertical-align:top;">'
@@ -38,8 +38,9 @@ export function params(d) {
   return {
     prenom: name,
     prenom_html: nameHtml(name, base),
-    carte_html: carte ? '<img src="' + carte + '" width="340" alt="' + esc(q ? q.toLowerCase() : 'carte blanche') + '" style="display:block;border:0;width:100%;max-width:340px;height:auto;margin:0 auto;">' : '',
-    texte_html: d.kind === 'reponse' || d.kind === 'theme' ? textHtml(d.text || '') : '',
+    // (les blancs vont avec les blocs : en improvisation, rien entre le prénom et l'adresse)
+    carte_html: carte ? '<div style="padding:0 0 30px;"><img src="' + carte + '" width="340" alt="' + esc(q ? q.toLowerCase() : 'carte blanche') + '" style="display:block;border:0;width:100%;max-width:340px;height:auto;margin:0 auto;"></div>' : '',
+    texte_html: (d.kind === 'reponse' || d.kind === 'theme') && d.text ? '<div style="padding:0 0 52px;">' + textHtml(d.text) + '</div>' : '',
     colonne_html: [...name].map(c => c === ' ' ? '&nbsp;' : esc(c)).join('<br>'),
     genre: KIND[d.kind] || d.kind || '',
     question: q.toLowerCase(),
