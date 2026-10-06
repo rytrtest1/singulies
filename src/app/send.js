@@ -99,6 +99,11 @@ export function send(detail) {
 
 // la page : les demandes partent quand l'enveloppe est postée, ou quand on choisit « en direct »
 export function installSend() {
+  // une enveloppe postée puis la page fermée avant l'écran du contact : la demande part quand même (sans contact)
+  try {
+    const d = localStorage.getItem('singulies.draft');
+    if (d) { localStorage.removeItem('singulies.draft'); send(JSON.parse(d)); }
+  } catch { /* */ }
   addEventListener('singulies:address', e => send(e.detail));
   addEventListener('singulies:direct', e => send(e.detail));          // « en direct » : une fois le contact tapé
   addEventListener('online', flush);

@@ -35,7 +35,7 @@ const out = await page.evaluate(() => {
   const res = [];
   sh.startWriting(); m.advance(0.3);
   res.push(sh.state().env.field);
-  for (const v of ['Léa Martin', '3 rue Haute', '', '75011', 'Paris', 'lea@exemple.fr']) {
+  for (const v of ['Léa Martin', '3 rue Haute', '', '75011', 'Paris']) {
     const a = el(); a.value = v; a.dispatchEvent(new Event('input'));
     a.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); m.advance(0.3);
     res.push(sh.state().env.field + ':' + sh.state().env.canPost);
@@ -46,5 +46,24 @@ const out = await page.evaluate(() => {
 await page.evaluate(() => window.__scene.advance(0.8));
 await page.screenshot({ path: `${dir}/champs.png` });
 console.log(JSON.stringify(out));
+// POSTER, puis sur le noir : l'email ou le numéro
+const got = await page.evaluate(async () => {
+  const m = window.__scene, ev = [];
+  addEventListener('singulies:address', e => ev.push(e.detail));
+  [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER').click();
+  for (let i = 0; i < 30; i++) m.advance(0.1);
+  await new Promise(r => setTimeout(r, 4500));
+  const a = m.ask; if (!a) return { ask: false };
+  const before = ev.length;
+  a.input.value = 'lea@exem'; a.input.dispatchEvent(new Event('input'));
+  await new Promise(r => setTimeout(r, 300));
+  window.__shotNow = true;
+  return { ask: true, partial: true };
+  a.input.value = 'lea@exemple.fr'; a.input.dispatchEvent(new Event('input'));
+  a.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  return { ask: true, before, after: ev.length, detail: ev[0] && { address: ev[0].address, contact: ev[0].contact, email: ev[0].email } };
+});
+await page.screenshot({ path: `${dir}/contact.png` });
+console.log(JSON.stringify(got));
 await page.close();
 await browser.close(); await server.close();

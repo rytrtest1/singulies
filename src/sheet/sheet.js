@@ -52,19 +52,19 @@ const E = { fade: [0, 0.7], cam: [0.1, 2.1], rise: [0.4, 2.1], cIn: [1.3, 2.4], 
 export const ADDR = { x: 106, y: 96, lead: 6.35, lines: 5, chars: 34 };   // bloc d'adresse (mm, depuis le coin haut-gauche)
 // l'adresse en champs (06/10, Maxence : « clarifier le moment de l'adresse ») : chacun sa ligne, son invitation
 // tapée en léger tant qu'il est vide ; Entrée = le champ suivant. Destinataire en bas à droite, expéditeur (email,
-// téléphone) en haut à gauche. POSTER dès que nom, adresse, code postal, ville et un moyen de joindre sont là.
+// téléphone : demandés après). POSTER dès que nom, adresse, code postal et ville sont là.
 export const FIELDS = [
   { id: 'nom', hint: 'prénom nom', zone: 'addr', line: 0, chars: 34, req: true, ac: 'name', im: 'text', cap: 'words', label: 'Prénom et nom' },
   { id: 'rue', hint: 'adresse', zone: 'addr', line: 1, chars: 34, req: true, ac: 'address-line1', im: 'text', cap: 'words', label: 'Adresse' },
   { id: 'cplt', hint: 'complément', zone: 'addr', line: 2, chars: 34, ac: 'address-line2', im: 'text', cap: 'words', label: "Complément d'adresse (facultatif)" },
   { id: 'cp', hint: 'code postal', zone: 'addr', line: 3, chars: 10, req: true, ac: 'postal-code', im: 'numeric', cap: 'none', label: 'Code postal' },
   { id: 'ville', hint: 'ville', zone: 'addr', line: 4, chars: 34, req: true, ac: 'address-level2', im: 'text', cap: 'words', label: 'Ville' },
-  { id: 'email', hint: 'ton email', zone: 'contact', line: 0, chars: 34, ac: 'email', im: 'email', cap: 'none', label: 'Ton email' },
-  { id: 'tel', hint: 'ton téléphone', zone: 'contact', line: 1, chars: 20, ac: 'tel', im: 'tel', cap: 'none', label: 'Ton téléphone' },
 ];
+// (06/10 : l'email ou le téléphone ne sont plus sur l'enveloppe — demandés après, sur le noir, « pour te tenir au
+// courant » : mount.js)
 export const emailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((v || '').trim());
 export const telOk = v => (v || '').replace(/\D/g, '').length >= 8 && /^[\d\s+().-]+$/.test((v || '').trim());
-export const fieldsReady = f => FIELDS.every(d => !d.req || (f[d.id] || '').trim()) && (emailOk(f.email) || telOk(f.tel));
+export const fieldsReady = f => FIELDS.every(d => !d.req || (f[d.id] || '').trim());
 // ce qui part (email, lien, PDF) : les lignes de l'adresse et le moyen de joindre
 export const fieldsOut = f => ({
   address: [f.nom, f.rue, f.cplt, [f.cp, f.ville].filter(x => (x || '').trim()).join(' ')].map(x => (x || '').trim()).filter(Boolean),
@@ -572,9 +572,8 @@ export function createSheetScene(gl, opts) {
     // postée : l'événement, une fois partie
     if (env && env.postT >= 0 && !env.sent && t - env.postT > 1.7) {
       env.sent = true;
+      // la page demande ensuite l'email ou le numéro (sur le noir), puis envoie (singulies:address)
       const detail = { name: from.name, kind: from.kind, id: from.id, text: from.text, mode: 'poste', ...fieldsOut(env.f), fields: { ...env.f } };
-      try { if (typeof window.onAddress === 'function') window.onAddress(detail); } catch (e) { console.error(e); }
-      window.dispatchEvent(new CustomEvent('singulies:address', { detail }));
       emit('address', detail);
     }
   }

@@ -141,11 +141,9 @@ export async function mountPortal(opts = {}) {
   });
   const lay = { W: 1, H: 1, D: 300, slot: [] };
   relayout = () => { if (lay.H > 1) layout(lay.W, lay.H); };
-  // ETERNEL : sa ligne de base à un écart constant au-dessus du coin le plus haut des trois cartes posées
-  // (Maxence 06/10 : l'espace variait de 26 à 52 px selon la donne) — 1,5 capitale, jamais collé au haut de l'écran
-  const SIG_GAP = 1.5;
+  // ETERNEL : au milieu, entre le haut de l'écran et le coin le plus haut des trois cartes posées — autant d'espace
+  // au-dessus de ses capitales qu'entre elles et la carte (Maxence 06/10)
   function placeSig(base) {
-    base = Math.max(base, lay.sigCap * 1.6 + lay.H * 0.035);
     if (Math.abs(base - lay.sigBase) < 0.5) return;
     lay.sigBase = base;
     sig.style.top = (base - baseEm * lay.sigFs).toFixed(1) + 'px';
@@ -485,7 +483,7 @@ export async function mountPortal(opts = {}) {
       b.disabled = !landed(c, t) || !!leaving;
       if (c.i !== JEU) topMin = Math.min(topMin, by);
     }
-    if (topMin < 1e8 && lay.sigFs) placeSig(topMin - SIG_GAP * lay.sigCap);
+    if (topMin < 1e8 && lay.sigFs) placeSig((topMin + lay.sigCap) / 2);   // haut des capitales = (topMin − cap) / 2
     // le paquet sous « le jeu » : dos visible ; dessiné après les cartes (le test de profondeur écarte ce qu'elles
     // cachent) ; ombre de la carte posée dessus
     const fadeDeck = intro * (leaving && leaving.c !== jeu ? 1 - away : 1);

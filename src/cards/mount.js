@@ -31,6 +31,17 @@ const CSS = `
   pointer-events: none; text-decoration: none; }
 .sc-note.on { opacity: .44; pointer-events: auto; }
 .sc-note.on:hover { opacity: .6; }
+/* après l'enveloppe : sur le noir, l'email ou le numéro « pour te tenir au courant » (06/10) */
+.sc-ask { position: fixed; inset: 0; z-index: 15; background: #060606; opacity: 0; transition: opacity 1.2s; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 16px 18vh; }
+.sc-ask.on { opacity: 1; pointer-events: auto; }
+.sc-ask .ask-q { font: 15px/1.9 'SG Machine', 'Courier New', monospace; color: rgb(174,174,174); text-align: center; white-space: pre; min-height: 3.8em; }
+.sc-ask input { margin-top: 26px; width: min(84vw, 360px); font: 17px/1.6 'SG Machine', 'Courier New', monospace; color: #e4e4e4;
+  text-align: center; background: transparent; border: 0; border-bottom: 1px solid rgba(255,255,255,.22); border-radius: 0;
+  padding: 6px 0; outline: none; caret-color: rgba(255,255,255,.7); -webkit-appearance: none; }
+.sc-ask input::placeholder { color: rgba(255,255,255,.28); }
+.sc-ask .sc-pass { position: static; margin-top: 22px; }
+.sc-ask .ask-skip { margin-top: 4px; }
 .sc-veil { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 1.4s; pointer-events: none; z-index: 14; }
 `;
 
@@ -113,7 +124,7 @@ export async function mountCards(opts) {
           useEl(d.field ? fieldEl : ta);
           answer.value = d.text || '';
           if (d.field) {
-            const f = d.field, last = f.id === 'tel';
+            const f = d.field, last = f.id === 'ville';
             answer.setAttribute('aria-label', f.label); answer.setAttribute('enterkeyhint', last ? 'done' : 'next');
             answer.setAttribute('autocomplete', f.ac); answer.setAttribute('inputmode', f.im); answer.setAttribute('autocapitalize', f.cap);
             answer.type = f.im === 'email' ? 'email' : f.im === 'tel' ? 'tel' : 'text';
@@ -131,9 +142,60 @@ export async function mountCards(opts) {
         },
         // postée (ou « en direct » envoyé) : un temps, puis l'écran principal
         stopWrite: () => answer.blur(),
-        address: d => { log('adresse : ' + d.address.join(' / ')); opts.onAddress?.(d); if (opts.onDone) setTimeout(() => opts.onDone(d), 1400); } } });
+        address: d => {
+          log('adresse : ' + d.address.join(' / '));
+          if (d.mode === 'poste') { askContact(d); return; }          // « en direct » : le contact est déjà sur la carte
+          opts.onAddress?.(d); if (opts.onDone) setTimeout(() => opts.onDone(d), 1400);
+        } } });
     scene.hideName(true);
     sheetAt = now(); api.sheet = sheet;
+  }
+  // ---- après l'enveloppe postée : fondu au noir, puis « ton email ou ton numéro, pour te tenir au courant » ----
+  // La demande est gardée (brouillon) dès qu'elle est postée : si l'on ferme la page ici, elle part quand même à la
+  // visite suivante, sans contact. ENVOYER (Entrée) avec un email / numéro valable, ou PASSER : elle part, puis
+  // l'écran principal.
+  const contactOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) || (v.replace(/\D/g, '').length >= 8 && /^[\d\s+().-]+$/.test(v.trim()));
+  function askContact(d) {
+    try { localStorage.setItem('singulies.draft', JSON.stringify(d)); } catch { /* */ }
+    answer.blur(); postEl.classList.remove('on'); note.classList.remove('on'); backEl.classList.remove('on');
+    const box = el('div', 'sc-ask');
+    const q = el('div', 'ask-q'); box.appendChild(q);
+    const inp = document.createElement('input');
+    Object.assign(inp, { type: 'text', spellcheck: false, autocomplete: 'email', placeholder: '' });
+    inp.setAttribute('inputmode', 'email'); inp.setAttribute('autocapitalize', 'none'); inp.setAttribute('autocorrect', 'off');
+    inp.setAttribute('enterkeyhint', 'send'); inp.setAttribute('aria-label', 'Ton email ou ton numéro, pour te tenir au courant');
+    const go = el('div', 'sc-pass', 'ENVOYER'); go.setAttribute('role', 'button'); go.tabIndex = 0;
+    const skip = el('div', 'sc-pass ask-skip', 'PASSER'); skip.setAttribute('role', 'button'); skip.tabIndex = 0;
+    const priv = el('a', 'sc-note on', 'ce que tu me confies ne sert qu’à ton poème');
+    Object.assign(priv, { href: './confidentialite.html', target: '_blank' }); priv.style.zIndex = '16';
+    box.append(inp, go, skip, priv);
+    requestAnimationFrame(() => box.classList.add('on'));
+    // la question se tape à la machine
+    const Q = 'ton email ou ton numéro,\npour te tenir au courant';
+    let k = 0;
+    const type = () => { if (k > Q.length) return; q.textContent = Q.slice(0, k++); setTimeout(type, reduced ? 0 : 45 + Math.random() * 70); };
+    setTimeout(type, 1300);
+    setTimeout(() => skip.classList.add('on'), 4000);
+    const ok = () => contactOk(inp.value);
+    inp.addEventListener('input', () => go.classList.toggle('on', ok()));
+    let done = false;
+    const finish = contact => {
+      if (done) return; done = true;
+      const c = (contact || '').trim(), out = { ...d, contact: c, email: /@/.test(c) ? c : '', tel: /@/.test(c) ? '' : c };
+      try { localStorage.removeItem('singulies.draft'); } catch { /* */ }
+      inp.blur(); go.classList.remove('on'); skip.classList.remove('on');
+      try { if (typeof window.onAddress === 'function') window.onAddress(out); } catch (e) { console.error(e); }
+      window.dispatchEvent(new CustomEvent('singulies:address', { detail: out }));
+      opts.onAddress?.(out);
+      log('contact : ' + (c || '—'));
+      q.style.transition = inp.style.transition = 'opacity 1s'; q.style.opacity = inp.style.opacity = '0';
+      if (opts.onDone) setTimeout(() => opts.onDone(out), 1200);
+    };
+    go.addEventListener('click', () => { if (ok()) finish(inp.value); });
+    skip.addEventListener('click', () => finish(''));
+    for (const b of [go, skip]) b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); if (ok()) finish(inp.value); } });
+    api.ask = { input: inp, send: () => go.click(), skip: () => skip.click() };
   }
   function closeSheet() {
     if (!sheet) return;
@@ -251,7 +313,18 @@ export async function mountCards(opts) {
     if (!sheet && give('Entrée')) return;
     answer.blur();
   });
-  both('blur', e => { if (e.relatedTarget === ta || e.relatedTarget === fieldEl) return; if (sheet) sheet.stopWriting(); else scene.stopWriting(); });
+  // clavier fermé (« OK » / flèche de l'iPhone, Entrée non vue) avec une réponse écrite = la suite, tout de suite
+  // (Maxence 06/10 : « ça reste en attente ») — sauf si la fermeture vient d'un toucher ailleurs (glisser la
+  // question, la carte blanche, un signe : le geste décide)
+  let lastPD = -1e9;
+  addEventListener('pointerdown', () => { lastPD = performance.now(); }, true);
+  both('blur', e => {
+    if (e.relatedTarget === ta || e.relatedTarget === fieldEl) return;
+    if (sheet) { sheet.stopWriting(); return; }
+    const st = scene.state();
+    if (st.writing && st.active && st.active.text && !st.ended && performance.now() - lastPD > 400 && give('clavier fermé')) return;
+    scene.stopWriting();
+  });
   both('focus', () => {
     if (sheet) { const es = sheet.state().env; if (es && es.write && !es.writing) sheet.startWriting(); return; }
     if (started && !scene.state().writing) scene.startWriting();
