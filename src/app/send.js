@@ -6,7 +6,7 @@ import QUESTIONS from '../cards/questions.json';
 import { encodeDemande } from '../demande/lien.js';
 import LETTERS from '../../public/email/l/tailles.json';
 
-const EMAILJS = { service: 'service_8wqf489', template: 'template_cuh5tub', key: 'XreMhhJCN9l5J6V5J' };   // identifiants publics (aucun secret)
+export const EMAILJS = { service: 'service_8wqf489', template: 'template_cuh5tub', key: 'XreMhhJCN9l5J6V5J' };   // identifiants publics (aucun secret)
 const K_PENDING = 'singulies.pending';
 const OFF = (() => { try { return new URLSearchParams(location.search).get('envoi') === '0'; } catch { return false; } })();
 const ready = () => !OFF && EMAILJS.service && EMAILJS.template && EMAILJS.key;
@@ -49,6 +49,8 @@ export function params(d) {
     mode: d.mode === 'direct' ? 'en direct' : 'par la poste',
     adresse_html: (d.address || []).map(esc).join('<br>'),
     adresse: (d.address || []).join('\n'),
+    contact: d.contact || '',
+    contact_html: d.contact ? '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;">' + esc(d.contact) + '</div>' : '',
     date: new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }),
     // la demande, rendue par le site (feuille, carte, enveloppe) : tout est dans le lien, après « # »
     lien: new URL('./demande.html', document.baseURI).href + '#' + encodeDemande(d),
@@ -85,7 +87,7 @@ export function send(detail) {
 // la page : les demandes partent quand l'enveloppe est postée, ou quand on choisit « en direct »
 export function installSend() {
   addEventListener('singulies:address', e => send(e.detail));
-  addEventListener('singulies:order', e => { if (e.detail?.mode === 'direct') send(e.detail); });
+  addEventListener('singulies:direct', e => send(e.detail));          // « en direct » : une fois le contact tapé
   addEventListener('online', flush);
   flush();
 }

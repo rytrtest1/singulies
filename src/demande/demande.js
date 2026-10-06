@@ -47,7 +47,7 @@ export async function mountDemande(canvas, d, { base = './', reduced = false } =
   }
   if (C) { C.turns = 0; C.flipT0 = -1; }
   const hasEnv = d.mode !== 'direct' && d.address.length > 0;
-  const envInk = hasEnv ? card.makeInk(addressInk(d.address.join('\n'), 991).canvas) : null;
+  const envInk = hasEnv ? card.makeInk(addressInk(d.address.join('\n'), 991, d.contact || ' ').canvas) : null;
 
   // ---- l'acrostiche (même mise en page que la scène de la feuille) ----
   const chars = [...d.name];

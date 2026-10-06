@@ -103,9 +103,17 @@ export async function mountCards(opts) {
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); },
         // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)
         write: d => {
-          answer.value = d.text || ''; answer.setAttribute('aria-label', 'Adresse'); answer.setAttribute('enterkeyhint', 'enter');
-          // l'adresse : le clavier du téléphone peut la proposer (fiche contact), majuscules aux mots
-          answer.setAttribute('autocomplete', 'shipping street-address'); answer.setAttribute('autocapitalize', 'words');
+          answer.value = d.text || '';
+          if (d.zone === 'contact') {
+            // email ou numéro : le clavier propose le sien (fiche contact), sans majuscule ; Entrée = l'adresse
+            answer.setAttribute('aria-label', 'Ton email ou ton numéro'); answer.setAttribute('enterkeyhint', sheet?.state().env ? 'next' : 'done');
+            answer.setAttribute('autocomplete', 'email'); answer.setAttribute('inputmode', 'email'); answer.setAttribute('autocapitalize', 'none');
+          } else {
+            // l'adresse : le clavier du téléphone peut la proposer (fiche contact), majuscules aux mots
+            answer.setAttribute('aria-label', 'Adresse'); answer.setAttribute('enterkeyhint', 'enter');
+            answer.setAttribute('autocomplete', 'shipping street-address'); answer.setAttribute('inputmode', 'text'); answer.setAttribute('autocapitalize', 'words');
+          }
+          try { answer.setSelectionRange(answer.value.length, answer.value.length); } catch { /* */ }
           focusAnswer();
         },
         stopWrite: () => answer.blur(),
@@ -153,6 +161,7 @@ export async function mountCards(opts) {
         else { answer.style.width = '1px'; answer.style.height = '1px'; }
         giveEl.classList.remove('on');
         postEl.classList.toggle('on', !!(es && es.canPost && ar));
+        if (es && postEl.textContent !== es.sign) postEl.textContent = es.sign;
         if (ar) {
           // sous l'adresse ; clavier ouvert : entre l'adresse et le haut du clavier
           const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
@@ -208,8 +217,14 @@ export async function mountCards(opts) {
   });
   answer.addEventListener('keydown', e => {
     if (e.key !== 'Enter' || e.isComposing) return;
-    // adresse : Entrée = ligne suivante (5 lignes au plus) ; sinon Entrée = terminé
-    if (sheet && sheet.state().env && answer.value.split('\n').length < 5) return;
+    // enveloppe : expéditeur → adresse ; adresse : ligne suivante (5 au plus) ; sinon Entrée = terminé
+    if (sheet && sheet.state().env) {
+      const r = sheet.enter(answer.value);
+      if (r === 'newline') return;
+      e.preventDefault();
+      if (r === 'done') answer.blur();
+      return;
+    }
     e.preventDefault(); answer.blur();
   });
   answer.addEventListener('blur', () => { if (sheet) sheet.stopWriting(); else scene.stopWriting(); });

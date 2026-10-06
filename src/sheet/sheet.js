@@ -49,26 +49,21 @@ export const ADDR = { x: 106, y: 96, lead: 6.35, lines: 5, chars: 34 };   // blo
 const C_IN = { x: 14, y: -56, rz: -0.03, z: 0.3 };                  // la carte, posée sur la feuille pour entrer
 const ENVELOPE = new URLSearchParams(location.search).get('enveloppe') !== '0';   // ?enveloppe=0 : « bientôt » comme avant
 
-// encre de l'adresse (face de l'enveloppe, 10 px/mm), frappes comme celles des cartes, défauts tirés du rang
-const ENV_PX = 10;
-export function addressInk(text, seed) {
-  const PX = ENV_PX, Wc = Math.round(ENV.w * PX), Hc = Math.round(ENV.h * PX);
-  const cv = new OffscreenCanvas(Wc, Hc), cx = cv.getContext('2d');
-  cx.fillStyle = '#000'; cx.fillRect(0, 0, Wc, Hc);
-  const lines = text.split('\n');
+// frappe à la machine (mêmes défauts que les cartes, tirés du rang de chaque caractère) : lignes à partir de (x0, y0) mm
+function typeLines(cx, PX, lines, x0, y0, lead, seed, alpha = 1) {
   const fontPx = TYPE.size * PX;
   const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
   const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;
   cx.globalCompositeOperation = 'lighter';
   let idx = 0;
   lines.forEach((line, li) => {
-    const base = ADDR.y + li * ADDR.lead;
+    const base = y0 + li * lead, lx = typeof x0 === 'function' ? x0(line) : x0;
     [...line].forEach((ch, ci) => {
       const r = createRng((seed * 7919 + (idx + ci) * 104729) >>> 0);
       const g = () => { let s = 0; for (let i = 0; i < 4; i++) s += r(); return (s - 2) / 0.58; };
       if (ch === ' ') return;
-      const x = ADDR.x + ci * TYPE.pitch + g() * 0.06, y = base + g() * 0.09;
-      const press = Math.min(1, Math.max(0.5, 0.82 + g() * 0.14)), rot = g() * 0.5 * Math.PI / 180;
+      const x = lx + ci * TYPE.pitch + g() * 0.06, y = base + g() * 0.09;
+      const press = Math.min(1, Math.max(0.5, 0.82 + g() * 0.14)) * alpha, rot = g() * 0.5 * Math.PI / 180;
       gx.setTransform(1, 0, 0, 1, 0, 0); gx.globalCompositeOperation = 'source-over';
       gx.clearRect(0, 0, glyph.width, glyph.height);
       gx.font = fontPx + 'px "SG Machine"'; gx.fillStyle = '#fff'; gx.strokeStyle = '#fff';
@@ -87,8 +82,39 @@ export function addressInk(text, seed) {
     });
     idx += line.length + 1;
   });
+}
+
+// pour joindre la personne : son email ou son numéro (tapé par elle) ; tant qu'il est vide, l'invitation est
+// tapée en léger (encre à peine posée)
+export const CONTACT_HINT = 'ton email ou ton numéro';
+export const CONTACT = { x: 12, y: 22, chars: 30 };          // l'expéditeur, en haut à gauche de l'enveloppe (mm)
+export const contactOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) || (v.replace(/\D/g, '').length >= 8 && /^[\d\s+().-]+$/.test(v.trim()));
+export const cleanContact = v => v.replace(/[\r\n\t]/g, '').replace(/\s{2,}/g, ' ').slice(0, CONTACT.chars);
+
+// encre de l'enveloppe (face, 10 px/mm) : l'expéditeur (email ou numéro) en haut à gauche, l'adresse en bas à droite
+const ENV_PX = 10;
+export function addressInk(text, seed, contact = '', zone = 'addr') {
+  const PX = ENV_PX, Wc = Math.round(ENV.w * PX), Hc = Math.round(ENV.h * PX);
+  const cv = new OffscreenCanvas(Wc, Hc), cx = cv.getContext('2d');
+  cx.fillStyle = '#000'; cx.fillRect(0, 0, Wc, Hc);
+  const lines = text.split('\n');
+  typeLines(cx, PX, lines, ADDR.x, ADDR.y, ADDR.lead, seed);
+  typeLines(cx, PX, [contact || CONTACT_HINT], CONTACT.x, CONTACT.y, 0, seed + 17, contact ? 1 : 0.72);
   const last = lines[lines.length - 1] || '';
-  return { canvas: cv, cursor: { x: ADDR.x + last.length * TYPE.pitch - 0.35, y: ADDR.y + (lines.length - 1) * ADDR.lead } };
+  const cursor = zone === 'contact'
+    ? { x: CONTACT.x + contact.length * TYPE.pitch - 0.35, y: CONTACT.y }
+    : { x: ADDR.x + last.length * TYPE.pitch - 0.35, y: ADDR.y + (lines.length - 1) * ADDR.lead };
+  return { canvas: cv, cursor };
+}
+
+// encre d'une carte « en direct » retournée : l'email ou le numéro, centré (24 px/mm, comme les cartes)
+export function contactCardInk(contact, seed) {
+  const PX = 24, Wc = Math.round(CARD.w * PX), Hc = Math.round(CARD.h * PX);
+  const cv = new OffscreenCanvas(Wc, Hc), cx = cv.getContext('2d');
+  cx.fillStyle = '#000'; cx.fillRect(0, 0, Wc, Hc);
+  const t = contact || CONTACT_HINT, x0 = (CARD.w - t.length * TYPE.pitch) / 2;
+  typeLines(cx, PX, [t], x0, CARD.h / 2 + 1.2, 0, seed, contact ? 1 : 0.72);
+  return { canvas: cv, cursor: { x: x0 + contact.length * TYPE.pitch - 0.35, y: CARD.h / 2 + 1.2 } };
 }
 
 
@@ -188,7 +214,7 @@ export function createSheetScene(gl, opts) {
   const oPose = o => ({ x: O_X + o.v.jx, y: SY + oTop - CARD.h / 2 - o.k * (CARD.h + O_GAP), rz: o.v.jr });
 
   // ---- caméra : départ = celle de la scène des cartes ; A = la feuille et sa carte ; B = la commande ----
-  const frames = { A: null, B: null, AN: null, E: null, F: null };
+  const frames = { A: null, B: null, AN: null, E: null, F: null, Fc: null };
   function frameFor(y0, y1, x0, x1, wantW, W, H) {
     const Hw = Math.max((y1 - y0) * 1.1, Math.max(wantW, (x1 - x0) * 1.08) * H / W);
     return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, D: Hw / (2 * TF), Hw };
@@ -204,6 +230,9 @@ export function createSheetScene(gl, opts) {
     frames.E = frameFor(EC_Y - ENV.h / 2 - 8, SY + SHEET.h / 2 + 8, -ENV.w / 2, ENV.w / 2, ENV.w * 1.1, W, H);
     const ax = -ENV.w / 2 + ADDR.x + 12 * TYPE.pitch, ay = EC_Y + ENV.h / 2 - (ADDR.y + ADDR.lead * 1.5);
     frames.F = W < H * 1.1 ? frameFor(ay - 30, ay + 30, ax - 47, ax + 47, 0, W, H) : frameFor(EC_Y - ENV.h / 2 - 12, EC_Y + ENV.h / 2 + 12, -ENV.w / 2 - 8, ENV.w / 2 + 8, 0, W, H);
+    // l'expéditeur (email ou numéro), en haut à gauche : de près sur téléphone ; ordinateur : l'enveloppe entière
+    const qx = -ENV.w / 2 + CONTACT.x + 12 * TYPE.pitch, qy = EC_Y + ENV.h / 2 - CONTACT.y;
+    frames.Fc = W < H * 1.1 ? frameFor(qy - 30, qy + 30, qx - 47, qx + 47, 0, W, H) : frames.F;
     frames.B = frameFor(SY + oBot - 6, SY + (C ? C_POSE.y + CARD.h / 2 : -SHEET.h / 2 + 30) + 6, x0, x1, CARD.w / 0.78, W, H);
   }
 
@@ -275,7 +304,10 @@ export function createSheetScene(gl, opts) {
     const s = clamp01(sv);
     const uCam = inEnv ? sstep(E.cam[0], E.cam[1], ev) : 0;
     const sL = s * (1 - uCam);                                // ce que la vue « commande » retire à la feuille
-    kb += ((env && env.writing && kbPx > 40 ? 1 : 0) - kb) * Math.min(1, dt * 4);
+    const writingNow = (env && env.writing) || (direct && direct.writing);
+    kb += ((writingNow && kbPx > 40 ? 1 : 0) - kb) * Math.min(1, dt * 4);
+    if (env) fz += ((env.zone === 'contact' ? 1 : 0) - fz) * Math.min(1, dt * 2.5);
+    if (direct) direct.pu += ((direct.postT >= 0 ? 1 : 0) - direct.pu) * Math.min(1, dt * 1.1);
     if (env) env.pu += ((env.postT >= 0 ? 1 : 0) - env.pu) * Math.min(1, dt * 1.1);
 
     // caméra : de celle des cartes à la feuille (τ), puis feuille ↔ commande (s), puis l'enveloppe
@@ -285,12 +317,15 @@ export function createSheetScene(gl, opts) {
     const es = ease(s);
     let cxT = lerp(fA.cx, fB.cx, es), cyT = lerp(fA.cy, fB.cy, es), lD = lerp(Math.log(fA.D), Math.log(fB.D), es);
     if (inEnv) {
-      const u1 = ease(uCam), u2 = ease(span(E.cam2, ev)), fE = frames.E, fF = frames.F;
+      const u1 = ease(uCam), u2 = ease(span(E.cam2, ev)), fE = frames.E;
+      const fF = { cx: lerp(frames.F.cx, frames.Fc.cx, fz), cy: lerp(frames.F.cy, frames.Fc.cy, fz), D: Math.exp(lerp(Math.log(frames.F.D), Math.log(frames.Fc.D), fz)), Hw: lerp(frames.F.Hw, frames.Fc.Hw, fz) };
       // clavier ouvert : l'adresse au milieu de la partie visible
       const vis = 1 - kbPx / H, fcy = fF.cy - (0.5 - (vis / 2 + 0.04)) * fF.Hw * kb;
       cxT = lerp(lerp(cxT, fE.cx, u1), fF.cx, u2); cyT = lerp(lerp(cyT, fE.cy, u1), fcy, u2);
       lD = lerp(lerp(lD, Math.log(fE.D), u1), Math.log(fF.D), u2);
     }
+    // « en direct », clavier ouvert : la carte au milieu de la partie visible
+    if (direct && !inEnv) { const vis = 1 - kbPx / H, oy = oPose(direct.o).y; cyT = lerp(cyT, oy - (0.5 - (vis / 2 + 0.04)) * frames.B.Hw, kb); }
     camS.cx = lerp(0, cxT, ci); camS.cy = lerp(from.cam.cy, cyT, ci); camS.D = Math.exp(lerp(Math.log(from.cam.D), lD, ci));
     const cx = camS.cx, cy = camS.cy, D = camS.D, Hw = 2 * D * TF;
     eye = [cx, cy - D * Math.sin(TILT), D * Math.cos(TILT)];
@@ -360,7 +395,7 @@ export function createSheetScene(gl, opts) {
     }
     // ---- dessin : enveloppe (fond), feuille, carte, lettres, puis le dos de l'enveloppe et le rabat (devant) ----
     if (Menv && envFade > 0.004) {
-      const cur = writePhase && (env.writing || !env.text) ? { cursor: [ENV.w / 2 - env.cursor.x, ENV.h / 2 - env.cursor.y - 0.8, TYPE.size * 0.92, (0.55 + 0.4 * Math.sin(t * 2.4)) * sstep(E.write, E.write + 0.8, ev)], cursorFace: 1 } : {};
+      const cur = writePhase && (env.writing || !(env.zone === 'contact' ? env.contact : env.text)) ? { cursor: [ENV.w / 2 - env.cursor.x, ENV.h / 2 - env.cursor.y - 0.8, TYPE.size * 0.92, (0.55 + 0.4 * Math.sin(t * 2.4)) * sstep(E.write, E.write + 0.8, ev)], cursorFace: 1 } : {};
       card.draw(vp, eye, P, { model: Menv, lod: 'env', ink: env.ink, fade: envFade, shade: 1, ...envV.front, ...cur });
       quads.env = screenQuad(Menv, ENV.w, ENV.h);
     } else quads.env = null;
@@ -382,11 +417,25 @@ export function createSheetScene(gl, opts) {
       const appear = orderAt < 0 ? 0 : reduced ? sstep(0, 0.6, t - orderAt - o.k * 0.2) : ease(clamp01((t - orderAt - 0.35 - o.k * 0.3) / 1.3));
       const away = backing ? 1 - sstep(0, 0.5, t - backing.t0) : 1;
       let fade = appear * away * envAway;
-      if (chosen && chosen.o !== o) fade *= 1 - sstep(0, 0.6, t - chosen.t0) * 0.75;
+      if (chosen && chosen.o !== o) fade *= 1 - sstep(0, 0.6, t - chosen.t0) * (direct ? 0.92 : 0.75);
       o.a = fade;
       if (fade < 0.004) { quads[o.id] = null; continue; }
       const p = oPose(o);
       let dz = 0, ry = Math.PI;
+      let inkBack = o.anim ? soonInk : null, curD = {}, fadeD = 1;
+      if (direct && direct.o === o) {
+        const tb = direct.back ? clamp01((t - direct.back) / 1.1) : 0, tf = clamp01((t - direct.t0) / 1.1);
+        const u = (1 - tb) * tf;
+        ry += Math.PI * sstep(0.12, 0.88, u);
+        dz += (CARD.w / 2 + 8) * Math.sin(Math.PI * (direct.back ? tb : tf)) * (reduced ? 0 : 1) + 6 * u;
+        inkBack = direct.ink;
+        const pu = ease(clamp01(direct.pu));
+        fadeD = 1 - sstep(0.3, 1, direct.pu);
+        o.postY = -40 * pu;
+        if (u > 0.95 && !direct.back && direct.pu < 0.5 && (direct.writing || !direct.contact))
+          curD = { cursor: [direct.cursor.x - CARD.w / 2, CARD.h / 2 - direct.cursor.y - 0.8, TYPE.size * 0.92, 0.55 + 0.4 * Math.sin(t * 2.4)], cursorFace: 0 };
+        if (direct.back && tb >= 1) closeDirect();
+      } else o.postY = 0;
       if (o.anim) {                               // lien d'attente : un demi-tour (« bientôt »), puis retour
         const tf = t - o.anim.t0, u1 = clamp01(tf / 1.3), u2 = clamp01((tf - 1.3 - 2.2) / 1.3);
         ry += Math.PI * (sstep(0.15, 0.85, u1) - sstep(0.15, 0.85, u2));
@@ -398,8 +447,9 @@ export function createSheetScene(gl, opts) {
       if (!chosen && !reduced && o.k === 0 && idle > 0 && idle < 4.5 * 3) dz += hop(idle % 4.5);
       o.press += ((o === pressO ? 1 : 0) - o.press) * Math.min(1, dt * 14);
       const Go = group(p.x, p.y, o.bph, s, 1, t);
-      const M = M4.mul(M4.mul(T(0, -24 * (1 - appear), -30 * (1 - appear)), Go), M4.model(0, ry, p.rz, p.x, p.y, 1 + dz - 0.5 * o.press));
-      card.draw(vp, eye, P, { model: M, lod: 'fine', ink: o.ink, inkBack: o.anim ? soonInk : null, fade, shade: 1 - L.unfocusDim * (1 - s), ...o.v });
+      const M = M4.mul(M4.mul(T(0, -24 * (1 - appear) + o.postY, -30 * (1 - appear)), Go), M4.model(0, ry, p.rz, p.x, p.y, 1 + dz - 0.5 * o.press));
+      card.draw(vp, eye, P, { model: M, lod: 'fine', ink: o.ink, inkBack, fade: fade * fadeD, shade: 1 - L.unfocusDim * (1 - s), ...o.v, ...curD });
+      if (direct && direct.o === o) direct.M = M;
       quads[o.id] = appear > 0.6 && !backing && !inEnv ? screenQuad(M) : null;
     }
 
@@ -443,10 +493,18 @@ export function createSheetScene(gl, opts) {
       const Mf = M4.mul(Menv, M4.mul(M4.mul(T(0, ENV.h / 2, hz), M4.model(th, 0, 0)), T(0, FLAP_H / 2, 0)));
       card.draw(vp, eye, P, { model: Mf, lod: 'flap', fade: envFade, shade: 1, ...envV.flap, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2] });
     }
+    // « en direct » envoyé : l'événement, une fois la carte partie
+    if (direct && direct.postT >= 0 && !direct.sent && t - direct.postT > 1.7) {
+      direct.sent = true;
+      const detail = { name: from.name, kind: from.kind, id: from.id, text: from.text, mode: 'direct', address: [], contact: direct.contact.trim() };
+      try { if (typeof window.onAddress === 'function') window.onAddress(detail); } catch (e) { console.error(e); }
+      window.dispatchEvent(new CustomEvent('singulies:direct', { detail }));
+      emit('address', detail);
+    }
     // postée : l'événement, une fois partie
     if (env && env.postT >= 0 && !env.sent && t - env.postT > 1.7) {
       env.sent = true;
-      const detail = { name: from.name, kind: from.kind, id: from.id, text: from.text, mode: 'poste', address: env.text.split('\n').filter(l => l.trim()) };
+      const detail = { name: from.name, kind: from.kind, id: from.id, text: from.text, mode: 'poste', address: env.text.split('\n').filter(l => l.trim()), contact: env.contact.trim() };
       try { if (typeof window.onAddress === 'function') window.onAddress(detail); } catch (e) { console.error(e); }
       window.dispatchEvent(new CustomEvent('singulies:address', { detail }));
       emit('address', detail);
@@ -485,7 +543,16 @@ export function createSheetScene(gl, opts) {
     gesture(t);
     if (backing) return { type: null };
     if (env) {
-      if (!env.back && env.pu < 0.5 && envClock(t) >= E.write && inside(quads.env, x, y)) return startWriting() ? { type: 'write' } : { type: null };
+      if (!env.back && env.pu < 0.5 && envClock(t) >= E.write && inside(quads.env, x, y)) {
+        const zr = zoneRect('contact');
+        const z = zr && x >= zr.left - 12 && x <= zr.right + 12 && y >= zr.top - 12 && y <= zr.bottom + 12 ? 'contact' : 'addr';
+        if (z !== env.zone) { env.zone = z; renderAddress(); }
+        return startWriting() ? { type: 'write' } : { type: null };
+      }
+      return { type: null };
+    }
+    if (direct) {
+      if (!direct.back && direct.pu < 0.5 && direct.M && inside(screenQuad(direct.M), x, y)) return startWriting() ? { type: 'write' } : { type: null };
       return { type: null };
     }
     const h = hit(x, y);
@@ -504,6 +571,7 @@ export function createSheetScene(gl, opts) {
       const url = ORDER_LINKS[h.id];
       if (url) { setTimeout(() => { location.href = url; }, 400); return { type: 'order' }; }
       if (h.id === 'poste' && ENVELOPE) { openEnv(t); return { type: 'order' }; }
+      if (h.id === 'direct' && ENVELOPE) { openDirect(h, t); return { type: 'order' }; }
       if (!soonInk) soonInk = card.makeInk(makeInkMap('bientôt', 77).canvas);
       h.anim = { t0: t };
       setTimeout(() => { if (chosen && chosen.o === h) chosen = null; }, 4800);
@@ -520,6 +588,13 @@ export function createSheetScene(gl, opts) {
     if (d < 0) showOrders(t); else sT = 0;
   }
   function back(t) {
+    if (direct) {
+      gesture(t);
+      if (direct.postT >= 0) { direct.postT = -1; direct.sent = false; return true; }
+      if (direct.back) return false;
+      direct.writing = false; emit('stopWrite', {}); direct.back = t;
+      return true;
+    }
     if (env) {
       gesture(t);
       if (env.postT >= 0) { env.postT = -1; env.sent = false; return true; }     // postée : elle revient
@@ -536,13 +611,13 @@ export function createSheetScene(gl, opts) {
   }
   // ---- l'enveloppe ----
   function openEnv(t) {
-    env = { t0: t, back: null, postT: -1, pu: 0, writing: false, text: savedAddr, ink: null, cursor: { x: ADDR.x, y: ADDR.y }, sent: false };
+    env = { t0: t, back: null, postT: -1, pu: 0, writing: false, text: savedAddr, contact: savedContact, zone: contactOk(savedContact) ? 'addr' : 'contact', ink: null, cursor: { x: ADDR.x, y: ADDR.y }, sent: false };
     renderAddress();
   }
-  let savedAddr = '';                                        // l'adresse reste si l'on revient en arrière
+  let savedAddr = '', savedContact = '', fz = 0;             // l'adresse et le contact restent si l'on revient en arrière
   function closeEnv() {
     if (env?.ink) card.freeInk(env.ink);
-    if (env) savedAddr = env.text;
+    if (env) { savedAddr = env.text; savedContact = env.contact; }
     env = null; chosen = null; kb = 0;
   }
   // adresse tapée à la machine : 5 lignes au plus, 34 caractères par ligne, casse et accents gardés
@@ -550,34 +625,90 @@ export function createSheetScene(gl, opts) {
     return v.replace(/\r/g, '').replace(/[’‘`´]/g, "'").replace(/\t/g, ' ').split('\n').slice(0, ADDR.lines).map(l => l.slice(0, ADDR.chars)).join('\n');
   }
   function renderAddress() {
-    const m = addressInk(env.text, 991);
+    const m = addressInk(env.text, 991, env.contact, env.zone);
     if (env.ink) card.freeInk(env.ink);
     env.ink = card.makeInk(m.canvas); env.cursor = m.cursor;
   }
+  // « en direct » : la carte se retourne ; on tape son email ou son numéro au dos
+  let direct = null;
+  function openDirect(o, t) {
+    direct = { o, t0: t, back: null, contact: savedContact, ink: null, cursor: { x: 0, y: 0 }, writing: false, postT: -1, pu: 0, sent: false, M: null };
+    renderDirect();
+  }
+  function renderDirect() {
+    const m = contactCardInk(direct.contact, 313);
+    if (direct.ink) card.freeInk(direct.ink);
+    direct.ink = card.makeInk(m.canvas); direct.cursor = m.cursor;
+  }
+  function closeDirect() {
+    if (direct?.ink) card.freeInk(direct.ink);
+    if (direct) savedContact = direct.contact;
+    direct = null; chosen = null; kb = 0;
+  }
+  // le texte du champ natif va à la zone en cours (expéditeur, adresse, ou la carte « en direct »)
   function setAddress(v) {
-    if (!env || !env.writing) return env ? env.text : v;
+    if (direct) {
+      if (!direct.writing) return direct.contact;
+      const c = cleanContact(v);
+      if (c !== direct.contact) { direct.contact = c; renderDirect(); }
+      return c;
+    }
+    if (!env || !env.writing) return env ? (env.zone === 'contact' ? env.contact : env.text) : v;
+    if (env.zone === 'contact') {
+      const c = cleanContact(v);
+      if (c !== env.contact) { env.contact = c; renderAddress(); }
+      return c;
+    }
     const c = cleanAddress(v);
     if (c !== env.text) { env.text = c; renderAddress(); }
     return c;
   }
-  function startWriting() { if (!env || env.back || env.pu > 0.5) return false; env.writing = true; emit('write', { text: env.text }); return true; }
-  function stopWriting() { if (env) env.writing = false; }
+  // Entrée : expéditeur → passe à l'adresse (s'il est valable) ; adresse → ligne suivante (5 au plus)
+  function enter(v) {
+    if (direct) return 'done';
+    if (!env) return 'done';
+    if (env.zone === 'contact') {
+      if (!contactOk(env.contact)) return 'stay';
+      env.zone = 'addr'; renderAddress(); emit('write', { text: env.text, zone: 'addr' });
+      return 'next';
+    }
+    return v.split('\n').length < ADDR.lines ? 'newline' : 'done';
+  }
+  function startWriting() {
+    if (direct) { if (direct.back || direct.pu > 0.5) return false; direct.writing = true; emit('write', { text: direct.contact, zone: 'contact' }); return true; }
+    if (!env || env.back || env.pu > 0.5) return false;
+    env.writing = true; emit('write', { text: env.zone === 'contact' ? env.contact : env.text, zone: env.zone }); return true;
+  }
+  function stopWriting() { if (env) env.writing = false; if (direct) direct.writing = false; }
+  const envReady = () => env && env.text.split('\n').filter(l => l.trim()).length >= 2 && contactOk(env.contact);
   function post(t) {
-    if (!env || env.back || env.postT >= 0 || env.text.split('\n').filter(l => l.trim()).length < 2) return false;
+    if (direct) {
+      if (direct.back || direct.postT >= 0 || !contactOk(direct.contact)) return false;
+      gesture(t); direct.writing = false; direct.postT = t; direct.sent = false; return true;
+    }
+    if (!env || env.back || env.postT >= 0 || !envReady()) return false;
     gesture(t); env.writing = false; env.postT = t; env.sent = false; return true;
+  }
+  function zoneRect(z) {
+    if (!env || !lastMenv) return null;
+    const w = (z === 'contact' ? CONTACT.chars : ADDR.chars) * TYPE.pitch + 6, h = z === 'contact' ? 12 : (ADDR.lines - 1) * ADDR.lead + 12;
+    const x0 = z === 'contact' ? CONTACT.x : ADDR.x, y0 = z === 'contact' ? CONTACT.y : ADDR.y;
+    const cxm = x0 - 3 + w / 2, cym = y0 - 7 + h / 2;
+    return rectOf(screenQuad(M4.mul(lastMenv, M4.model(0, Math.PI, 0)), w, h, cxm - ENV.w / 2, ENV.h / 2 - cym));
   }
   function setKeyboard(px) { kbPx = px; }
   // rectangle écran du bloc d'adresse (face lue : mm depuis le coin haut-gauche)
+  // où poser le champ natif (et le signe POSTER / ENVOYER) : la zone en cours
   function addrRect() {
+    if (direct) return direct.M && !direct.back && lastT - direct.t0 > 1.1 ? rectOf(screenQuad(direct.M)) : null;
     if (!env || !lastMenv || envClock(lastT) < E.write) return null;
-    const w = ADDR.chars * TYPE.pitch + 6, h = (ADDR.lines - 1) * ADDR.lead + 12;
-    const cxm = ADDR.x - 3 + w / 2, cym = ADDR.y - 7 + h / 2;
-    return rectOf(screenQuad(M4.mul(lastMenv, M4.model(0, Math.PI, 0)), w, h, cxm - ENV.w / 2, ENV.h / 2 - cym));
+    return zoneRect(env.zone);
   }
   function setTilt(x, y) { tilt.x = Math.max(-1, Math.min(1, x)); tilt.y = Math.max(-1, Math.min(1, y)); }
   function free() {
     for (const o of orders) card.freeInk(o.ink);
     if (env?.ink) card.freeInk(env.ink);
+    if (direct?.ink) card.freeInk(direct.ink);
     if (C) { if (C.ownBack) card.freeInk(C.back); if (C.ownFront) card.freeInk(C.front); }
     if (soonInk) card.freeInk(soonInk);
   }
@@ -585,6 +716,7 @@ export function createSheetScene(gl, opts) {
   function focusRect() {
     if (!vp) return null;
     if (env && quads.env) return rectOf(quads.env);
+    if (direct && direct.M) return rectOf(screenQuad(direct.M));
     if (sv > 0.5) { const qs = orders.map(o => quads[o.id]).filter(Boolean); if (qs.length) return rectOf(qs.flat()); }
     const mvp = M4.mul(vp, lastMsheet);
     const c = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => {
@@ -596,8 +728,10 @@ export function createSheetScene(gl, opts) {
   }
   return {
     frame, tap, press, release, scroll, back, setTilt, free, focusRect, gesture,
-    startWriting, stopWriting, setAddress, post, setKeyboard, addrRect,
-    state: () => ({ env: env ? { writing: env.writing, text: env.text, canPost: env.pu < 0.5 && !env.back && envClock(lastT) >= E.write && env.text.split('\n').filter(l => l.trim()).length >= 2, posted: env.postT >= 0, back: !!env.back, write: !env.back && envClock(lastT) >= E.write } : null, tau: tau(lastT), view: sv > 0.5 ? 'commande' : 'feuille', orders: orderAt >= 0, backing: !!backing, cursor: cursorOn(tau(lastT)) > 0.5, chosen: chosen ? chosen.id : null }),
+    startWriting, stopWriting, setAddress, setText: v => setAddress(v), enter, post, setKeyboard, addrRect,
+    state: () => ({
+      env: env ? { writing: env.writing, text: env.text, contact: env.contact, zone: env.zone, canPost: env.pu < 0.5 && !env.back && envClock(lastT) >= E.write && !!envReady(), posted: env.postT >= 0, back: !!env.back, write: !env.back && envClock(lastT) >= E.write, sign: 'POSTER' }
+        : direct ? { writing: direct.writing, text: direct.contact, contact: direct.contact, zone: 'contact', canPost: direct.pu < 0.5 && !direct.back && contactOk(direct.contact), posted: direct.postT >= 0, back: !!direct.back, write: !direct.back && lastT - direct.t0 > 1.1, sign: 'ENVOYER' } : null, tau: tau(lastT), view: sv > 0.5 ? 'commande' : 'feuille', orders: orderAt >= 0, backing: !!backing, cursor: cursorOn(tau(lastT)) > 0.5, chosen: chosen ? chosen.id : null }),
     // tests / captures
     showOrders: () => showOrders(lastT), choose: id => { const o = orders.find(x => x.id === id); const q = quads[id]; if (o && q) { const r = rectOf(q); return tap((r.left + r.right) / 2, (r.top + r.bottom) / 2, lastT); } return null; },
     timing: { landAll, CURSOR_AT, INTRO_END },

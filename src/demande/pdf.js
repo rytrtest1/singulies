@@ -60,7 +60,7 @@ export async function composePage(d, base = './') {
   if (d.kind === 'reponse' || d.kind === 'theme') for (const l of wrap(d.text || '', 34)) { x.fillText(l, W / 2, y + fs); y += mm(6.4); }
   // ---- l'adresse, puis le pied ----
   x.font = `${mm(3.1)}px "SG Machine"`; x.fillStyle = 'rgb(140,140,140)';
-  const addr = d.address || [];
+  const addr = [...(d.contact ? [d.contact, ''] : []), ...(d.address || [])];
   let ya = Math.max(y + mm(12), mm(A5.h - 46) - addr.length * mm(5));
   for (const l of addr) { x.fillText(l, W / 2, ya); ya += mm(5); }
   const KIND = { reponse: 'une question du jeu', theme: 'carte blanche', improvisation: 'improvisation' };
