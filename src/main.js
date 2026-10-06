@@ -9,7 +9,7 @@ import { buildAtlas } from './gl/atlas.js';
 import { createRenderer } from './render/renderer.js';
 import { layoutName } from './name/layout.js';
 import { loadState, saveValidated, clearStored, clearValidated } from './app/storage.js';
-import { installSend } from './app/send.js';
+import { installSend, settled } from './app/send.js';
 import { createField, MODES } from './field/field.js';
 import { createRng } from './field/rng.js';
 import { createLight } from './field/light.js';
@@ -203,12 +203,20 @@ function loadCards(name) {
   prefetchCards();
   cards = cardsModule.then(({ mountCards }) => mountCards({
     name, base: './', onExit: exitCards, hidden: true,
-    onEnd: () => {},
+    onEnd: () => {}, onDone: backToStart,
   })).then((m) => {
     if (!m) throw new Error('webgl2');
     m.warm();
     cardsReady = m; return m;
   }).catch((e) => { console.error(e); cardsReady = 'failed'; });
+}
+// la toute fin (enveloppe postée, « en direct » envoyé) : fondu, puis l'écran principal (le portail), une fois la
+// demande partie (ou gardée pour un renvoi) — jamais de rechargement pendant un envoi
+function backToStart() {
+  if (cardsReady && cardsReady !== 'failed') { cardsReady.canvas.style.transition = 'opacity 1.1s ease'; cardsReady.canvas.style.opacity = '0'; }
+  clearValidated();
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  Promise.all([wait(1200), Promise.race([settled().catch(() => {}), wait(6000)])]).finally(() => location.reload());
 }
 // retour depuis le paquet : l'accueil, prénom confirmé (comme un visiteur qui revient)
 function exitCards() { clearValidated(); location.reload(); }
@@ -638,8 +646,9 @@ async function boot() {
   let gate = null;
   if (CFG.portal && S.phase === 'input') {
     gate = mountPortalPage();
-    // après la donne des cartes (≈ 3,2 s) : la préparation du champ (lourde) ne doit pas faire hoqueter la donne
-    await Promise.race([gate.ready.then(() => new Promise(r => setTimeout(r, 3600))), gate.go]);
+    // après la donne des cartes (dernière posée à ≈ 5,1 s) + un temps : la préparation du champ (lourde, ≈ 0,1–0,3 s
+    // d'un bloc) faisait hoqueter la 3e carte juste avant qu'elle se pose (06/10) ; elle tombe maintenant au repos
+    await Promise.race([gate.ready.then(() => new Promise(r => setTimeout(r, 6400))), gate.go]);
   }
   // rechargement après la suite : directement la scène des cartes (le prénom à sa place, le paquet arrive)
   if (S.phase === 'scene') {

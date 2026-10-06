@@ -47,8 +47,15 @@ export async function mountCards(opts) {
   const canvas = opts.canvas || el('canvas', 'sc-c');
   // invisible tant que la page ne la montre pas : un canvas WebGL neuf est noir et couvrirait l'accueil
   if (opts.hidden) Object.assign(canvas.style, { opacity: '0', pointerEvents: 'none', zIndex: '5' });
-  const answer = el('textarea', 'sc-answer');
-  Object.assign(answer, { autocomplete: 'off', spellcheck: false });
+  const ta = el('textarea', 'sc-answer');
+  Object.assign(ta, { autocomplete: 'off', spellcheck: false });
+  // les champs de l'enveloppe : un vrai champ d'une ligne (le remplissage automatique du téléphone — nom, adresse,
+  // email, téléphone — ne marche que sur un <input>)
+  const fieldEl = el('input', 'sc-answer');
+  Object.assign(fieldEl, { type: 'text', spellcheck: false });
+  let answer = ta;
+  const useEl = e => { if (answer === e) return; answer.style.width = '1px'; answer.style.height = '1px'; answer = e; };
+  const both = (ev, fn, o) => { ta.addEventListener(ev, fn, o); fieldEl.addEventListener(ev, fn, o); };
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');
   const giveEl = el('div', 'sc-sign', '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
   const passEl = el('div', 'sc-pass', 'PASSER'); passEl.setAttribute('role', 'button');
@@ -103,8 +110,14 @@ export async function mountCards(opts) {
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); },
         // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)
         write: d => {
+          useEl(d.field ? fieldEl : ta);
           answer.value = d.text || '';
-          if (d.zone === 'contact') {
+          if (d.field) {
+            const f = d.field, last = f.id === 'tel';
+            answer.setAttribute('aria-label', f.label); answer.setAttribute('enterkeyhint', last ? 'done' : 'next');
+            answer.setAttribute('autocomplete', f.ac); answer.setAttribute('inputmode', f.im); answer.setAttribute('autocapitalize', f.cap);
+            answer.type = f.im === 'email' ? 'email' : f.im === 'tel' ? 'tel' : 'text';
+          } else if (d.zone === 'contact') {
             // email ou numéro : le clavier propose le sien (fiche contact), sans majuscule ; Entrée = l'adresse
             answer.setAttribute('aria-label', 'Ton email ou ton numéro'); answer.setAttribute('enterkeyhint', sheet?.state().env ? 'next' : 'done');
             answer.setAttribute('autocomplete', 'email'); answer.setAttribute('inputmode', 'email'); answer.setAttribute('autocapitalize', 'none');
@@ -116,13 +129,15 @@ export async function mountCards(opts) {
           try { answer.setSelectionRange(answer.value.length, answer.value.length); } catch { /* */ }
           focusAnswer();
         },
+        // postée (ou « en direct » envoyé) : un temps, puis l'écran principal
         stopWrite: () => answer.blur(),
-        address: d => { log('adresse : ' + d.address.join(' / ')); opts.onAddress?.(d); } } });
+        address: d => { log('adresse : ' + d.address.join(' / ')); opts.onAddress?.(d); if (opts.onDone) setTimeout(() => opts.onDone(d), 1400); } } });
     scene.hideName(true);
     sheetAt = now(); api.sheet = sheet;
   }
   function closeSheet() {
     if (!sheet) return;
+    useEl(ta);
     sheet.free(); sheet = null; api.sheet = null; placeHits(); note.classList.remove('on'); postEl.classList.remove('on');
     answer.setAttribute('aria-label', 'Réponse'); answer.setAttribute('enterkeyhint', 'done');
     answer.setAttribute('autocomplete', 'off'); answer.setAttribute('autocapitalize', 'none');
@@ -179,8 +194,7 @@ export async function mountCards(opts) {
       scene.frame(t, dt, W, H);
       // signes : donner (sous la carte écrite, clavier fermé) ; passer (avec la carte blanche offerte)
       const st = scene.state(), r = scene.activeRect();
-      const canGive = st.active && st.active.text && !st.writing && !st.ended && r;
-      giveEl.classList.toggle('on', !!canGive);
+      giveEl.classList.remove('on');      // la petite flèche est retirée (06/10) : Entrée, glisser vers le haut
       if (r) { giveEl.style.left = ((r.left + r.right) / 2 - 22) + 'px'; giveEl.style.top = (r.bottom + 10) + 'px'; }
       // PASSER : sur la carte blanche seulement, après 3 s sans frappe, sous la carte ; retour : en haut à gauche
       // (carte blanche → paquet ; paquet → accueil quand la page le permet)
@@ -211,36 +225,37 @@ export async function mountCards(opts) {
   }
 
   // ---- clavier : le champ natif reçoit la frappe, la carte affiche ----
-  answer.addEventListener('input', () => {
+  both('input', () => {
     if (sheet) { const c = sheet.setAddress(answer.value); if (c !== answer.value) setValue(c); return; }
     scene.setText(answer.value);
   });
-  answer.addEventListener('keydown', e => {
+  both('keydown', e => {
     if (e.key !== 'Enter' || e.isComposing) return;
-    // enveloppe : expéditeur → adresse ; adresse : ligne suivante (5 au plus) ; sinon Entrée = terminé
+    // enveloppe : Entrée = le champ suivant ; après le dernier, terminé
     if (sheet && sheet.state().env) {
-      const r = sheet.enter(answer.value);
-      if (r === 'newline') return;
       e.preventDefault();
-      if (r === 'done') answer.blur();
+      if (sheet.enter() === 'done') answer.blur();
       return;
     }
-    e.preventDefault(); answer.blur();
+    e.preventDefault();
+    // réponse ou carte blanche : Entrée = la suite, directement (06/10 : sinon on croit devoir répondre à autre chose)
+    if (!sheet && give('Entrée')) return;
+    answer.blur();
   });
-  answer.addEventListener('blur', () => { if (sheet) sheet.stopWriting(); else scene.stopWriting(); });
-  answer.addEventListener('focus', () => {
+  both('blur', e => { if (e.relatedTarget === ta || e.relatedTarget === fieldEl) return; if (sheet) sheet.stopWriting(); else scene.stopWriting(); });
+  both('focus', () => {
     if (sheet) { const es = sheet.state().env; if (es && es.write && !es.writing) sheet.startWriting(); return; }
     if (started && !scene.state().writing) scene.startWriting();
   });
   // relire en glissant verticalement sur la carte réponse (le champ est dessus)
   let ty = null, tvs = 0;
-  answer.addEventListener('touchstart', e => { ty = e.touches[0].clientY; tvs = 0; }, { passive: true });
-  answer.addEventListener('touchmove', e => {
+  both('touchstart', e => { ty = e.touches[0].clientY; tvs = 0; }, { passive: true });
+  both('touchmove', e => {
     if (ty == null || scene.state().writing) return;
     const steps = Math.trunc((ty - e.touches[0].clientY) / 28);
     if (steps !== tvs) { scene.scrollAnswer(steps - tvs); tvs = steps; }
   }, { passive: true });
-  answer.addEventListener('wheel', e => { e.preventDefault(); if (Math.abs(e.deltaY) > 4) scene.scrollAnswer(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+  both('wheel', e => { e.preventDefault(); if (Math.abs(e.deltaY) > 4) scene.scrollAnswer(e.deltaY > 0 ? 1 : -1); }, { passive: false });
   const onVV = () => { const k = vv ? Math.max(0, innerHeight - vv.height) : 0; scene.setKeyboard(k); sheet?.setKeyboard(k); };
   if (vv) { vv.addEventListener('resize', onVV); vv.addEventListener('scroll', onVV); }
 
@@ -249,7 +264,7 @@ export async function mountCards(opts) {
   // demande), souris sur ordinateur, doigt en repli ----
   let down = null, gyroLive = false;
   const ptr = { x: 0, y: 0 };
-  canvas.addEventListener('pointerdown', e => { if (!started) return; if (sheet) { sheet.press(e.clientX, e.clientY); down = { x: e.clientX, y: e.clientY, sheet: true, d: 0 }; return; } down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false, on: scene.hitAt(e.clientX, e.clientY) }; });
+  canvas.addEventListener('pointerdown', e => { if (!started) return; if (sheet) { sheet.press(e.clientX, e.clientY); down = { x: e.clientX, y: e.clientY, sheet: true, d: 0, t: performance.now() }; return; } down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false, on: scene.hitAt(e.clientX, e.clientY) }; });
   // premier geste : si l'écriture attend le clavier, on l'ouvre (iPhone)
   addEventListener('touchend', () => { if (started && (sheet ? sheet.state().env?.writing : scene.state().writing)) focusAnswer(); }, { passive: true });
   // relire la réponse validée : molette
@@ -294,11 +309,12 @@ export async function mountCards(opts) {
   });
   canvas.addEventListener('pointerup', e => {
     if (!down) return;
-    if (down.sheet) { const mv = down.moved; down = null; sheet?.release(); if (!mv && sheet) { const r = sheet.tap(e.clientX, e.clientY, now()); if (r.type) log(r.type); } return; }
+    if (down.sheet) { const mv = down.moved, f = down; down = null;
+      if (isFlick(e.clientX - f.x, e.clientY - f.y, performance.now() - f.t)) flickUp(); sheet?.release(); if (!mv && sheet) { const r = sheet.tap(e.clientX, e.clientY, now()); if (r.type) log(r.type); } return; }
     const dx = e.clientX - down.x, dtm = Math.max(1, performance.now() - down.t);
     if (down.moved) { const r = scene.release(dx, dx / dtm, now()); if (r.type) log(r.type); down = null; return; }
     if (down.took) { down = null; setValue(''); focusAnswer(); log('carte blanche'); return; }   // iPhone : le clavier s'ouvre au lâcher
-    if (down.v) { down = null; return; }
+    if (down.v) { const f = down; down = null; if (f.on !== 'blank' && isFlick(e.clientX - f.x, e.clientY - f.y, dtm)) flickUp(); return; }
     down = null;
     const r = scene.tap(e.clientX, e.clientY, now());
     if (r.type) log(r.type);
@@ -309,6 +325,25 @@ export async function mountCards(opts) {
     if (scene.state().mode !== 'free') { if (onExit) { answer.blur(); onExit(); } return; }
     if (scene.back(now())) { answer.value = scene.state().active?.text || ''; focusAnswer(); log('retour'); }
   });
+  // la suite : réponse (ou carte blanche) donnée
+  function give(how) {
+    const st = scene.state();
+    if (!st.active || !st.active.text || st.ended || !scene.give(now())) return false;
+    answer.blur(); log('donné (' + how + ')'); return true;
+  }
+  // glisser vers le haut = envoyer : la réponse (scène des cartes), l'enveloppe ou la carte « en direct » (si prêtes)
+  function flickUp() {
+    if (sheet) { const es = sheet.state().env; if (es && es.canPost && !es.posted) postEl.click(); return; }
+    give('glissé');
+  }
+  const isFlick = (dx, dy, ms) => dy < -60 && Math.abs(dy) > 1.4 * Math.abs(dx) && ms < 700;
+  let fl = null;
+  both('touchstart', e => { const p = e.touches[0]; fl = { x: p.clientX, y: p.clientY, t: performance.now() }; }, { passive: true });
+  both('touchend', e => {
+    if (!fl) return;
+    const p = e.changedTouches[0], f = fl; fl = null;
+    if (isFlick(p.clientX - f.x, p.clientY - f.y, performance.now() - f.t)) flickUp();
+  }, { passive: true });
   giveEl.addEventListener('click', () => {
     if (sheet) { if (sheet.post(now())) { answer.blur(); log('postée'); } return; }
     if (scene.give(now())) { answer.blur(); log('donné'); }

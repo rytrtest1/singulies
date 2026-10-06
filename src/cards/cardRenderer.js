@@ -57,9 +57,12 @@ function axis(half, dense, fine, coarse, c = 0) {
 // dims : { w, h, r, t, fine: [demi-largeur, demi-hauteur, pas, cx, cy] de la zone fine } (défaut : la carte)
 function cardMesh(fine = true, seg = 12, dims = null) {
   const { w, h, r, t } = dims || CARD, v = [], idx = [];
+  // bord ondulé (cachet de cire : la cire écrasée déborde inégalement) : rayon des coins × (1 + wob(angle))
+  const wb = dims && dims.wobble || 0;
+  const wob = a => wb * (0.55 * Math.sin(3 * a + 0.7) + 0.3 * Math.sin(5 * a + 2.1) + 0.15 * Math.sin(9 * a + 4.2));
   const fit = (x, y) => {   // point de grille ramené dans le rectangle arrondi (coins projetés sur l'arc)
     const cx = w / 2 - r, cy = h / 2 - r, qx = Math.abs(x) - cx, qy = Math.abs(y) - cy;
-    if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy); if (l > r) return [Math.sign(x) * (cx + qx * r / l), Math.sign(y) * (cy + qy * r / l)]; }
+    if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy), rr = r * (1 + wob(Math.atan2(y, x))); if (l > rr) return [Math.sign(x) * (cx + qx * rr / l), Math.sign(y) * (cy + qy * rr / l)]; }
     return [x, y];
   };
   // maillage léger (cartes de la pile, vues de loin ou par la tranche) : 2 mm partout
@@ -77,7 +80,7 @@ function cardMesh(fine = true, seg = 12, dims = null) {
   const ol = [];
   const corners = [[w / 2 - r, h / 2 - r, 0], [-w / 2 + r, h / 2 - r, 0.5], [-w / 2 + r, -h / 2 + r, 1], [w / 2 - r, -h / 2 + r, 1.5]];
   for (const [cx, cy, a0] of corners) for (let i = 0; i <= seg; i++) {
-    const a = (a0 + 0.5 * i / seg) * Math.PI; ol.push([cx + r * Math.cos(a), cy + r * Math.sin(a), Math.cos(a), Math.sin(a)]);
+    const a = (a0 + 0.5 * i / seg) * Math.PI, rr = r * (1 + wob(a)); ol.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a), Math.cos(a), Math.sin(a)]);
   }
   const edge = [];   // côtés droits subdivisés (le gondolage les courbe aussi)
   for (let k = 0; k < ol.length; k++) {
@@ -110,7 +113,7 @@ float gaufrage(vec2 p) {
   if (uNoLogo > 0.5) return 0.0;
   vec2 uv = (p - uLogoOff) / (uLogoSq * uLogoScale) + 0.5; uv.y = 1.0 - uv.y;
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return 0.0;
-  float d = textureLod(uLogo, uv, 0.0).r * min(uLogoScale.x, uLogoScale.y);
+  float d = textureLod(uLogo, uv, 0.0).r * min(abs(uLogoScale.x), abs(uLogoScale.y));
   float fw = max(uFootW, 0.22);
   float a = clamp(-d / fw, 0.0, 1.0), b = clamp(-d / uB, 0.0, 1.0);
   return uH * (uFoot * a * a * (3.0 - 2.0 * a) + (1.0 - uFoot) * b * b * (3.0 - 2.0 * b));
@@ -146,7 +149,10 @@ precision highp float;
 in vec3 vWorld, vT, vB, vN; in vec2 vMM; flat in int vFace;
 uniform sampler2D uPaper, uLogo, uInk, uInkBack;   // encre du recto (question) et du verso (réponse)
 uniform float uHasInkBack;
-uniform vec4 uCursor; uniform float uCursorFace;     // curseur de frappe : x, y (mm, bas), hauteur, opacité ; face (0/1, -1 aucun)
+uniform vec4 uCursor; uniform float uCursorFace;
+// lignes à écrire (feuille de l'acrostiche) : soulignés tapés à la machine, face 0 ; par ligne (y, x0, avancée 0–1,
+// graine), fin commune uRuleX1 (mm)
+uniform vec4 uRules[24]; uniform int uNRules; uniform float uRuleX1, uRuleA;     // curseur de frappe : x, y (mm, bas), hauteur, opacité ; face (0/1, -1 aucun)
 uniform float uHasInk, uInkAlb, uInkPress, uInkWear, uInkThr, uInkVar, uInkPaper, uInkOrg;
 uniform vec2 uCard;          // largeur, hauteur (mm)
 uniform vec2 uPaperSize;     // la photo du papier, à l'échelle réelle (celle d'une carte ; une feuille plus grande la répète en miroir)
@@ -176,7 +182,7 @@ float logoD(vec2 p) {        // distance signée au contour (mm), < 0 dans le lo
   if (uNoLogo > 0.5) return uLogoRange;   // feuille sans logo
   vec2 uv = (p - uLogoOff) / (uLogoSq * uLogoScale) + 0.5; uv.y = 1.0 - uv.y;
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return uLogoRange;
-  return texture(uLogo, uv).r * min(uLogoScale.x, uLogoScale.y);
+  return texture(uLogo, uv).r * min(abs(uLogoScale.x), abs(uLogoScale.y));
 }
 // profil du gaufrage : pied raide (pli du papier) puis épaule arrondie ; pied élargi à l'empreinte du pixel
 float gFootW = 0.08;
@@ -348,6 +354,22 @@ void main() {
       float dd = max(dx, dy), aaC = max(fwidth(p.x), 0.015);
       ink = max(ink, (1.0 - smoothstep(-aaC, aaC, dd)) * uCursor.w);
     }
+    // lignes à écrire : un souligné par frappe (pas de la machine), petits jours entre deux frappes, chacune
+    // un peu plus ou moins appuyée, à peine décalée ; la ligne se tape de gauche à droite (avancée)
+    if (vFace == 0 && uNRules > 0) {
+      float aaR = max(fwidth(p.y), 0.012);
+      for (int i = 0; i < 24; i++) {
+        if (i >= uNRules) break;
+        vec4 r = uRules[i];
+        if (r.z <= 0.0 || p.x < r.y || p.x > uRuleX1 || abs(p.y - r.x) > 0.4) continue;
+        float k = (p.x - r.y) / 2.54, si = floor(k), nS = floor((uRuleX1 - r.y) / 2.54);
+        if (si >= ceil(r.z * nS)) continue;
+        float h1 = fract(sin(si * 12.9898 + r.w * 78.233) * 43758.5453), h2 = fract(sin(si * 39.346 + r.w * 11.135) * 24634.6345);
+        float yy = r.x + (h1 - 0.5) * 0.07, fx = fract(k);
+        float dd = max(abs(p.y - yy) - (0.06 + 0.025 * h2), 0.14 - min(fx, 1.0 - fx) * 2.54);
+        ink = max(ink, (1.0 - smoothstep(-aaR, aaR, dd)) * (0.6 + 0.4 * h2) * uRuleA);
+      }
+    }
     // hauteur comptée le long de la normale sortante de la face (Ng) : n = Ng − hx T − hy B
     vec3 n = normalize(Ng - hx * T - hy * Bv);
     // bord : la coupe arrondit et casse le papier sur ~0,15 mm (plus aux coins), irrégulier
@@ -465,7 +487,7 @@ export async function createCardRenderer(gl, base = './') {
   }
   for (const [name, fine] of [['fine', true], ['coarse', false]]) upload(name, cardMesh(fine));
   // autre format (feuille A5…) : dims = { w, h, r, t, fine } ; dessiné avec { lod: name }
-  function addShape(name, dims) { if (!meshes[name]) upload(name, cardMesh(true, 6, dims), dims); return name; }
+  function addShape(name, dims) { if (!meshes[name]) upload(name, cardMesh(true, dims.seg || 6, dims), dims); return name; }
   const paperTex = imageTexture(gl, paperImg), logoTex = await logoTexture(gl, logoImg);
   // papier en répétition miroir : la feuille réponse peut faire défiler son grain (le papier monte)
   gl.bindTexture(gl.TEXTURE_2D, paperTex);
@@ -505,6 +527,9 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uHasInk, card.ink ? 1 : 0);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, card.inkBack || null); gl.uniform1i(u.uInkBack, 3);
     gl.uniform1f(u.uHasInkBack, card.inkBack ? 1 : 0);
+    const ru = card.rules;
+    gl.uniform1i(u.uNRules, ru ? Math.min(24, ru.list.length) : 0);
+    if (ru && ru.list.length) { const f = new Float32Array(96); ru.list.slice(0, 24).forEach((r, i) => f.set(r, i * 4)); gl.uniform4fv(u.uRules, f); gl.uniform1f(u.uRuleX1, ru.x1); gl.uniform1f(u.uRuleA, ru.a ?? 0.5); }
     gl.uniform4fv(u.uCursor, card.cursor || [0, 0, 0, 0]); gl.uniform1f(u.uCursorFace, card.cursorFace ?? -1);
     gl.uniform1f(u.uShade, card.shade ?? 1); gl.uniform1f(u.uFade, card.fade ?? 1);
     gl.bindVertexArray(m.vao);

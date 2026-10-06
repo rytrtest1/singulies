@@ -6,7 +6,10 @@ import QUESTIONS from '../cards/questions.json';
 import { encodeDemande } from '../demande/lien.js';
 import LETTERS from '../../public/email/l/tailles.json';
 
-export const EMAILJS = { service: 'service_8wqf489', template: 'template_cuh5tub', key: 'XreMhhJCN9l5J6V5J' };   // identifiants publics (aucun secret)
+export const EMAILJS = { service: 'service_8wqf489', template: 'template_cuh5tub', key: 'XreMhhJCN9l5J6V5J',   // identifiants publics (aucun secret)
+  // confirmation envoyée à la personne (récapitulatif) : second modèle EmailJS, To = {{to_email}}
+  // (ressources/email-confirmation.html) ; null tant qu'il n'est pas créé
+  confirm: null };
 const K_PENDING = 'singulies.pending';
 const OFF = (() => { try { return new URLSearchParams(location.search).get('envoi') === '0'; } catch { return false; } })();
 const ready = () => !OFF && EMAILJS.service && EMAILJS.template && EMAILJS.key;
@@ -55,32 +58,42 @@ export function params(d) {
     // la demande, rendue par le site (feuille, carte, enveloppe) : tout est dans le lien, après « # »
     lien: new URL('./demande.html', document.baseURI).href + '#' + encodeDemande(d),
     email_base: base,
+    to_email: d.email || '',
   };
 }
 
-async function post(p) {
+// un envoi en attente : { tpl, p } (anciens : les paramètres seuls → le modèle « nouvelle demande »)
+async function post(item) {
+  const tpl = item.tpl || EMAILJS.template, p = item.tpl ? item.p : item;
   const r = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ service_id: EMAILJS.service, template_id: EMAILJS.template, user_id: EMAILJS.key, template_params: p }),
+    body: JSON.stringify({ service_id: EMAILJS.service, template_id: tpl, user_id: EMAILJS.key, template_params: p }),
   });
   if (!r.ok) throw new Error('emailjs ' + r.status);
 }
 const load = () => { try { return JSON.parse(localStorage.getItem(K_PENDING) || '[]'); } catch { return []; } };
 const save = a => { try { a.length ? localStorage.setItem(K_PENDING, JSON.stringify(a)) : localStorage.removeItem(K_PENDING); } catch { /* */ } };
 
-let flushing = false;
-async function flush() {
-  if (!ready() || flushing) return;
-  flushing = true;
-  let a = load();
-  while (a.length) {
-    try { await post(a[0]); a = a.slice(1); save(a); } catch (e) { console.warn('envoi', e); break; }
+let flushing = null;
+function flush() {
+  if (!ready()) return Promise.resolve();
+  if (!flushing) flushing = doFlush().finally(() => { flushing = null; });
+  return flushing;
+}
+// la page attend que les envois en cours soient partis (ou gardés) avant de se recharger
+export const settled = () => flushing || Promise.resolve();
+async function doFlush() {
+  // relue à chaque tour : une demande ajoutée pendant l'envoi n'est pas écrasée
+  for (let a = load(); a.length; a = load()) {
+    try { await post(a[0]); save(load().slice(1)); } catch (e) { console.warn('envoi', e); break; }
   }
-  flushing = false;
 }
 export function send(detail) {
   if (OFF) return;
-  save([...load(), params(detail)]);
+  const p = params(detail), items = [{ tpl: EMAILJS.template, p }];
+  // le récapitulatif à la personne, si elle a donné son email
+  if (EMAILJS.confirm && p.to_email) items.push({ tpl: EMAILJS.confirm, p });
+  save([...load(), ...items]);
   flush();
 }
 

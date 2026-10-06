@@ -16,7 +16,7 @@ import { LOOK } from '../cards/scene.js';
 import { createRng } from '../field/rng.js';
 
 // liens de sortie : null = lien d'attente (« bientôt »)
-export const LINKS = { lettre: null, livres: null, jeu: null };
+export const LINKS = { lettre: null, livres: 'https://www.amazon.fr/dp/B0DS8RF83H', jeu: null };
 const ITEMS = [
   { id: 'poeme', label: 'ton prénom, ton poème' },
   { id: 'lettre', label: 'une lettre chez toi, chaque mois' },
@@ -43,7 +43,7 @@ const CSS = `
 #portal.leaving { transition-delay: .55s; }
 #portal canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #portal .pt-sig { position: absolute; left: 0; right: 0; text-align: center; white-space: pre; pointer-events: none;
-  font: 15px/1 'SG Machine', monospace; letter-spacing: .55em; padding-left: .55em; color: rgb(217,217,217); }
+  font: 500 28px/1 'SG Garamond', serif; letter-spacing: .45em; padding-left: .45em; color: rgb(158,158,158); }
 #portal .pt-sig span { display: inline-block; }
 #portal button { position: absolute; margin: 0; padding: 0; border: 0; background: transparent; color: transparent;
   cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: pinch-zoom; font-size: 1px; outline: none; }
@@ -78,16 +78,26 @@ export async function mountPortal(opts = {}) {
   let frozen = null;                       // captures : horloge figée (seek)
   const now = () => frozen ?? (performance.now() - t0) / 1000;
   const rnd = createRng();
+  let capEm = 0.65, baseEm = 0.8, relayout = null;   // relayout : une fois la mise en page définie
 
-  // ---- ETERNEL, tapé à la machine en silence, dès que la police (locale, légère) est là ----
+  // ---- ETERNEL, tapé lettre à lettre en silence, exactement comme le prénom des gens ensuite (EB Garamond 500,
+  // capitales, interlettrage 0,45 em, clarté 0,62, à la place et à la taille du prénom de la scène des cartes) ----
   const fontP = loadTypeFont(base);
-  fontP.then(() => {
+  const garP = (async () => {
+    try { const ff = new FontFace('SG Garamond', `url(${base}fonts/EBGaramond-500.woff2)`, { weight: '500' }); document.fonts.add(await ff.load()); } catch (e) { /* repli serif */ }
+    // hauteur de capitale de la police (em), pour régler la taille comme le prénom
+    const c = document.createElement('canvas').getContext('2d'); c.font = "500 100px 'SG Garamond', serif";
+    const m = c.measureText('H');
+    capEm = (m.actualBoundingBoxAscent || 65) / 100;
+    // ligne de base dans une boîte de hauteur 1 em : (1 − (asc + desc)) / 2 + asc
+    if (m.fontBoundingBoxAscent) baseEm = (1 - (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent) / 100) / 2 + m.fontBoundingBoxAscent / 100;
+    relayout?.();
+  })();
+  garP.then(() => {
     let i = 0;
     const strike = () => {
       if (i >= SIG.length) return;
       const s = document.createElement('span'); s.textContent = SIG[i++];
-      s.style.opacity = (reduced ? 0.6 : rnd.range(0.48, 0.66)).toFixed(2);
-      if (!reduced) s.style.transform = `translateY(${rnd.range(-0.6, 0.6).toFixed(2)}px) rotate(${rnd.range(-1.2, 1.2).toFixed(2)}deg)`;
       sig.appendChild(s);
       setTimeout(strike, reduced ? 0 : rnd.range(90, 190));
     };
@@ -130,12 +140,15 @@ export async function mountPortal(opts = {}) {
     return { dx: sd * rnd.range(0.0, 0.06), dy: rnd.range(-0.04, 0.04), rz: (rnd() < 0.7 ? -sd : sd) * rnd.range(0.015, 0.08) };
   });
   const lay = { W: 1, H: 1, D: 300, slot: [] };
+  relayout = () => { if (lay.H > 1) layout(lay.W, lay.H); };
   // les trois cartes sont le centre de l'attention ; le paquet, qui les a distribuées, en bas de page, entier, « le
   // jeu » lisible. Tout tient dans l'écran (biais compris), cartes à la taille de la scène des cartes ou moins
   function layout(W, H) {
     lay.W = W; lay.H = H;
     const asp = CARD.w / CARD.h, portrait = W < H * 1.1;
-    const top = H * (portrait ? 0.115 : 0.14), bot = H * 0.965;
+    // ETERNEL : capitales centrées à 11 % du haut, hauteur de capitale du prénom de la scène des cartes ; les cartes dessous
+    const sigCap = Math.min(52, Math.max(26, 0.052 * H)) * 0.66;
+    const top = Math.max(H * (portrait ? 0.115 : 0.14), H * 0.11 + sigCap / 2 + H * 0.035), bot = H * 0.965;
     const GAPD = 0.34;                                        // écart avec le paquet (une carte peut y glisser)
     const span = 1 + 2 * (1 - OV) + 0.14;                     // trois cartes qui se recouvrent + marge des biais
     let h;
@@ -158,8 +171,9 @@ export async function mountPortal(opts = {}) {
       }
       return { x: (px - W / 2) * s, y: (H / 2 - py) * s / Math.cos(TILT), rz: o.rz, z: i === JEU ? 0 : RANK[i] * Z_STEP };
     });
-    sig.style.top = `calc(max(env(safe-area-inset-top), 0px) + ${(top * 0.48).toFixed(0)}px)`;
-    sig.style.transform = 'translateY(-50%)';
+    const fs = sigCap / capEm;
+    sig.style.fontSize = fs.toFixed(2) + 'px'; sig.style.lineHeight = '1';
+    sig.style.top = (H * 0.11 + sigCap / 2 - baseEm * fs).toFixed(1) + 'px';   // capitales centrées à 11 % du haut
   }
   const deckPose = (j, v) => { const s = lay.slot[JEU]; return { x: s.x + v.jx, y: s.y + v.jy, z: j * PITCH, rx: 0, ry: 0, rz: s.rz + v.jr }; };
   // sur le paquet, dos visible, avant la donne (la première donnée au-dessus)

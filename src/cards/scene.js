@@ -519,7 +519,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       snap.glow = g;
     }
     snap.cam = { cy, D: Ds, eye, vp, Hw: lay.Hw, W, H }; snap.lamp = { ...lamp }; snap.ap = { x: ap.x, y: ap.y, z: ap.z || 0 };
-    if (ended && !ended.done && toSheet && te > (ended.kind === 'improvisation' ? 2.2 : 1.7)) { ended.done = true; emit('end', { kind: ended.kind, text: ended.text, id: ended.id }); }
+    if (ended && !ended.done && toSheet && te > (ended.kind === 'improvisation' ? 1.5 : 1.15)) { ended.done = true; emit('end', { kind: ended.kind, text: ended.text, id: ended.id }); }
     if (ended && !ended.done && te > 2.9) { ended.done = true; emit('end', { kind: ended.kind, text: ended.text, id: ended.id }); }
   }
   // curseur à une position (mm depuis le coin haut-gauche de la face lue, recto) : trait fin qui respire

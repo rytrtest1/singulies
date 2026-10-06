@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="fr" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<!-- Modèle EmailJS « confirmation » (06/10) — envoyé à la personne (son email tapé sur l'enveloppe ou la carte
+     « en direct »). À créer dans EmailJS comme un second modèle, en mode code, avec :
+       To Email : {{to_email}}     Reply To : ton adresse     Sujet conseillé : {{prenom}}, ta demande est partie
+     puis mettre son identifiant dans EMAILJS.confirm (src/app/send.js). Mêmes paramètres que « nouvelle demande ».
+     {{{…}}} (trois accolades) : HTML préparé par le site (src/app/send.js) :
+       prenom_html : le prénom en images de lettres (EB Garamond, le gris du site) ;
+       carte_html  : l'image de la vraie carte (la question tirée, ou « carte blanche ») — vide en improvisation ;
+       texte_html  : la réponse, ou le thème.
+     Mode sombre (Gmail iPhone inverse les couleurs) : le fond est une image (#060606, Gmail n'inverse pas les
+     images), les lettres et la carte sont des images sur ce même fond, seul le texte est protégé (gmail-screen / diff) — jamais les images : ce mélange les passerait en négatif. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>{{prenom}}</title>
+<style>
+  u + .body .gmail-screen { background: #000; mix-blend-mode: screen; }
+  u + .body .gmail-diff { background: #000; mix-blend-mode: difference; }
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
+  a { text-decoration: none; }
+</style>
+</head>
+<body class="body" style="margin:0;padding:0;background:#060606;" bgcolor="#060606">
+<u></u>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#060606"
+  background="{{email_base}}fond.png"
+  style="background-color:#060606;background-image:url('{{email_base}}fond.png');background-repeat:repeat;">
+<tr><td align="center" style="padding:64px 16px 56px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:440px;">
+
+    <!-- le prénom, comme sur le site -->
+    <tr><td align="center" style="padding:0 0 44px;">
+      {{{prenom_html}}}
+    </td></tr>
+
+    <!-- le mot (à réécrire à sa façon) -->
+    <tr><td align="center" style="padding:0 18px 40px;font-family:'Courier Prime','Courier New',Courier,monospace;font-size:15px;line-height:26px;color:#cdcdcd;text-align:center;">
+      <div class="gmail-screen"><div class="gmail-diff">ta demande est bien partie.<br>voici ce que tu m'as confié.</div></div>
+    </td></tr>
+
+    <!-- la carte (la question tirée, ou la carte blanche) -->
+    <tr><td align="center" style="padding:0;">
+      {{{carte_html}}}
+    </td></tr>
+
+    <!-- ce que la personne a écrit, à la machine (la police des cartes, au plus proche) -->
+    <tr><td align="center" style="padding:0 18px;font-family:'Courier Prime','Courier New',Courier,monospace;font-size:15px;line-height:26px;color:#cdcdcd;text-align:center;">
+      <div class="gmail-screen"><div class="gmail-diff">{{{texte_html}}}</div></div>
+    </td></tr>
+
+    <!-- pour la joindre (email ou numéro), puis l'adresse, discrète -->
+    <tr><td align="center" style="padding:0 0 40px;font-family:'Courier Prime','Courier New',Courier,monospace;font-size:12px;line-height:20px;color:#8a8a8a;text-align:center;">
+      <div class="gmail-screen"><div class="gmail-diff">{{{contact_html}}}
+      {{{adresse_html}}}</div></div>
+    </td></tr>
+
+    <!-- la demande, en vrai (le site) -->
+    <tr><td align="center" style="padding:0;">
+      <a href="{{lien}}" style="display:inline-block;border:1px solid #333333;padding:15px 28px;font-family:Georgia,'Times New Roman',serif;font-size:11px;letter-spacing:5px;color:#e2e2e2;text-decoration:none;"><div class="gmail-screen"><div class="gmail-diff">REVOIR TA DEMANDE</div></div></a>
+    </td></tr>
+
+    <tr><td align="center" style="padding:36px 0 0;font-family:Georgia,serif;font-size:11px;letter-spacing:2px;color:#6e6e6e;">
+      <div class="gmail-screen"><div class="gmail-diff">{{genre}} &nbsp;·&nbsp; {{mode}} &nbsp;·&nbsp; {{date}}</div></div>
+    </td></tr>
+    <tr><td align="center" style="padding:16px 0 0;font-family:'Courier New',Courier,monospace;font-size:10px;letter-spacing:6px;color:#454545;">
+      <div class="gmail-screen"><div class="gmail-diff">SINGULIES</div></div>
+    </td></tr>
+
+  </table>
+</td></tr>
+</table>
+</body>
+</html>

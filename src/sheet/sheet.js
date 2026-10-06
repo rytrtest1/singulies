@@ -42,10 +42,35 @@ const CAM_T = 2.4;
 // carte se pose sur la feuille, la feuille pivote et se glisse dans la poche avec elle, le rabat se ferme,
 // l'enveloppe se retourne ; on tape l'adresse dessus, à la machine.
 export const ENV = { w: 229, h: 162, r: 0.8, t: 0.12 };
-const ENV_BACK_H = 155, FLAP_H = 78, ENV_Z = -3;   // le dos monte presque jusqu'en haut (la poche) : rien ne se voit à l'intérieur une fois fermée
-const E = { fade: [0, 0.7], cam: [0.1, 2.1], rise: [0.4, 2.1], cIn: [1.3, 2.4], rot: [2.2, 3.4], slide: [3.3, 4.7],
-  flap: [4.8, 6.0], flip: [6.1, 7.6], cam2: [6.0, 7.9], write: 7.9 };
+const ENV_BACK_H = 155, FLAP_H = 78, ENV_Z = -3;
+const SEAL_D = 26, SEAL_K = 0.5;                  // cachet : diamètre (mm), logo ≈ 19 mm   // le dos monte presque jusqu'en haut (la poche) : rien ne se voit à l'intérieur une fois fermée
+// rot : la feuille pivote DEVANT la poche (ses coins balaient plus bas que le bord de la poche) ; drop : une fois en
+// paysage, au-dessus de l'ouverture, elle passe derrière le devant de la poche ; slide : elle y descend (06/10 :
+// elle traversait le devant de la poche en pivotant) ; seal : le cachet de cire se pose sur la pointe du rabat
+const E = { fade: [0, 0.7], cam: [0.1, 2.1], rise: [0.4, 2.1], cIn: [1.3, 2.4], rot: [2.2, 3.25], drop: [3.2, 3.5], slide: [3.45, 4.7],
+  flap: [4.8, 5.9], seal: [5.85, 6.45], flip: [6.6, 8.0], cam2: [6.5, 8.3], write: 8.3 };
 export const ADDR = { x: 106, y: 96, lead: 6.35, lines: 5, chars: 34 };   // bloc d'adresse (mm, depuis le coin haut-gauche)
+// l'adresse en champs (06/10, Maxence : « clarifier le moment de l'adresse ») : chacun sa ligne, son invitation
+// tapée en léger tant qu'il est vide ; Entrée = le champ suivant. Destinataire en bas à droite, expéditeur (email,
+// téléphone) en haut à gauche. POSTER dès que nom, adresse, code postal, ville et un moyen de joindre sont là.
+export const FIELDS = [
+  { id: 'nom', hint: 'prénom nom', zone: 'addr', line: 0, chars: 34, req: true, ac: 'name', im: 'text', cap: 'words', label: 'Prénom et nom' },
+  { id: 'rue', hint: 'adresse', zone: 'addr', line: 1, chars: 34, req: true, ac: 'address-line1', im: 'text', cap: 'words', label: 'Adresse' },
+  { id: 'cplt', hint: 'complément', zone: 'addr', line: 2, chars: 34, ac: 'address-line2', im: 'text', cap: 'words', label: "Complément d'adresse (facultatif)" },
+  { id: 'cp', hint: 'code postal', zone: 'addr', line: 3, chars: 10, req: true, ac: 'postal-code', im: 'numeric', cap: 'none', label: 'Code postal' },
+  { id: 'ville', hint: 'ville', zone: 'addr', line: 4, chars: 34, req: true, ac: 'address-level2', im: 'text', cap: 'words', label: 'Ville' },
+  { id: 'email', hint: 'ton email', zone: 'contact', line: 0, chars: 34, ac: 'email', im: 'email', cap: 'none', label: 'Ton email' },
+  { id: 'tel', hint: 'ton téléphone', zone: 'contact', line: 1, chars: 20, ac: 'tel', im: 'tel', cap: 'none', label: 'Ton téléphone' },
+];
+export const emailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((v || '').trim());
+export const telOk = v => (v || '').replace(/\D/g, '').length >= 8 && /^[\d\s+().-]+$/.test((v || '').trim());
+export const fieldsReady = f => FIELDS.every(d => !d.req || (f[d.id] || '').trim()) && (emailOk(f.email) || telOk(f.tel));
+// ce qui part (email, lien, PDF) : les lignes de l'adresse et le moyen de joindre
+export const fieldsOut = f => ({
+  address: [f.nom, f.rue, f.cplt, [f.cp, f.ville].filter(x => (x || '').trim()).join(' ')].map(x => (x || '').trim()).filter(Boolean),
+  email: emailOk(f.email) ? f.email.trim() : '', tel: telOk(f.tel) ? f.tel.trim() : '',
+  contact: [emailOk(f.email) ? f.email.trim() : '', telOk(f.tel) ? f.tel.trim() : ''].filter(Boolean).join(' · '),
+});
 const C_IN = { x: 14, y: -56, rz: -0.03, z: 0.3 };                  // la carte, posée sur la feuille pour entrer
 const ENVELOPE = new URLSearchParams(location.search).get('enveloppe') !== '0';   // ?enveloppe=0 : « bientôt » comme avant
 
@@ -93,6 +118,19 @@ export const cleanContact = v => v.replace(/[\r\n\t]/g, '').replace(/\s{2,}/g, '
 
 // encre de l'enveloppe (face, 10 px/mm) : l'expéditeur (email ou numéro) en haut à gauche, l'adresse en bas à droite
 const ENV_PX = 10;
+// l'enveloppe à remplir : chaque champ sur sa ligne, son invitation en léger tant qu'il est vide ; curseur au champ actif
+export const fieldPos = d => d.zone === 'addr' ? { x: ADDR.x, y: ADDR.y + d.line * ADDR.lead } : { x: CONTACT.x, y: CONTACT.y + d.line * ADDR.lead };
+export function fieldsInk(f, seed, active) {
+  const PX = ENV_PX, cv = new OffscreenCanvas(Math.round(ENV.w * PX), Math.round(ENV.h * PX)), cx = cv.getContext('2d');
+  cx.fillStyle = '#000'; cx.fillRect(0, 0, cv.width, cv.height);
+  let cursor = null;
+  FIELDS.forEach((d, k) => {
+    const v = f[d.id] || '', p = fieldPos(d);
+    typeLines(cx, PX, [v || d.hint], p.x, p.y, 0, seed + k * 31, v ? 1 : 0.42);
+    if (d.id === active) cursor = { x: p.x + v.length * TYPE.pitch - 0.35, y: p.y };
+  });
+  return { canvas: cv, cursor: cursor || { x: ADDR.x, y: ADDR.y } };
+}
 export function addressInk(text, seed, contact = '', zone = 'addr') {
   const PX = ENV_PX, Wc = Math.round(ENV.w * PX), Hc = Math.round(ENV.h * PX);
   const cv = new OffscreenCanvas(Wc, Hc), cx = cv.getContext('2d');
@@ -147,10 +185,16 @@ export function createSheetScene(gl, opts) {
   card.addShape('sheet', { ...SHEET, fine: P_LOGO ? [10, 10, 0.25, 0, LOGO_Y] : null });
   card.addShape('env', { ...ENV, fine: null });
   card.addShape('envBack', { ...ENV, h: ENV_BACK_H, fine: null });
-  card.addShape('flap', { ...ENV, h: FLAP_H, fine: P_LOGO ? [9, 9, 0.25, 0, FLAP_H / 2 - 24] : null });
+  card.addShape('flap', { ...ENV, h: FLAP_H, fine: null });
+  // le cachet de cire argenté (06/10) : un disque bombé, le logo frappé en creux
+  card.addShape('seal', { w: SEAL_D, h: SEAL_D, r: SEAL_D / 2, t: 1.6, fine: [SEAL_D / 2 + 1, SEAL_D / 2 + 1, 0.22, 0, 0], seg: 24, wobble: 0.06 });
   const pv = () => ({ seed: rnd() * 100, paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0],
     warp: [rnd.range(0.05, 0.15), rnd.range(-0.08, 0), 0], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35, noLogo: true });
-  const envV = { front: pv(), back: pv(), flap: { ...pv(), noLogo: !P_LOGO, logoOff: [0, FLAP_H / 2 - 24], logoScale: [0.34, 0.34], warp: [0, 0, 0] } };
+  const envV = { front: pv(), back: pv(), flap: { ...pv(), noLogo: true, warp: [0, 0, 0] } };
+  // matière du cachet : métal argenté (diffus faible, reflet serré, la pièce s'y reflète), logo frappé profond ;
+  // face 1 vers l'extérieur (rabat fermé, retourné) : logo en creux, remis à l'endroit (échelle y négative) ; bombé
+  const sealV = { seed: rnd() * 100, paperXf: [0, 0, 0, 0], paperLo: 0.15, logoOff: [0, 0], logoScale: [SEAL_K, -SEAL_K], warp: [1.3, 1.3, 0] };
+  const SEAL_LOOK = { albedo: 0.075, rough: 0.2, spec: 10, sheen: 0, glint: 0, grain: 0.25, fiber: 0, envSpec: 4.5, h: 0.5, b: 0.6, foot: 0.55, footW: 0.1, crease: 0.25, edge: 2, diffRough: 0.2 };
 
   const sheetV = {
     seed: rnd() * 100, paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0],
@@ -201,6 +245,14 @@ export function createSheetScene(gl, opts) {
   const INTRO_END = Math.max(CURSOR_AT + 1, CARD_MOVE[1], SHEET_IN[1]);
   // curseur : une espace après la première lettre, sur sa ligne de base (mm, face lue)
   const first = chars.findIndex(c => c !== ' ');
+  // lignes à écrire : un souligné à la machine à droite de chaque lettre, tapé quand elle se pose (fin commune,
+  // marge droite = marge de la colonne)
+  const RULE_X1 = SHEET.w / 2 - 30;
+  const rulesOf = tu => flyers.map((f, k) => {
+    const x0 = COL_X + nameR.adv(f.ch) * emT + TYPE.pitch * 1.2;
+    const u = reduced ? (tu > f.at + f.dur ? 1 : 0) : clamp01((tu - (f.at + f.dur + 0.12)) / 0.55);
+    return [baseOf(f.i) - 0.9, x0, u, k + 1];
+  });
   const cursorMM = first >= 0 ? { x: COL_X + nameR.adv(chars[first]) * emT + TYPE.pitch * 1.2, y: baseOf(first) - 0.5 } : { x: COL_X, y: 0 };
 
   // ---- la commande ----
@@ -252,7 +304,9 @@ export function createSheetScene(gl, opts) {
   const quads = {};
 
   // τ : temps de la scène ; au retour il redescend (le temps remonte)
-  const SLOW = +(new URLSearchParams(location.search).get('lent') || 1) || 1;   // captures : temps ralenti
+  // tout va ≈ 1,45 × plus vite qu'à l'origine, de la réponse donnée jusqu'à l'adresse (Maxence 06/10) ; ?lent=k ralentit
+  const SPEED = 1.45;
+  const SLOW = (+(new URLSearchParams(location.search).get('lent') || 1) || 1) / SPEED;   // captures : temps ralenti
   function tau(t) {
     if (!backing) return (t - t0) / SLOW;
     return Math.max(0, backing.tau0 - (t - backing.t0) * 2.4 / SLOW);
@@ -297,7 +351,7 @@ export function createSheetScene(gl, opts) {
     const writePhase = inEnv && !env.back && ev >= E.write && env.pu < 0.5;
 
     // passage automatique vers la commande : le curseur posé, et jamais moins de 3 s après le dernier geste
-    if (!backing && orderAt < 0 && tu > CURSOR_AT + 3.2 && t - lastGesture > 3) showOrders(t);
+    if (!backing && orderAt < 0 && tu > CURSOR_AT + 1.8 && t - lastGesture > 3) showOrders(t);
     if (backing) sT = 0;
     // ressort de la vue (feuille ↔ commande)
     { const w2 = reduced ? 30 : 2.4; svV += (w2 * w2 * (sT - sv) - 2 * w2 * svV) * dt; sv += svV * dt; }
@@ -306,7 +360,7 @@ export function createSheetScene(gl, opts) {
     const sL = s * (1 - uCam);                                // ce que la vue « commande » retire à la feuille
     const writingNow = (env && env.writing) || (direct && direct.writing);
     kb += ((writingNow && kbPx > 40 ? 1 : 0) - kb) * Math.min(1, dt * 4);
-    if (env) fz += ((env.zone === 'contact' ? 1 : 0) - fz) * Math.min(1, dt * 2.5);
+    if (env) fz += ((zoneOf(env.field) === 'contact' ? 1 : 0) - fz) * Math.min(1, dt * 2.5);
     if (direct) direct.pu += ((direct.postT >= 0 ? 1 : 0) - direct.pu) * Math.min(1, dt * 1.1);
     if (env) env.pu += ((env.postT >= 0 ? 1 : 0) - env.pu) * Math.min(1, dt * 1.1);
 
@@ -365,11 +419,12 @@ export function createSheetScene(gl, opts) {
     const sIn = reduced ? sstep(SHEET_IN[0], SHEET_IN[0] + 0.8, tu) : ease(span(SHEET_IN, tu));
     const Gs = group(0, SY, 0.7, 1 - sL, 0.45 * live, t);
     let Msheet = M4.mul(T(0, -70 * (1 - sIn), -60 * (1 - sIn)), M4.mul(Gs, T(0, SY, 0)));
-    const uR = inEnv ? ease(span(E.rot, ev)) : 0, uS = inEnv ? ease(span(E.slide, ev)) : 0;
+    const uR = inEnv ? ease(span(E.rot, ev)) : 0, uS = inEnv ? ease(span(E.slide, ev)) : 0, uD = inEnv ? ease(span(E.drop, ev)) : 0;
     if (inEnv && ev >= E.slide[1]) Msheet = M4.mul(Menv, M4.mul(T(0, -2, 0.6), M4.model(0, 0, Math.PI / 2)));
     else if (uR > 0) {
+      // pivote devant le devant de la poche (z + 3), puis, en paysage au-dessus de l'ouverture, passe derrière lui
       const Rm = lerpM(rotOf(Gs), T(0, 0, 0), uR);
-      Msheet = M4.mul(M4.mul(T(0, lerp(SY, EC.y - 2, uS), lerp(0, EC.z + 0.6, uR)), Rm), M4.model(0, 0, Math.PI / 2 * uR));
+      Msheet = M4.mul(M4.mul(T(0, lerp(SY, EC.y - 2, uS), lerp(lerp(0, 3, uR), EC.z + 0.6, uD)), Rm), M4.model(0, 0, Math.PI / 2 * uR));
     }
     lastMsheet = Msheet;
     const dimS = 1 - L.unfocusDim * sL;
@@ -395,12 +450,12 @@ export function createSheetScene(gl, opts) {
     }
     // ---- dessin : enveloppe (fond), feuille, carte, lettres, puis le dos de l'enveloppe et le rabat (devant) ----
     if (Menv && envFade > 0.004) {
-      const cur = writePhase && (env.writing || !(env.zone === 'contact' ? env.contact : env.text)) ? { cursor: [ENV.w / 2 - env.cursor.x, ENV.h / 2 - env.cursor.y - 0.8, TYPE.size * 0.92, (0.55 + 0.4 * Math.sin(t * 2.4)) * sstep(E.write, E.write + 0.8, ev)], cursorFace: 1 } : {};
+      const cur = writePhase && (env.writing || !env.f[env.field]) ? { cursor: [ENV.w / 2 - env.cursor.x, ENV.h / 2 - env.cursor.y - 0.8, TYPE.size * 0.92, (0.55 + 0.4 * Math.sin(t * 2.4)) * sstep(E.write, E.write + 0.8, ev)], cursorFace: 1 } : {};
       card.draw(vp, eye, P, { model: Menv, lod: 'env', ink: env.ink, fade: envFade, shade: 1, ...envV.front, ...cur });
       quads.env = screenQuad(Menv, ENV.w, ENV.h);
     } else quads.env = null;
     if (sIn > 0.004 && !hideInside) card.draw(vp, eye, P, { model: Msheet, lod: 'sheet', fade: sIn, shade: dimS, occ: C?.occ || null, ...sheetV,
-      warp: sheetV.warp.map(x => x * (1 - uR)),
+      warp: sheetV.warp.map(x => x * (1 - uR)), rules: { list: rulesOf(tu), x1: RULE_X1, a: 0.42 },
       ...(cursorOn(tu) > 0 && !inEnv ? { cursor: [cursorMM.x, cursorMM.y, TYPE.size * 0.92, cursorOn(tu) * (0.55 + 0.4 * Math.sin(t * 2.4))], cursorFace: 0 } : {}) });
     if (C && from.answer && tu < MERGE[1] + 0.05) {
       // la carte réponse se glisse exactement sous la question et s'y fond
@@ -492,11 +547,19 @@ export function createSheetScene(gl, opts) {
       const th = Math.PI * uFlap, hz = 1.9 * uFlap;
       const Mf = M4.mul(Menv, M4.mul(M4.mul(T(0, ENV.h / 2, hz), M4.model(th, 0, 0)), T(0, FLAP_H / 2, 0)));
       card.draw(vp, eye, P, { model: Mf, lod: 'flap', fade: envFade, shade: 1, ...envV.flap, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2] });
+      // le cachet se pose sur la pointe du rabat fermé (il descend, s'écrase un peu), caché une fois retournée
+      const uSe = span(E.seal, ev);
+      if (P_LOGO && uSe > 0 && ev < E.flip[0] + 0.9) {
+        const dropZ = reduced ? 0 : 14 * Math.pow(1 - ease(uSe), 2), sq = 1 + 0.06 * Math.sin(Math.PI * sstep(0.55, 1, uSe));
+        const Ms = M4.mul(Mf, M4.mul(T(0, FLAP_H / 2 - 22, -(0.06 + 0.8 + dropZ)), new Float32Array([sq, 0, 0, 0, 0, sq, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])));
+        card.draw(vp, eye, { ...P, ...SEAL_LOOK }, { model: Ms, lod: 'seal', fade: envFade * sstep(0, 0.35, uSe), shade: 1, ...sealV });
+      }
     }
     // « en direct » envoyé : l'événement, une fois la carte partie
     if (direct && direct.postT >= 0 && !direct.sent && t - direct.postT > 1.7) {
       direct.sent = true;
-      const detail = { name: from.name, kind: from.kind, id: from.id, text: from.text, mode: 'direct', address: [], contact: direct.contact.trim() };
+      const c = direct.contact.trim();
+      const detail = { name: from.name, kind: from.kind, id: from.id, text: from.text, mode: 'direct', address: [], contact: c, email: emailOk(c) ? c : '', tel: telOk(c) ? c : '' };
       try { if (typeof window.onAddress === 'function') window.onAddress(detail); } catch (e) { console.error(e); }
       window.dispatchEvent(new CustomEvent('singulies:direct', { detail }));
       emit('address', detail);
@@ -504,7 +567,7 @@ export function createSheetScene(gl, opts) {
     // postée : l'événement, une fois partie
     if (env && env.postT >= 0 && !env.sent && t - env.postT > 1.7) {
       env.sent = true;
-      const detail = { name: from.name, kind: from.kind, id: from.id, text: from.text, mode: 'poste', address: env.text.split('\n').filter(l => l.trim()), contact: env.contact.trim() };
+      const detail = { name: from.name, kind: from.kind, id: from.id, text: from.text, mode: 'poste', ...fieldsOut(env.f), fields: { ...env.f } };
       try { if (typeof window.onAddress === 'function') window.onAddress(detail); } catch (e) { console.error(e); }
       window.dispatchEvent(new CustomEvent('singulies:address', { detail }));
       emit('address', detail);
@@ -544,9 +607,14 @@ export function createSheetScene(gl, opts) {
     if (backing) return { type: null };
     if (env) {
       if (!env.back && env.pu < 0.5 && envClock(t) >= E.write && inside(quads.env, x, y)) {
-        const zr = zoneRect('contact');
-        const z = zr && x >= zr.left - 12 && x <= zr.right + 12 && y >= zr.top - 12 && y <= zr.bottom + 12 ? 'contact' : 'addr';
-        if (z !== env.zone) { env.zone = z; renderAddress(); }
+        // le champ touché (ou le plus proche)
+        let best = null, bd = 1e9;
+        for (const d of FIELDS) {
+          const r = zoneRect(d.id); if (!r) continue;
+          const dx = Math.max(r.left - x, 0, x - r.right), dy = Math.max(r.top - y, 0, y - r.bottom), dd = dx * 0.3 + dy;
+          if (dd < bd) { bd = dd; best = d.id; }
+        }
+        if (best && best !== env.field) { env.field = best; renderAddress(); if (env.writing) emit('write', writeInfo()); }
         return startWriting() ? { type: 'write' } : { type: null };
       }
       return { type: null };
@@ -611,24 +679,27 @@ export function createSheetScene(gl, opts) {
   }
   // ---- l'enveloppe ----
   function openEnv(t) {
-    env = { t0: t, back: null, postT: -1, pu: 0, writing: false, text: savedAddr, contact: savedContact, zone: contactOk(savedContact) ? 'addr' : 'contact', ink: null, cursor: { x: ADDR.x, y: ADDR.y }, sent: false };
+    const f = { ...savedFields };
+    if (!f.email && emailOk(savedContact)) f.email = savedContact;
+    if (!f.tel && telOk(savedContact)) f.tel = savedContact;
+    env = { t0: t, back: null, postT: -1, pu: 0, writing: false, f, field: FIELDS.find(d => !(f[d.id] || '').trim())?.id || 'nom', ink: null, cursor: { x: ADDR.x, y: ADDR.y }, sent: false };
     renderAddress();
   }
-  let savedAddr = '', savedContact = '', fz = 0;             // l'adresse et le contact restent si l'on revient en arrière
+  let savedFields = {}, savedContact = '', fz = 0;           // l'adresse et le contact restent si l'on revient en arrière
+  const zoneOf = id => FIELDS.find(d => d.id === id)?.zone || 'addr';
   function closeEnv() {
     if (env?.ink) card.freeInk(env.ink);
-    if (env) { savedAddr = env.text; savedContact = env.contact; }
+    if (env) { savedFields = { ...env.f }; savedContact = env.f.email || env.f.tel || savedContact; }
     env = null; chosen = null; kb = 0;
   }
-  // adresse tapée à la machine : 5 lignes au plus, 34 caractères par ligne, casse et accents gardés
-  function cleanAddress(v) {
-    return v.replace(/\r/g, '').replace(/[’‘`´]/g, "'").replace(/\t/g, ' ').split('\n').slice(0, ADDR.lines).map(l => l.slice(0, ADDR.chars)).join('\n');
-  }
+  // un champ : une ligne, tapée à la machine (casse et accents gardés), à sa longueur
+  const cleanField = (d, v) => v.replace(/[\r\n\t]/g, ' ').replace(/[’‘`´]/g, "'").replace(/\s{2,}/g, ' ').replace(/^\s+/, '').slice(0, d.chars);
   function renderAddress() {
-    const m = addressInk(env.text, 991, env.contact, env.zone);
+    const m = fieldsInk(env.f, 991, env.writing || !env.f[env.field] ? env.field : null);
     if (env.ink) card.freeInk(env.ink);
     env.ink = card.makeInk(m.canvas); env.cursor = m.cursor;
   }
+  const writeInfo = () => { const d = FIELDS.find(x => x.id === env.field); return { text: env.f[d.id] || '', zone: d.zone, field: d }; };
   // « en direct » : la carte se retourne ; on tape son email ou son numéro au dos
   let direct = null;
   function openDirect(o, t) {
@@ -645,7 +716,7 @@ export function createSheetScene(gl, opts) {
     if (direct) savedContact = direct.contact;
     direct = null; chosen = null; kb = 0;
   }
-  // le texte du champ natif va à la zone en cours (expéditeur, adresse, ou la carte « en direct »)
+  // le texte du champ natif va au champ en cours (de l'enveloppe, ou la carte « en direct »)
   function setAddress(v) {
     if (direct) {
       if (!direct.writing) return direct.contact;
@@ -653,34 +724,26 @@ export function createSheetScene(gl, opts) {
       if (c !== direct.contact) { direct.contact = c; renderDirect(); }
       return c;
     }
-    if (!env || !env.writing) return env ? (env.zone === 'contact' ? env.contact : env.text) : v;
-    if (env.zone === 'contact') {
-      const c = cleanContact(v);
-      if (c !== env.contact) { env.contact = c; renderAddress(); }
-      return c;
-    }
-    const c = cleanAddress(v);
-    if (c !== env.text) { env.text = c; renderAddress(); }
+    if (!env || !env.writing) return env ? env.f[env.field] || '' : v;
+    const d = FIELDS.find(x => x.id === env.field), c = cleanField(d, v);
+    if (c !== (env.f[d.id] || '')) { env.f[d.id] = c; renderAddress(); }
     return c;
   }
-  // Entrée : expéditeur → passe à l'adresse (s'il est valable) ; adresse → ligne suivante (5 au plus)
-  function enter(v) {
-    if (direct) return 'done';
-    if (!env) return 'done';
-    if (env.zone === 'contact') {
-      if (!contactOk(env.contact)) return 'stay';
-      env.zone = 'addr'; renderAddress(); emit('write', { text: env.text, zone: 'addr' });
-      return 'next';
-    }
-    return v.split('\n').length < ADDR.lines ? 'newline' : 'done';
+  // Entrée : le champ suivant ; après le dernier, terminé
+  function enter() {
+    if (direct || !env) return 'done';
+    const i = FIELDS.findIndex(d => d.id === env.field);
+    if (i < 0 || i >= FIELDS.length - 1) return 'done';
+    env.field = FIELDS[i + 1].id; renderAddress(); emit('write', writeInfo());
+    return 'next';
   }
   function startWriting() {
     if (direct) { if (direct.back || direct.pu > 0.5) return false; direct.writing = true; emit('write', { text: direct.contact, zone: 'contact' }); return true; }
     if (!env || env.back || env.pu > 0.5) return false;
-    env.writing = true; emit('write', { text: env.zone === 'contact' ? env.contact : env.text, zone: env.zone }); return true;
+    env.writing = true; renderAddress(); emit('write', writeInfo()); return true;
   }
-  function stopWriting() { if (env) env.writing = false; if (direct) direct.writing = false; }
-  const envReady = () => env && env.text.split('\n').filter(l => l.trim()).length >= 2 && contactOk(env.contact);
+  function stopWriting() { if (env) { env.writing = false; renderAddress(); } if (direct) direct.writing = false; }
+  const envReady = () => env && fieldsReady(env.f);
   function post(t) {
     if (direct) {
       if (direct.back || direct.postT >= 0 || !contactOk(direct.contact)) return false;
@@ -689,11 +752,12 @@ export function createSheetScene(gl, opts) {
     if (!env || env.back || env.postT >= 0 || !envReady()) return false;
     gesture(t); env.writing = false; env.postT = t; env.sent = false; return true;
   }
-  function zoneRect(z) {
+  // rectangle écran d'un champ (sa ligne, sur toute sa longueur)
+  function zoneRect(id) {
     if (!env || !lastMenv) return null;
-    const w = (z === 'contact' ? CONTACT.chars : ADDR.chars) * TYPE.pitch + 6, h = z === 'contact' ? 12 : (ADDR.lines - 1) * ADDR.lead + 12;
-    const x0 = z === 'contact' ? CONTACT.x : ADDR.x, y0 = z === 'contact' ? CONTACT.y : ADDR.y;
-    const cxm = x0 - 3 + w / 2, cym = y0 - 7 + h / 2;
+    const d = FIELDS.find(x => x.id === id); if (!d) return null;
+    const p = fieldPos(d), w = d.chars * TYPE.pitch + 6, h = ADDR.lead;
+    const cxm = p.x - 3 + w / 2, cym = p.y - 1.4 - h / 2 + 1.2;
     return rectOf(screenQuad(M4.mul(lastMenv, M4.model(0, Math.PI, 0)), w, h, cxm - ENV.w / 2, ENV.h / 2 - cym));
   }
   function setKeyboard(px) { kbPx = px; }
@@ -702,7 +766,7 @@ export function createSheetScene(gl, opts) {
   function addrRect() {
     if (direct) return direct.M && !direct.back && lastT - direct.t0 > 1.1 ? rectOf(screenQuad(direct.M)) : null;
     if (!env || !lastMenv || envClock(lastT) < E.write) return null;
-    return zoneRect(env.zone);
+    return zoneRect(env.field);
   }
   function setTilt(x, y) { tilt.x = Math.max(-1, Math.min(1, x)); tilt.y = Math.max(-1, Math.min(1, y)); }
   function free() {
@@ -730,7 +794,7 @@ export function createSheetScene(gl, opts) {
     frame, tap, press, release, scroll, back, setTilt, free, focusRect, gesture,
     startWriting, stopWriting, setAddress, setText: v => setAddress(v), enter, post, setKeyboard, addrRect,
     state: () => ({
-      env: env ? { writing: env.writing, text: env.text, contact: env.contact, zone: env.zone, canPost: env.pu < 0.5 && !env.back && envClock(lastT) >= E.write && !!envReady(), posted: env.postT >= 0, back: !!env.back, write: !env.back && envClock(lastT) >= E.write, sign: 'POSTER' }
+      env: env ? { writing: env.writing, text: env.f[env.field] || '', fields: { ...env.f }, field: env.field, zone: zoneOf(env.field), canPost: env.pu < 0.5 && !env.back && envClock(lastT) >= E.write && !!envReady(), posted: env.postT >= 0, back: !!env.back, write: !env.back && envClock(lastT) >= E.write, sign: 'POSTER' }
         : direct ? { writing: direct.writing, text: direct.contact, contact: direct.contact, zone: 'contact', canPost: direct.pu < 0.5 && !direct.back && contactOk(direct.contact), posted: direct.postT >= 0, back: !!direct.back, write: !direct.back && lastT - direct.t0 > 1.1, sign: 'ENVOYER' } : null, tau: tau(lastT), view: sv > 0.5 ? 'commande' : 'feuille', orders: orderAt >= 0, backing: !!backing, cursor: cursorOn(tau(lastT)) > 0.5, chosen: chosen ? chosen.id : null }),
     // tests / captures
     showOrders: () => showOrders(lastT), choose: id => { const o = orders.find(x => x.id === id); const q = quads[id]; if (o && q) { const r = rectOf(q); return tap((r.left + r.right) / 2, (r.top + r.bottom) / 2, lastT); } return null; },
