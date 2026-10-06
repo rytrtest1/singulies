@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Images de l'email (outil, non publié)</title>
+<style>
+  @font-face { font-family: 'SG Garamond'; src: url(./fonts/EBGaramond-500.woff2) format('woff2'); font-weight: 500; }
+  html, body { margin: 0; background: #060606; }
+</style>
+</head>
+<body>
+<canvas id="c" width="720" height="440"></canvas>
+<script type="module">
+  // Rend, avec le vrai moteur, les images fixes de l'email (tools/email-assets.mjs les enregistre) :
+  // une image par carte question (les 73), la carte blanche, et une image par lettre du prénom (A–Z).
+  import { createCardRenderer, M4, CARD } from './src/cards/cardRenderer.js';
+  import { loadTypeFont, makeInkMap } from './src/cards/ink.js';
+  import { LOOK } from './src/cards/scene.js';
+  import QUESTIONS from './src/cards/questions.json';
+
+  const canvas = document.getElementById('c');
+  const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: true });
+  const card = await createCardRenderer(gl, './');
+  await loadTypeFont('./');
+  await document.fonts.load('500 64px "SG Garamond"');
+  const L = { ...LOOK };
+  const FOV = 26 * Math.PI / 180, TILT = 0.22;
+
+  // une carte, face lue, dans la caméra et la lumière des cartes (lampe rasante, de côté : jamais du côté du regard)
+  function cardShot(text, { noLogo = false, seed = 1 } = {}) {
+    const W = canvas.width, H = canvas.height;
+    const pxmm = W * 0.86 / CARD.w, Hw = H / pxmm, D = Hw / (2 * Math.tan(FOV / 2));
+    const eye = [0, -D * Math.sin(TILT), D * Math.cos(TILT)];
+    const vp = M4.mul(M4.perspective(FOV, W / H, D * 0.3, D * 3), M4.lookAt(eye, [0, 0, 0], [0, 1, 0]));
+    const k = Hw / 235, R = L.lightR0 * Hw, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R);
+    const az = L.lightAz + 0.35, el = L.elBase;
+    const P = { ...L, lightPos: [Math.cos(az) * D0 * Math.cos(el), Math.sin(az) * D0 * Math.cos(el), D0 * Math.sin(el)],
+      light: L.light * k * k * Math.sin(el0) / Math.sin(el), spotI: 0 };
+    gl.viewport(0, 0, W, H);
+    gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    const ink = card.makeInk(makeInkMap(text, seed).canvas);
+    card.draw(vp, eye, P, { model: M4.model(0, Math.PI, 0.004), lod: 'fine', ink, noLogo, seed: seed % 97,
+      paperXf: [0.6, -0.4, 0, 0], warp: [0.18, -0.08, 0.04], logoOff: [0, 0] });
+    gl.finish();
+    const url = canvas.toDataURL('image/jpeg', 0.86);
+    card.freeInk(ink);
+    return url;
+  }
+
+  // une lettre du prénom : EB Garamond 500, le gris du prénom sur le site (0,62 → 158), interlettrage 0,45 em
+  // compris dans l'image (à droite), sur le fond du site (6) ; 2× pour les écrans fins
+  const CAP_PX = 2 * 26, EM = CAP_PX / 0.65;
+  function letterShot(ch) {
+    const c = document.createElement('canvas'), x = c.getContext('2d');
+    x.font = `500 ${EM}px "SG Garamond"`;
+    const adv = x.measureText(ch).width, w = Math.ceil(adv + 0.45 * EM), h = Math.ceil(EM * 1.0);
+    c.width = w; c.height = h;
+    x.fillStyle = '#060606'; x.fillRect(0, 0, w, h);
+    x.font = `500 ${EM}px "SG Garamond"`; x.fillStyle = 'rgb(158,158,158)'; x.textBaseline = 'alphabetic';
+    x.fillText(ch, 0, Math.round(h * 0.5 + CAP_PX / 2));
+    return { url: c.toDataURL('image/png'), w: w / 2, h: h / 2 };
+  }
+
+  window.__assets = {
+    questions: QUESTIONS.map(q => q.id),
+    card: id => cardShot(QUESTIONS.find(q => q.id === id).q, { seed: 1000 + id }),
+    blanche: () => cardShot('carte blanche', { noLogo: true, seed: 3 }),
+    letter: letterShot,
+    ready: true,
+  };
+</script>
+</body>
+</html>

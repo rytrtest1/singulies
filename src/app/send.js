@@ -4,6 +4,7 @@
 // ?envoi=0 : rien n'est envoyé (essais).
 import QUESTIONS from '../cards/questions.json';
 import { encodeDemande } from '../demande/lien.js';
+import LETTERS from '../../public/email/l/tailles.json';
 
 const EMAILJS = { service: 'service_8wqf489', template: 'template_cuh5tub', key: 'XreMhhJCN9l5J6V5J' };   // identifiants publics (aucun secret)
 const K_PENDING = 'singulies.pending';
@@ -14,11 +15,31 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const KIND = { reponse: 'une question du jeu', theme: 'carte blanche', improvisation: 'improvisation (sur le prénom)' };
 
 // paramètres du modèle EmailJS (voir ressources/email-demande.html) ; *_html : à insérer avec {{{ }}}
+// Gmail ne charge pas les polices du site : le prénom est composé d'images de lettres (EB Garamond, rendues une
+// fois : tools/email-assets.mjs), la carte est l'image de la vraie carte (les 73 questions, la carte blanche)
+const NAME_W = 400;                               // largeur max d'une ligne du prénom dans l'email (px)
+function nameHtml(name, base) {
+  const words = name.split(' ').filter(Boolean), lines = [];
+  for (const w of words) { const l = lines[lines.length - 1]; if (l && (l + ' ' + w).length <= 11) lines[lines.length - 1] = l + ' ' + w; else lines.push(w); }
+  const width = l => [...l].reduce((s, c) => s + (c === ' ' ? 22 : (LETTERS[c]?.[0] || 40)), 0);
+  const k = Math.min(1, NAME_W / Math.max(1, ...lines.map(width)));
+  return lines.map(l => '<div style="font-size:0;line-height:0;padding:0 0 ' + Math.round(14 * k) + 'px ' + Math.round(18 * k) + 'px;">' +
+    [...l].map(c => c === ' '
+      ? '<span style="display:inline-block;width:' + Math.round(22 * k) + 'px;"></span>'
+      : '<img src="' + base + 'l/' + c + '.png" width="' + Math.round(LETTERS[c][0] * k) + '" height="' + Math.round(40 * k) + '" alt="' + c + '" style="display:inline-block;border:0;vertical-align:top;">'
+    ).join('') + '</div>').join('');
+}
+const textHtml = t => esc(t).replace(/\n/g, '<br>');
 export function params(d) {
   const q = d.kind === 'reponse' ? (QUESTIONS.find(x => x.id === d.id)?.q || '') : '';
-  const name = (d.name || '').toUpperCase();
+  const name = (d.name || '').toUpperCase().replace(/[^A-Z ]/g, '');
+  const base = new URL('./email/', document.baseURI).href;
+  const carte = d.kind === 'reponse' && q ? base + 'q/' + d.id + '.jpg' : d.kind === 'theme' ? base + 'q/blanche.jpg' : '';
   return {
     prenom: name,
+    prenom_html: nameHtml(name, base),
+    carte_html: carte ? '<img src="' + carte + '" width="340" alt="' + esc(q ? q.toLowerCase() : 'carte blanche') + '" style="display:block;border:0;width:100%;max-width:340px;height:auto;margin:0 auto;">' : '',
+    texte_html: d.kind === 'reponse' || d.kind === 'theme' ? textHtml(d.text || '') : '',
     colonne_html: [...name].map(c => c === ' ' ? '&nbsp;' : esc(c)).join('<br>'),
     genre: KIND[d.kind] || d.kind || '',
     question: q.toLowerCase(),
@@ -30,6 +51,7 @@ export function params(d) {
     date: new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }),
     // la demande, rendue par le site (feuille, carte, enveloppe) : tout est dans le lien, après « # »
     lien: new URL('./demande.html', document.baseURI).href + '#' + encodeDemande(d),
+    email_base: base,
   };
 }
 
