@@ -97,7 +97,7 @@ export function createLight({ reduced = false } = {}) {
     }
     pulse *= 0.8 * lp.inten * (1 - 0.35 * k);
     // anneau de résonance : repos plus vif près du prénom (hors zone vide → anneau)
-    const rest = (0.36 + 0.19 * sm(4, 20, z)) * (0.5 + 0.5 * (1 - sm(0.25, 1, dn)));   // proches plus sombres, fond plus clair
+    const rest = (0.40 + 0.21 * sm(4, 20, z)) * (0.5 + 0.5 * (1 - sm(0.25, 1, dn)));   // proches plus sombres, fond plus clair
     const breath = reduced ? 1 : 1 + 0.1 * Math.sin(lp.f1 * t + lp.p1) + 0.07 * Math.sin(lp.f2 * t + lp.p2);
     return p * (rest * breath + pulse);
   }

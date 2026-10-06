@@ -20,7 +20,7 @@ import { layoutName } from '../name/layout.js';
 export const LOOK = {
   // réglé par Maxence sur téléphone (04/10). Cartes noires ; lampe en orbite + hauteur (manière 1, 60 %) ; la
   // carte en focus s'incline vers la souris / le mouvement du téléphone, celle en attente respire et est baissée.
-  light: 0.111, lightR: 400, env: 0.28, albedo: 0.029, exposure: 0.74, lightAz: 0.67, lightR0: 1.0, lightZ: 210, tiltAmp: 1.45,
+  light: 0.111, lightR: 400, env: 0.28, albedo: 0.029, exposure: 0.9, lightAz: 0.67, lightR0: 1.0, lightZ: 210, tiltAmp: 1.45,
   lightMode: 1, elevAmp: 0.45, flashZ: 70, cardTilt: 0.2, lightVar: 0.6, sway: 0.11, unfocusDim: 0.25, spot: 0.06,
   // respiration de la lampe (05/10) : elle tourne lentement autour des cartes et monte/descend un peu, sans changer
   // de force — ombres, reliefs, creux et bords bougent même sans interaction (rad)
@@ -29,7 +29,7 @@ export const LOOK = {
   elBase: 0.6, elMin: 0.3, elMax: 0.73,   // hauteur de la lampe (rad) : 34° au repos, 17° très rasante ↔ 42° (hauteur d'origine)
   h: 0.19, b: 1.32, crease: 0, fiber: 0.06, foot: 0.76, footW: 0.165, parallax: 0,
   rough: 0.64, spec: 3.1, sheen: 0, glint: 0.35, edge: 3, grain: 1.25, diffRough: 0.65, envSpec: 0.32, toe: 0.0078,
-  nameFlat: 0.62,   // prénom à plat, même clarté que sur l'accueil (NAME_REST, 05/10) ; 0 → prénom en relief (nameAlb, nameRelief…)
+  nameFlat: 0.68,   // prénom à plat, même clarté que sur l'accueil (NAME_REST, 05/10) ; 0 → prénom en relief (nameAlb, nameRelief…)
   nameAlb: 0.5, nameRelief: 0.05, nameBevel: 0.07, nameSpec: 0.4, nameGrain: 1.25, nameFiber: 0.06, nameGlint: 0.35,
   inkAlb: 0.35, inkPress: 0.1, inkWear: 3, inkThr: 0.35, inkVar: 0.6, inkPaper: 11.5, inkOrg: 0,
   cornerDelay: 5,    // s avant que le coin se corne

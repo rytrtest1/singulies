@@ -24,7 +24,7 @@ body { -webkit-tap-highlight-color: transparent; }
 #in.rest { opacity: 0; }   /* reste focalisable (Tab, clic) : redevient normal au focus */
 #fallback {
   position: fixed; left: 0; right: 0; top: 50%; transform: translateY(-50%);
-  text-align: center; color: rgb(158, 158, 158); font: 500 clamp(28px, 6vh, 64px)/1.2 'SG Garamond', serif;
+  text-align: center; color: rgb(174, 174, 174); font: 500 clamp(28px, 6vh, 64px)/1.2 'SG Garamond', serif;
   letter-spacing: 0.45em; padding-left: 0.45em; display: none; pointer-events: none;
 }
 #back {
@@ -33,13 +33,13 @@ body { -webkit-tap-highlight-color: transparent; }
   color: #fff; opacity: 0; transition: opacity .9s ease; pointer-events: none; cursor: pointer;
 }
 /* signes discrets (flèches, PASSER) : une seule opacité dans toute l'app, 0,4 (sous le prénom) ; survol 0,6 */
-#back.on { opacity: .4; pointer-events: auto; }
+#back.on { opacity: .44; pointer-events: auto; }
 /* aller à la suite : petit signe sous le prénom confirmé, placé par le script (zone 44 px) */
 #next {
   position: fixed; left: 50%; top: 60%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
   color: #fff; opacity: 0; transition: opacity 1.2s ease; pointer-events: none; cursor: pointer;
 }
-#next.on { opacity: .4; pointer-events: auto; }
+#next.on { opacity: .44; pointer-events: auto; }
 #next.on:hover { opacity: .6; }
 #back.on:hover { opacity: .6; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

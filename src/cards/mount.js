@@ -13,13 +13,13 @@ const CSS = `
 .sc-sign { position: fixed; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
   color: #fff; opacity: 0; transition: opacity .8s; pointer-events: none; z-index: 13; cursor: pointer; }
 /* signes discrets : une seule opacité dans toute l'app (0,4 ; survol 0,6) */
-.sc-sign.on { opacity: .4; pointer-events: auto; }
+.sc-sign.on { opacity: .44; pointer-events: auto; }
 .sc-sign.on:hover, .sc-pass.on:hover { opacity: .6; }
 /* PASSER (sur la carte blanche, après quelques secondes sans frappe) : discret, placé par le script */
 .sc-pass { position: fixed; left: 0; right: 0; top: 85%; text-align: center; z-index: 13; cursor: pointer;
   opacity: 0; transition: opacity 1.2s; pointer-events: none;
   font: 500 12px/44px 'SG Garamond', serif; letter-spacing: 0.4em; padding-left: 0.4em; color: #fff; }
-.sc-pass.on { opacity: .4; pointer-events: auto; }
+.sc-pass.on { opacity: .44; pointer-events: auto; }
 .sc-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); }
 /* feuille : boutons accessibles (clavier, lecteur d'écran) posés sur la carte et la commande ; le toucher passe au canvas */
 .sc-hit { position: fixed; margin: 0; padding: 0; border: 0; background: transparent; color: transparent; font-size: 1px;
@@ -29,7 +29,7 @@ const CSS = `
 .sc-note { position: fixed; left: 16px; right: 16px; bottom: max(14px, env(safe-area-inset-bottom)); text-align: center; z-index: 13;
   font: 500 12px/1.5 'SG Garamond', Georgia, serif; letter-spacing: .08em; color: #fff; opacity: 0; transition: opacity 1.2s;
   pointer-events: none; text-decoration: none; }
-.sc-note.on { opacity: .4; pointer-events: auto; }
+.sc-note.on { opacity: .44; pointer-events: auto; }
 .sc-note.on:hover { opacity: .6; }
 .sc-veil { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 1.4s; pointer-events: none; z-index: 14; }
 `;
@@ -227,6 +227,15 @@ export async function mountCards(opts) {
   // ---- clavier : le champ natif reçoit la frappe, la carte affiche ----
   both('input', () => {
     if (sheet) { const c = sheet.setAddress(answer.value); if (c !== answer.value) setValue(c); return; }
+    // Entrée qui a échappé à keydown (clavier Android, composition iPhone) : un retour à la ligne arrive dans le
+    // texte — on le retire et c'est la suite, comme Entrée
+    const NL = /[\r\n]+/g;
+    if (NL.test(answer.value)) {
+      setValue(answer.value.replace(NL, ' ').replace(/ +$/, ''));
+      scene.setText(answer.value);
+      if (!give('Entrée')) answer.blur();
+      return;
+    }
     scene.setText(answer.value);
   });
   both('keydown', e => {

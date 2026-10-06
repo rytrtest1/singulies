@@ -166,6 +166,7 @@ uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
 uniform vec3 uLightPos, uEye, uRoomUp;
 // ombre portée par une autre carte (la carte retournée au-dessus du paquet) : rectangle à la hauteur uOccZ
 uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc;
+uniform mat4 uOccInv; uniform float uOccExact;     // ombre exacte : repère de la carte qui fait de l'ombre (inclinée)
 // projecteur de mise en valeur (carte active) : cône doux
 uniform vec3 uSpotPos, uSpotDir; uniform float uSpot, uSpotCosOut, uSpotCosIn;
 uniform float uLight, uLightR, uEnv, uAlbedo, uExposure;
@@ -265,12 +266,23 @@ float orenNayar(vec3 n, vec3 L, vec3 V, float sig) {
 // ombre douce d'une carte posée au-dessus (rectangle arrondi à la hauteur uOccZ, tourné de uOccRot) :
 // on suit le rayon vers la lampe jusqu'à ce plan ; pénombre ∝ distance × taille apparente de la lampe
 float occShadow(vec3 L, float dist) {
-  if (uHasOcc < 0.5 || L.z <= 1e-3) return 1.0;
-  float s = (uOccZ - vWorld.z) / L.z;
-  if (s <= 0.05) return 1.0;
-  vec2 q = vWorld.xy + L.xy * s - uOcc.xy;
-  float c = cos(uOccRot), sn = sin(uOccRot);
-  q = vec2(c * q.x + sn * q.y, -sn * q.x + c * q.y);
+  if (uHasOcc < 0.5) return 1.0;
+  vec2 q; float s;
+  if (uOccExact > 0.5) {
+    // le rayon vers la lampe coupe le plan de la carte au-dessus, dans son propre repère (même inclinée)
+    vec3 pl = (uOccInv * vec4(vWorld, 1.0)).xyz, Ll = mat3(uOccInv) * L;
+    if (abs(Ll.z) < 1e-3) return 1.0;
+    s = -pl.z / Ll.z;
+    if (s <= 0.05) return 1.0;
+    q = pl.xy + Ll.xy * s;
+  } else {
+    if (L.z <= 1e-3) return 1.0;
+    s = (uOccZ - vWorld.z) / L.z;
+    if (s <= 0.05) return 1.0;
+    q = vWorld.xy + L.xy * s - uOcc.xy;
+    float c = cos(uOccRot), sn = sin(uOccRot);
+    q = vec2(c * q.x + sn * q.y, -sn * q.x + c * q.y);
+  }
   vec2 e = abs(q) - (uOcc.zw - 3.0);
   float d = length(max(e, 0.0)) + min(max(e.x, e.y), 0.0) - 3.0;     // distance au rectangle arrondi (mm)
   float pen = max(0.4, s * uLightR / dist);
@@ -432,6 +444,14 @@ void main() {
   o = vec4(mix(vec3(6.0 / 255.0), col, uFade), 1.0);
 }`;
 
+// inverse d'une transformation rigide (rotation + translation), colonnes (WebGL)
+function rigidInv(m) {
+  const o = new Float32Array(16);
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) o[j * 4 + i] = m[i * 4 + j];
+  for (let i = 0; i < 3; i++) o[12 + i] = -(o[i] * m[12] + o[4 + i] * m[13] + o[8 + i] * m[14]);
+  o[15] = 1;
+  return o;
+}
 function loadImage(url) {
   return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
 }
@@ -518,7 +538,9 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uHasOcc, oc ? 1 : 0);
     gl.uniform3fv(u.uSpotPos, params.spotPos || [0, 0, 1000]); gl.uniform3fv(u.uSpotDir, params.spotDir || [0, 0, -1]);
     gl.uniform1f(u.uSpot, params.spotI || 0); gl.uniform1f(u.uSpotCosOut, params.spotCosOut || 0.9); gl.uniform1f(u.uSpotCosIn, params.spotCosIn || 0.95);
-    if (oc) { gl.uniform4f(u.uOcc, oc.x, oc.y, CARD.w / 2, CARD.h / 2); gl.uniform1f(u.uOccZ, oc.z); gl.uniform1f(u.uOccRot, oc.rz); }
+    if (oc) { gl.uniform4f(u.uOcc, oc.x || 0, oc.y || 0, CARD.w / 2, CARD.h / 2); gl.uniform1f(u.uOccZ, oc.z || 0); gl.uniform1f(u.uOccRot, oc.rz || 0); }
+    gl.uniform1f(u.uOccExact, oc && oc.m ? 1 : 0);
+    if (oc && oc.m) gl.uniformMatrix4fv(u.uOccInv, false, rigidInv(oc.m));
     gl.uniform3fv(u.uRoomUp, params.roomUp || [0, 0, 1]);
     for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'Parallax', 'EnvSpec', 'Toe', 'InkAlb', 'InkPress', 'InkWear', 'InkThr', 'InkVar', 'InkPaper', 'InkOrg']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, paperTex); gl.uniform1i(u.uPaper, 0);

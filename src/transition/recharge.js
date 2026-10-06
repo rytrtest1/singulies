@@ -21,7 +21,7 @@ export const RISE = 1.9;          // durée de la montée (s)
 // une seule clarté du prénom dans toute l'app (accueil, transition, cartes) : 0,62 (≈ 158/255, accordée aux cartes) ; jamais de baisse
 // d'une scène à l'autre. La recharge le fait baisser puis le ramène à ce niveau (pas au-delà) ; la marge jusqu'au
 // blanc sert à l'allumage de ses lettres quand on écrit la réponse.
-export const NAME_REST = 0.62;
+export const NAME_REST = 0.68;   // 06/10 : tout le site ≈ 10 % plus clair (était 0,62)
 export const NAME_LOW = 0.62;     // fraction de NAME_REST : le prénom baisse avant d'être rechargé
 export const NAME_GRAY = NAME_REST;   // (ancien gris « en retrait » 0,42 : retiré, 05/10)
 const NAME_LIT = NAME_REST;       // clarté visée par une lettre qui rejoint le prénom

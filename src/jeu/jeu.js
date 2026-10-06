@@ -25,7 +25,7 @@ const CSS = `
 #jeu button:focus-visible { outline: 1px solid rgba(255,255,255,.35); outline-offset: 4px; }
 #jeu .jeu-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); width: 44px; height: 44px;
   color: #fff; opacity: 0; transition: opacity .8s; display: flex; align-items: center; justify-content: center; font-size: 0; }
-#jeu .jeu-back.on { opacity: .4; }
+#jeu .jeu-back.on { opacity: .44; }
 #jeu .jeu-back.on:hover { opacity: .6; }
 `;
 

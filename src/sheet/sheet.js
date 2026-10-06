@@ -126,7 +126,10 @@ export function fieldsInk(f, seed, active) {
   let cursor = null;
   FIELDS.forEach((d, k) => {
     const v = f[d.id] || '', p = fieldPos(d);
-    typeLines(cx, PX, [v || d.hint], p.x, p.y, 0, seed + k * 31, v ? 1 : 0.42);
+    // un vrai formulaire tapé à la machine : chaque champ souligné (on voit où écrire), son nom lisible tant qu'il
+    // est vide (06/10 : à 0,42 l'encre ne prenait plus, on ne savait pas quoi écrire)
+    typeLines(cx, PX, ['_'.repeat(Math.min(d.chars, 30))], p.x, p.y + 0.9, 0, seed + k * 31 + 7, 0.78);
+    typeLines(cx, PX, [v || d.hint], p.x, p.y, 0, seed + k * 31, v ? 1 : 0.92);
     if (d.id === active) cursor = { x: p.x + v.length * TYPE.pitch - 0.35, y: p.y };
   });
   return { canvas: cv, cursor: cursor || { x: ADDR.x, y: ADDR.y } };
@@ -193,7 +196,7 @@ export function createSheetScene(gl, opts) {
   const envV = { front: pv(), back: pv(), flap: { ...pv(), noLogo: true, warp: [0, 0, 0] } };
   // matière du cachet : métal argenté (diffus faible, reflet serré, la pièce s'y reflète), logo frappé profond ;
   // face 1 vers l'extérieur (rabat fermé, retourné) : logo en creux, remis à l'endroit (échelle y négative) ; bombé
-  const sealV = { seed: rnd() * 100, paperXf: [0, 0, 0, 0], paperLo: 0.15, logoOff: [0, 0], logoScale: [SEAL_K, -SEAL_K], warp: [1.3, 1.3, 0] };
+  const sealV = { seed: rnd() * 100, paperXf: [0, 0, 0, 0], paperLo: 0.15, logoOff: [0, 0], logoScale: [SEAL_K, -SEAL_K], warp: [0.6, 0.6, 0] };
   const SEAL_LOOK = { albedo: 0.075, rough: 0.2, spec: 10, sheen: 0, glint: 0, grain: 0.25, fiber: 0, envSpec: 4.5, h: 0.5, b: 0.6, foot: 0.55, footW: 0.1, crease: 0.25, edge: 2, diffRough: 0.2 };
 
   const sheetV = {
@@ -280,11 +283,11 @@ export function createSheetScene(gl, opts) {
     const x0 = O_X - CARD.w / 2 - 2, x1 = Math.max(O_X + CARD.w / 2, C ? C_POSE.x + CARD.w / 2 : 0) + 2;
     // l'enveloppe sous la feuille ; puis l'adresse (téléphone : de près ; ordinateur : l'enveloppe entière)
     frames.E = frameFor(EC_Y - ENV.h / 2 - 8, SY + SHEET.h / 2 + 8, -ENV.w / 2, ENV.w / 2, ENV.w * 1.1, W, H);
-    const ax = -ENV.w / 2 + ADDR.x + 12 * TYPE.pitch, ay = EC_Y + ENV.h / 2 - (ADDR.y + ADDR.lead * 1.5);
-    frames.F = W < H * 1.1 ? frameFor(ay - 30, ay + 30, ax - 47, ax + 47, 0, W, H) : frameFor(EC_Y - ENV.h / 2 - 12, EC_Y + ENV.h / 2 + 12, -ENV.w / 2 - 8, ENV.w / 2 + 8, 0, W, H);
+    const ax = -ENV.w / 2 + ADDR.x + 15 * TYPE.pitch, ay = EC_Y + ENV.h / 2 - (ADDR.y + ADDR.lead * 2);
+    frames.F = W < H * 1.1 ? frameFor(ay - 30, ay + 30, ax - 50, ax + 50, 0, W, H) : frameFor(EC_Y - ENV.h / 2 - 12, EC_Y + ENV.h / 2 + 12, -ENV.w / 2 - 8, ENV.w / 2 + 8, 0, W, H);
     // l'expéditeur (email ou numéro), en haut à gauche : de près sur téléphone ; ordinateur : l'enveloppe entière
-    const qx = -ENV.w / 2 + CONTACT.x + 12 * TYPE.pitch, qy = EC_Y + ENV.h / 2 - CONTACT.y;
-    frames.Fc = W < H * 1.1 ? frameFor(qy - 30, qy + 30, qx - 47, qx + 47, 0, W, H) : frames.F;
+    const qx = -ENV.w / 2 + CONTACT.x + 15 * TYPE.pitch, qy = EC_Y + ENV.h / 2 - (CONTACT.y + ADDR.lead * 0.5);
+    frames.Fc = W < H * 1.1 ? frameFor(qy - 30, qy + 30, qx - 50, qx + 50, 0, W, H) : frames.F;
     frames.B = frameFor(SY + oBot - 6, SY + (C ? C_POSE.y + CARD.h / 2 : -SHEET.h / 2 + 30) + 6, x0, x1, CARD.w / 0.78, W, H);
   }
 
@@ -451,7 +454,8 @@ export function createSheetScene(gl, opts) {
     // ---- dessin : enveloppe (fond), feuille, carte, lettres, puis le dos de l'enveloppe et le rabat (devant) ----
     if (Menv && envFade > 0.004) {
       const cur = writePhase && (env.writing || !env.f[env.field]) ? { cursor: [ENV.w / 2 - env.cursor.x, ENV.h / 2 - env.cursor.y - 0.8, TYPE.size * 0.92, (0.55 + 0.4 * Math.sin(t * 2.4)) * sstep(E.write, E.write + 0.8, ev)], cursorFace: 1 } : {};
-      card.draw(vp, eye, P, { model: Menv, lod: 'env', ink: env.ink, fade: envFade, shade: 1, ...envV.front, ...cur });
+      // l'encre de l'enveloppe : posée SUR le papier, bien lisible (06/10 : on la croyait sous la feuille) — lampe lointaine ici
+      card.draw(vp, eye, { ...P, inkAlb: 0.75, inkPaper: 4, inkVar: 0.3 }, { model: Menv, lod: 'env', ink: env.ink, fade: envFade, shade: 1, ...envV.front, ...cur });
       quads.env = screenQuad(Menv, ENV.w, ENV.h);
     } else quads.env = null;
     if (sIn > 0.004 && !hideInside) card.draw(vp, eye, P, { model: Msheet, lod: 'sheet', fade: sIn, shade: dimS, occ: C?.occ || null, ...sheetV,
@@ -547,11 +551,12 @@ export function createSheetScene(gl, opts) {
       const th = Math.PI * uFlap, hz = 1.9 * uFlap;
       const Mf = M4.mul(Menv, M4.mul(M4.mul(T(0, ENV.h / 2, hz), M4.model(th, 0, 0)), T(0, FLAP_H / 2, 0)));
       card.draw(vp, eye, P, { model: Mf, lod: 'flap', fade: envFade, shade: 1, ...envV.flap, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2] });
-      // le cachet se pose sur la pointe du rabat fermé (il descend, s'écrase un peu), caché une fois retournée
+      // le cachet se pose À CHEVAL sur la pointe du rabat fermé (06/10 : il était trop haut), il descend, s'écrase un peu ;
+      // caché une fois retournée
       const uSe = span(E.seal, ev);
       if (P_LOGO && uSe > 0 && ev < E.flip[0] + 0.9) {
         const dropZ = reduced ? 0 : 14 * Math.pow(1 - ease(uSe), 2), sq = 1 + 0.06 * Math.sin(Math.PI * sstep(0.55, 1, uSe));
-        const Ms = M4.mul(Mf, M4.mul(T(0, FLAP_H / 2 - 22, -(0.06 + 0.8 + dropZ)), new Float32Array([sq, 0, 0, 0, 0, sq, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])));
+        const Ms = M4.mul(Mf, M4.mul(T(0, FLAP_H / 2 - 7, -(0.06 + 0.8 + 0.5 + dropZ)), new Float32Array([sq, 0, 0, 0, 0, sq, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])));
         card.draw(vp, eye, { ...P, ...SEAL_LOOK }, { model: Ms, lod: 'seal', fade: envFade * sstep(0, 0.35, uSe), shade: 1, ...sealV });
       }
     }

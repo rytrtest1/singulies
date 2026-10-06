@@ -43,7 +43,7 @@ const CSS = `
 #portal.leaving { transition-delay: .55s; }
 #portal canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #portal .pt-sig { position: absolute; left: 0; right: 0; text-align: center; white-space: pre; pointer-events: none;
-  font: 500 28px/1 'SG Garamond', serif; letter-spacing: .45em; padding-left: .45em; color: rgb(158,158,158); }
+  font: 500 28px/1 'SG Garamond', serif; letter-spacing: .45em; padding-left: .45em; color: rgb(174,174,174); }
 #portal .pt-sig span { display: inline-block; }
 #portal button { position: absolute; margin: 0; padding: 0; border: 0; background: transparent; color: transparent;
   cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: pinch-zoom; font-size: 1px; outline: none; }
@@ -141,6 +141,15 @@ export async function mountPortal(opts = {}) {
   });
   const lay = { W: 1, H: 1, D: 300, slot: [] };
   relayout = () => { if (lay.H > 1) layout(lay.W, lay.H); };
+  // ETERNEL : sa ligne de base à un écart constant au-dessus du coin le plus haut des trois cartes posées
+  // (Maxence 06/10 : l'espace variait de 26 à 52 px selon la donne) — 1,5 capitale, jamais collé au haut de l'écran
+  const SIG_GAP = 1.5;
+  function placeSig(base) {
+    base = Math.max(base, lay.sigCap * 1.6 + lay.H * 0.035);
+    if (Math.abs(base - lay.sigBase) < 0.5) return;
+    lay.sigBase = base;
+    sig.style.top = (base - baseEm * lay.sigFs).toFixed(1) + 'px';
+  }
   // les trois cartes sont le centre de l'attention ; le paquet, qui les a distribuées, en bas de page, entier, « le
   // jeu » lisible. Tout tient dans l'écran (biais compris), cartes à la taille de la scène des cartes ou moins
   function layout(W, H) {
@@ -173,7 +182,8 @@ export async function mountPortal(opts = {}) {
     });
     const fs = sigCap / capEm;
     sig.style.fontSize = fs.toFixed(2) + 'px'; sig.style.lineHeight = '1';
-    sig.style.top = (H * 0.11 + sigCap / 2 - baseEm * fs).toFixed(1) + 'px';   // capitales centrées à 11 % du haut
+    lay.sigCap = sigCap; lay.sigFs = fs; lay.sigBase = -1;
+    placeSig(H * 0.11 + sigCap / 2);                 // en attendant les cartes : capitales centrées à 11 % du haut
   }
   const deckPose = (j, v) => { const s = lay.slot[JEU]; return { x: s.x + v.jx, y: s.y + v.jy, z: j * PITCH, rx: 0, ry: 0, rz: s.rz + v.jr }; };
   // sur le paquet, dos visible, avant la donne (la première donnée au-dessus)
@@ -424,6 +434,7 @@ export async function mountPortal(opts = {}) {
     gl.enable(gl.DEPTH_TEST);
     const model = (G, p) => M4.mul(G, M4.model(p.rx, p.ry, p.rz, p.x, p.y, p.z));
 
+    let topMin = 1e9;
     for (const c of cards) {
       c.w += ((c.i === focusIdx ? 1 : 0) - c.w) * (snap ? 1 : Math.min(1, dt * (reduced ? 20 : 2.2)));
       c.press += ((pressIdx === c.i ? 1 : 0) - c.press) * Math.min(1, dt * 14);
@@ -459,8 +470,11 @@ export async function mountPortal(opts = {}) {
       const dim = 1;
       // ombre de la carte posée par-dessus (la suivante de la donne)
       const nx = c.i < JEU - 1 ? cards[c.i + 1] : null;
-      const occ = nx && !leaving && landed(nx, t) && !nx.anim ? (() => { const q = restPose(nx); return { x: q.x, y: q.y, z: q.z, rz: -q.rz }; })() : null;
-      if (fade > 0.01) card.draw(vp, eye, P, { model: model(G, p), lod: 'fine', ink, inkBack, shade: dim, fade, ...c.v, curl: [-1, 1, -0.3 * c.curlA], occ });
+      // l'ombre suit la carte telle qu'elle est dessinée (table inclinée, respiration : image précédente) — sinon, en
+      // inclinant le téléphone, l'ombre restait en place et dessinait le contour de la carte à côté de la vraie (06/10)
+      const occ = nx && !leaving && landed(nx, t) && !nx.anim && nx.lastM ? { m: nx.lastM } : null;
+      const Mc = model(G, p); c.lastM = Mc;
+      if (fade > 0.01) card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink, inkBack, shade: dim, fade, ...c.v, curl: [-1, 1, -0.3 * c.curlA], occ });
       // bouton : rectangle écran de la carte au repos
       const rp = restPose(c);
       const q = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => project(M4.mul(vp, M4.model(0, Math.PI, rp.rz, rp.x, rp.y, rp.z)), sx * CARD.w / 2, sy * CARD.h / 2));
@@ -469,7 +483,9 @@ export async function mountPortal(opts = {}) {
       Object.assign(b.style, { left: bx + 'px', top: by + 'px', width: (Math.max(...xs) - bx) + 'px', height: (Math.max(...ys) - by) + 'px',
         clipPath: `polygon(${q.map(([x, y]) => `${(x - bx).toFixed(1)}px ${(y - by).toFixed(1)}px`).join(',')})` });
       b.disabled = !landed(c, t) || !!leaving;
+      if (c.i !== JEU) topMin = Math.min(topMin, by);
     }
+    if (topMin < 1e8 && lay.sigFs) placeSig(topMin - SIG_GAP * lay.sigCap);
     // le paquet sous « le jeu » : dos visible ; dessiné après les cartes (le test de profondeur écarte ce qu'elles
     // cachent) ; ombre de la carte posée dessus
     const fadeDeck = intro * (leaving && leaving.c !== jeu ? 1 - away : 1);

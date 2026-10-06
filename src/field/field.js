@@ -42,7 +42,7 @@ export const trackEm = (pxEm) => 0.08 + 0.06 * (1 - sm(14, 90, pxEm)); // ≈ 0,
 // gris par profondeur : le fond est le plus lumineux, l'avant-plan le plus sombre (proche discret,
 // le prénom central reste prioritaire) ; atténuation à la naissance, tout au fond
 export function grayOf(z) {
-  const g = 0.10 + 0.26 * sm(3, 24, z);
+  const g = 0.11 + 0.286 * sm(3, 24, z);   // 06/10 : +10 %
   return g * (1 - 0.6 * sm(28, 34, z));
 }
 
