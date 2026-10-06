@@ -460,7 +460,8 @@ export function createSheetScene(gl, opts) {
     } else quads.env = null;
     if (sIn > 0.004 && !hideInside) card.draw(vp, eye, P, { model: Msheet, lod: 'sheet', fade: sIn, shade: dimS, occ: C?.occ || null, ...sheetV,
       warp: sheetV.warp.map(x => x * (1 - uR)), rules: { list: rulesOf(tu), x1: RULE_X1, a: 0.42 },
-      ...(cursorOn(tu) > 0 && !inEnv ? { cursor: [cursorMM.x, cursorMM.y, TYPE.size * 0.92, cursorOn(tu) * (0.55 + 0.4 * Math.sin(t * 2.4))], cursorFace: 0 } : {}) });
+      // (plus de curseur à côté de l'acrostiche, 06/10 : on croyait devoir écrire)
+    });
     if (C && from.answer && tu < MERGE[1] + 0.05) {
       // la carte réponse se glisse exactement sous la question et s'y fond
       const u = span(MERGE, tu), under = M4.mul(Mc, M4.model(0, 0, 0, 0, 0, 0.9));

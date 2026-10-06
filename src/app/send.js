@@ -33,6 +33,18 @@ function nameHtml(name, base) {
     ).join('') + '</div>').join('');
 }
 const textHtml = t => esc(t).replace(/\n/g, '<br>');
+// email / numéro / adresse : Gmail et Mail en font des liens bleus, que l'astuce du mode sombre (différence)
+// passait en orange (06/10). Liens posés par nous, à la couleur du texte ; l'adresse rendue non détectable
+// (espace sans chasse entre les chiffres et devant les mots)
+const LINK = 'color:#d8d8d8;text-decoration:none;';
+const quiet = h => h.replace(/(\d)(?=\d)/g, '$1&#8203;').replace(/ /g, '&#8203; ');
+function contactLinks(c) {
+  return c.split(' · ').map(x => {
+    const t = x.trim();
+    if (/@/.test(t)) return '<a href="mailto:' + esc(t) + '" style="' + LINK + '">' + esc(t) + '</a>';
+    return '<a href="tel:' + esc(t.replace(/[^\d+]/g, '')) + '" style="' + LINK + '">' + esc(t) + '</a>';
+  }).join(' &nbsp;·&nbsp; ');
+}
 export function params(d) {
   const q = d.kind === 'reponse' ? (QUESTIONS.find(x => x.id === d.id)?.q || '') : '';
   const name = (d.name || '').toUpperCase().replace(/[^A-Z ]/g, '');
@@ -50,10 +62,10 @@ export function params(d) {
     reponse: d.kind === 'reponse' ? d.text || '' : '',
     theme: d.kind === 'theme' ? d.text || '' : '',
     mode: d.mode === 'direct' ? 'en direct' : 'par la poste',
-    adresse_html: (d.address || []).map(esc).join('<br>'),
+    adresse_html: (d.address || []).map(l => quiet(esc(l))).join('<br>'),
     adresse: (d.address || []).join('\n'),
     contact: d.contact || '',
-    contact_html: d.contact ? '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;">' + esc(d.contact) + '</div>' : '',
+    contact_html: d.contact ? '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;">' + contactLinks(d.contact) + '</div>' : '',
     date: new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }),
     // la demande, rendue par le site (feuille, carte, enveloppe) : tout est dans le lien, après « # »
     lien: new URL('./demande.html', document.baseURI).href + '#' + encodeDemande(d),

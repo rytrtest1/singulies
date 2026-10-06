@@ -19,6 +19,8 @@
   u + .body .gmail-diff { background: #000; mix-blend-mode: difference; }
   :root { color-scheme: light dark; supported-color-schemes: light dark; }
   a { text-decoration: none; }
+  /* jamais de lien bleu (ni orange en mode sombre) : liens détectés par Gmail / Mail à la couleur du texte */
+  u + .body a, a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; font: inherit !important; }
 </style>
 </head>
 <body class="body" style="margin:0;padding:0;background:#060606;" bgcolor="#060606">

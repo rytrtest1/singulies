@@ -605,7 +605,9 @@ let portal = null, portalGo = null, booted = false;
 // et le champ apparaît sous le portail qui s'efface
 function enterFromPortal() {
   S.portal = false;
-  if (S.t < OPEN_DARK) S.t = OPEN_DARK - 0.3;   // première fois : pas de noir d'ouverture, le champ naît en fondu
+  // première fois : le champ naît en fondu une fois le portail effacé (≈ 1,35 s), pas pendant (06/10 : on arrivait
+  // sur tous les prénoms déjà visibles)
+  if (S.t < OPEN_DARK) S.t = 0;                  // (jamais négatif : bloquait la page)
   else { S.phaseAt = S.t; }                      // retour : fondu d'entrée
   input.readOnly = false; input.classList.remove('rest');
   // pas de focus automatique : le clavier ne sort que si l'on touche la zone du curseur (Maxence 05/10)
