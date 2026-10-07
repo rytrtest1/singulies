@@ -109,6 +109,12 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 
 - **Lien d'essai pour les amis** `?adresse=0` (06/10) : pas de commande ni d'adresse ni de contact — après l'acrostiche, l'enveloppe se fait, part seule, la demande est envoyée (marquée « essai, sans adresse »), puis l'écran principal.
 
+## Nuit du 07 au 08/10 (revue de l'audit GPT : `REVUE-AUDIT.md`, à valider par Maxence)
+- **Principe** : le site ne fabrique pas le poème — c'est Eternel qui l'écrit, à la machine. Ne jamais laisser croire qu'une machine / un programme compose (soupçon d'IA). Voix : tutoiement, minuscules, « je » = Eternel, concret (machine, enveloppe, chez toi), aucun mot de vente, aucun « quelque chose ».
+- **La toute fin** (`farewell` dans `mount.js`) : après le contact (ENVOYER / PASSER), ou « en direct » envoyé, ou l'essai `?adresse=0` : sur le noir, le prénom (Garamond 174), puis tapé à la machine *je l'écris à la machine, / puis il part chez toi.* (en direct : *je t'écris.* ; essai : *je l'écris à la machine.*) ; demande pas partie (pas de réseau) → ligne pâle *ton enveloppe attend le réseau, / elle partira dès qu'il reviendra.* Toucher / Entrée / Échap = passer ; puis l'écran principal. Essai : `scene-cartes.html?fin=poste|direct|test&prenom=…`, captures `tools/bye-shot.mjs`.
+- **Sans WebGL2 / cartes en échec** : plus de noir sans issue — *ton téléphone n'arrive pas / à montrer la suite. / écris-moi ton prénom : @e.t.ernel* (`noCards` dans main.js).
+- **Aperçu du lien** : Open Graph + description dans index.html (adresses absolues github.io : à changer avec le nom de domaine), image `public/og.jpg` (`tools/og-image.mjs`) ; pages d'essai, `demande.html`, confidentialité en noindex.
+
 ## Scène 3 — la feuille (proposition de la nuit du 05 au 06/10, branche `nuit`, `src/sheet/sheet.js` — à valider par Maxence)
 - **Sans coupure** : même canvas, même caméra, même lampe que les cartes (snapshot). `?feuille=0` = l'ancienne fin (fondu au noir).
 - **La paire devient une carte à deux faces** : la carte réponse se glisse exactement sous la question et s'y fond ; la carte se soulève, se retourne en l'air (la réponse au dos de la question) et se pose sur le bas d'une **feuille A5 noire** (148 × 210 mm, même papier, plus lisse) qui arrive du fond, **sous le prénom**. Logo SS-cœur gaufré à sec en tête de feuille (≈ 15 mm ; `?logoFeuille=0` pour l'enlever). Carte blanche : le thème au recto, « carte blanche » au dos. Improvisation : la feuille seule.

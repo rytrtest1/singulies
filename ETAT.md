@@ -283,3 +283,9 @@ Voir « Point de reprise » en tête de fichier.
 ## 06/10 (soir) — retours Maxence
 - Fait : lien Amazon (« mes livres ») ; ETERNEL = prénom (EB Garamond, mesuré : 43,9 px en 390×844) ; à-coup de la 3e carte (préparation du champ à 3,6 s, la donne finit à 5,1 s → 6,4 s) ; Entrée = la suite, flèche retirée ; glisser vers le haut = envoyer ; lignes à écrire (shader des cartes : `uRules`) ; ×1,45 plus rapide jusqu'à l'adresse ; enveloppe : pivot devant la poche (`E.drop`), cachet de cire (`seal`, maillage à bord ondulé `wobble`, échelle de logo négative permise) ; adresse en champs (`FIELDS`, `fieldsInk`, `fieldsOut`) ; fin → portail (`backToStart`, attend `settled()`) ; email de confirmation prêt (inactif tant que `EMAILJS.confirm` = null).
 - Vérifié (Chromium, GPU Intel, `tools/env-shot.mjs`) : lignes, pivot sans traversée, cachet lisible à l'endroit, enchaînement des champs (POSTER au 6e champ rempli). Unitaires 45/45. **Non vérifié** : e2e, iPhone (clavier qui passe du textarea au champ d'adresse, remplissage automatique), envoi réel de la confirmation.
+
+## 07–08/10 (nuit) — revue de l'audit GPT
+- Revue complète : `REVUE-AUDIT.md` (retenu / corrigé / écarté, risques non vus, propositions de langage, questions).
+- Publié : la toute fin (prénom + « je l'écris à la machine, / puis il part chez toi. », état réseau), aperçu du lien (og.jpg rendu par le moteur), texte pour lecteurs d'écran, noscript, noindex des pages d'essai, confidentialité exacte, porte Instagram sans WebGL2.
+- Vérifié (Chromium) : `captures/fin/` (390×844, 1280×800, prénom long, en direct, sans réseau, sans WebGL). Unitaires 45/45. Non vérifié : iPhone, Instagram, e2e.
+- En attente de Maxence : mots de la fin, « pour te dire quand il part », sens de « en direct », reprise après interruption, quota / domaines EmailJS.
