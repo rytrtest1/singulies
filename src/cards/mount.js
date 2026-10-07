@@ -3,6 +3,7 @@
 // la page d'essai scene-cartes.html. Rien n'est dessiné avant start().
 import { createCardScene } from './scene.js';
 import { createSheetScene } from '../sheet/sheet.js';
+import { settled, pendingCount } from '../app/send.js';
 
 const CSS = `
 .sc-c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: pinch-zoom; }
@@ -42,6 +43,13 @@ const CSS = `
 .sc-ask input::placeholder { color: rgba(255,255,255,.28); }
 .sc-ask .sc-pass { position: static; margin-top: 22px; }
 .sc-ask .ask-skip { margin-top: 4px; }
+/* la toute fin (08/10) : sur le noir, le prénom, puis ce qui va se passer, tapé à la machine */
+.sc-ask .bye-name { font: 500 40px/1.25 'SG Garamond', Georgia, serif; letter-spacing: .45em; padding-left: .45em; color: rgb(174,174,174);
+  text-align: center; white-space: pre; opacity: 0; transition: opacity 1.6s; }
+.sc-ask .bye-name.on { opacity: 1; }
+.sc-ask .bye-q { margin-top: 34px; font: 15px/1.9 'SG Machine', 'Courier New', monospace; color: rgb(174,174,174); text-align: center;
+  white-space: pre; min-height: 3.8em; transition: opacity 1.2s; }
+.sc-ask .bye-net { color: rgba(255,255,255,.44); min-height: 0; margin-top: 18px; }
 .sc-veil { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 1.4s; pointer-events: none; z-index: 14; }
 `;
 
@@ -149,7 +157,7 @@ export async function mountCards(opts) {
             try { if (typeof window.onAddress === 'function') window.onAddress(d); } catch (e) { console.error(e); }
             window.dispatchEvent(new CustomEvent('singulies:address', { detail: d }));
           }
-          opts.onAddress?.(d); if (opts.onDone) setTimeout(() => opts.onDone(d), 1400);
+          opts.onAddress?.(d); setTimeout(() => farewell(d), 300);
         } } });
     scene.hideName(true);
     sheetAt = now(); api.sheet = sheet;
@@ -193,13 +201,76 @@ export async function mountCards(opts) {
       opts.onAddress?.(out);
       log('contact : ' + (c || '—'));
       q.style.transition = inp.style.transition = 'opacity 1s'; q.style.opacity = inp.style.opacity = '0';
-      if (opts.onDone) setTimeout(() => opts.onDone(out), 1200);
+      priv.classList.remove('on');
+      setTimeout(() => { q.remove(); inp.remove(); go.remove(); skip.remove(); farewell(out, box); }, 1100);
     };
     go.addEventListener('click', () => { if (ok()) finish(inp.value); });
     skip.addEventListener('click', () => finish(''));
     for (const b of [go, skip]) b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); if (ok()) finish(inp.value); } });
     api.ask = { input: inp, send: () => go.click(), skip: () => skip.click() };
+  }
+  // ---- la toute fin (08/10) : pas de « merci pour votre commande », pas de retour sec au portail. Sur le noir, le
+  // prénom (le fil de tout le parcours), puis, tapé à la machine, ce qui va vraiment se passer : c'est une personne
+  // qui écrit le poème, puis il part par la poste. Si la demande n'a pas pu partir (pas de réseau), on le dit, sans
+  // jargon. Toucher / Entrée / Échap : on passe. Ensuite l'écran principal (opts.onDone).
+  const BYE = { poste: 'je l’écris à la machine,\npuis il part chez toi.', direct: 'je t’écris.', test: 'je l’écris à la machine.' };
+  const NET = { poste: 'ton enveloppe attend le réseau,\nelle partira dès qu’il reviendra.', direct: 'ta carte attend le réseau,\nelle partira dès qu’il reviendra.' };
+  let byeOn = false;
+  function farewell(d, box) {
+    if (byeOn) return; byeOn = true;
+    answer.blur(); postEl.classList.remove('on'); note.classList.remove('on'); backEl.classList.remove('on'); passEl.classList.remove('on');
+    if (!box) { box = el('div', 'sc-ask'); void box.offsetWidth; box.classList.add('on'); }
+    const kind = d.test ? 'test' : d.mode === 'direct' ? 'direct' : 'poste';
+    // le prénom, comme partout (EB Garamond, capitales espacées, gris 174) ; deux mots longs : deux lignes
+    const nm = document.createElement('div'); nm.className = 'bye-name';
+    const words = String(d.name || name || '').trim().split(/\s+/).filter(Boolean);
+    box.append(nm);
+    const fit = () => {
+      const maxW = Math.min(innerWidth - 32, 760);
+      let fs = Math.max(26, Math.min(44, innerWidth * 0.1));
+      nm.style.fontSize = fs + 'px'; nm.textContent = words.join(' ');
+      if (nm.scrollWidth > maxW && words.length > 1) nm.textContent = words.join('\n');
+      while (nm.scrollWidth > maxW && fs > 14) { fs *= 0.92; nm.style.fontSize = fs + 'px'; }
+    };
+    fit();
+    const q = document.createElement('div'); q.className = 'bye-q'; box.append(q);
+    const timers = [];
+    const later = (f, ms) => timers.push(setTimeout(f, ms));
+    const typeInto = (elq, text, then) => {
+      let k = 0;
+      const step = () => { if (ended) return; elq.textContent = text.slice(0, k++); if (k > text.length) { then?.(); return; } later(step, reduced ? 0 : (text[k - 2] === ',' || text[k - 2] === '\n' ? 260 : 45 + Math.random() * 70)); };
+      step();
+    };
+    let ended = false, canSkip = false;
+    const end = () => {
+      if (ended) return; ended = true;
+      timers.forEach(clearTimeout);
+      removeEventListener('keydown', onKey, true); box.removeEventListener('pointerdown', onTap);
+      box.style.transition = 'opacity 1.2s'; nm.style.opacity = '0'; q.style.opacity = '0';
+      for (const e of box.querySelectorAll('.bye-net')) e.style.opacity = '0';
+      setTimeout(() => opts.onDone?.(d), 1200);
+    };
+    const onTap = () => { if (canSkip) end(); };
+    const onKey = e => {          // (rien ne passe aux scènes dessous : Échap y serait un retour)
+      if (e.key !== 'Enter' && e.key !== 'Escape' && e.key !== ' ') return;
+      e.preventDefault(); e.stopPropagation(); if (canSkip) end();
+    };
+    box.addEventListener('pointerdown', onTap); addEventListener('keydown', onKey, true);
+    later(() => nm.classList.add('on'), 200);
+    later(() => { canSkip = true; typeInto(q, BYE[kind], () => {
+      // la demande est-elle partie ? (au plus 6 s d'attente, pendant que la phrase reste lue)
+      const hold = new Promise(r => later(r, 2600));
+      const sent = Promise.race([settled().catch(() => {}), new Promise(r => setTimeout(r, 6000))]);
+      Promise.all([hold, sent]).then(() => {
+        if (ended) return;
+        if (kind !== 'test' && pendingCount() > 0) {
+          const n2 = document.createElement('div'); n2.className = 'bye-q bye-net'; box.append(n2);
+          typeInto(n2, NET[kind], () => later(end, 3400));
+        } else end();
+      });
+    }); }, 1500);
+    api.bye = { end, text: () => box.innerText };
   }
   function closeSheet() {
     if (!sheet) return;
@@ -216,7 +287,8 @@ export async function mountCards(opts) {
   scene.setName(name);
 
   let started = false;
-  const api = { scene, canvas, gl, now, started: () => started, frames: 0, start, nameTargets: (W, H) => scene.nameTargets(name, W, H) };
+  const api = { scene, canvas, gl, now, started: () => started, frames: 0, start, nameTargets: (W, H) => scene.nameTargets(name, W, H),
+    farewell };                                       // (essais : la fin seule, ?fin=…)
 
   function start() {
     if (started) return; started = true;

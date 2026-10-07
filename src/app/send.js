@@ -94,6 +94,8 @@ function flush() {
 }
 // la page attend que les envois en cours soient partis (ou gardés) avant de se recharger
 export const settled = () => flushing || Promise.resolve();
+// demandes pas encore parties (pas de réseau) : la fin le dit (« ton enveloppe attend le réseau »)
+export const pendingCount = () => (OFF ? 0 : load().length);
 async function doFlush() {
   // relue à chaque tour : une demande ajoutée pendant l'envoi n'est pas écrasée
   for (let a = load(); a.length; a = load()) {
