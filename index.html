@@ -6,6 +6,21 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#000000">
 <title>SINGULIÉS</title>
+<!-- aperçu du lien (bio Instagram, messages) et moteurs : le site est un canvas, ces lignes disent ce qu'il est.
+     Adresses absolues : à changer le jour du nom de domaine. Image : tools/og-image.mjs -->
+<meta name="description" content="Ton prénom, ton poème : un acrostiche tapé à la machine par Eternel, puis posté chez toi.">
+<link rel="canonical" href="https://rytrtest1.github.io/singulies/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ETERNEL">
+<meta property="og:title" content="SINGULIÉS">
+<meta property="og:description" content="ton prénom, ton poème. tapé à la machine, posté chez toi.">
+<meta property="og:url" content="https://rytrtest1.github.io/singulies/">
+<meta property="og:image" content="https://rytrtest1.github.io/singulies/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Une carte noire, logo gaufré, où l'on lit, tapé à la machine : ton prénom, ton poème.">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="./favicon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
@@ -13,6 +28,10 @@
 </head>
 <body>
 <canvas id="c" aria-hidden="true"></canvas>
+<!-- pour les lecteurs d'écran et les moteurs (invisible) -->
+<div class="sr"><h1>SINGULIÉS, par Eternel</h1><p>Ton prénom devient un poème : on tire une carte du jeu Singuliés, on répond à sa question, puis Eternel écrit ton acrostiche à la machine et te l'envoie par la poste.</p></div>
+<noscript><p style="position:fixed;inset:0;margin:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#aeaeae;font:15px/1.9 'Courier New',monospace;white-space:pre">ton prénom, ton poème.
+(il faut javascript pour l'écrire.)</p></noscript>
 <div id="fallback" aria-hidden="true"></div>
 <form id="f" autocomplete="off" onsubmit="return false">
   <input id="in" type="text" aria-label="Prénom"
