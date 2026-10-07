@@ -43,3 +43,8 @@ body { -webkit-tap-highlight-color: transparent; }
 #next.on:hover { opacity: .6; }
 #back.on:hover { opacity: .6; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* la suite ne peut pas s'afficher (pas de WebGL2) : une porte, tapée comme le reste */
+#nocards { position: fixed; left: 16px; right: 16px; top: 50%; transform: translateY(-50%); text-align: center; white-space: pre-line;
+  font: 15px/1.9 'SG Machine', 'Courier New', monospace; color: rgb(174, 174, 174); opacity: 0; transition: opacity 1.4s; }
+#nocards.on { opacity: 1; }
+#nocards a { color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, .22); }

@@ -260,11 +260,23 @@ function enterBlack(restored) {
   S.phase = 'black'; S.phaseAt = S.t;
   backEl.classList.add('on');
   emitValidated(S.validatedName, restored);
+  if (cardsReady === 'failed' || !gl) noCards();     // (sans WebGL2 ici, les cartes ne s'afficheront pas non plus)
+}
+// la suite ne peut pas s'afficher (pas de WebGL2, mémoire) : plutôt qu'un noir sans issue, une porte (08/10)
+function noCards() {
+  if (document.getElementById('nocards')) return;
+  // la police machine (celle des cartes) n'est chargée que par la scène des cartes
+  new FontFace('SG Machine', `url(${new URL('fonts/CourierPrime-latin.woff2', document.baseURI)})`).load().then(f => document.fonts.add(f)).catch(() => {});
+  const d = document.createElement('div'); d.id = 'nocards';
+  d.innerHTML = 'ton téléphone n’arrive pas\nà montrer la suite.\n\nécris-moi ton prénom :\n<a href="https://www.instagram.com/e.t.ernel/" target="_blank" rel="noopener">@e.t.ernel</a>';
+  document.body.appendChild(d);
+  setTimeout(() => d.classList.add('on'), 400);
 }
 
 function goBack() {
   if (S.phase === 'input' && portal && !S.portal && S.trans == null) { toPortal(); return; }
   if (S.phase === 'input' || S.phase === 'scene') return;
+  document.getElementById('nocards')?.remove();
   clearStored();             // le prénom mémorisé est effacé, il reste affiché pour cette visite
   S.phase = 'input'; S.phaseAt = S.t; S.validatedName = null; S.trans = null; S.confirmed = !!finalName(model.text);   // retour : prénom conservé, toucher pour repartir
   backEl.classList.remove('on');
