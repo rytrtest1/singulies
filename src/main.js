@@ -613,7 +613,7 @@ function smooth(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
 
 // ---------- portail : la première page (avant le champ) ----------
 let portal = null, portalGo = null, booted = false;
-// toucher « ton prénom, ton poème » : dans le même geste, le champ prend le focus (iPhone : le clavier s'ouvre)
+// toucher « ton prénom ton poème, par la poste » : dans le même geste, le champ prend le focus (iPhone : le clavier s'ouvre)
 // et le champ apparaît sous le portail qui s'efface
 function enterFromPortal() {
   S.portal = false;

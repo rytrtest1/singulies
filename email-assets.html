@@ -62,10 +62,10 @@
     return { url: c.toDataURL('image/png'), w: w / 2, h: h / 2 };
   }
 
-  // aperçu du lien (Open Graph, 1200 × 630) : ETERNEL comme sur le portail, et la première carte, « ton prénom, ton poème »
+  // aperçu du lien (Open Graph, 1200 × 630) : ETERNEL comme sur le portail, et la première carte, « ton prénom ton poème, par la poste »
   async function ogShot() {
     canvas.width = 1200; canvas.height = 630;
-    const url = cardShot('ton prénom, ton poème', { seed: 5, frac: 0.5, dy: -8 });
+    const url = cardShot('ton prénom ton poème, par la poste', { seed: 5, frac: 0.5, dy: -8 });
     const img = new Image(); img.src = url; await img.decode();
     const c = document.createElement('canvas'); c.width = 1200; c.height = 630;
     const x = c.getContext('2d');
