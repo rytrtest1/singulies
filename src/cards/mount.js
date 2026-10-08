@@ -2,7 +2,7 @@
 // retour) et gestes (toucher, glisser, relire, inclinaison). Utilisée par l'accueil (après la transition) et par
 // la page d'essai scene-cartes.html. Rien n'est dessiné avant start().
 import { createCardScene } from './scene.js';
-import { createSheetScene } from '../sheet/sheet.js';
+import { createSheetScene, FIELDS } from '../sheet/sheet.js';
 import { settled, pendingCount } from '../app/send.js';
 
 const CSS = `
@@ -21,6 +21,8 @@ const CSS = `
   opacity: 0; transition: opacity 1.2s; pointer-events: none;
   font: 500 12px/44px 'SG Garamond', serif; letter-spacing: 0.4em; padding-left: 0.4em; color: #fff; }
 .sc-pass.on { opacity: .44; pointer-events: auto; }
+/* RECEVOIR / PAR LA POSTE : deux lignes */
+.sc-pass.sc-two { white-space: pre-line; line-height: 22px; padding-top: 0; }
 .sc-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); }
 /* feuille : boutons accessibles (clavier, lecteur d'écran) posés sur la carte et la commande ; le toucher passe au canvas */
 .sc-hit { position: fixed; margin: 0; padding: 0; border: 0; background: transparent; color: transparent; font-size: 1px;
@@ -68,13 +70,46 @@ export async function mountCards(opts) {
   if (opts.hidden) Object.assign(canvas.style, { opacity: '0', pointerEvents: 'none', zIndex: '5' });
   const ta = el('textarea', 'sc-answer');
   Object.assign(ta, { autocomplete: 'off', spellcheck: false });
-  // les champs de l'enveloppe : un vrai champ d'une ligne (le remplissage automatique du téléphone — nom, adresse,
-  // email, téléphone — ne marche que sur un <input>)
-  const fieldEl = el('input', 'sc-answer');
-  Object.assign(fieldEl, { type: 'text', spellcheck: false });
+  // les champs de l'enveloppe : un vrai <input> par champ, tous dans un même <form>, chacun posé sur sa ligne (08/10 :
+  // avec un seul champ qui changeait d'identité, le remplissage automatique du téléphone ne remplissait que le nom ;
+  // ainsi il remplit nom, adresse, ville, code postal d'un coup)
+  const form = el('form', '');
+  Object.assign(form.style, { position: 'fixed', left: '0', top: '0', width: '0', height: '0', margin: '0', zIndex: '12' });
+  form.setAttribute('autocomplete', 'on'); form.setAttribute('aria-label', 'Adresse');
+  form.addEventListener('submit', e => e.preventDefault());
+  const fieldEls = {};
+  for (const d of FIELDS) {
+    const f = document.createElement('input'); f.className = 'sc-answer';
+    Object.assign(f, { type: 'text', spellcheck: false, name: d.ac, id: 'sc-f-' + d.id });
+    f.setAttribute('autocomplete', d.ac); f.setAttribute('inputmode', d.im); f.setAttribute('autocapitalize', d.cap);
+    f.setAttribute('autocorrect', 'off'); f.setAttribute('aria-label', d.label);
+    f.setAttribute('enterkeyhint', d === FIELDS[FIELDS.length - 1] ? 'done' : 'next');
+    f.dataset.field = d.id; form.appendChild(f); fieldEls[d.id] = f;
+  }
+  const inputs = [ta, ...Object.values(fieldEls)];
+  const isField = e => !!(e && e.dataset && e.dataset.field);
   let answer = ta;
-  const useEl = e => { if (answer === e) return; answer.style.width = '1px'; answer.style.height = '1px'; answer = e; };
-  const both = (ev, fn, o) => { ta.addEventListener(ev, fn, o); fieldEl.addEventListener(ev, fn, o); };
+  const useEl = e => { if (answer === e) return; if (!isField(answer)) { answer.style.width = '1px'; answer.style.height = '1px'; } answer = e; };
+  const both = (ev, fn, o) => { for (const e of inputs) e.addEventListener(ev, fn, o); };
+  // tous les champs → l'enveloppe (frappe, remplissage automatique, avec ou sans événement) ; valeurs nettoyées en retour
+  let lastVals = '';
+  function syncFields() {
+    if (!sheet) return;
+    const vals = Object.fromEntries(FIELDS.map(d => [d.id, fieldEls[d.id].value]));
+    const key = JSON.stringify(vals);
+    if (key === lastVals) return;
+    const c = sheet.setFields(vals);
+    for (const d of FIELDS) {
+      const e = fieldEls[d.id], v = c[d.id] || '';
+      if (e.value !== v) { e.value = v; if (document.activeElement === e) try { e.setSelectionRange(v.length, v.length); } catch { /* */ } }
+    }
+    lastVals = JSON.stringify(Object.fromEntries(FIELDS.map(d => [d.id, fieldEls[d.id].value])));
+  }
+  for (const d of FIELDS) {
+    fieldEls[d.id].addEventListener('change', syncFields);
+    // toucher une ligne, ou les flèches du clavier de l'iPhone : ce champ devient le champ en cours
+    fieldEls[d.id].addEventListener('focus', () => { if (sheet) sheet.selectField(d.id, now()); });
+  }
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');
   const giveEl = el('div', 'sc-sign', '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
   const passEl = el('div', 'sc-pass', 'PASSER'); passEl.setAttribute('role', 'button');
@@ -129,14 +164,13 @@ export async function mountCards(opts) {
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); },
         // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)
         write: d => {
-          useEl(d.field ? fieldEl : ta);
-          answer.value = d.text || '';
+          useEl(d.field ? fieldEls[d.field.id] : ta);
           if (d.field) {
-            const f = d.field, last = f.id === 'ville';
-            answer.setAttribute('aria-label', f.label); answer.setAttribute('enterkeyhint', last ? 'done' : 'next');
-            answer.setAttribute('autocomplete', f.ac); answer.setAttribute('inputmode', f.im); answer.setAttribute('autocapitalize', f.cap);
-            answer.type = f.im === 'email' ? 'email' : f.im === 'tel' ? 'tel' : 'text';
-          } else if (d.zone === 'contact') {
+            // chaque champ garde ses propres réglages (autocomplete, clavier) : on n'y touche plus, on resynchronise
+            for (const f of FIELDS) { const v = (d.fields || {})[f.id] || ''; if (fieldEls[f.id].value !== v) fieldEls[f.id].value = v; }
+            lastVals = '';
+          } else answer.value = d.text || '';
+          if (d.field) { /* */ } else if (d.zone === 'contact') {
             // email ou numéro : le clavier propose le sien (fiche contact), sans majuscule ; Entrée = l'adresse
             answer.setAttribute('aria-label', 'Ton email ou ton numéro'); answer.setAttribute('enterkeyhint', sheet?.state().env ? 'next' : 'done');
             answer.setAttribute('autocomplete', 'email'); answer.setAttribute('inputmode', 'email'); answer.setAttribute('autocapitalize', 'none');
@@ -275,6 +309,7 @@ export async function mountCards(opts) {
   function closeSheet() {
     if (!sheet) return;
     useEl(ta);
+    for (const e of Object.values(fieldEls)) { e.blur(); e.style.width = '1px'; e.style.height = '1px'; }
     sheet.free(); sheet = null; api.sheet = null; placeHits(); note.classList.remove('on'); postEl.classList.remove('on');
     answer.setAttribute('aria-label', 'Réponse'); answer.setAttribute('enterkeyhint', 'done');
     answer.setAttribute('autocomplete', 'off'); answer.setAttribute('autocapitalize', 'none');
@@ -310,11 +345,21 @@ export async function mountCards(opts) {
         backEl.classList.toggle('on', t - sheetAt > 2.5 && !sheet.state().backing);
         // l'enveloppe : le champ natif sur le bloc d'adresse ; le signe « donner » = poster
         const ar = sheet.addrRect(), es = sheet.state().env;
-        if (ar) Object.assign(answer.style, { left: ar.left + 'px', top: ar.top + 'px', width: (ar.right - ar.left) + 'px', height: (ar.bottom - ar.top) + 'px' });
-        else { answer.style.width = '1px'; answer.style.height = '1px'; }
+        // chaque champ natif sur sa ligne de l'enveloppe ; la carte « en direct » : le champ de texte
+        const fr = sheet.fieldRects();
+        for (const d of FIELDS) {
+          const e = fieldEls[d.id], q = fr && fr[d.id];
+          if (q) Object.assign(e.style, { left: q.left + 'px', top: q.top + 'px', width: (q.right - q.left) + 'px', height: (q.bottom - q.top) + 'px' });
+          else { e.style.width = '1px'; e.style.height = '1px'; }
+        }
+        if (!isField(answer)) {
+          if (ar) Object.assign(answer.style, { left: ar.left + 'px', top: ar.top + 'px', width: (ar.right - ar.left) + 'px', height: (ar.bottom - ar.top) + 'px' });
+          else { answer.style.width = '1px'; answer.style.height = '1px'; }
+        }
+        if (es) syncFields();                     // remplissage automatique sans événement (Safari)
         giveEl.classList.remove('on');
         postEl.classList.toggle('on', !!(es && es.canPost && ar));
-        if (es && postEl.textContent !== es.sign) postEl.textContent = es.sign;
+        if (es && postEl.textContent !== es.sign) { postEl.textContent = es.sign; postEl.classList.toggle('sc-two', es.sign.includes('\n')); postEl.setAttribute('aria-label', es.sign.replace('\n', ' ').toLowerCase()); }
         if (ar) {
           // sous l'adresse ; clavier ouvert : entre l'adresse et le haut du clavier
           const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
@@ -363,8 +408,11 @@ export async function mountCards(opts) {
   }
 
   // ---- clavier : le champ natif reçoit la frappe, la carte affiche ----
-  both('input', () => {
-    if (sheet) { const c = sheet.setAddress(answer.value); if (c !== answer.value) setValue(c); return; }
+  both('input', e => {
+    if (sheet) {
+      if (isField(e.target)) { syncFields(); return; }
+      const c = sheet.setAddress(answer.value); if (c !== answer.value) setValue(c); return;
+    }
     // Entrée qui a échappé à keydown (clavier Android, composition iPhone) : un retour à la ligne arrive dans le
     // texte — on le retire et c'est la suite, comme Entrée
     const NL = /[\r\n]+/g;
@@ -395,7 +443,7 @@ export async function mountCards(opts) {
   let lastPD = -1e9;
   addEventListener('pointerdown', () => { lastPD = performance.now(); }, true);
   both('blur', e => {
-    if (e.relatedTarget === ta || e.relatedTarget === fieldEl) return;
+    if (inputs.includes(e.relatedTarget)) return;
     if (sheet) { sheet.stopWriting(); return; }
     const st = scene.state();
     if (st.writing && st.active && st.active.text && !st.ended && performance.now() - lastPD > 400 && give('clavier fermé')) return;
@@ -424,7 +472,7 @@ export async function mountCards(opts) {
   const ptr = { x: 0, y: 0 };
   canvas.addEventListener('pointerdown', e => { if (!started) return; if (sheet) { sheet.press(e.clientX, e.clientY); down = { x: e.clientX, y: e.clientY, sheet: true, d: 0, t: performance.now() }; return; } down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false, on: scene.hitAt(e.clientX, e.clientY) }; });
   // premier geste : si l'écriture attend le clavier, on l'ouvre (iPhone)
-  addEventListener('touchend', () => { if (started && (sheet ? sheet.state().env?.writing : scene.state().writing)) focusAnswer(); }, { passive: true });
+  addEventListener('touchend', e => { if (isField(e.target)) return; if (started && (sheet ? sheet.state().env?.writing : scene.state().writing)) focusAnswer(); }, { passive: true });
   // relire la réponse validée : molette
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
@@ -435,8 +483,8 @@ export async function mountCards(opts) {
   addEventListener('keydown', e => {
     if (!sheet) return;
     const es = sheet.state().env;
-    if (es && es.write && document.activeElement !== answer && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { sheet.startWriting(); return; }
-    if (es && document.activeElement === answer && e.key !== 'Escape') return;
+    if (es && es.write && !inputs.includes(document.activeElement) && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { sheet.startWriting(); return; }
+    if (es && inputs.includes(document.activeElement) && e.key !== 'Escape') return;
     if (e.key === 'Escape') { sheet.back(now()); backEl.classList.remove('on'); }
     else if (e.key === 'ArrowDown' || e.key === 'PageDown') sheet.scroll(-1, now());
     else if (e.key === 'ArrowUp' || e.key === 'PageUp') sheet.scroll(1, now());

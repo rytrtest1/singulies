@@ -148,7 +148,7 @@ const FS = /* glsl */`#version 300 es
 precision highp float;
 in vec3 vWorld, vT, vB, vN; in vec2 vMM; flat in int vFace;
 uniform sampler2D uPaper, uLogo, uInk, uInkBack;   // encre du recto (question) et du verso (réponse)
-uniform float uHasInkBack;
+uniform float uHasInkBack, uInkRG;   // uInkRG : la carte d'encre a un canal vert (encre pâle)
 uniform vec4 uCursor; uniform float uCursorFace;
 // lignes à écrire (feuille de l'acrostiche) : soulignés tapés à la machine, face 0 ; par ligne (y, x0, avancée 0–1,
 // graine), fin commune uRuleX1 (mm)
@@ -290,7 +290,14 @@ float occShadow(vec3 L, float dist) {
 }
 
 void main() {
-  if (uClip.x > 0.5) {
+  if (uClip.x > 1.5) {
+    // timbre : bord dentelé — des trous ronds (rayon uClip.z) centrés sur les bords, au pas uClip.y (coins compris)
+    vec2 hw = uCard * 0.5, n = max(vec2(1.0), floor(uCard / uClip.y + 0.5)), pitch = uCard / n;
+    vec2 q = vMM + hw;
+    float dx = length(vec2(q.x - floor(q.x / pitch.x + 0.5) * pitch.x, abs(vMM.y) - hw.y));
+    float dy = length(vec2(q.y - floor(q.y / pitch.y + 0.5) * pitch.y, abs(vMM.x) - hw.x));
+    if (min(dx, dy) < uClip.z) discard;
+  } else if (uClip.x > 0.5) {
     // triangle à pointe adoucie : bords droits, pointe arrondie (≈ 5 mm)
     float yy = vMM.y - uClip.y, ax = abs(vMM.x), k = uClip.w / uClip.z;
     float d = (ax + k * yy - uClip.w) / sqrt(1.0 + k * k);
@@ -354,6 +361,10 @@ void main() {
       float op = clamp((0.45 + 0.6 * c) * mix(1.0, 0.35 + 0.95 * var, uInkVar) * (1.0 - 0.25 * hollow), 0.0, 1.0);
       // la texture du papier passe à travers l'encre : fibres plus blanches, creux moins couverts
       op *= clamp(1.0 + uInkPaper * paperHF(p) * uGrain, 0.35, 1.3);
+      // encre pâle (noms des champs de l'enveloppe) : frappée pleinement (forme intacte), mais moins claire — tracée
+      // sans vert dans la carte d'encre (blanc partout ailleurs : sans effet)
+      { vec2 iuv = inkUV(pw); vec4 s4 = vFace == 1 ? texture(uInk, iuv, 1.3) : texture(uInkBack, iuv, 1.3);
+        if (uInkRG > 0.5) op *= mix(0.5, 1.0, s4.r > 0.03 ? clamp(s4.g / s4.r, 0.0, 1.0) : 1.0); }
       // parois raides du creux : le caractère n'y frappe presque pas
       ink = shape * op / (1.0 + 0.4 * length(vec2(hx, hy)));
     }
@@ -546,7 +557,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, paperTex); gl.uniform1i(u.uPaper, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, logoTex); gl.uniform1i(u.uLogo, 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, card.ink || null); gl.uniform1i(u.uInk, 2);
-    gl.uniform1f(u.uHasInk, card.ink ? 1 : 0);
+    gl.uniform1f(u.uHasInk, card.ink ? 1 : 0); gl.uniform1f(u.uInkRG, card.inkRG ? 1 : 0);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, card.inkBack || null); gl.uniform1i(u.uInkBack, 3);
     gl.uniform1f(u.uHasInkBack, card.inkBack ? 1 : 0);
     const ru = card.rules;
@@ -558,11 +569,11 @@ export async function createCardRenderer(gl, base = './') {
     gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);
   }
-  // carte d'encre (canvas) → texture R8 avec mipmaps ; à libérer avec freeInk quand la carte quitte la scène
-  function makeInk(canvas) {
+  // carte d'encre (canvas) → texture R8 avec mipmaps (rg : RG8, le vert porte l'encre pâle) ; à libérer avec freeInk
+  function makeInk(canvas, rg = false) {
     const t = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, gl.RED, gl.UNSIGNED_BYTE, canvas);
+    gl.texImage2D(gl.TEXTURE_2D, 0, rg ? gl.RG8 : gl.R8, rg ? gl.RG : gl.RED, gl.UNSIGNED_BYTE, canvas);
     gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);

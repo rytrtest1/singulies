@@ -1,4 +1,4 @@
-// Feuille (lignes à écrire) et enveloppe (pivot devant la poche, cachet de cire, champs, POSTER).
+// Feuille (lignes à écrire) et enveloppe (pivot devant la poche, cachet de cire, champs, RECEVOIR PAR LA POSTE, timbre, boîte aux lettres).
 // node tools/env-shot.mjs → captures/enveloppe/*.png (téléphone, GPU, aucun envoi : &envoi=0)
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
@@ -23,7 +23,7 @@ for (const [k, tau] of [['lignes-a', tm.landAll - 1.2], ['lignes-b', tm.landAll 
   await page.evaluate(t => window.__at(t), tau);
   await page.screenshot({ path: `${dir}/${k}.png` });
 }
-await page.evaluate(() => { window.__at(30); window.__scene.sheet.choose('poste'); });
+await page.evaluate(() => { window.__at(30); window.__scene.sheet.showOrders(); });
 // temps de l'enveloppe (s, horloge de l'enveloppe) → secondes réelles
 let ev = 0;
 for (const e of [2.4, 2.8, 3.1, 3.35, 3.6, 4.2, 5.4, 6.2, 6.5, 7.2, 9]) {
@@ -35,35 +35,27 @@ const out = await page.evaluate(() => {
   const res = [];
   sh.startWriting(); m.advance(0.3);
   res.push(sh.state().env.field);
-  for (const v of ['Léa Martin', '3 rue Haute', '', '75011', 'Paris']) {
+  for (const v of ['Léa Martin', '3 rue Haute', '', 'Paris', '75011']) {
     const a = el(); a.value = v; a.dispatchEvent(new Event('input'));
     a.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); m.advance(0.3);
     res.push(sh.state().env.field + ':' + sh.state().env.canPost);
   }
-  const post = [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER');
+  const post = document.querySelector('.sc-pass.sc-two');
   return { res, fields: sh.state().env.fields, poster: post && post.classList.contains('on') };
 });
 await page.evaluate(() => window.__scene.advance(0.8));
 await page.screenshot({ path: `${dir}/champs.png` });
 console.log(JSON.stringify(out));
-// POSTER, puis sur le noir : l'email ou le numéro
-const got = await page.evaluate(async () => {
-  const m = window.__scene, ev = [];
-  addEventListener('singulies:address', e => ev.push(e.detail));
-  [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER').click();
-  for (let i = 0; i < 30; i++) m.advance(0.1);
-  await new Promise(r => setTimeout(r, 4500));
-  const a = m.ask; if (!a) return { ask: false };
-  const before = ev.length;
-  a.input.value = 'lea@exem'; a.input.dispatchEvent(new Event('input'));
-  await new Promise(r => setTimeout(r, 300));
-  window.__shotNow = true;
-  return { ask: true, partial: true };
-  a.input.value = 'lea@exemple.fr'; a.input.dispatchEvent(new Event('input'));
-  a.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
-  return { ask: true, before, after: ev.length, detail: ev[0] && { address: ev[0].address, contact: ev[0].contact, email: ev[0].email } };
-});
+// RECEVOIR PAR LA POSTE : le timbre, le retournement, la bascule (tranche), l'éloignement, puis le contact sur le noir
+await page.evaluate(() => { document.querySelector('.sc-pass.sc-two').click(); });
+let pt = 0;
+for (const p of [0.5, 0.9, 1.3, 2.0, 2.4, 3.0, 3.5, 4.0, 4.6, 5.1]) {
+  await page.evaluate(d => window.__scene.advance(d), p - pt); pt = p;
+  await page.screenshot({ path: `${dir}/post-${p.toFixed(1)}.png` });
+}
+await page.evaluate(() => window.__scene.advance(0.6));
+await sleep(3500);
 await page.screenshot({ path: `${dir}/contact.png` });
-console.log(JSON.stringify(got));
+console.log(JSON.stringify({ ask: await page.evaluate(() => !!window.__scene.ask) }));
 await page.close();
 await browser.close(); await server.close();

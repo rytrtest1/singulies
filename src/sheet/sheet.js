@@ -7,9 +7,9 @@
 //    poser en colonne sur la feuille (une espace = une strophe) ; à l'arrivée elle s'allume un peu (absorbée).
 //    Puis la lumière parcourt la colonne de haut en bas (le prénom se lit), et un curseur de machine respire à
 //    côté de la première lettre : c'est là que le poème sera tapé.
-// 3) La commande : quelques secondes après (jamais moins de 3 s après le dernier geste), la vue descend vers deux
-//    cartes, « par la poste » et « en direct ». Les toucher : leur lien (liens d'attente : « bientôt », comme le
-//    portail). Glisser / molette : remonter voir la feuille, redescendre.
+// 3) L'enveloppe (08/10 : plus de choix « par la poste » / « en direct ») : quelques secondes après (jamais moins
+//    de 3 s après le dernier geste), ou en glissant vers le haut, la feuille part directement dans l'enveloppe.
+//    `?commande=1` : l'ancienne commande (deux cartes, « par la poste » et « en direct »).
 // Toucher la carte : elle se retourne (question ↔ réponse). Retour : le temps remonte (tout se défait dans l'ordre
 // inverse, les lettres remontent à leur place), puis la scène des cartes revient.
 // Tout ce qui arrive est une fonction du temps de la scène (τ) : le retour n'est que τ qui décroît.
@@ -50,6 +50,12 @@ const SEAL_D = 26, SEAL_K = 0.5;                  // cachet : diamètre (mm), lo
 const E = { fade: [0, 0.7], cam: [0.1, 2.1], rise: [0.4, 2.1], cIn: [1.3, 2.4], rot: [2.2, 3.25], drop: [3.2, 3.5], slide: [3.45, 4.7],
   flap: [4.8, 5.9], seal: [5.85, 6.45], flip: [6.6, 8.0], cam2: [6.5, 8.3], write: 8.3 };
 export const ADDR = { x: 106, y: 96, lead: 6.35, lines: 5, chars: 34 };   // bloc d'adresse (mm, depuis le coin haut-gauche)
+// envoyée (08/10) : le timbre (logo SS-cœur, bord dentelé) se pose en haut à droite de l'adresse ; l'enveloppe se
+// retourne (le cachet), puis bascule jusqu'à ne plus montrer que sa tranche inférieure, comme glissée dans une boîte
+// aux lettres, et s'éloigne en se fondant dans le noir ; ensuite (mount.js) l'email ou le numéro.
+// Horloge propre (s), réversible : le retour la fait redescendre.
+const STAMP = { w: 22, h: 26, k: 0.36, x: 11, y: 9, perf: 1.9, hole: 0.55 };   // mm, depuis le coin haut-droit de l'adresse
+const PO = { cam: [0, 1.1], stamp: [0.3, 1.15], turn: [1.55, 2.75], tip: [2.6, 3.8], away: [3.35, 5.4], fade: [3.7, 5.2], end: 5.3 };
 // l'adresse en champs (06/10, Maxence : « clarifier le moment de l'adresse ») : chacun sa ligne, son invitation
 // tapée en léger tant qu'il est vide ; Entrée = le champ suivant. Destinataire en bas à droite, expéditeur (email,
 // téléphone : demandés après). POSTER dès que nom, adresse, code postal et ville sont là.
@@ -57,8 +63,9 @@ export const FIELDS = [
   { id: 'nom', hint: 'prénom nom', zone: 'addr', line: 0, chars: 34, req: true, ac: 'name', im: 'text', cap: 'words', label: 'Prénom et nom' },
   { id: 'rue', hint: 'adresse', zone: 'addr', line: 1, chars: 34, req: true, ac: 'address-line1', im: 'text', cap: 'words', label: 'Adresse' },
   { id: 'cplt', hint: 'complément', zone: 'addr', line: 2, chars: 34, ac: 'address-line2', im: 'text', cap: 'words', label: "Complément d'adresse (facultatif)" },
-  { id: 'cp', hint: 'code postal', zone: 'addr', line: 3, chars: 10, req: true, ac: 'postal-code', im: 'numeric', cap: 'none', label: 'Code postal' },
-  { id: 'ville', hint: 'ville', zone: 'addr', line: 4, chars: 34, req: true, ac: 'address-level2', im: 'text', cap: 'words', label: 'Ville' },
+  // 08/10 : la ville d'abord, le code postal en dernier
+  { id: 'ville', hint: 'ville', zone: 'addr', line: 3, chars: 34, req: true, ac: 'address-level2', im: 'text', cap: 'words', label: 'Ville' },
+  { id: 'cp', hint: 'code postal', zone: 'addr', line: 4, chars: 10, req: true, ac: 'postal-code', im: 'numeric', cap: 'none', label: 'Code postal' },
 ];
 // (06/10 : l'email ou le téléphone ne sont plus sur l'enveloppe — demandés après, sur le noir, « pour te tenir au
 // courant » : mount.js)
@@ -73,12 +80,14 @@ export const fieldsOut = f => ({
 });
 const C_IN = { x: 14, y: -56, rz: -0.03, z: 0.3 };                  // la carte, posée sur la feuille pour entrer
 const ENVELOPE = new URLSearchParams(location.search).get('enveloppe') !== '0';   // ?enveloppe=0 : « bientôt » comme avant
+// 08/10 : plus de commande — l'acrostiche posé, on passe directement à l'enveloppe (?commande=1 : les deux cartes)
+const ORDERS_ON = new URLSearchParams(location.search).get('commande') === '1' || !ENVELOPE;
 // ?adresse=0 (essai avec des amis, 06/10) : pas de choix ni d'adresse — après l'acrostiche, l'enveloppe se fait
 // et part seule, la demande est envoyée (sans adresse ni contact), puis l'écran principal
 export const NOADDR = new URLSearchParams(location.search).get('adresse') === '0';
 
 // frappe à la machine (mêmes défauts que les cartes, tirés du rang de chaque caractère) : lignes à partir de (x0, y0) mm
-function typeLines(cx, PX, lines, x0, y0, lead, seed, alpha = 1) {
+function typeLines(cx, PX, lines, x0, y0, lead, seed, alpha = 1, col = '#fff') {
   const fontPx = TYPE.size * PX;
   const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
   const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;
@@ -94,7 +103,7 @@ function typeLines(cx, PX, lines, x0, y0, lead, seed, alpha = 1) {
       const press = Math.min(1, Math.max(0.5, 0.82 + g() * 0.14)) * alpha, rot = g() * 0.5 * Math.PI / 180;
       gx.setTransform(1, 0, 0, 1, 0, 0); gx.globalCompositeOperation = 'source-over';
       gx.clearRect(0, 0, glyph.width, glyph.height);
-      gx.font = fontPx + 'px "SG Machine"'; gx.fillStyle = '#fff'; gx.strokeStyle = '#fff';
+      gx.font = fontPx + 'px "SG Machine"'; gx.fillStyle = col; gx.strokeStyle = col;
       gx.translate(ox, oyB); gx.scale(TYPE.xScale, TYPE.yScale);
       gx.fillText(ch, 0, 0);
       gx.lineWidth = TYPE.weight * PX; gx.lineJoin = 'round'; gx.strokeText(ch, 0, 0);
@@ -132,7 +141,9 @@ export function fieldsInk(f, seed, active) {
     // un vrai formulaire tapé à la machine : chaque champ souligné (on voit où écrire), son nom lisible tant qu'il
     // est vide (06/10 : à 0,42 l'encre ne prenait plus, on ne savait pas quoi écrire)
     typeLines(cx, PX, ['_'.repeat(Math.min(d.chars, 30))], p.x, p.y + 0.9, 0, seed + k * 31 + 7, 0.78);
-    typeLines(cx, PX, [v || d.hint], p.x, p.y, 0, seed + k * 31, v ? 1 : 0.92);
+    // le nom du champ : frappé comme le reste, mais d'une encre nettement plus pâle que ce qu'on y tape (08/10 ; rouge
+    // seul dans la carte d'encre = encre pâle, cardRenderer)
+    typeLines(cx, PX, [v || d.hint], p.x, p.y, 0, seed + k * 31, 1, v ? '#fff' : '#f00');
     if (d.id === active) cursor = { x: p.x + v.length * TYPE.pitch - 0.35, y: p.y };
   });
   return { canvas: cv, cursor: cursor || { x: ADDR.x, y: ADDR.y } };
@@ -194,6 +205,10 @@ export function createSheetScene(gl, opts) {
   card.addShape('flap', { ...ENV, h: FLAP_H, fine: null });
   // le cachet de cire argenté (06/10) : un disque bombé, le logo frappé en creux
   card.addShape('seal', { w: SEAL_D, h: SEAL_D, r: SEAL_D / 2, t: 1.6, fine: [SEAL_D / 2 + 1, SEAL_D / 2 + 1, 0.22, 0, 0], seg: 24, wobble: 0.06 });
+  card.addShape('stamp', { w: STAMP.w, h: STAMP.h, r: 0.2, t: 0.1, fine: [STAMP.w / 2 + 1, STAMP.h / 2 + 1, 0.2, 0, 0], seg: 2 });
+  // le timbre : papier un peu plus clair que l'enveloppe (on le distingue), logo gaufré au centre
+  const stampV = { seed: rnd() * 100, paperXf: [rnd.range(-2, 2), rnd.range(-2, 2), 0, 0], paperLo: 0.5, logoOff: [0, 0], logoScale: [STAMP.k, STAMP.k], warp: [0, 0, 0],
+    clip: [2, STAMP.perf, STAMP.hole, 0], rz: rnd.range(-0.035, 0.02) };
   const pv = () => ({ seed: rnd() * 100, paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0],
     warp: [rnd.range(0.05, 0.15), rnd.range(-0.08, 0), 0], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35, noLogo: true });
   const envV = { front: pv(), back: pv(), flap: { ...pv(), noLogo: true, warp: [0, 0, 0] } };
@@ -262,7 +277,7 @@ export function createSheetScene(gl, opts) {
   const cursorMM = first >= 0 ? { x: COL_X + nameR.adv(chars[first]) * emT + TYPE.pitch * 1.2, y: baseOf(first) - 0.5 } : { x: COL_X, y: 0 };
 
   // ---- la commande ----
-  const orders = ORDERS.map((o, k) => {
+  const orders = (ORDERS_ON ? ORDERS : []).map((o, k) => {
     const v = { seed: rnd() * 100, paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0], logoOff: [rnd.range(-0.15, 0.15), rnd.range(-0.15, 0.15)],
       warp: [rnd.range(0.05, 0.35), rnd.range(-0.2, 0.05), rnd.range(-0.12, 0.12)], jx: rnd.range(-1.5, 1.5), jr: rnd.range(-0.025, 0.025) };
     return { ...o, k, v, ink: card.makeInk(makeInkMap(o.label, Math.floor(v.seed * 1000) + 5).canvas), anim: null, a: 0, press: 0, bph: rnd() * 6.28 };
@@ -291,6 +306,8 @@ export function createSheetScene(gl, opts) {
     // l'expéditeur (email ou numéro), en haut à gauche : de près sur téléphone ; ordinateur : l'enveloppe entière
     const qx = -ENV.w / 2 + CONTACT.x + 15 * TYPE.pitch, qy = EC_Y + ENV.h / 2 - (CONTACT.y + ADDR.lead * 0.5);
     frames.Fc = W < H * 1.1 ? frameFor(qy - 30, qy + 30, qx - 50, qx + 50, 0, W, H) : frames.F;
+    // envoyée : l'enveloppe entière, avec de l'air (elle se retourne et bascule)
+    frames.P = frameFor(EC_Y - ENV.h / 2 - 30, EC_Y + ENV.h / 2 + 30, -ENV.w / 2 - 14, ENV.w / 2 + 14, 0, W, H);
     frames.B = frameFor(SY + oBot - 6, SY + (C ? C_POSE.y + CARD.h / 2 : -SHEET.h / 2 + 30) + 6, x0, x1, CARD.w / 0.78, W, H);
   }
 
@@ -313,6 +330,7 @@ export function createSheetScene(gl, opts) {
   // tout va ≈ 1,45 × plus vite qu'à l'origine, de la réponse donnée jusqu'à l'adresse (Maxence 06/10) ; ?lent=k ralentit
   const SPEED = 1.45;
   const SLOW = (+(new URLSearchParams(location.search).get('lent') || 1) || 1) / SPEED;   // captures : temps ralenti
+  const LENT = SLOW * SPEED;                                 // (l'envoi garde son propre rythme : seul ?lent l'allonge)
   function tau(t) {
     if (!backing) return (t - t0) / SLOW;
     return Math.max(0, backing.tau0 - (t - backing.t0) * 2.4 / SLOW);
@@ -354,7 +372,10 @@ export function createSheetScene(gl, opts) {
     const ev = envClock(t);
     if (env && env.back && ev <= 0) closeEnv();
     const inEnv = !!env;
-    const writePhase = inEnv && !env.back && ev >= E.write && env.pu < 0.5 && !NOADDR;
+    // envoyée : horloge propre, qui redescend au retour
+    if (env) env.pp = Math.max(0, env.pp + (env.postT >= 0 ? 1 : -2.5) * dt / LENT);
+    const pp = env ? env.pp : 0, posting = isPosting();
+    const writePhase = inEnv && !env.back && ev >= E.write && !posting && !NOADDR;
     // essai sans adresse : retournée, l'enveloppe part d'elle-même
     if (NOADDR && inEnv && !env.back && env.postT < 0 && ev >= E.write + 0.5) { env.postT = t; env.sent = false; }
 
@@ -370,7 +391,6 @@ export function createSheetScene(gl, opts) {
     kb += ((writingNow && kbPx > 40 ? 1 : 0) - kb) * Math.min(1, dt * 4);
     if (env) fz += ((zoneOf(env.field) === 'contact' ? 1 : 0) - fz) * Math.min(1, dt * 2.5);
     if (direct) direct.pu += ((direct.postT >= 0 ? 1 : 0) - direct.pu) * Math.min(1, dt * 1.1);
-    if (env) env.pu += ((env.postT >= 0 ? 1 : 0) - env.pu) * Math.min(1, dt * 1.1);
 
     // caméra : de celle des cartes à la feuille (τ), puis feuille ↔ commande (s), puis l'enveloppe
     const ci = reduced ? sstep(0, 0.6, tu) : ease(clamp01(tu / CAM_T));
@@ -385,6 +405,9 @@ export function createSheetScene(gl, opts) {
       const vis = 1 - kbPx / H, fcy = fF.cy - (0.5 - (vis / 2 + 0.04)) * fF.Hw * kb;
       cxT = lerp(lerp(cxT, fE.cx, u1), fF.cx, u2); cyT = lerp(lerp(cyT, fE.cy, u1), fcy, u2);
       lD = lerp(lerp(lD, Math.log(fE.D), u1), Math.log(fF.D), u2);
+      // envoyée : la vue recule jusqu'à l'enveloppe entière (téléphone : on était tout près de l'adresse)
+      const u3 = ease(span(PO.cam, pp)), fP = frames.P;
+      cxT = lerp(cxT, fP.cx, u3); cyT = lerp(cyT, fP.cy, u3); lD = lerp(lD, Math.log(fP.D), u3);
     }
     // « en direct », clavier ouvert : la carte au milieu de la partie visible
     if (direct && !inEnv) { const vis = 1 - kbPx / H, oy = oPose(direct.o).y; cyT = lerp(cyT, oy - (0.5 - (vis / 2 + 0.04)) * frames.B.Hw, kb); }
@@ -413,15 +436,22 @@ export function createSheetScene(gl, opts) {
     // ---- l'enveloppe : monte du fond sous la feuille ; rabat ; retournement ; postée = elle descend et se fond ----
     let Menv = null;
     const uI = inEnv ? ease(span(E.rise, ev)) : 0, uFlap = inEnv ? ease(span(E.flap, ev)) : 0, uFlip = inEnv ? ease(span(E.flip, ev)) : 0;
+    const mv = reduced ? 0 : 1;
+    const uTurn = inEnv ? ease(span(PO.turn, pp)) * mv : 0, uTip = inEnv ? ease(span(PO.tip, pp)) * mv : 0;
     if (inEnv) {
-      const wr = sstep(E.write, E.write + 1.5, ev) * (1 - kb);   // en écrivant : l'enveloppe s'incline et respire
+      const wr = sstep(E.write, E.write + 1.5, ev) * (1 - kb) * (1 - sstep(0, 0.6, pp));   // en écrivant : l'enveloppe s'incline et respire
       const G = M4.model(-ts.y * L.cardTilt * 0.5 * wr, ts.x * L.cardTilt * 0.5 * wr, 0);
-      const pu = ease(clamp01(env.pu));
-      Menv = M4.mul(T(EC.x, EC.y - 110 * (1 - uI) - 40 * pu, EC.z - 50 * (1 - uI) + 70 * Math.sin(Math.PI * uFlip) * (reduced ? 0 : 1)),
-        M4.mul(G, M4.model(0, Math.PI * uFlip, 0)));
+      // envoyée : elle se retourne (le cachet), puis bascule autour de son axe horizontal jusqu'à ne plus montrer que
+      // sa tranche inférieure (le haut part dans l'axe du regard), et s'éloigne droit devant, comme dans une fente
+      const ua = inEnv ? Math.pow(span(PO.away, pp), 1.6) * mv : 0;
+      const c0 = [EC.x, EC.y, EC.z], dir = eye ? (v => { const l = Math.hypot(...v); return v.map(x => x / l); })(c0.map((x, i) => x - eye[i])) : [0, 0, -1];
+      const far = 1.6 * (frames.P ? frames.P.D : 600) * ua;
+      Menv = M4.mul(T(EC.x + dir[0] * far, EC.y - 110 * (1 - uI) + dir[1] * far + 14 * Math.sin(Math.PI * uTurn),
+        EC.z - 50 * (1 - uI) + 70 * Math.sin(Math.PI * uFlip) * mv + 55 * Math.sin(Math.PI * uTurn) + dir[2] * far),
+        M4.mul(G, M4.mul(M4.model(-(Math.PI / 2 - TILT) * uTip, 0, 0), M4.model(0, Math.PI * (uFlip + uTurn), 0))));
       lastMenv = Menv;
     }
-    const envFade = inEnv ? uI * (1 - sstep(0.3, 1, env.pu)) : 0;
+    const envFade = inEnv ? uI * (1 - sstep(PO.fade[0], PO.fade[1], pp)) : 0;
     // ---- la feuille : arrive du fond, un peu d'en dessous ; en focus tant qu'on la regarde ; « par la poste » :
     // elle pivote (paysage), descend sous le bord de la poche et s'y glisse ----
     const sIn = reduced ? sstep(SHEET_IN[0], SHEET_IN[0] + 0.8, tu) : ease(span(SHEET_IN, tu));
@@ -460,8 +490,16 @@ export function createSheetScene(gl, opts) {
     if (Menv && envFade > 0.004) {
       const cur = writePhase && (env.writing || !env.f[env.field]) ? { cursor: [ENV.w / 2 - env.cursor.x, ENV.h / 2 - env.cursor.y - 0.8, TYPE.size * 0.92, (0.55 + 0.4 * Math.sin(t * 2.4)) * sstep(E.write, E.write + 0.8, ev)], cursorFace: 1 } : {};
       // l'encre de l'enveloppe : posée SUR le papier, bien lisible (06/10 : on la croyait sous la feuille) — lampe lointaine ici
-      card.draw(vp, eye, { ...P, inkAlb: 0.75, inkPaper: 4, inkVar: 0.3 }, { model: Menv, lod: 'env', ink: env.ink, fade: envFade, shade: 1, ...envV.front, ...cur });
+      card.draw(vp, eye, { ...P, inkAlb: 0.75, inkPaper: 4, inkVar: 0.3 }, { model: Menv, lod: 'env', ink: env.ink, inkRG: true, fade: envFade, shade: 1, ...envV.front, ...cur });
       quads.env = screenQuad(Menv, ENV.w, ENV.h);
+      // le timbre : il descend sur le coin haut-droit de l'adresse (face lue = −z de l'enveloppe), s'y écrase un peu
+      const uSt = span(PO.stamp, pp);
+      if (uSt > 0) {
+        const dropZ = reduced ? 0 : 22 * Math.pow(1 - ease(uSt), 2), sq = 1 + 0.05 * Math.sin(Math.PI * sstep(0.6, 1, uSt));
+        const Mst = M4.mul(Menv, M4.mul(M4.model(0, 0, stampV.rz, -(ENV.w / 2 - STAMP.x - STAMP.w / 2), ENV.h / 2 - STAMP.y - STAMP.h / 2, -(ENV.t / 2 + 0.07 + dropZ)),
+          new Float32Array([sq, 0, 0, 0, 0, sq, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])));
+        card.draw(vp, eye, { ...P, albedo: L.albedo * 1.7 }, { model: Mst, lod: 'stamp', fade: envFade * sstep(0, 0.3, uSt), shade: 1, ...stampV });
+      }
     } else quads.env = null;
     if (sIn > 0.004 && !hideInside) card.draw(vp, eye, P, { model: Msheet, lod: 'sheet', fade: sIn, shade: dimS, occ: C?.occ || null, ...sheetV,
       warp: sheetV.warp.map(x => x * (1 - uR)), rules: { list: rulesOf(tu), x1: RULE_X1, a: 0.42 },
@@ -560,7 +598,7 @@ export function createSheetScene(gl, opts) {
       // le cachet se pose À CHEVAL sur la pointe du rabat fermé (06/10 : il était trop haut), il descend, s'écrase un peu ;
       // caché une fois retournée
       const uSe = span(E.seal, ev);
-      if (P_LOGO && uSe > 0 && ev < E.flip[0] + 0.9) {
+      if (P_LOGO && uSe > 0 && (ev < E.flip[0] + 0.9 || uTurn > 0.25)) {
         const dropZ = reduced ? 0 : 14 * Math.pow(1 - ease(uSe), 2), sq = 1 + 0.06 * Math.sin(Math.PI * sstep(0.55, 1, uSe));
         const Ms = M4.mul(Mf, M4.mul(T(0, FLAP_H / 2 - 7, -(0.06 + 0.8 + 0.5 + dropZ)), new Float32Array([sq, 0, 0, 0, 0, sq, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])));
         card.draw(vp, eye, { ...P, ...SEAL_LOOK }, { model: Ms, lod: 'seal', fade: envFade * sstep(0, 0.35, uSe), shade: 1, ...sealV });
@@ -576,7 +614,7 @@ export function createSheetScene(gl, opts) {
       emit('address', detail);
     }
     // postée : l'événement, une fois partie
-    if (env && env.postT >= 0 && !env.sent && t - env.postT > 1.7) {
+    if (env && env.postT >= 0 && !env.sent && pp >= PO.end) {
       env.sent = true;
       // la page demande ensuite l'email ou le numéro (sur le noir), puis envoie (singulies:address)
       const detail = { name: from.name, kind: from.kind, id: from.id, text: from.text, mode: 'poste', ...fieldsOut(env.f), fields: { ...env.f }, ...(NOADDR ? { test: true } : {}) };
@@ -605,7 +643,18 @@ export function createSheetScene(gl, opts) {
   const rectOf = q => { const xs = q.map(p => p[0]), ys = q.map(p => p[1]); return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) }; };
 
   function showOrders(t) {
-    if (NOADDR && ENVELOPE) { if (!env && !chosen) { const o = orders.find(x => x.id === 'poste'); chosen = { id: 'poste', o, t0: t }; openEnv(t); } return; }
+    // plus de commande (08/10) : directement l'enveloppe
+    if ((NOADDR || !ORDERS_ON) && ENVELOPE) {
+      if (!env && !chosen) {
+        const o = orders.find(x => x.id === 'poste') || null; chosen = { id: 'poste', o, t0: t };
+        const detail = { name: from.name, kind: from.kind, id: from.id, text: from.text, mode: 'poste' };
+        try { if (typeof window.onOrder === 'function') window.onOrder(detail); } catch (e) { console.error(e); }
+        window.dispatchEvent(new CustomEvent('singulies:order', { detail }));
+        emit('order', detail);
+        openEnv(t);
+      }
+      return;
+    }
     if (orderAt < 0) orderAt = t; sT = 1;
   }
   let pressO = null;
@@ -619,7 +668,7 @@ export function createSheetScene(gl, opts) {
     gesture(t);
     if (backing) return { type: null };
     if (env) {
-      if (!env.back && env.pu < 0.5 && envClock(t) >= E.write && inside(quads.env, x, y)) {
+      if (!env.back && !isPosting() && envClock(t) >= E.write && inside(quads.env, x, y)) {
         // le champ touché (ou le plus proche)
         let best = null, bd = 1e9;
         for (const d of FIELDS) {
@@ -695,7 +744,7 @@ export function createSheetScene(gl, opts) {
     const f = { ...savedFields };
     if (!f.email && emailOk(savedContact)) f.email = savedContact;
     if (!f.tel && telOk(savedContact)) f.tel = savedContact;
-    env = { t0: t, back: null, postT: -1, pu: 0, writing: false, f, field: FIELDS.find(d => !(f[d.id] || '').trim())?.id || 'nom', ink: null, cursor: { x: ADDR.x, y: ADDR.y }, sent: false };
+    env = { t0: t, back: null, postT: -1, pp: 0, writing: false, f, field: FIELDS.find(d => !(f[d.id] || '').trim())?.id || 'nom', ink: null, cursor: { x: ADDR.x, y: ADDR.y }, sent: false };
     renderAddress();
   }
   let savedFields = {}, savedContact = '', fz = 0;           // l'adresse et le contact restent si l'on revient en arrière
@@ -704,6 +753,8 @@ export function createSheetScene(gl, opts) {
     if (env?.ink) card.freeInk(env.ink);
     if (env) { savedFields = { ...env.f }; savedContact = env.f.email || env.f.tel || savedContact; }
     env = null; chosen = null; kb = 0;
+    // revenue à la feuille : elle ne repart pas tout de suite (le temps de revenir encore en arrière, aux cartes)
+    lastGesture = Math.max(lastGesture, lastT + 2);
   }
   // un champ : une ligne, tapée à la machine (casse et accents gardés), à sa longueur
   const cleanField = (d, v) => v.replace(/[\r\n\t]/g, ' ').replace(/[’‘`´]/g, "'").replace(/\s{2,}/g, ' ').replace(/^\s+/, '').slice(0, d.chars);
@@ -711,9 +762,31 @@ export function createSheetScene(gl, opts) {
     if (NOADDR) { env.ink = null; return; }
     const m = fieldsInk(env.f, 991, env.writing || !env.f[env.field] ? env.field : null);
     if (env.ink) card.freeInk(env.ink);
-    env.ink = card.makeInk(m.canvas); env.cursor = m.cursor;
+    env.ink = card.makeInk(m.canvas, true); env.cursor = m.cursor;
   }
-  const writeInfo = () => { const d = FIELDS.find(x => x.id === env.field); return { text: env.f[d.id] || '', zone: d.zone, field: d }; };
+  const writeInfo = () => { const d = FIELDS.find(x => x.id === env.field); return { text: env.f[d.id] || '', zone: d.zone, field: d, fields: { ...env.f }, last: d === FIELDS[FIELDS.length - 1] }; };
+  const isPosting = () => !!env && (env.postT >= 0 || env.pp > 0);
+  // tous les champs à la fois (08/10 : le remplissage automatique du téléphone remplit nom, adresse, ville, code
+  // postal d'un coup — chaque champ a son vrai <input>, mount.js les lit tous) ; rend les valeurs nettoyées
+  function setFields(vals) {
+    if (!env || env.back || isPosting()) return env ? { ...env.f } : vals;
+    let ch = false;
+    for (const d of FIELDS) {
+      if (vals[d.id] == null) continue;
+      const c = cleanField(d, vals[d.id]);
+      if (c !== (env.f[d.id] || '')) { env.f[d.id] = c; ch = true; }
+    }
+    if (ch) renderAddress();
+    return { ...env.f };
+  }
+  // un champ choisi (toucher sa ligne, flèches du clavier de l'iPhone) : il devient le champ en cours
+  function selectField(id, t) {
+    if (!env || env.back || isPosting() || envClock(lastT) < E.write || !FIELDS.some(d => d.id === id)) return false;
+    if (t != null) gesture(t);
+    if (env.field === id && env.writing) return true;
+    env.field = id; env.writing = true; renderAddress(); emit('write', writeInfo());
+    return true;
+  }
   // « en direct » : la carte se retourne ; on tape son email ou son numéro au dos
   let direct = null;
   function openDirect(o, t) {
@@ -753,7 +826,7 @@ export function createSheetScene(gl, opts) {
   }
   function startWriting() {
     if (direct) { if (direct.back || direct.pu > 0.5) return false; direct.writing = true; emit('write', { text: direct.contact, zone: 'contact' }); return true; }
-    if (!env || env.back || env.pu > 0.5) return false;
+    if (!env || env.back || isPosting()) return false;
     env.writing = true; renderAddress(); emit('write', writeInfo()); return true;
   }
   function stopWriting() { if (env) { env.writing = false; renderAddress(); } if (direct) direct.writing = false; }
@@ -806,9 +879,11 @@ export function createSheetScene(gl, opts) {
   }
   return {
     frame, tap, press, release, scroll, back, setTilt, free, focusRect, gesture,
-    startWriting, stopWriting, setAddress, setText: v => setAddress(v), enter, post, setKeyboard, addrRect,
+    startWriting, stopWriting, setAddress, setText: v => setAddress(v), enter, post, setKeyboard, addrRect, setFields, selectField,
+    // où poser chaque champ natif (sa ligne sur l'enveloppe), tant qu'on peut écrire
+    fieldRects: () => env && lastMenv && !env.back && !isPosting() && envClock(lastT) >= E.write && !NOADDR ? Object.fromEntries(FIELDS.map(d => [d.id, zoneRect(d.id)])) : null,
     state: () => ({
-      env: env ? { writing: env.writing, text: env.f[env.field] || '', fields: { ...env.f }, field: env.field, zone: zoneOf(env.field), canPost: env.pu < 0.5 && !env.back && envClock(lastT) >= E.write && !!envReady(), posted: env.postT >= 0, back: !!env.back, write: !env.back && envClock(lastT) >= E.write, sign: 'POSTER' }
+      env: env ? { writing: env.writing, text: env.f[env.field] || '', fields: { ...env.f }, field: env.field, zone: zoneOf(env.field), canPost: !isPosting() && !env.back && envClock(lastT) >= E.write && !!envReady(), posted: env.postT >= 0, back: !!env.back, write: !env.back && envClock(lastT) >= E.write, sign: 'RECEVOIR\nPAR LA POSTE' }
         : direct ? { writing: direct.writing, text: direct.contact, contact: direct.contact, zone: 'contact', canPost: direct.pu < 0.5 && !direct.back && contactOk(direct.contact), posted: direct.postT >= 0, back: !!direct.back, write: !direct.back && lastT - direct.t0 > 1.1, sign: 'ENVOYER' } : null, tau: tau(lastT), view: sv > 0.5 ? 'commande' : 'feuille', orders: orderAt >= 0, backing: !!backing, cursor: cursorOn(tau(lastT)) > 0.5, chosen: chosen ? chosen.id : null }),
     // tests / captures
     showOrders: () => showOrders(lastT), choose: id => { const o = orders.find(x => x.id === id); const q = quads[id]; if (o && q) { const r = rectOf(q); return tap((r.left + r.right) / 2, (r.top + r.bottom) / 2, lastT); } return null; },

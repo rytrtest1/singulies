@@ -289,3 +289,7 @@ Voir « Point de reprise » en tête de fichier.
 - Publié : la toute fin (prénom + « je l'écris à la machine, / puis il part chez toi. », état réseau), aperçu du lien (og.jpg rendu par le moteur), texte pour lecteurs d'écran, noscript, noindex des pages d'essai, confidentialité exacte, porte Instagram sans WebGL2.
 - Vérifié (Chromium) : `captures/fin/` (390×844, 1280×800, prénom long, en direct, sans réseau, sans WebGL). Unitaires 45/45. Non vérifié : iPhone, Instagram, e2e.
 - En attente de Maxence : mots de la fin, « pour te dire quand il part », sens de « en direct », reprise après interruption, quota / domaines EmailJS.
+
+## 08/10 — retours Maxence : enveloppe directe, champs, envoi « boîte aux lettres »
+- Fait : commande retirée (`ORDERS_ON`, `?commande=1`), enveloppe ouverte d'office après l'acrostiche ; ordre des champs nom / adresse / complément / ville / code postal ; invitations à l'encre pâle (`makeInk(canvas, true)` RG8, `uInkRG`) ; un `<input>` par champ dans un `<form>` (`fieldEls`, `syncFields`, `sheet.setFields` / `selectField` / `fieldRects`) ; signe « RECEVOIR / PAR LA POSTE » (`.sc-two`) ; envoi : timbre (`stamp`, perforations `uClip.x = 2`), retournement, bascule sur la tranche, éloignement, fondu (`PO`, `env.pp`).
+- Vérifié (Chromium, GPU Intel, `tools/env-shot.mjs`, 390×844) : enchaînement des champs (RECEVOIR au code postal rempli), timbre posé à l'endroit, retournement, tranche seule, fondu, puis le contact. **Non vérifié** : remplissage automatique réel (iPhone / Android), e2e.
