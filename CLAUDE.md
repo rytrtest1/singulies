@@ -120,6 +120,8 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - **« ce que tu me confies… » retiré** partout pour l'instant (une section dédiée documentera tout ça plus tard ; `confidentialite.html` reste).
 - **Vol des lettres plus tôt** : dès que la dernière lettre du champ s'est allumée (`light.litAt`, 4,4 s après la dernière lettre ajoutée ; ≥ 2 s après le dernier geste) — remplace « pleine clarté + 3 s ».
 - **Portail : donne du haut vers le bas** (le poème d'abord) ; **chaque carte se glisse SOUS la précédente** (posée à côté, puis glissée dessous à plat).
+- **Cartes du portail à la taille des cartes de questions** (téléphone : 80 % de la largeur) ; pour tenir : moins d'écart avec le paquet, le paquet sort un peu par le bas, recouvrement un peu plus grand (≤ 30 %).
+- **Invitations des champs de l'enveloppe encore plus pâles** (encre ×0,3).
 - **Prénom au relais accueil → cartes** : l'accueil dessine aussi la largeur exacte de l'em vu sur le plan des cartes (`fsx`) — il ne s'élargit plus.
 - **Esquisse des questions** : avant toute question passée, « suivante » (2 fois) ; ensuite plus jamais — une seule fois « précédente », avec un bout de la carte précédente qui se montre au bord gauche.
 - **Carte de la réponse = une carte du jeu** : logo en creux sur la face réponse (comme le recto de toute carte, vu en miroir), **qui apparaît en fondu une fois la réponse validée** ; sur la feuille la face réponse est rendue comme un recto (`logoIn`).

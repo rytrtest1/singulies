@@ -384,7 +384,7 @@ void main() {
       // encre pâle (noms des champs de l'enveloppe) : frappée pleinement (forme intacte), mais moins claire — tracée
       // sans vert dans la carte d'encre (blanc partout ailleurs : sans effet)
       { vec2 iuv = inkUV(pw); vec4 s4 = vFace == 1 ? texture(uInk, iuv, 1.3) : texture(uInkBack, iuv, 1.3);
-        if (uInkRG > 0.5) op *= mix(0.5, 1.0, s4.r > 0.03 ? clamp(s4.g / s4.r, 0.0, 1.0) : 1.0); }
+        if (uInkRG > 0.5) op *= mix(0.3, 1.0, s4.r > 0.03 ? clamp(s4.g / s4.r, 0.0, 1.0) : 1.0); }
       // parois raides du creux : le caractère n'y frappe presque pas
       ink = shape * op / (1.0 + 0.4 * length(vec2(hx, hy)));
     }

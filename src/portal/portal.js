@@ -131,7 +131,7 @@ export async function mountPortal(opts = {}) {
   // ---- disposition : une donne sur une table, pas une grille (Maxence 05/10). Le paquet en bas, un peu de biais ;
   // chaque carte posée de travers (gauche, droite, en alternance), qui recouvre un peu le bord de la précédente
   // (jamais son texte) et y fait son ombre. Biais et décalages tirés à chaque visite, dans des bornes. ----
-  const OV = 0.16;                          // part de la carte précédente recouverte
+  let OV = 0.16;                            // part de la carte précédente recouverte (un peu plus si la place manque)
   const Z_STEP = 2.4;                       // mm : posée sur la précédente (gondolages des deux + respiration < 2,4)
   const side0 = rnd() < 0.5 ? -1 : 1;
   // chaque carte tombe où elle tombe : biais et décalage libres (un côté plus souvent que l'autre, jamais une alternance)
@@ -157,14 +157,27 @@ export async function mountPortal(opts = {}) {
     // ETERNEL : capitales centrées à 11 % du haut, hauteur de capitale du prénom de la scène des cartes ; les cartes dessous
     const sigCap = Math.min(52, Math.max(26, 0.052 * H)) * 0.66;
     const top = Math.max(H * (portrait ? 0.115 : 0.14), H * 0.11 + sigCap / 2 + H * 0.035), bot = H * 0.965;
-    const GAPD = 0.34;                                        // écart avec le paquet (une carte peut y glisser)
-    const span = 1 + 2 * (1 - OV) + 0.14;                     // trois cartes qui se recouvrent + marge des biais
-    let h;
-    if (portrait) h = Math.min(W * 0.7 / asp, H * 0.27 * 0.85, (bot - top) / (span + GAPD + 1.08));
-    else h = Math.min((bot - top) / (1.3 + GAPD + 1.08), W * 0.78 / (asp * span));
+    // les cartes à la taille de celles de la scène des questions (08/10) ; pour tenir dans l'écran, dans l'ordre :
+    // moins d'écart avec le paquet (GAPD), le paquet qui sort un peu par le bas (DS : part visible), un peu plus de
+    // recouvrement (OV) ; en dernier recours seulement, des cartes plus petites
+    let h = W < H ? Math.min(W * 0.80 / asp, H * 0.27) : H * 0.27, GAPD = 0.34, DS = 1.08;
+    OV = 0.16;
+    const spanOf = () => 1 + 2 * (1 - OV) + 0.14;             // trois cartes qui se recouvrent + marge des biais
+    const avail = bot - top;
+    if (portrait) {
+      const over = () => (spanOf() + GAPD + DS) * h - avail;
+      if (over() > 0) GAPD = Math.max(0.18, GAPD - over() / h);
+      if (over() > 0) DS = Math.max(0.72, DS - over() / h);
+      if (over() > 0) OV = Math.min(0.3, OV + over() / h / 2);
+      if (over() > 0) h = avail / (spanOf() + GAPD + DS);
+    } else {
+      if (h * asp * spanOf() > W * 0.78) OV = Math.min(0.3, 1 - (W * 0.78 / (h * asp) - 1.14) / 2);
+      h = Math.min(h, W * 0.78 / (asp * spanOf()), avail / (1.3 + GAPD + DS));
+    }
+    const span = spanOf();
     const w = h * asp, s = CARD.w / w;
     lay.D = s * (H / 2) / Math.tan(FOV / 2);
-    const deckC = bot - h * 0.55;                             // centre du paquet (son épaisseur dessous)
+    const deckC = bot - h * (DS - 0.53);                      // centre du paquet (son épaisseur dessous)
     const zoneB = deckC - h * (0.5 + GAPD);                   // bas de la zone des trois cartes
     const len = (portrait ? h : w) * (span - 0.14);
     const a0 = portrait ? top + (zoneB - top - len) / 2 : (W - len) / 2;
