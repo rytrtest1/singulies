@@ -170,6 +170,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 
 ## Performance
 - Qualité adaptative : budget dépassé → baisser la résolution, puis le nombre de mots. Pause onglet caché. Reconstruction propre après perte de contexte WebGL.
+- **Relief sculpté des cartes seulement de profil** (08/10, iPhone X à 9 i/s → fluide) : le maillage fin du gaufrage (≈ 200 000 triangles par carte) ne sert qu'à une carte vue presque par la tranche (la bosse dépasse) ; vue de face, maillage léger, le gaufrage vient de la lumière au pixel (aucune différence visible). Essais : `?fps=1` (compteur), `?dpr=1.5`, `?relief=0`, `?maille=0.2|0.5|2` (pas fixe, sans bascule).
 - La seconde de noir d'ouverture sert à charger la police et construire l'atlas : la première image visible est définitive.
 
 ## Échelle de luminosité (05/10, une seule dans toute l'app, mesurée)

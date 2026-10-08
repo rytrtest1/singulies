@@ -7,9 +7,9 @@ const server = await createServer({ server: { port: PORT, strictPort: true, host
 await server.listen();
 const browser = await chromium.launch({ headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
 mkdirSync('captures/maille', { recursive: true });
-for (const m of ['0.2', '0.5', '2']) {
+for (const m of ['0.2', 'auto']) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3 });
-  await page.goto(`http://localhost:${PORT}/?maille=${m}`);
+  await page.goto(`http://localhost:${PORT}/?${m === 'auto' ? '' : 'maille=' + m}`);
   await page.waitForFunction(() => window.__sg && window.__sg.portal && window.__sg.portal.readyFired, null, { timeout: 120000 });
   await page.evaluate(() => window.__sg.portal.seek(14));
   await page.waitForTimeout(500);

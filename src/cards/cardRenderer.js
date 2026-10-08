@@ -536,8 +536,27 @@ export async function createCardRenderer(gl, base = './') {
     meshes[name] = { vao, count: mesh.indices.length, dims };
   }
   for (const [name, fine] of [['fine', true], ['coarse', false]]) upload(name, cardMesh(fine));
+  // relief sculpté (08/10, iPhone X : ≈ 200 000 triangles par carte fine → 9 images/s) : il ne se voit que de profil
+  // (la bosse du gaufrage dépasse de la tranche) ; vue de face, le gaufrage vient tout entier de la lumière (normales
+  // au pixel). Le maillage fin ne sert donc qu'à une carte vue presque par la tranche ; sinon, sa version légère.
+  // ?maille=… (essais) : un pas fixe pour tout, sans bascule.
+  const LIGHT = { fine: 'coarse' };
   // autre format (feuille A5…) : dims = { w, h, r, t, fine } ; dessiné avec { lod: name }
-  function addShape(name, dims) { if (!meshes[name]) upload(name, cardMesh(true, dims.seg || 6, dims), dims); return name; }
+  function addShape(name, dims) {
+    if (!meshes[name]) {
+      upload(name, cardMesh(true, dims.seg || 6, dims), dims);
+      if (dims.fine) { upload(name + '~', cardMesh(false, dims.seg || 6, dims), dims); LIGHT[name] = name + '~'; }
+    }
+    return name;
+  }
+  // la carte est-elle vue presque par la tranche ? (|cos| entre sa normale et le regard < 0,3, soit à moins de ≈ 17°)
+  function lodOf(card, eye) {
+    const name = card.lod || 'fine', light = LIGHT[name];
+    if (!light || MAILLE) return name;
+    const M = card.model, nx = M[8], ny = M[9], nz = M[10], nl = Math.hypot(nx, ny, nz) || 1;
+    const vx = eye[0] - M[12], vy = eye[1] - M[13], vz = eye[2] - M[14], vl = Math.hypot(vx, vy, vz) || 1;
+    return Math.abs((nx * vx + ny * vy + nz * vz) / (nl * vl)) < 0.3 ? name : light;
+  }
   const paperTex = imageTexture(gl, paperImg), logoTex = await logoTexture(gl, logoImg);
   // papier en répétition miroir : la feuille réponse peut faire défiler son grain (le papier monte)
   gl.bindTexture(gl.TEXTURE_2D, paperTex);
@@ -550,7 +569,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.useProgram(prog.p);
     gl.uniformMatrix4fv(u.uVP, false, vp);
     gl.uniformMatrix4fv(u.uModel, false, card.model);
-    const m = meshes[card.lod || 'fine'], dm = m.dims;
+    const m = meshes[lodOf(card, eye)], dm = m.dims;
     gl.uniform2f(u.uCard, dm.w, dm.h); gl.uniform1f(u.uRadius, dm.r);
     gl.uniform2f(u.uPaperSize, CARD.w, CARD.h);
     gl.uniform4fv(u.uClip, card.clip || [0, 0, 1, 1]);
