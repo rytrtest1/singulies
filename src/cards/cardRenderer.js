@@ -4,6 +4,7 @@
 // Unités du monde : mm. Lumière : lampe étendue (disque, ombres douces) + pièce (environnement neutre).
 // Matière : papier noir mat — diffusion d'Oren-Nayar, reflet GGX large, lustre velouté (sheen),
 // fibres qui scintillent ; tranche plus claire, bords un peu cassés, irréguliers.
+import '../app/compat.js';            // (Safari d'avant iOS 17 : de simples <canvas> à la place d'OffscreenCanvas)
 import { program } from '../gl/gl.js';
 
 export const CARD = { w: 87, h: 51.5, r: 3, t: 0.125, logoSq: 38.501, logoRange: 2 };

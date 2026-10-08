@@ -16,6 +16,7 @@
 import { M4, CARD } from '../cards/cardRenderer.js';
 import { makeInkMap, makeAnswerInk, TYPE } from '../cards/ink.js';
 import { createRng } from '../field/rng.js';
+import { releaseCanvas } from '../app/compat.js';
 
 export const SHEET = { w: 148, h: 210, r: 0.6, t: 0.1 };
 // liens de la commande : null = lien d'attente (« bientôt »)
@@ -448,7 +449,7 @@ export function createSheetScene(gl, opts) {
     const pp = env ? env.pp : 0, posting = isPosting();
     if (env && env.ink && !NOADDR) {
       const sn = senderCount(ev);
-      if (sn !== env.senderN) { env.senderN = sn; const r = senderInk(991, sn); card.updateInk(env.ink, r.canvas, r.x, r.y); }
+      if (sn !== env.senderN) { env.senderN = sn; const r = senderInk(991, sn); card.updateInk(env.ink, r.canvas, r.x, r.y); releaseCanvas(r.canvas); }
     }
     // le coup de tampon (jamais incliné pareil ; le retour l'efface)
     if (env && !NOADDR && (pp >= PO.hit) !== !!env.stamp) {
@@ -840,6 +841,7 @@ export function createSheetScene(gl, opts) {
     // même texture remise à jour (08/10 : en créer une neuve à chaque frappe, 7 Mo chacune, faisait beaucoup de mémoire
     // graphique jetée sur iPhone)
     if (env.ink) card.updateInk(env.ink, m.canvas, 0, 0); else env.ink = card.makeInk(m.canvas, true);
+    releaseCanvas(m.canvas);
     env.cursor = m.cursor;
   }
   const writeInfo = () => { const d = FIELDS.find(x => x.id === env.field); return { text: env.f[d.id] || '', zone: d.zone, field: d, fields: { ...env.f }, last: d === FIELDS[FIELDS.length - 1] }; };

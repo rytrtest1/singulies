@@ -12,6 +12,7 @@
 // Lumière : manière 1 (orbite + hauteur) + la carte en focus s'incline vers la souris / le téléphone.
 import { createCardRenderer, M4, CARD } from './cardRenderer.js';
 import { loadTypeFont, makeInkMap, makeAnswerInk, makeStripInk, STRIP, TYPE } from './ink.js';
+import { releaseCanvas } from '../app/compat.js';
 import { createNameRelief } from './nameRelief.js';
 import { createRng } from '../field/rng.js';
 import QUESTIONS from './questions.json';
@@ -268,7 +269,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const hint = c === blank ? HINT_BLANK : HINT_ANSWER;
     const m = c.place === 'peek' ? makeStripInk(c.text, sd, mg, hint) : makeAnswerInk(c.text, sd, LINES, writing ? null : c.first, mg, hint);
     if (c.ink) card.freeInk(c.ink);
-    c.ink = card.makeInk(m.canvas, !!m.hinted); c.inkRG = !!m.hinted; c.cursorMM = m.cursor; c.count = m.count;
+    c.ink = card.makeInk(m.canvas, !!m.hinted); releaseCanvas(m.canvas); c.inkRG = !!m.hinted; c.cursorMM = m.cursor; c.count = m.count;
   }
   function setAnswerText(clean, c = act()) { c.text = clean; c.first = 0; renderAnswer(c); }
   function setText(s) {

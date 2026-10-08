@@ -74,9 +74,10 @@ function autoplay(m) {
   const sc = m.scene;
   const give = () => setTimeout(() => { sc.stopWriting(); setTimeout(() => sc.give(m.now()), 500); }, 300);
   if (P.has('reponse')) {
-    const iv = setInterval(() => { const st = sc.state(); if (st.active && st.writing) { clearInterval(iv); m.type(P.get('reponse')); give(); } }, 150);
+    // (téléphone : la carte réponse n'ouvre pas l'écriture d'elle-même — on la prend)
+    const iv = setInterval(() => { const st = sc.state(); if (st.active && !st.writing && st.active.kind === 'question' && !st.ended) sc.startWriting(); if (st.active && st.writing) { clearInterval(iv); m.type(P.get('reponse')); give(); } }, 150);
   } else if (P.has('theme')) {
-    const iv = setInterval(() => { const st = sc.state(); if (st.active && st.writing) { clearInterval(iv); sc.stopWriting(); if (sc.chooseBlank(m.now())) setTimeout(() => { m.type(P.get('theme')); give(); }, 1400); } }, 150);
+    const iv = setInterval(() => { const st = sc.state(); if (st.active && (st.writing || st.discards >= 0)) { clearInterval(iv); sc.stopWriting(); if (sc.chooseBlank(m.now())) setTimeout(() => { m.type(P.get('theme')); give(); }, 1400); } }, 150);
   } else if (P.has('passer')) {
     setTimeout(() => sc.pass(m.now()), 2600);
   }
