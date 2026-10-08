@@ -15,7 +15,7 @@ pc.on('pageerror', e => console.error('page', e));
 await pc.goto(`http://localhost:${PORT}/scene-cartes.html?prenom=LEA&seed=5&reponse=bonjour%20toi&envoi=0`);
 await pc.waitForFunction(() => window.__scene && window.__scene.ready, null, { timeout: 120000 });
 await sleep(800);
-await pc.evaluate(async () => { await window.__toSheet(); window.__at(30); window.__scene.sheet.showOrders(); });
+await pc.evaluate(async () => { await window.__toSheet(); window.__at(window.__scene.sheet.timing.CURSOR_AT + 0.5); window.__scene.sheet.showOrders(); });
 let e2 = 0;
 for (const e of [6.5, 9]) { await pc.evaluate(d => window.__scene.advance(d), (e - e2) / SPEED); e2 = e; await pc.screenshot({ path: `${dir}/pc-env-${e}.png` }); }
 await pc.evaluate(() => { const sh = window.__scene.sheet; sh.setFields({ nom: 'Léa Martin', rue: '3 rue Haute', ville: 'Paris', cp: '75011' }); window.__scene.advance(0.3); sh.post(window.__scene.now()); });

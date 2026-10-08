@@ -2,7 +2,7 @@
 // retour) et gestes (toucher, glisser, relire, inclinaison). Utilisée par l'accueil (après la transition) et par
 // la page d'essai scene-cartes.html. Rien n'est dessiné avant start().
 import { createCardScene } from './scene.js';
-import { createSheetScene, FIELDS } from '../sheet/sheet.js';
+import { createSheetScene, FIELDS, MAIL_W } from '../sheet/sheet.js';
 import { settled, pendingCount } from '../app/send.js';
 
 const CSS = `
@@ -32,16 +32,23 @@ const CSS = `
 /* la fin : la tranche de l'enveloppe devient le champ de l'email (08/10) */
 .sc-mail { position: fixed; z-index: 13; opacity: 0; transition: opacity 1.1s; pointer-events: none; }
 .sc-mail.on { opacity: 1; pointer-events: auto; }
-.sc-mail input { display: block; width: 100%; box-sizing: border-box; font: 16px/1.5 'SG Machine', 'Courier New', monospace; color: rgb(214,214,214);
+.sc-mail .sc-field { position: relative; }
+/* le champ natif reçoit la frappe ; ce qu'on voit est tapé à la machine par-dessus (.sc-type) */
+.sc-mail input { display: block; width: 100%; box-sizing: border-box; font: 16px/1.5 'SG Machine', 'Courier New', monospace; color: transparent;
   text-align: center; background: transparent; border: 0; border-radius: 0; padding: 0 0 5px; margin: 0; outline: none;
   caret-color: rgba(255,255,255,.7); -webkit-appearance: none; appearance: none; }
 .sc-mail input::placeholder { color: rgba(255,255,255,.3); }
 /* remplissage automatique : pas de fond coloré ni de rectangle derrière l'email */
 .sc-mail input:-webkit-autofill, .sc-mail input:-webkit-autofill:hover, .sc-mail input:-webkit-autofill:focus, .sc-mail input:autofill {
-  -webkit-text-fill-color: rgb(214,214,214); -webkit-box-shadow: 0 0 0 1000px #060606 inset; box-shadow: 0 0 0 1000px #060606 inset;
+  -webkit-text-fill-color: transparent; -webkit-box-shadow: 0 0 0 1000px #060606 inset; box-shadow: 0 0 0 1000px #060606 inset;
   background-color: transparent !important; transition: background-color 600000s 0s, color 600000s 0s; caret-color: rgba(255,255,255,.7); }
 .sc-mail input::selection { background: rgba(255,255,255,.18); }
 .sc-mail .sc-line { height: 1px; background: rgba(255,255,255,.3); }
+.sc-mail .sc-type { position: absolute; left: 0; right: 0; top: 0; padding: 0 0 5px; font: 16px/1.5 'SG Machine', 'Courier New', monospace;
+  color: rgb(214,214,214); text-align: center; white-space: pre; pointer-events: none; overflow: visible; }
+.sc-mail .sc-type span { display: inline-block; }
+.sc-mail .sc-type span.hit { animation: sc-hit .16s ease-out; }
+@keyframes sc-hit { from { opacity: .25; transform: translateY(1.2px) scale(1.06); } }
 /* après l'enveloppe : sur le noir, l'email ou le numéro « pour te tenir au courant » (06/10) */
 .sc-ask { position: fixed; inset: 0; z-index: 15; background: #060606; opacity: 0; transition: opacity 1.2s; pointer-events: none;
   display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 16px 18vh; }
@@ -218,13 +225,36 @@ export async function mountCards(opts) {
     inp.setAttribute('inputmode', 'email'); inp.setAttribute('autocapitalize', 'none'); inp.setAttribute('autocorrect', 'off');
     inp.setAttribute('enterkeyhint', 'done'); inp.setAttribute('aria-label', 'Ton email');
     const line = document.createElement('div'); line.className = 'sc-line';
-    box.append(inp, line);
+    const field = document.createElement('div'); field.className = 'sc-field';
+    const typed = document.createElement('div'); typed.className = 'sc-type'; typed.setAttribute('aria-hidden', 'true');
+    const inner = document.createElement('span'); typed.appendChild(inner);
+    field.append(inp, typed);
+    box.append(field, line);
+    // tapé à la machine : chaque caractère a son appui, son petit décalage, son inclinaison (tirés de son rang et de
+    // sa lettre : un caractère ne bouge plus une fois tapé) ; le dernier frappé arrive d'un coup sec
+    let shown = '';
+    const draw = () => {
+      const v = inp.value;
+      if (v === shown) return;
+      let same = 0; while (same < v.length && same < shown.length && v[same] === shown[same]) same++;
+      while (inner.childNodes.length > same) inner.lastChild.remove();
+      for (let i = same; i < v.length; i++) {
+        const sp = document.createElement('span'), c = v[i], h = Math.sin((i + 1) * 12.9898 + c.charCodeAt(0) * 78.233) * 43758.5453, r = k => { const x = Math.sin(h * (k + 1)) * 9999; return x - Math.floor(x); };
+        sp.textContent = c;
+        sp.style.opacity = (0.72 + 0.28 * r(1)).toFixed(2);
+        sp.style.transform = 'translate(' + ((r(2) - 0.5) * 0.5).toFixed(2) + 'px,' + ((r(3) - 0.5) * 1.1).toFixed(2) + 'px) rotate(' + ((r(4) - 0.5) * 2.4).toFixed(2) + 'deg)';
+        if (v.length > shown.length && i >= shown.length) sp.className = 'hit';
+        inner.appendChild(sp);
+      }
+      shown = v;
+    };
     const go = el('div', 'sc-pass', 'TERMINER'); go.setAttribute('role', 'button'); go.tabIndex = 0;
     requestAnimationFrame(() => box.classList.add('on'));
     // ordinateur : le curseur y est tout de suite ; téléphone : toucher la ligne (le clavier ne s'ouvre qu'au toucher)
     if (matchMedia('(pointer: fine)').matches) setTimeout(() => inp.focus({ preventScroll: true }), 700);
     const ok = () => mailOk(inp.value);
-    inp.addEventListener('input', () => go.classList.toggle('on', ok()));
+    inp.addEventListener('input', () => { draw(); go.classList.toggle('on', ok()); if (mail) placeMail(); });
+    inp.addEventListener('change', draw);
     let done = false;
     const finish = () => {
       if (done || !ok()) return; done = true;
@@ -241,13 +271,17 @@ export async function mountCards(opts) {
     go.addEventListener('click', finish);
     go.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); finish(); } });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); finish(); } });
-    mail = { box, inp, go };
+    mail = { box, inp, go, inner, draw };
     api.ask = { input: inp, send: finish };
   }
   // le champ de l'email suit la tranche (à l'écran) ; TERMINER dessous (clavier ouvert : au-dessus du clavier)
   function placeMail() {
     const Ln = sheet && sheet.edgeLine(); if (!Ln) return;
-    const x0 = Math.min(Ln.x0, Ln.x1), x1 = Math.max(Ln.x0, Ln.x1), y = (Ln.y0 + Ln.y1) / 2, w = Math.max(190, x1 - x0);
+    mail.draw();                                     // (remplissage automatique sans événement)
+    // la ligne : la tranche tant qu'elle se voit, puis MAIL_W ; elle s'allonge avec ce qu'on tape
+    const tw = mail.inner.offsetWidth || 0;
+    const x0 = Math.min(Ln.x0, Ln.x1), x1 = Math.max(Ln.x0, Ln.x1), y = (Ln.y0 + Ln.y1) / 2;
+    const w = Math.min(innerWidth - 24, Math.max(MAIL_W, x1 - x0, tw + 36));
     const h = mail.box.offsetHeight || 30, cx = (x0 + x1) / 2;
     Object.assign(mail.box.style, { left: (cx - w / 2) + 'px', top: (y - h + 0.5) + 'px', width: w + 'px' });
     const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;

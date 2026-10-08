@@ -23,10 +23,10 @@ for (const [k, tau] of [['lignes-a', tm.landAll - 1.2], ['lignes-b', tm.landAll 
   await page.evaluate(t => window.__at(t), tau);
   await page.screenshot({ path: `${dir}/${k}.png` });
 }
-await page.evaluate(() => { window.__at(30); window.__scene.sheet.showOrders(); });
+await page.evaluate(() => { window.__at(window.__scene.sheet.timing.CURSOR_AT + 0.5); window.__scene.sheet.showOrders(); });
 // temps de l'enveloppe (s, horloge de l'enveloppe) → secondes réelles
 let ev = 0;
-for (const e of [2.4, 2.8, 3.1, 3.35, 3.6, 4.2, 5.4, 6.2, 6.5, 7.2, 9]) {
+for (const e of [6.5, 7.6, 8.4, 9.2, 10.4, 11.2, 12.4]) {
   await page.evaluate(d => window.__scene.advance(d), (e - ev) / SPEED); ev = e;
   await page.screenshot({ path: `${dir}/env-${e.toFixed(2)}.png` });
 }
@@ -55,7 +55,7 @@ for (const p of [0.5, 1.0, 2.2, 3.2, 3.9, 4.6, 5.4, 6.2]) {
 }
 await sleep(1300);
 await page.screenshot({ path: `${dir}/email-vide.png` });
-await page.evaluate(() => { const a = window.__scene.ask.input; a.value = 'lea@exemple.fr'; a.dispatchEvent(new Event('input')); });
+await page.evaluate(() => { const a = window.__scene.ask.input; a.value = 'lea.martin@exemple.fr'; a.dispatchEvent(new Event('input')); });
 await sleep(500);
 await page.screenshot({ path: `${dir}/email.png` });
 console.log(JSON.stringify({ ask: await page.evaluate(() => !!window.__scene.ask), terminer: await page.evaluate(() => [...document.querySelectorAll('.sc-pass')].some(e => e.textContent === 'TERMINER' && e.classList.contains('on'))) }));

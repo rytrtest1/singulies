@@ -193,7 +193,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function prepare() {
     if (preQ || next >= QUESTIONS.length) return;
     preQ = inkQuestion(order[next], stack[stack.length - 1]);
-    const v = variant();                                    // la carte réponse : une carte du jeu (logo en creux, en fondu une fois validée)
+    const v = { ...variant(), noLogo: true };
     preA = { v, cursorMM: makeStripInk('', Math.floor(v.seed * 1000) + 7, preQ.margin).cursor, forId: preQ.id };
   }
   function makeQuestion(t) {
@@ -252,7 +252,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function makeAnswer(t) {
     const pre = preA && preA.forId === question.id ? preA : null;
     preA = null;
-    const v = pre ? pre.v : variant();
+    const v = pre ? pre.v : { ...variant(), noLogo: true };
     const a = { v, ink: null, text: '', cursorMM: null, first: 0, place: 'peek', anim: 'slide', t0: t, dur: 0.8, from: { ...peekPose(v), y: lay.yDeck } };
     a.cursorMM = pre ? pre.cursorMM : makeStripInk('', Math.floor(v.seed * 1000) + 7, question.margin).cursor;
     return a;
@@ -516,9 +516,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
     if (answer && fadeQ > 0.01) {
       const cur = mode === 'q' && !busy(answer, t) && (writing || !answer.text) && !ended ? cursorAt(answer.cursorMM, t) : {};
-      // son logo (en creux, comme au recto de toute carte) n'apparaît qu'une fois la réponse validée, en fondu
-      const la = ended && ended.kind === 'reponse' ? Math.max(0.002, sstep(0.05, 1.3, te)) : 0.002;
-      card.draw(vp, eye, { ...P, h: P.h * la, crease: (P.crease || 0) * la }, { model: (snap.a = model(Ga, anp)), lod: 'fine', ink: answer.ink, shade: mode === 'free' ? dimQ : dimA, fade: fadeQ, occ: answer.place === 'peek' && !ended ? occQ : null, ...answer.v, ...cur });
+      card.draw(vp, eye, P, { model: (snap.a = model(Ga, anp)), lod: 'fine', ink: answer.ink, shade: mode === 'free' ? dimQ : dimA, fade: fadeQ, occ: answer.place === 'peek' && !ended ? occQ : null, ...answer.v, ...cur });
     }
     if (blank && blank.out < 0.999 && fadeB > 0.01) {
       // « carte blanche » tapé au recto tant qu'elle attend ; pendant son tour, l'encre change quand le recto est caché

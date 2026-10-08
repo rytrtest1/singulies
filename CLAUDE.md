@@ -115,8 +115,8 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - **RECEVOIR / PAR LA POSTE** (deux lignes) à la place de POSTER.
 - **Envoi** (`PO` dans sheet.js, horloge réversible) : la vue recule sur l'enveloppe entière, **coup de tampon blanc** (logo SS-cœur dans un cercle, encre inégale, tracé dans l'encre de l'enveloppe) dans le coin haut-droit, **jamais incliné pareil** ; l'enveloppe se retourne (le cachet), bascule jusqu'à **ne plus montrer que sa tranche inférieure** (boîte aux lettres) ; **la tranche devient le champ de l'email** (« ton email » en grisé), le reste se fond dans le noir ; **TERMINER** (ou Entrée) dès qu'il est valable — **on ne peut pas passer** ; puis **directement le portail** (plus d'écran de fin ni de numéro de téléphone).
 - **POSTER** (seul mot) **sous l'enveloppe**, à l'aplomb de l'adresse, en fondu ; il suit l'enveloppe (clavier ouvert : au-dessus du clavier).
-- **Destinataire** dans le quart bas-droit (là où on écrit sur une enveloppe) ; **expéditeur** en haut à gauche : *@e.t.ernel / SINGULIES / Paris*.
-- **Fin** : la tranche seule visible, l'enveloppe **avance dans l'axe du regard (la fente)** et le champ rétrécit avec elle (≈ 62 %) ; invitation « email » ; pas de fond coloré au remplissage automatique.
+- **Destinataire** à l'emplacement de la fenêtre normalisée d'une C5 (20 mm du bord droit, 15 mm du bas) ; **expéditeur** *@e.t.ernel / SINGULIES / Paris* **tapé à la machine pendant le retournement, vue rapprochée sur le coin haut-gauche**, puis la vue va à l'adresse (`S_AT`, `E.cam3`, `E.write` ≈ 11,8).
+- **Fin** : la tranche seule visible, l'enveloppe **avance dans l'axe du regard (la fente)** jusqu'à ce que sa tranche fasse la longueur de la ligne sous « email » (`MAIL_W` = 190 px) ; l'email **se tape à la machine** (lettres irrégulières, frappe sèche) et **la ligne s'allonge avec lui** ; pas de fond coloré au remplissage automatique.
 - **« ce que tu me confies… » retiré** partout pour l'instant (une section dédiée documentera tout ça plus tard ; `confidentialite.html` reste).
 - **Vol des lettres plus tôt** : dès que la dernière lettre du champ s'est allumée (`light.litAt`, 4,4 s après la dernière lettre ajoutée ; ≥ 2 s après le dernier geste) — remplace « pleine clarté + 3 s ».
 - **Portail : donne du haut vers le bas** (le poème d'abord) ; **chaque carte se glisse SOUS la précédente** (posée à côté, puis glissée dessous à plat).
@@ -124,7 +124,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - **Invitations des champs de l'enveloppe encore plus pâles** (encre ×0,3).
 - **Prénom au relais accueil → cartes** : l'accueil dessine aussi la largeur exacte de l'em vu sur le plan des cartes (`fsx`) — il ne s'élargit plus.
 - **Esquisse des questions** : avant toute question passée, « suivante » (2 fois) ; ensuite plus jamais — une seule fois « précédente », avec un bout de la carte précédente qui se montre au bord gauche.
-- **Carte de la réponse = une carte du jeu** : logo en creux sur la face réponse (comme le recto de toute carte, vu en miroir), **qui apparaît en fondu une fois la réponse validée** ; sur la feuille la face réponse est rendue comme un recto (`logoIn`).
+- **Pas de logo sur la réponse** (carte réponse sans logo ; sur la feuille, le logo seulement côté question : `logoIn`).
 - **Réalisme de l'enveloppe** : rabat du bas au dos (arêtes des rabats visibles, `clipRim`) ; **cachet de cire** : bord de cire irrégulier, empreinte plate, bourrelet de cire chassée, ménisque jusqu'au bord, cire argentée nacrée à paillettes (`uSeal`).
 
 ## Nuit du 07 au 08/10 (revue de l'audit GPT : `REVUE-AUDIT.md`, à valider par Maxence)

@@ -107,7 +107,7 @@ uniform vec3 uCurl;          // coin corné : sens du coin (x, y : ±1, repère 
 uniform sampler2D uLogo;
 uniform float uLogoSq, uLogoRange, uH, uB, uFoot, uFootW, uNoLogo;
 uniform vec2 uLogoOff, uLogoScale;
-uniform float uLogoIn;       // 1 : la face 0 (la réponse) est un recto : logo en creux (la carte de la réponse, 08/10)
+uniform float uLogoIn;       // 1 : le logo seulement côté question — la face 0 (la réponse) n'en a pas (08/10)
 // cachet de cire (08/10) : (actif, rayon de l'empreinte du sceau, rayon de la cire, ondulation du bord) — la face 1 bombe
 // vers l'extérieur : empreinte plate, bourrelet de cire chassée autour, puis la cire retombe en ménisque jusqu'au bord
 uniform vec4 uSeal;
@@ -204,8 +204,7 @@ const float PI = 3.14159265;
 
 float logoD(vec2 p) {        // distance signée au contour (mm), < 0 dans le logo
   if (uNoLogo > 0.5) return uLogoRange;   // feuille sans logo
-  // face de la réponse (uLogoIn) : la même empreinte qu'au recto d'une carte — en creux, vue en miroir
-  if (uLogoIn > 0.5 && vFace == 0) p.x = 2.0 * uLogoOff.x - p.x;
+  if (uLogoIn > 0.5 && vFace == 0) return uLogoRange;   // face de la réponse : sans logo (08/10)
   vec2 uv = (p - uLogoOff) / (uLogoSq * uLogoScale) + 0.5; uv.y = 1.0 - uv.y;
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return uLogoRange;
   return texture(uLogo, uv).r * min(abs(uLogoScale.x), abs(uLogoScale.y));
@@ -603,6 +602,12 @@ export async function createCardRenderer(gl, base = './') {
     return t;
   }
   const freeInk = t => gl.deleteTexture(t);
+  // remet à jour une zone d'une carte d'encre RG (px depuis le coin haut-gauche) : la frappe lettre à lettre
+  function updateInk(t, canvas, x, y) {
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, gl.RG, gl.UNSIGNED_BYTE, canvas);
+    gl.generateMipmap(gl.TEXTURE_2D);
+  }
   // le logo en masque (blanc, bords nets) : pour un coup de tampon tracé dans une carte d'encre. Côté = CARD.logoSq mm
   let mask = null;
   function logoMask() {
@@ -619,5 +624,5 @@ export async function createCardRenderer(gl, base = './') {
     x.putImageData(im, 0, 0);
     return (mask = c);
   }
-  return { draw, makeInk, freeInk, paperTex, addShape, logoMask };
+  return { draw, makeInk, freeInk, updateInk, paperTex, addShape, logoMask };
 }

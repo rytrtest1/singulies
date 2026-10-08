@@ -50,10 +50,27 @@ const SEAL_D = 27, SEAL_K = 0.4, SEAL_IN = 8.6, SEAL_WOB = 0.085;   // cachet : 
 // elle traversait le devant de la poche en pivotant) ; seal : le cachet de cire se pose sur la pointe du rabat
 const E = { fade: [0, 0.7], cam: [0.1, 2.1], rise: [0.4, 2.1], cIn: [1.3, 2.4], rot: [2.2, 3.25], drop: [3.2, 3.5], slide: [3.45, 4.7],
   flap: [4.8, 5.9], seal: [5.85, 6.45], flip: [6.6, 8.0], cam2: [6.5, 8.3], write: 8.3 };
-// le destinataire : là où on l'écrit sur une enveloppe — quart bas-droit, à partir du milieu (mm, depuis le coin haut-gauche)
-export const ADDR = { x: 118, y: 100, lead: 6.35, lines: 5, chars: 34 };
-// l'expéditeur, en haut à gauche (08/10)
+// le destinataire : là où on l'écrit sur une vraie enveloppe C5 — la zone de la fenêtre normalisée (20 mm du bord
+// droit, 15 mm du bas, 100 × 45 mm) ; mm depuis le coin haut-gauche
+export const ADDR = { x: 112, y: 107, lead: 6.35, lines: 5, chars: 34 };
+// l'expéditeur, en haut à gauche (08/10) : tapé à la machine pendant que l'enveloppe se retourne, vue rapprochée
 const SENDER = { x: 14, y: 17, lead: 5.4, lines: ['@e.t.ernel', 'SINGULIES', 'Paris'] };
+const S_AT = 7.85, S_CH = 0.055, S_NL = 0.28;                // début (horloge de l'enveloppe), par caractère, par ligne
+const S_LEN = SENDER.lines.reduce((n, l) => n + l.length + 1, 0);
+const S_END = S_AT + SENDER.lines.join('').length * S_CH + (SENDER.lines.length - 1) * S_NL;
+E.cam3 = [S_END + 0.35, S_END + 1.75]; E.write = S_END + 1.75;  // puis la vue va à l'adresse
+// caractères de l'expéditeur déjà tapés (espaces de fin de ligne compris), à l'instant ev
+function senderCount(ev) {
+  let t = ev - S_AT, n = 0;
+  if (t < 0) return 0;
+  for (const l of SENDER.lines) {
+    const k = Math.min(l.length, Math.floor(t / S_CH) + 1);
+    if (t < l.length * S_CH) return n + Math.max(0, k);
+    n += l.length + 1; t -= l.length * S_CH + S_NL;
+    if (t < 0) return n;
+  }
+  return S_LEN;
+}
 // envoyée (08/10) : un coup de tampon blanc (le logo SS-cœur dans un cercle) dans le coin haut-droit de l'adresse,
 // jamais incliné pareil ; l'enveloppe se retourne (le cachet), puis bascule jusqu'à ne plus montrer que sa tranche
 // inférieure, comme glissée dans une boîte aux lettres ; la tranche devient le champ de l'email (mount.js) et le
@@ -61,9 +78,10 @@ const SENDER = { x: 14, y: 17, lead: 5.4, lines: ['@e.t.ernel', 'SINGULIES', 'Pa
 // ce que la tranche soit devenue le champ.
 const STAMP = { x: 31, y: 27, r: 12.5, logo: 16.5 };          // tampon : centre (mm, depuis le coin haut-droit), rayon, logo
 // away : sa tranche seule visible, elle avance comme dans la fente d'une boîte aux lettres (la tranche, devenue le
-// champ de l'email, rétrécit avec elle : AWAY_K = sa taille d'arrivée) ; fade : puis l'enveloppe se fond, le champ reste
+// champ de l'email, rétrécit avec elle jusqu'à la longueur de la ligne sous « email » : MAIL_W px) ; fade : puis
+// l'enveloppe se fond, la ligne reste
 const PO = { cam: [0, 1.1], hit: 0.75, turn: [1.6, 2.8], tip: [2.65, 3.85], end: 3.85, away: [3.9, 5.3], fade: [5.0, 6.0] };
-const AWAY_K = 0.62;
+export const MAIL_W = 190;
 // l'adresse en champs (06/10, Maxence : « clarifier le moment de l'adresse ») : chacun sa ligne, son invitation
 // tapée en léger tant qu'il est vide ; Entrée = le champ suivant. Destinataire en bas à droite, expéditeur (email,
 // téléphone : demandés après). POSTER dès que nom, adresse, code postal et ville sont là.
@@ -95,7 +113,7 @@ const ORDERS_ON = new URLSearchParams(location.search).get('commande') === '1' |
 export const NOADDR = new URLSearchParams(location.search).get('adresse') === '0';
 
 // frappe à la machine (mêmes défauts que les cartes, tirés du rang de chaque caractère) : lignes à partir de (x0, y0) mm
-function typeLines(cx, PX, lines, x0, y0, lead, seed, alpha = 1, col = '#fff') {
+function typeLines(cx, PX, lines, x0, y0, lead, seed, alpha = 1, col = '#fff', upTo = Infinity) {
   const fontPx = TYPE.size * PX;
   const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
   const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;
@@ -104,6 +122,7 @@ function typeLines(cx, PX, lines, x0, y0, lead, seed, alpha = 1, col = '#fff') {
   lines.forEach((line, li) => {
     const base = y0 + li * lead, lx = typeof x0 === 'function' ? x0(line) : x0;
     [...line].forEach((ch, ci) => {
+      if (idx + ci >= upTo) return;
       const r = createRng((seed * 7919 + (idx + ci) * 104729) >>> 0);
       const g = () => { let s = 0; for (let i = 0; i < 4; i++) s += r(); return (s - 2) / 0.58; };
       if (ch === ' ') return;
@@ -140,6 +159,15 @@ export const cleanContact = v => v.replace(/[\r\n\t]/g, '').replace(/\s{2,}/g, '
 const ENV_PX = 10;
 // l'enveloppe à remplir : chaque champ sur sa ligne, son invitation en léger tant qu'il est vide ; curseur au champ actif
 export const fieldPos = d => d.zone === 'addr' ? { x: ADDR.x, y: ADDR.y + d.line * ADDR.lead } : { x: CONTACT.x, y: CONTACT.y + d.line * ADDR.lead };
+// l'expéditeur seul, dans sa zone (pour le taper lettre à lettre sans refaire toute l'encre de l'enveloppe)
+const S_BOX = { x: SENDER.x - 3, y: SENDER.y - 6, w: 12 * TYPE.pitch + 8, h: 2 * SENDER.lead + 10 };
+function senderInk(seed, n) {
+  const PX = ENV_PX, cv = new OffscreenCanvas(Math.round(S_BOX.w * PX), Math.round(S_BOX.h * PX)), cx = cv.getContext('2d');
+  cx.fillStyle = '#000'; cx.fillRect(0, 0, cv.width, cv.height);
+  cx.translate(-Math.round(S_BOX.x * PX), -Math.round(S_BOX.y * PX));
+  typeLines(cx, PX, SENDER.lines, SENDER.x, SENDER.y, SENDER.lead, seed + 53, 0.9, '#fff', n);
+  return { canvas: cv, x: Math.round(S_BOX.x * PX), y: Math.round(S_BOX.y * PX) };
+}
 // un coup de tampon : encre blanche inégale (appui plus fort d'un côté, manques, grain du papier qui ne prend pas)
 function stampInk(cx, PX, mask, x, y, rot, seed) {
   const r = createRng(seed >>> 0), S = Math.ceil(2 * (STAMP.r + 1.5) * PX), c = new OffscreenCanvas(S, S), g = c.getContext('2d');
@@ -171,7 +199,7 @@ function stampInk(cx, PX, mask, x, y, rot, seed) {
 }
 // stamp : { mask, rot, dx, dy, seed } — le coup de tampon, une fois l'enveloppe envoyée ; alors les noms des champs
 // restés vides ne se voient plus (le formulaire est rempli)
-export function fieldsInk(f, seed, active, stamp = null) {
+export function fieldsInk(f, seed, active, stamp = null, senderN = Infinity) {
   const PX = ENV_PX, cv = new OffscreenCanvas(Math.round(ENV.w * PX), Math.round(ENV.h * PX)), cx = cv.getContext('2d');
   cx.fillStyle = '#000'; cx.fillRect(0, 0, cv.width, cv.height);
   let cursor = null;
@@ -185,7 +213,7 @@ export function fieldsInk(f, seed, active, stamp = null) {
     if (v || !stamp) typeLines(cx, PX, [v || d.hint], p.x, p.y, 0, seed + k * 31, 1, v ? '#fff' : '#f00');
     if (d.id === active) cursor = { x: p.x + v.length * TYPE.pitch - 0.35, y: p.y };
   });
-  typeLines(cx, PX, SENDER.lines, SENDER.x, SENDER.y, SENDER.lead, seed + 53, 0.9);
+  typeLines(cx, PX, SENDER.lines, SENDER.x, SENDER.y, SENDER.lead, seed + 53, 0.9, '#fff', senderN);
   if (stamp) stampInk(cx, PX, stamp.mask, ENV.w - STAMP.x + stamp.dx, STAMP.y + stamp.dy, stamp.rot, stamp.seed);
   return { canvas: cv, cursor: cursor || { x: ADDR.x, y: ADDR.y } };
 }
@@ -346,9 +374,9 @@ export function createSheetScene(gl, opts) {
     // (l'adresse et, sous l'enveloppe, POSTER : le clavier ouvert ne doit cacher ni l'une ni l'autre)
     const ax = -ENV.w / 2 + ADDR.x + 15 * TYPE.pitch, ay = EC_Y + ENV.h / 2 - (ADDR.y - 6 + ENV.h + 16) / 2;
     frames.F = W < H * 1.1 ? frameFor(ay - 30, ay + 30, ax - 50, ax + 50, 0, W, H) : frameFor(EC_Y - ENV.h / 2 - 12, EC_Y + ENV.h / 2 + 12, -ENV.w / 2 - 8, ENV.w / 2 + 8, 0, W, H);
-    // l'expéditeur (email ou numéro), en haut à gauche : de près sur téléphone ; ordinateur : l'enveloppe entière
-    const qx = -ENV.w / 2 + CONTACT.x + 15 * TYPE.pitch, qy = EC_Y + ENV.h / 2 - (CONTACT.y + ADDR.lead * 0.5);
-    frames.Fc = W < H * 1.1 ? frameFor(qy - 30, qy + 30, qx - 50, qx + 50, 0, W, H) : frames.F;
+    // l'expéditeur, en haut à gauche : la vue s'en approche pendant qu'il se tape (le coin de l'enveloppe)
+    const qx = -ENV.w / 2 + SENDER.x + 5 * TYPE.pitch, qy = EC_Y + ENV.h / 2 - (SENDER.y + SENDER.lead);
+    frames.Fs = W < H * 1.1 ? frameFor(qy - 22, qy + 22, qx - 34, qx + 34, 0, W, H) : frameFor(qy - 30, qy + 30, qx - 48, qx + 70, 0, W, H);
     // envoyée : l'enveloppe entière, avec de l'air (elle se retourne et bascule)
     frames.P = frameFor(EC_Y - ENV.h / 2 - 30, EC_Y + ENV.h / 2 + 30, -ENV.w / 2 - 14, ENV.w / 2 + 14, 0, W, H);
     frames.B = frameFor(SY + oBot - 6, SY + (C ? C_POSE.y + CARD.h / 2 : -SHEET.h / 2 + 30) + 6, x0, x1, CARD.w / 0.78, W, H);
@@ -418,6 +446,10 @@ export function createSheetScene(gl, opts) {
     // envoyée : horloge propre, qui redescend au retour
     if (env) env.pp = Math.max(0, env.pp + (env.postT >= 0 ? 1 : -2.5) * dt / LENT);
     const pp = env ? env.pp : 0, posting = isPosting();
+    if (env && env.ink && !NOADDR) {
+      const sn = senderCount(ev);
+      if (sn !== env.senderN) { env.senderN = sn; const r = senderInk(991, sn); card.updateInk(env.ink, r.canvas, r.x, r.y); }
+    }
     // le coup de tampon (jamais incliné pareil ; le retour l'efface)
     if (env && !NOADDR && (pp >= PO.hit) !== !!env.stamp) {
       env.stamp = pp >= PO.hit ? { mask: card.logoMask(), rot: (rnd() < 0.5 ? -1 : 1) * rnd.range(0.05, 0.5), dx: rnd.range(-2.5, 2.5), dy: rnd.range(-2, 2), seed: (rnd() * 1e9) >>> 0 } : null;
@@ -437,7 +469,6 @@ export function createSheetScene(gl, opts) {
     const sL = s * (1 - uCam);                                // ce que la vue « commande » retire à la feuille
     const writingNow = (env && env.writing) || (direct && direct.writing);
     kb += ((writingNow && kbPx > 40 ? 1 : 0) - kb) * Math.min(1, dt * 4);
-    if (env) fz += ((zoneOf(env.field) === 'contact' ? 1 : 0) - fz) * Math.min(1, dt * 2.5);
     if (direct) direct.pu += ((direct.postT >= 0 ? 1 : 0) - direct.pu) * Math.min(1, dt * 1.1);
 
     // caméra : de celle des cartes à la feuille (τ), puis feuille ↔ commande (s), puis l'enveloppe
@@ -447,12 +478,12 @@ export function createSheetScene(gl, opts) {
     const es = ease(s);
     let cxT = lerp(fA.cx, fB.cx, es), cyT = lerp(fA.cy, fB.cy, es), lD = lerp(Math.log(fA.D), Math.log(fB.D), es);
     if (inEnv) {
-      const u1 = ease(uCam), u2 = ease(span(E.cam2, ev)), fE = frames.E;
-      const fF = { cx: lerp(frames.F.cx, frames.Fc.cx, fz), cy: lerp(frames.F.cy, frames.Fc.cy, fz), D: Math.exp(lerp(Math.log(frames.F.D), Math.log(frames.Fc.D), fz)), Hw: lerp(frames.F.Hw, frames.Fc.Hw, fz) };
+      // l'enveloppe ; en se retournant, la vue s'approche du coin de l'expéditeur (u2), puis va à l'adresse (u4)
+      const u1 = ease(uCam), u2 = ease(span(E.cam2, ev)), u4 = ease(span(E.cam3, ev)), fE = frames.E, fS = frames.Fs, fF = frames.F;
       // clavier ouvert : l'adresse au milieu de la partie visible
       const vis = 1 - kbPx / H, fcy = fF.cy - (0.5 - (vis / 2 + 0.04)) * fF.Hw * kb;
-      cxT = lerp(lerp(cxT, fE.cx, u1), fF.cx, u2); cyT = lerp(lerp(cyT, fE.cy, u1), fcy, u2);
-      lD = lerp(lerp(lD, Math.log(fE.D), u1), Math.log(fF.D), u2);
+      cxT = lerp(lerp(lerp(cxT, fE.cx, u1), fS.cx, u2), fF.cx, u4); cyT = lerp(lerp(lerp(cyT, fE.cy, u1), fS.cy, u2), fcy, u4);
+      lD = lerp(lerp(lerp(lD, Math.log(fE.D), u1), Math.log(fS.D), u2), Math.log(fF.D), u4);
       // envoyée : la vue recule jusqu'à l'enveloppe entière (téléphone : on était tout près de l'adresse)
       const u3 = ease(span(PO.cam, pp)), fP = frames.P;
       cxT = lerp(cxT, fP.cx, u3); cyT = lerp(cyT, fP.cy, u3); lD = lerp(lD, Math.log(fP.D), u3);
@@ -494,7 +525,8 @@ export function createSheetScene(gl, opts) {
       // le coup : l'enveloppe cède un peu sous le tampon
       const hb = sstep(PO.hit - 0.12, PO.hit, pp) * (1 - sstep(PO.hit, PO.hit + 0.35, pp)) * mv;
       // la tranche seule visible : elle avance droit devant, dans l'axe du regard (la fente)
-      const far = (frames.P ? frames.P.D : 600) * (1 / AWAY_K - 1) * ease(span(PO.away, pp)) * mv;
+      const kAway = frames.P ? Math.min(0.95, MAIL_W / (ENV.w * H / frames.P.Hw)) : 0.6;
+      const far = (frames.P ? frames.P.D : 600) * (1 / kAway - 1) * ease(span(PO.away, pp)) * mv;
       const dir = (v => { const l = Math.hypot(...v) || 1; return v.map(x => x / l); })([EC.x - eye[0], EC.y - eye[1], EC.z - eye[2]]);
       Menv = M4.mul(T(EC.x + dir[0] * far, EC.y - 110 * (1 - uI) + 14 * Math.sin(Math.PI * uTurn) + dir[1] * far,
         EC.z - 50 * (1 - uI) + 70 * Math.sin(Math.PI * uFlip) * mv + 55 * Math.sin(Math.PI * uTurn) - 3 * hb + dir[2] * far),
@@ -788,10 +820,10 @@ export function createSheetScene(gl, opts) {
     const f = { ...savedFields };
     if (!f.email && emailOk(savedContact)) f.email = savedContact;
     if (!f.tel && telOk(savedContact)) f.tel = savedContact;
-    env = { t0: t, back: null, postT: -1, pp: 0, writing: false, f, field: FIELDS.find(d => !(f[d.id] || '').trim())?.id || 'nom', ink: null, cursor: { x: ADDR.x, y: ADDR.y }, sent: false };
+    env = { t0: t, back: null, postT: -1, pp: 0, senderN: 0, writing: false, f, field: FIELDS.find(d => !(f[d.id] || '').trim())?.id || 'nom', ink: null, cursor: { x: ADDR.x, y: ADDR.y }, sent: false };
     renderAddress();
   }
-  let savedFields = {}, savedContact = '', fz = 0;           // l'adresse et le contact restent si l'on revient en arrière
+  let savedFields = {}, savedContact = '';           // l'adresse et le contact restent si l'on revient en arrière
   const zoneOf = id => FIELDS.find(d => d.id === id)?.zone || 'addr';
   function closeEnv() {
     if (env?.ink) card.freeInk(env.ink);
@@ -804,7 +836,7 @@ export function createSheetScene(gl, opts) {
   const cleanField = (d, v) => v.replace(/[\r\n\t]/g, ' ').replace(/[’‘`´]/g, "'").replace(/\s{2,}/g, ' ').replace(/^\s+/, '').slice(0, d.chars);
   function renderAddress() {
     if (NOADDR) { env.ink = null; return; }
-    const m = fieldsInk(env.f, 991, env.stamp ? null : env.writing || !env.f[env.field] ? env.field : null, env.stamp);
+    const m = fieldsInk(env.f, 991, env.stamp ? null : env.writing || !env.f[env.field] ? env.field : null, env.stamp, env.senderN);
     if (env.ink) card.freeInk(env.ink);
     env.ink = card.makeInk(m.canvas, true); env.cursor = m.cursor;
   }
