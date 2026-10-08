@@ -14,6 +14,7 @@ import { createCardRenderer, M4, CARD } from '../cards/cardRenderer.js';
 import { loadTypeFont, makeInkMap } from '../cards/ink.js';
 import { LOOK } from '../cards/scene.js';
 import { createRng } from '../field/rng.js';
+import { dpr3d } from '../app/perf.js';
 
 // liens de sortie : null = lien d'attente (« bientôt »)
 export const LINKS = { lettre: null, livres: 'https://www.amazon.fr/dp/B0DS8RF83H', jeu: null };
@@ -381,7 +382,7 @@ export async function mountPortal(opts = {}) {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, last ? (n - last) / 1000 : 0.016); last = n;
     const t = now();
-    const dpr = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight;
+    const dpr = dpr3d(), W = innerWidth, H = innerHeight;
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
     layout(W, H);
     gl.viewport(0, 0, canvas.width, canvas.height);

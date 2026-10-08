@@ -15,6 +15,7 @@ import { createRng } from './field/rng.js';
 import { createLight } from './field/light.js';
 import { sigmaPx } from './field/camera.js';
 import { planRecharge, fieldLetter, rechargeFrame, energyFrame, riseU, grayU, sm as smT, REST, RISE, NAME_GRAY, NAME_REST } from './transition/recharge.js';
+import { fpsMeter } from './app/perf.js';
 
 const transRng = createRng();
 
@@ -716,5 +717,6 @@ document.addEventListener('visibilitychange', () => {
 const stats = { drawCalls: 0, gpuMB: 0, letters: 0, warmupMs: 0 };
 window.__sg = { stats, model, S, CFG, get portal() { return portal; }, get atlas() { return atlas; }, get field() { return field; }, get voice() { return voice; }, validate, submitName, startTransition, goBack, get bridge() { return bridge; } };
 
+fpsMeter();      // ?fps=1 : images par seconde (essais de fluidité)
 installSend();   // la demande part par email quand l'enveloppe est postée (ou « en direct »)
 boot();

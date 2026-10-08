@@ -6,6 +6,7 @@
 // fibres qui scintillent ; tranche plus claire, bords un peu cassés, irréguliers.
 import '../app/compat.js';            // (Safari d'avant iOS 17 : de simples <canvas> à la place d'OffscreenCanvas)
 import { program } from '../gl/gl.js';
+import { RELIEF } from '../app/perf.js';
 
 export const CARD = { w: 87, h: 51.5, r: 3, t: 0.125, logoSq: 38.501, logoRange: 2 };
 
@@ -192,7 +193,7 @@ uniform mat4 uOccInv; uniform float uOccExact;     // ombre exacte : repère de 
 // projecteur de mise en valeur (carte active) : cône doux
 uniform vec3 uSpotPos, uSpotDir; uniform float uSpot, uSpotCosOut, uSpotCosIn;
 uniform float uLight, uLightR, uEnv, uAlbedo, uExposure;
-uniform float uH, uB, uCrease, uFiber, uFoot, uFootW, uParallax;
+uniform float uH, uB, uCrease, uFiber, uFoot, uFootW, uParallax, uShadow;
 uniform float uRough, uSpec, uSheen, uGlint, uEdge, uGrain, uDiffRough, uEnvSpec, uToe;
 uniform vec4 uPaperXf;       // décalage (mm) + rotation du papier, propre à chaque carte
 uniform float uSeed;
@@ -424,7 +425,7 @@ void main() {
     // ombre propre, douce (la lampe a une taille) : marche vers la lampe dans le plan de la face
     vec2 Lt = vec2(dot(L, T), dot(L, Bv)); float Lz = dot(L, Ng);
     float h0 = height(p, s), sh = 1.0;
-    if (Lz > 0.0 && length(Lt) > 1e-4) {
+    if (uShadow > 0.0 && Lz > 0.0 && length(Lt) > 1e-4) {
       vec2 dir = normalize(Lt); float slope = Lz / length(Lt);
       for (int i = 1; i <= 10; i++) {
         float t = float(i) * 0.07;
@@ -582,6 +583,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1i(u.uNRules, ru ? Math.min(24, ru.list.length) : 0);
     if (ru && ru.list.length) { const f = new Float32Array(96); ru.list.slice(0, 24).forEach((r, i) => f.set(r, i * 4)); gl.uniform4fv(u.uRules, f); gl.uniform1f(u.uRuleX1, ru.x1); gl.uniform1f(u.uRuleA, ru.a ?? 0.5); }
     gl.uniform4fv(u.uCursor, card.cursor || [0, 0, 0, 0]); gl.uniform1f(u.uCursorFace, card.cursorFace ?? -1);
+    gl.uniform1f(u.uShadow, RELIEF ? 1 : 0);
     gl.uniform1f(u.uShade, card.shade ?? 1); gl.uniform1f(u.uFade, card.fade ?? 1);
     gl.bindVertexArray(m.vao);
     gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_INT, 0);

@@ -9,6 +9,7 @@ import { loadTypeFont, makeInkMap } from '../cards/ink.js';
 import { LOOK } from '../cards/scene.js';
 import { createRng } from '../field/rng.js';
 import QUESTIONS from '../cards/questions.json';
+import { dpr3d } from '../app/perf.js';
 
 export const JEU_LINK = null;                     // page d'achat du jeu (null = « bientôt »)
 const BUY = 'le commander';
@@ -182,7 +183,7 @@ export async function mountJeu(opts = {}) {
     if (manualDt == null) raf = requestAnimationFrame(frame);
     const dt = manualDt ?? Math.min(0.05, last ? (n - last) / 1000 : 0.016); last = n;
     const t = now();
-    const dpr = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight;
+    const dpr = dpr3d(), W = innerWidth, H = innerHeight;
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
     layout(W, H);
     if (pendingDraw >= 0 && t >= pendingDraw) { pendingDraw = -1; draw(t); }

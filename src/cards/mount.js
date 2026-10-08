@@ -4,6 +4,7 @@
 import { createCardScene } from './scene.js';
 import { createSheetScene, FIELDS, MAIL_W } from '../sheet/sheet.js';
 import { settled, pendingCount } from '../app/send.js';
+import { dpr3d } from '../app/perf.js';
 
 const CSS = `
 .sc-c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: pinch-zoom; }
@@ -377,7 +378,7 @@ export async function mountCards(opts) {
     function frame(n, manualDt) {
       if (vclock != null && manualDt == null) return;            // horloge pilotée : pas de boucle
       const t = now(), dt = manualDt ?? Math.min(0.05, (n - last) / 1000); last = n;
-      const dpr = Math.min(2, devicePixelRatio || 1), W = canvas.clientWidth, H = canvas.clientHeight;
+      const dpr = dpr3d(), W = canvas.clientWidth, H = canvas.clientHeight;
       if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1);
@@ -631,7 +632,7 @@ export async function mountCards(opts) {
   // préparation invisible (textures, compilation des shaders) : une image dessinée puis effacée, avant start()
   api.warm = () => {
     scene.prepare();
-    const dpr = Math.min(2, devicePixelRatio || 1), W = canvas.clientWidth || innerWidth, H = canvas.clientHeight || innerHeight;
+    const dpr = dpr3d(), W = canvas.clientWidth || innerWidth, H = canvas.clientHeight || innerHeight;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
     gl.viewport(0, 0, canvas.width, canvas.height);
     scene.frame(now(), 0.016, W, H);
