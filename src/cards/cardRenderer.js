@@ -59,7 +59,7 @@ function cardMesh(fine = true, seg = 12, dims = null) {
   const { w, h, r, t } = dims || CARD, v = [], idx = [];
   // bord ondulé (cachet de cire : la cire écrasée déborde inégalement) : rayon des coins × (1 + wob(angle))
   const wb = dims && dims.wobble || 0;
-  const wob = a => wb * (0.55 * Math.sin(3 * a + 0.7) + 0.3 * Math.sin(5 * a + 2.1) + 0.15 * Math.sin(9 * a + 4.2));
+  const wob = a => wb * (0.55 * Math.sin(3 * a + 0.7) + 0.3 * Math.sin(5 * a + 2.1) + 0.15 * Math.sin(9 * a + 4.2) + 0.08 * Math.sin(13 * a + 1.3));
   const fit = (x, y) => {   // point de grille ramené dans le rectangle arrondi (coins projetés sur l'arc)
     const cx = w / 2 - r, cy = h / 2 - r, qx = Math.abs(x) - cx, qy = Math.abs(y) - cy;
     if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy), rr = r * (1 + wob(Math.atan2(y, x))); if (l > rr) return [Math.sign(x) * (cx + qx * rr / l), Math.sign(y) * (cy + qy * rr / l)]; }
@@ -107,6 +107,22 @@ uniform vec3 uCurl;          // coin corné : sens du coin (x, y : ±1, repère 
 uniform sampler2D uLogo;
 uniform float uLogoSq, uLogoRange, uH, uB, uFoot, uFootW, uNoLogo;
 uniform vec2 uLogoOff, uLogoScale;
+uniform float uLogoIn;       // 1 : logo en creux sur les deux faces (la carte de la réponse, 08/10)
+// cachet de cire (08/10) : (actif, rayon de l'empreinte du sceau, rayon de la cire, ondulation du bord) — la face 1 bombe
+// vers l'extérieur : empreinte plate, bourrelet de cire chassée autour, puis la cire retombe en ménisque jusqu'au bord
+uniform vec4 uSeal;
+float sealWob(float a) { return 0.55 * sin(3.0 * a + 0.7) + 0.3 * sin(5.0 * a + 2.1) + 0.15 * sin(9.0 * a + 4.2) + 0.08 * sin(13.0 * a + 1.3); }   // = cardMesh
+float sealH(vec2 p) {
+  float r = length(p), a = atan(p.y, p.x);
+  float Re = uSeal.z * (1.0 + uSeal.w * sealWob(a));
+  float Rk = uSeal.y + 0.8;                                   // crête du bourrelet
+  float t = clamp((Re - r) / max(0.5, Re - Rk), 0.0, 1.0);
+  float outer = 1.25 * (1.0 - (1.0 - t) * (1.0 - t));          // ménisque : raide au bord, arrondi
+  float base = mix(0.95, outer, smoothstep(Rk - 0.9, Rk, r));
+  float ridge = 0.38 * exp(-pow((r - Rk) / 0.7, 2.0)) * step(r, Re);
+  float ripple = 0.05 * sin(r * 2.3 + 2.0 * sin(a * 2.0)) * smoothstep(Rk, Re, r);   // la cire a coulé
+  return base + ridge + ripple;
+}
 out vec3 vWorld, vT, vB, vN; out vec2 vMM; flat out int vFace;
 // même profil que le shader de surface, pied un peu adouci (le maillage a un pas de 0,2 mm)
 float gaufrage(vec2 p) {
@@ -132,8 +148,14 @@ void main() {
     dzy += uCurl.z * 2.0 * k / cc * uCurl.y;
   }
   int f = int(aFace + 0.5);
+  if (uSeal.x > 0.5 && f == 1) {
+    float e = 0.12, h0 = sealH(aPos.xy);
+    z -= h0;
+    dzx -= (sealH(aPos.xy + vec2(e, 0.0)) - sealH(aPos.xy - vec2(e, 0.0))) / (2.0 * e);
+    dzy -= (sealH(aPos.xy + vec2(0.0, e)) - sealH(aPos.xy - vec2(0.0, e))) / (2.0 * e);
+  }
   // la feuille entière est poussée vers le dos : bosse au dos, creux au recto (même déplacement)
-  float g = f == 2 ? 0.0 : gaufrage(aPos.xy);
+  float g = f == 2 || (f == 0 && uLogoIn > 0.5) ? 0.0 : gaufrage(aPos.xy);
   vec3 p = aPos + vec3(0.0, 0.0, z + g);
   vec3 T = normalize(vec3(1.0, 0.0, dzx)), B = normalize(vec3(0.0, 1.0, dzy));
   vec3 Nu = normalize(cross(T, B));
@@ -163,6 +185,7 @@ uniform vec4 uClip;          // rabat d'enveloppe : (actif, base y, hauteur, dem
 uniform float uLogoSq, uLogoRange, uNoLogo;
 uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
 uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
+uniform float uLogoIn;
 uniform vec3 uLightPos, uEye, uRoomUp;
 // ombre portée par une autre carte (la carte retournée au-dessus du paquet) : rectangle à la hauteur uOccZ
 uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc;
@@ -289,21 +312,16 @@ float occShadow(vec3 L, float dist) {
   return 1.0 - 0.9 * (1.0 - smoothstep(-pen, pen, d));
 }
 
+float clipRim = 0.0;
 void main() {
-  if (uClip.x > 1.5) {
-    // timbre : bord dentelé — des trous ronds (rayon uClip.z) centrés sur les bords, au pas uClip.y (coins compris)
-    vec2 hw = uCard * 0.5, n = max(vec2(1.0), floor(uCard / uClip.y + 0.5)), pitch = uCard / n;
-    vec2 q = vMM + hw;
-    float dx = length(vec2(q.x - floor(q.x / pitch.x + 0.5) * pitch.x, abs(vMM.y) - hw.y));
-    float dy = length(vec2(q.y - floor(q.y / pitch.y + 0.5) * pitch.y, abs(vMM.x) - hw.x));
-    if (min(dx, dy) < uClip.z) discard;
-  } else if (uClip.x > 0.5) {
+  if (uClip.x > 0.5) {
     // triangle à pointe adoucie : bords droits, pointe arrondie (≈ 5 mm)
     float yy = vMM.y - uClip.y, ax = abs(vMM.x), k = uClip.w / uClip.z;
     float d = (ax + k * yy - uClip.w) / sqrt(1.0 + k * k);
     float tipY = uClip.z - 5.0 * sqrt(1.0 + k * k) / k;
     if (yy > tipY) d = max(d, length(vec2(ax, yy - tipY)) - 5.0);
     if (d > 0.0) discard;
+    clipRim = smoothstep(-0.45, 0.0, d);              // l'arête coupée du rabat accroche la lumière (on voit le bord)
   }
   vec3 Ng = normalize(vN), T = normalize(vT), Bv = normalize(vB);
   vec3 L = uLightPos - vWorld; float dist = length(L); L /= dist;
@@ -319,7 +337,7 @@ void main() {
     float specE = uSpec * D_GGX(max(dot(Ng, He), 0.0), 0.35) * 0.25;
     col = vec3(alb * (irr * NL * occShadow(L, dist) + uEnv * env(Ng, L)) + irr * NL * specE);
   } else {
-    float s = vFace == 0 ? 1.0 : -1.0;
+    float s = vFace == 0 && uLogoIn < 0.5 ? 1.0 : -1.0;
     // relief du logo (dos : bosse, recto : creux) ; le pied est élargi à l'empreinte du pixel
     float fw = fwidth(logoD(vMM));
     gFootW = max(uFootW, fw * 1.2);
@@ -418,7 +436,7 @@ void main() {
     float d = logoD(p);
     float crease = 1.0 - uCrease * exp(-pow(d / max(0.04, fw), 2.0));
     // matière
-    float alb = mix(uAlbedo * R0 * (1.0 + 0.5 * rim), uInkAlb * (0.9 + 0.2 * R0), ink);
+    float alb = mix(uAlbedo * R0 * (1.0 + 0.5 * rim + 1.6 * clipRim), uInkAlb * (0.9 + 0.2 * R0), ink);
     float NL = max(dot(n, L), 0.0), NV = max(dot(n, V), 1e-3);
     vec3 H = normalize(L + V); float NH = max(dot(n, H), 0.0), VH = max(dot(V, H), 0.0);
     float a = clamp(uRough * uRough + tanL * 0.5, 0.02, 1.0);       // lampe étendue → lobe élargi
@@ -539,7 +557,8 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uLogoSq, CARD.logoSq); gl.uniform1f(u.uLogoRange, CARD.logoRange);
     gl.uniform2fv(u.uLogoOff, card.logoOff || [0, 0]);
     gl.uniform2fv(u.uLogoScale, card.logoScale || [1, 1]);
-    gl.uniform1f(u.uNoLogo, card.noLogo ? 1 : 0);
+    gl.uniform1f(u.uNoLogo, card.noLogo ? 1 : 0); gl.uniform1f(u.uLogoIn, card.logoIn ? 1 : 0);
+    gl.uniform4fv(u.uSeal, card.seal || [0, 0, 1, 0]);
     gl.uniform4fv(u.uPaperXf, card.paperXf || [0, 0, 0, 0]);
     gl.uniform3fv(u.uWarp, card.warp || [0, 0, 0]);
     gl.uniform3fv(u.uCurl, card.curl || [0, 0, 0]);
@@ -582,5 +601,21 @@ export async function createCardRenderer(gl, base = './') {
     return t;
   }
   const freeInk = t => gl.deleteTexture(t);
-  return { draw, makeInk, freeInk, paperTex, addShape };
+  // le logo en masque (blanc, bords nets) : pour un coup de tampon tracé dans une carte d'encre. Côté = CARD.logoSq mm
+  let mask = null;
+  function logoMask() {
+    if (mask) return mask;
+    const w = logoImg.naturalWidth || logoImg.width, h = logoImg.naturalHeight || logoImg.height;
+    const c = new OffscreenCanvas(w, h), x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(logoImg, 0, 0);
+    const im = x.getImageData(0, 0, w, h), d = im.data, px = CARD.logoSq / w;
+    for (let i = 0; i < w * h; i++) {
+      const dist = ((d[4 * i] * 256 + d[4 * i + 1]) / 65535 * 2 - 1) * CARD.logoRange;
+      const a = Math.min(1, Math.max(0, 0.5 - dist / px));
+      d[4 * i] = d[4 * i + 1] = d[4 * i + 2] = 255; d[4 * i + 3] = Math.round(a * 255);
+    }
+    x.putImageData(im, 0, 0);
+    return (mask = c);
+  }
+  return { draw, makeInk, freeInk, paperTex, addShape, logoMask };
 }

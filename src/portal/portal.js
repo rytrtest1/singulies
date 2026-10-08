@@ -31,9 +31,10 @@ const FOV = 26 * Math.PI / 180, TILT = 0.22, PITCH = 0.15, DECK = 10;
 // donne : une seule carte en l'air à la fois — la suivante quitte le paquet quand la précédente, presque posée, en
 // est loin (sinon leurs vols se croisent et elles se traversent)
 const INTRO_T = 1.4, DEAL_AT = 0.7, DEAL_T = 1.3, DEAL_GAP = 1.3 * 0.8, FLIP_T = 1.4, HOLD = 2.4, LEAVE_T = 1.3;
-// ordre de la donne = ordre d'empilement : la carte donnée plus tard se pose sur la précédente. Le poème en dernier,
-// tout en haut (rien ne passe jamais à travers une autre carte) ; le paquet ne bouge pas
-const RANK = [2, 1, 0, 3];
+// ordre de la donne = ordre d'empilement : la carte donnée plus tard se pose sur la précédente. Du haut vers le bas
+// (08/10 : le poème d'abord), chacune posée sur le bas de la précédente
+// (rien ne passe jamais à travers une autre carte) ; le paquet ne bouge pas
+const RANK = [0, 1, 2, 3];
 // la lumière : d'abord le poème, puis chaque carte à son tour (s)
 const DWELL = [6.5, 2.8, 2.8];      // les trois cartes seulement (le paquet ne fait pas signe)
 

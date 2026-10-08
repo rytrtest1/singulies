@@ -46,16 +46,18 @@ const out = await page.evaluate(() => {
 await page.evaluate(() => window.__scene.advance(0.8));
 await page.screenshot({ path: `${dir}/champs.png` });
 console.log(JSON.stringify(out));
-// RECEVOIR PAR LA POSTE : le timbre, le retournement, la bascule (tranche), l'éloignement, puis le contact sur le noir
+// RECEVOIR PAR LA POSTE : le coup de tampon, le retournement, la bascule sur la tranche, puis la tranche = champ de l'email
 await page.evaluate(() => { document.querySelector('.sc-pass.sc-two').click(); });
 let pt = 0;
-for (const p of [0.5, 0.9, 1.3, 2.0, 2.4, 3.0, 3.5, 4.0, 4.6, 5.1]) {
+for (const p of [0.5, 1.0, 1.6, 2.2, 2.7, 3.2, 3.9, 5.2]) {
   await page.evaluate(d => window.__scene.advance(d), p - pt); pt = p;
   await page.screenshot({ path: `${dir}/post-${p.toFixed(1)}.png` });
 }
-await page.evaluate(() => window.__scene.advance(0.6));
-await sleep(3500);
-await page.screenshot({ path: `${dir}/contact.png` });
-console.log(JSON.stringify({ ask: await page.evaluate(() => !!window.__scene.ask) }));
+await sleep(1300);
+await page.screenshot({ path: `${dir}/email-vide.png` });
+await page.evaluate(() => { const a = window.__scene.ask.input; a.value = 'lea@exemple.fr'; a.dispatchEvent(new Event('input')); });
+await sleep(500);
+await page.screenshot({ path: `${dir}/email.png` });
+console.log(JSON.stringify({ ask: await page.evaluate(() => !!window.__scene.ask), terminer: await page.evaluate(() => [...document.querySelectorAll('.sc-pass')].some(e => e.textContent === 'TERMINER' && e.classList.contains('on'))) }));
 await page.close();
 await browser.close(); await server.close();

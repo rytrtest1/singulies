@@ -216,7 +216,7 @@ function backToStart() {
   if (cardsReady && cardsReady !== 'failed') { cardsReady.canvas.style.transition = 'opacity 1.1s ease'; cardsReady.canvas.style.opacity = '0'; }
   clearValidated();
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  Promise.all([wait(1200), Promise.race([settled().catch(() => {}), wait(6000)])]).finally(() => location.reload());
+  Promise.all([wait(1200), Promise.race([settled().catch(() => {}), wait(2500)])]).finally(() => location.reload());   // (une demande pas partie est gardée : elle repart à la visite suivante)
 }
 // retour depuis le paquet : l'accueil, prénom confirmé (comme un visiteur qui revient)
 function exitCards() { clearValidated(); location.reload(); }
@@ -504,8 +504,9 @@ function frame(ts) {
   const canNext = S.phase === 'input' && S.confirmed && T < 0 && !!text.trim() && !wheel && !S.rev;   // pas pendant la frappe automatique
   nextEl.classList.toggle('on', SHOW_NEXT && canNext && S.t - S.confirmedAt > 1.2 && S.t > OPEN_DARK + 1.5);
   if (canNext) { nextEl.style.left = (cx - 22) + 'px'; nextEl.style.top = (L.bottom + Math.max(12, 0.8 * L.cap)) + 'px'; }
-  // … et jamais moins de 3 s après le dernier geste (toucher, souris, molette, touche)
-  if (canNext && S.t >= Math.max(light.fullAt(), S.confirmedAt + 1, S.actAt + 3)) startTransition();
+  // dès que la dernière lettre du champ s'est allumée (08/10 : plus vite — on n'attend plus sa pleine clarté), et
+  // jamais moins de 2 s après le dernier geste (toucher, souris, molette, touche)
+  if (canNext && S.t >= Math.max(light.litAt(), S.confirmedAt + 0.5, S.actAt + 2)) startTransition();
   if (CFG.debug) {   // croix au point de fuite
     glyphs.push({ box: [cx - 12, vy - 0.5, cx + 12, vy + 0.5], uv: null, alpha: 0.6, pxEm: 1 });
     glyphs.push({ box: [cx - 0.5, vy - 12, cx + 0.5, vy + 12], uv: null, alpha: 0.6, pxEm: 1 });

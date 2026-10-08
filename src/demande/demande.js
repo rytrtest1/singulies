@@ -40,7 +40,7 @@ export async function mountDemande(canvas, d, { base = './', reduced = false } =
   if (d.kind === 'reponse') {
     const q = QUESTIONS.find(x => x.id === d.id)?.q || '';
     const v = { ...pv(), logoOff: [0, 0] };
-    C = { v, front: card.makeInk(makeInkMap(q, 31).canvas), back: card.makeInk(makeAnswerInk(d.text, 41, 3, 0).canvas), phi: 0 };
+    C = { v, front: card.makeInk(makeInkMap(q, 31).canvas), back: card.makeInk(makeAnswerInk(d.text, 41, 3, 0).canvas), phi: 0, logoIn: true };   // la réponse : logo en creux
   } else if (d.kind === 'theme') {
     const v = { ...pv(), noLogo: true };
     C = { v, front: card.makeInk(makeAnswerInk(d.text, 37, 3, 0).canvas), back: card.makeInk(makeInkMap('carte blanche', 3).canvas), phi: Math.PI };
@@ -164,7 +164,7 @@ export async function mountDemande(canvas, d, { base = './', reduced = false } =
         if (u >= 1) { C.turns++; C.flipT0 = -1; phi = C.phi + Math.PI * C.turns; lift = 0; }
       }
       const Mc = M4.mul(M4.mul(Ms, M4.model(0, 0, C_POSE.rz, C_POSE.x, C_POSE.y, 2.2 + lift)), M4.model(0, phi, 0));
-      card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink: C.front, inkBack: C.back, fade, ...C.v });
+      card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink: C.front, inkBack: C.back, fade, ...C.v, logoIn: !!C.logoIn });
       quads.card = screenQuad(Mc, CARD.w, CARD.h);
     }
     const list = [];

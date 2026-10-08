@@ -8,6 +8,7 @@ const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const sm = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 const TAU = Math.PI * 2;
 export const LIGHT_FULL = 6.0;   // s : la lettre la plus proche du premier plan a fini de s'allumer
+export const LIGHT_LIT = 4.4;    // s : la dernière lettre (premier plan) commence à s'allumer — le vol des lettres part (08/10)
 
 // paramètres propres d'une lettre
 export function letterParams(rng) {
@@ -104,5 +105,6 @@ export function createLight({ reduced = false } = {}) {
 
   // instant où la dernière lettre allumée a atteint sa clarté (retard max + montée) : la suite peut commencer
   function fullAt() { let m = -Infinity; for (const C in counts) m = Math.max(m, added[C] ?? -Infinity); return m + LIGHT_FULL; }
-  return { update, prime, level, fullAt, get active() { return Object.keys(counts).length > 0 || waves.length > 0; } };
+  function litAt() { let m = -Infinity; for (const C in counts) m = Math.max(m, added[C] ?? -Infinity); return m + LIGHT_LIT; }
+  return { update, prime, level, fullAt, litAt, get active() { return Object.keys(counts).length > 0 || waves.length > 0; } };
 }

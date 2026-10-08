@@ -28,12 +28,16 @@ const CSS = `
 .sc-hit { position: fixed; margin: 0; padding: 0; border: 0; background: transparent; color: transparent; font-size: 1px;
   pointer-events: none; z-index: 13; outline: none; }
 .sc-hit:focus-visible { outline: 1px solid rgba(255,255,255,.35); outline-offset: 4px; }
-/* au moment de confier ses mots (commande, enveloppe) : une ligne discrète, vers « ce que tu me confies » */
-.sc-note { position: fixed; left: 16px; right: 16px; bottom: max(14px, env(safe-area-inset-bottom)); text-align: center; z-index: 13;
-  font: 500 12px/1.5 'SG Garamond', Georgia, serif; letter-spacing: .08em; color: #fff; opacity: 0; transition: opacity 1.2s;
-  pointer-events: none; text-decoration: none; }
-.sc-note.on { opacity: .44; pointer-events: auto; }
-.sc-note.on:hover { opacity: .6; }
+/* RECEVOIR / PAR LA POSTE : posé sur l'enveloppe (centré sur son point, taille à l'échelle de l'enveloppe) */
+.sc-pass.sc-on-env { left: 0; right: auto; top: 0; width: 20em; margin-left: -10em; transform: translateY(-50%); transition: opacity .35s; }
+/* la fin : la tranche de l'enveloppe devient le champ de l'email (08/10) */
+.sc-mail { position: fixed; z-index: 13; opacity: 0; transition: opacity 1.1s; pointer-events: none; }
+.sc-mail.on { opacity: 1; pointer-events: auto; }
+.sc-mail input { display: block; width: 100%; box-sizing: border-box; font: 16px/1.5 'SG Machine', 'Courier New', monospace; color: rgb(214,214,214);
+  text-align: center; background: transparent; border: 0; border-radius: 0; padding: 0 0 5px; margin: 0; outline: none;
+  caret-color: rgba(255,255,255,.7); -webkit-appearance: none; appearance: none; }
+.sc-mail input::placeholder { color: rgba(255,255,255,.3); }
+.sc-mail .sc-line { height: 1px; background: rgba(255,255,255,.3); }
 /* après l'enveloppe : sur le noir, l'email ou le numéro « pour te tenir au courant » (06/10) */
 .sc-ask { position: fixed; inset: 0; z-index: 15; background: #060606; opacity: 0; transition: opacity 1.2s; pointer-events: none;
   display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 16px 18vh; }
@@ -122,8 +126,6 @@ export async function mountCards(opts) {
   const backEl = el('div', 'sc-sign sc-back', '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M14.5 6 L8.5 12 L14.5 18" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
   backEl.setAttribute('role', 'button'); backEl.setAttribute('aria-label', 'Retour');
   const veil = el('div', 'sc-veil');
-  const note = el('a', 'sc-note', 'ce que tu me confies ne sert qu’à ton poème');
-  Object.assign(note, { href: './confidentialite.html', target: '_blank' });   // nouvel onglet : l'enveloppe reste où elle en est
 
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: !!opts.shot });
   if (!gl) return null;
@@ -186,63 +188,66 @@ export async function mountCards(opts) {
         stopWrite: () => answer.blur(),
         address: d => {
           log('adresse : ' + d.address.join(' / '));
-          if (d.mode === 'poste' && !d.test) { askContact(d); return; }          // « en direct » : le contact est déjà sur la carte
+          if (d.mode === 'poste' && !d.test) { askMail(d); return; }             // « en direct » : le contact est déjà sur la carte
           if (d.test) {                                                     // essai sans adresse : la demande part telle quelle
             try { if (typeof window.onAddress === 'function') window.onAddress(d); } catch (e) { console.error(e); }
             window.dispatchEvent(new CustomEvent('singulies:address', { detail: d }));
           }
-          opts.onAddress?.(d); setTimeout(() => farewell(d), 300);
+          // plus d'écran de fin (08/10) : directement le portail
+          opts.onAddress?.(d); setTimeout(() => opts.onDone?.(d), 300);
         } } });
     scene.hideName(true);
     sheetAt = now(); api.sheet = sheet;
   }
-  // ---- après l'enveloppe postée : fondu au noir, puis « ton email ou ton numéro, pour te tenir au courant » ----
-  // La demande est gardée (brouillon) dès qu'elle est postée : si l'on ferme la page ici, elle part quand même à la
-  // visite suivante, sans contact. ENVOYER (Entrée) avec un email / numéro valable, ou PASSER : elle part, puis
-  // l'écran principal.
-  const contactOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) || (v.replace(/\D/g, '').length >= 8 && /^[\d\s+().-]+$/.test(v.trim()));
-  function askContact(d) {
+  // ---- l'enveloppe envoyée a basculé sur sa tranche : la tranche devient le champ de l'email (08/10). L'invitation
+  // « ton email » en grisé, comme sur l'enveloppe ; TERMINER (ou Entrée) dès qu'il est valable — pas d'autre issue.
+  // La demande est gardée (brouillon) dès l'envoi : si l'on ferme la page ici, elle part à la visite suivante, sans
+  // email. Ensuite, directement le portail.
+  const mailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
+  let mail = null;
+  function askMail(d) {
     try { localStorage.setItem('singulies.draft', JSON.stringify(d)); } catch { /* */ }
-    answer.blur(); postEl.classList.remove('on'); note.classList.remove('on'); backEl.classList.remove('on');
-    const box = el('div', 'sc-ask');
-    const q = el('div', 'ask-q'); box.appendChild(q);
+    answer.blur(); postEl.classList.remove('on'); backEl.classList.remove('on');
+    const box = el('div', 'sc-mail');
     const inp = document.createElement('input');
-    Object.assign(inp, { type: 'text', spellcheck: false, autocomplete: 'email', placeholder: '' });
+    Object.assign(inp, { type: 'email', spellcheck: false, autocomplete: 'email', placeholder: 'ton email', name: 'email' });
     inp.setAttribute('inputmode', 'email'); inp.setAttribute('autocapitalize', 'none'); inp.setAttribute('autocorrect', 'off');
-    inp.setAttribute('enterkeyhint', 'send'); inp.setAttribute('aria-label', 'Ton email ou ton numéro, pour te tenir au courant');
-    const go = el('div', 'sc-pass', 'ENVOYER'); go.setAttribute('role', 'button'); go.tabIndex = 0;
-    const skip = el('div', 'sc-pass ask-skip', 'PASSER'); skip.setAttribute('role', 'button'); skip.tabIndex = 0;
-    const priv = el('a', 'sc-note on', 'ce que tu me confies ne sert qu’à ton poème');
-    Object.assign(priv, { href: './confidentialite.html', target: '_blank' }); priv.style.zIndex = '16';
-    box.append(inp, go, skip, priv);
+    inp.setAttribute('enterkeyhint', 'done'); inp.setAttribute('aria-label', 'Ton email');
+    const line = document.createElement('div'); line.className = 'sc-line';
+    box.append(inp, line);
+    const go = el('div', 'sc-pass', 'TERMINER'); go.setAttribute('role', 'button'); go.tabIndex = 0;
     requestAnimationFrame(() => box.classList.add('on'));
-    // la question se tape à la machine
-    const Q = 'ton email ou ton numéro,\npour te tenir au courant';
-    let k = 0;
-    const type = () => { if (k > Q.length) return; q.textContent = Q.slice(0, k++); setTimeout(type, reduced ? 0 : 45 + Math.random() * 70); };
-    setTimeout(type, 1300);
-    setTimeout(() => skip.classList.add('on'), 4000);
-    const ok = () => contactOk(inp.value);
+    // ordinateur : le curseur y est tout de suite ; téléphone : toucher la ligne (le clavier ne s'ouvre qu'au toucher)
+    if (matchMedia('(pointer: fine)').matches) setTimeout(() => inp.focus({ preventScroll: true }), 700);
+    const ok = () => mailOk(inp.value);
     inp.addEventListener('input', () => go.classList.toggle('on', ok()));
     let done = false;
-    const finish = contact => {
-      if (done) return; done = true;
-      const c = (contact || '').trim(), out = { ...d, contact: c, email: /@/.test(c) ? c : '', tel: /@/.test(c) ? '' : c };
+    const finish = () => {
+      if (done || !ok()) return; done = true;
+      const c = inp.value.trim(), out = { ...d, contact: c, email: c, tel: '' };
       try { localStorage.removeItem('singulies.draft'); } catch { /* */ }
-      inp.blur(); go.classList.remove('on'); skip.classList.remove('on');
+      inp.blur(); go.classList.remove('on'); box.classList.remove('on');
       try { if (typeof window.onAddress === 'function') window.onAddress(out); } catch (e) { console.error(e); }
       window.dispatchEvent(new CustomEvent('singulies:address', { detail: out }));
       opts.onAddress?.(out);
-      log('contact : ' + (c || '—'));
-      q.style.transition = inp.style.transition = 'opacity 1s'; q.style.opacity = inp.style.opacity = '0';
-      priv.classList.remove('on');
-      setTimeout(() => { q.remove(); inp.remove(); go.remove(); skip.remove(); farewell(out, box); }, 1100);
+      log('email : ' + c);
+      setTimeout(() => { opts.onDone?.(out); }, 900);
     };
-    go.addEventListener('click', () => { if (ok()) finish(inp.value); });
-    skip.addEventListener('click', () => finish(''));
-    for (const b of [go, skip]) b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } });
-    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); if (ok()) finish(inp.value); } });
-    api.ask = { input: inp, send: () => go.click(), skip: () => skip.click() };
+    go.addEventListener('pointerdown', e => e.preventDefault());       // le clavier ne se ferme pas sous le doigt
+    go.addEventListener('click', finish);
+    go.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); finish(); } });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); finish(); } });
+    mail = { box, inp, go };
+    api.ask = { input: inp, send: finish };
+  }
+  // le champ de l'email suit la tranche (à l'écran) ; TERMINER dessous (clavier ouvert : au-dessus du clavier)
+  function placeMail() {
+    const Ln = sheet && sheet.edgeLine(); if (!Ln) return;
+    const x0 = Math.min(Ln.x0, Ln.x1), x1 = Math.max(Ln.x0, Ln.x1), y = (Ln.y0 + Ln.y1) / 2, w = Math.max(220, x1 - x0);
+    const h = mail.box.offsetHeight || 30, cx = (x0 + x1) / 2;
+    Object.assign(mail.box.style, { left: (cx - w / 2) + 'px', top: (y - h + 0.5) + 'px', width: w + 'px' });
+    const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
+    mail.go.style.top = Math.min(y + 18, kbTop - 50) + 'px';
   }
   // ---- la toute fin (08/10) : pas de « merci pour votre commande », pas de retour sec au portail. Sur le noir, le
   // prénom (le fil de tout le parcours), puis, tapé à la machine, ce qui va vraiment se passer : c'est une personne
@@ -253,7 +258,7 @@ export async function mountCards(opts) {
   let byeOn = false;
   function farewell(d, box) {
     if (byeOn) return; byeOn = true;
-    answer.blur(); postEl.classList.remove('on'); note.classList.remove('on'); backEl.classList.remove('on'); passEl.classList.remove('on');
+    answer.blur(); postEl.classList.remove('on'); backEl.classList.remove('on'); passEl.classList.remove('on');
     if (!box) { box = el('div', 'sc-ask'); void box.offsetWidth; box.classList.add('on'); }
     const kind = d.test ? 'test' : d.mode === 'direct' ? 'direct' : 'poste';
     // le prénom, comme partout (EB Garamond, capitales espacées, gris 174) ; deux mots longs : deux lignes
@@ -310,7 +315,7 @@ export async function mountCards(opts) {
     if (!sheet) return;
     useEl(ta);
     for (const e of Object.values(fieldEls)) { e.blur(); e.style.width = '1px'; e.style.height = '1px'; }
-    sheet.free(); sheet = null; api.sheet = null; placeHits(); note.classList.remove('on'); postEl.classList.remove('on');
+    sheet.free(); sheet = null; api.sheet = null; placeHits(); postEl.classList.remove('on');
     answer.setAttribute('aria-label', 'Réponse'); answer.setAttribute('enterkeyhint', 'done');
     answer.setAttribute('autocomplete', 'off'); answer.setAttribute('autocapitalize', 'none');
     scene.reopen(now());
@@ -342,7 +347,7 @@ export async function mountCards(opts) {
         sh.frame(t, dt, W, H);
         if (sheet !== sh) { if (manualDt == null) requestAnimationFrame(frame); return; }     // retour : la scène des cartes reprend
         passEl.classList.remove('on');
-        backEl.classList.toggle('on', t - sheetAt > 2.5 && !sheet.state().backing);
+        backEl.classList.toggle('on', t - sheetAt > 2.5 && !sheet.state().backing && !mail);
         // l'enveloppe : le champ natif sur le bloc d'adresse ; le signe « donner » = poster
         const ar = sheet.addrRect(), es = sheet.state().env;
         // chaque champ natif sur sa ligne de l'enveloppe ; la carte « en direct » : le champ de texte
@@ -360,13 +365,15 @@ export async function mountCards(opts) {
         giveEl.classList.remove('on');
         postEl.classList.toggle('on', !!(es && es.canPost && ar));
         if (es && postEl.textContent !== es.sign) { postEl.textContent = es.sign; postEl.classList.toggle('sc-two', es.sign.includes('\n')); postEl.setAttribute('aria-label', es.sign.replace('\n', ' ').toLowerCase()); }
-        if (ar) {
-          // sous l'adresse ; clavier ouvert : entre l'adresse et le haut du clavier
-          const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
-          postEl.style.top = Math.max(ar.bottom - 6, Math.min(kbTop - 50, ar.bottom + 40)) + 'px';
+        // posé sur l'enveloppe, sous l'adresse : il la suit (caméra, inclinaison, clavier), à son échelle
+        const sa = es && sheet.signAt();
+        if (sa) {
+          postEl.classList.add('sc-on-env');
+          const fs = Math.max(10, Math.min(16, 3.2 * sa.pxmm));
+          Object.assign(postEl.style, { left: sa.x + 'px', top: sa.y + 'px', fontSize: fs + 'px', lineHeight: (1.8 * fs) + 'px' });
         }
+        if (mail) placeMail();
         const ss = sheet.state();
-        note.classList.toggle('on', !ss.backing && (es ? !es.posted && !es.back && !(es.writing && vv && innerHeight - vv.height > 40) : ss.view === 'commande'));
         const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
         sheet.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
         placeHits();
@@ -485,7 +492,7 @@ export async function mountCards(opts) {
     const es = sheet.state().env;
     if (es && es.write && !inputs.includes(document.activeElement) && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { sheet.startWriting(); return; }
     if (es && inputs.includes(document.activeElement) && e.key !== 'Escape') return;
-    if (e.key === 'Escape') { sheet.back(now()); backEl.classList.remove('on'); }
+    if (e.key === 'Escape') { if (!mail) { sheet.back(now()); backEl.classList.remove('on'); } }
     else if (e.key === 'ArrowDown' || e.key === 'PageDown') sheet.scroll(-1, now());
     else if (e.key === 'ArrowUp' || e.key === 'PageUp') sheet.scroll(1, now());
   });
