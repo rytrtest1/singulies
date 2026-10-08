@@ -837,8 +837,10 @@ export function createSheetScene(gl, opts) {
   function renderAddress() {
     if (NOADDR) { env.ink = null; return; }
     const m = fieldsInk(env.f, 991, env.stamp ? null : env.writing || !env.f[env.field] ? env.field : null, env.stamp, env.senderN);
-    if (env.ink) card.freeInk(env.ink);
-    env.ink = card.makeInk(m.canvas, true); env.cursor = m.cursor;
+    // même texture remise à jour (08/10 : en créer une neuve à chaque frappe, 7 Mo chacune, faisait beaucoup de mémoire
+    // graphique jetée sur iPhone)
+    if (env.ink) card.updateInk(env.ink, m.canvas, 0, 0); else env.ink = card.makeInk(m.canvas, true);
+    env.cursor = m.cursor;
   }
   const writeInfo = () => { const d = FIELDS.find(x => x.id === env.field); return { text: env.f[d.id] || '', zone: d.zone, field: d, fields: { ...env.f }, last: d === FIELDS[FIELDS.length - 1] }; };
   const isPosting = () => !!env && (env.postT >= 0 || env.pp > 0);

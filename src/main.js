@@ -208,7 +208,7 @@ function loadCards(name) {
     if (!m) throw new Error('webgl2');
     m.warm();
     cardsReady = m; return m;
-  }).catch((e) => { console.error(e); cardsReady = 'failed'; });
+  }).catch((e) => { console.error(e); why('cartes : ' + (e && e.message || e)); cardsReady = 'failed'; });
 }
 // la toute fin (enveloppe postée, « en direct » envoyé) : fondu, puis l'écran principal (le portail), une fois la
 // demande partie (ou gardée pour un renvoi) — jamais de rechargement pendant un envoi
@@ -262,6 +262,9 @@ function enterBlack(restored) {
   emitValidated(S.validatedName, restored);
   if (cardsReady === 'failed' || !gl) noCards();     // (sans WebGL2 ici, les cartes ne s'afficheront pas non plus)
 }
+// pourquoi la suite ne s'affiche pas : ?diag=1 l'écrit en petit sous le message (téléphone, sans console)
+const whyList = [];
+function why(s) { whyList.push(String(s).slice(0, 300)); }
 // la suite ne peut pas s'afficher (pas de WebGL2, mémoire) : plutôt qu'un noir sans issue, une porte (08/10)
 function noCards() {
   if (document.getElementById('nocards')) return;
@@ -269,6 +272,8 @@ function noCards() {
   new FontFace('SG Machine', `url(${new URL('fonts/CourierPrime-latin.woff2', document.baseURI)})`).load().then(f => document.fonts.add(f)).catch(() => {});
   const d = document.createElement('div'); d.id = 'nocards';
   d.innerHTML = 'ton téléphone n’arrive pas\nà montrer la suite.\n\nécris-moi ton prénom :\n<a href="https://www.instagram.com/e.t.ernel/" target="_blank" rel="noopener">@e.t.ernel</a>';
+  if (!gl) why('accueil : pas de WebGL2');
+  if (P.get('diag') === '1') { const w = document.createElement('div'); w.style.cssText = 'margin-top:28px;font:11px/1.4 monospace;opacity:.5;white-space:pre-wrap'; w.textContent = whyList.join(' / ') || '(aucune erreur notée)'; d.appendChild(w); }
   document.body.appendChild(d);
   setTimeout(() => d.classList.add('on'), 400);
 }
@@ -647,8 +652,8 @@ function mountPortalPage() {
   const ready = new Promise(res => {
     import('./portal/portal.js')
       .then(({ mountPortal }) => mountPortal({ base: './', reduced: CFG.reduced, onReady: res, onPoem: enterFromPortal, onJeu: openJeu }))
-      .then(p => { portal = p; if (!p) { S.portal = false; portalGo(); res(); } })
-      .catch(e => { console.warn('portail', e); document.getElementById('portal')?.remove(); S.portal = false; portalGo(); res(); });
+      .then(p => { portal = p; if (!p) { why('portail : pas de WebGL2'); S.portal = false; portalGo(); res(); } })
+      .catch(e => { console.warn('portail', e); why('portail : ' + (e && e.message || e)); document.getElementById('portal')?.remove(); S.portal = false; portalGo(); res(); });
   });
   return { go, ready };
 }
