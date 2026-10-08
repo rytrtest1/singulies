@@ -118,15 +118,25 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // 'center' (thème libre, à la place de la question)
   // sous le paquet, ne dépassant que d'une bande d'écriture (au bas moyen de la question posée)
   const peekPose = v => ({ x: 1.2 + v.jx * 0.3, y: lay.yDeck - 0.8 - STRIP + v.jy * 0.3, z: -0.8, rx: 0, ry: Math.PI, rz: v.jr * 0.5 });
-  // la question esquisse d'elle-même le geste « glisser de côté » (deux fois au plus, quand on ne tape pas)
+  // la question esquisse d'elle-même le geste « glisser de côté » (deux fois au plus, quand on ne tape pas) ; une fois
+  // une question passée, plus d'esquisse vers la suivante (08/10) : une seule fois, celle vers la précédente, et un
+  // bout de la carte précédente se montre au bord gauche (backHint : 0 → 1 → 0)
+  let backHintDone = false, backHint = 0, peekQ = null;
   function hintX(t) {
+    backHint = 0;
     if (!question || question.anim || mode !== 'q' || ended || dragging) return 0;
     const idle = t - Math.max(question.landedAt, lastKeyT) - L.cornerDelay;
     if (idle < 0) return 0;
+    const shape = ph => sstep(0, 0.6, ph) * (1 - sstep(1.1, 2.0, ph));
+    if (discards > 0) {
+      if (!hasPrev() || backHintDone) return 0;
+      if (idle > 2.0) { backHintDone = true; return 0; }
+      backHint = shape(idle);
+      return 7 * backHint;
+    }
     const k = Math.floor(idle / 7), ph = idle - 7 * k;
-    if (k >= (hasPrev() ? 3 : 2)) return 0;
-    const side = hasPrev() && k % 2 === 1 ? 1 : -1;       // gauche : la suivante ; droite : la précédente
-    return side * 7 * sstep(0, 0.6, ph) * (1 - sstep(0.9, 1.8, ph));
+    if (k >= 2) return 0;
+    return -7 * shape(ph);                                  // gauche : la suivante
   }
   const restPose = c => c === question ? centerPose(c.v, dragging ? dragX : hintX(lastT))
     : c === blank ? (c.place === 'up' ? { x: 1.2 + c.v.jx * 0.5, y: lay.yDeck - 0.8 + c.v.jy, z: FACE_Z, rx: 0, ry: Math.PI, rz: c.v.jr } : blankRest(c.v, c.out, bob(c)))
@@ -183,7 +193,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function prepare() {
     if (preQ || next >= QUESTIONS.length) return;
     preQ = inkQuestion(order[next], stack[stack.length - 1]);
-    const v = { ...variant(), noLogo: true };
+    const v = variant();                                    // la carte réponse : une carte du jeu (logo en creux, en fondu une fois validée)
     preA = { v, cursorMM: makeStripInk('', Math.floor(v.seed * 1000) + 7, preQ.margin).cursor, forId: preQ.id };
   }
   function makeQuestion(t) {
@@ -242,7 +252,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function makeAnswer(t) {
     const pre = preA && preA.forId === question.id ? preA : null;
     preA = null;
-    const v = pre ? pre.v : { ...variant(), noLogo: true };
+    const v = pre ? pre.v : variant();
     const a = { v, ink: null, text: '', cursorMM: null, first: 0, place: 'peek', anim: 'slide', t0: t, dur: 0.8, from: { ...peekPose(v), y: lay.yDeck } };
     a.cursorMM = pre ? pre.cursorMM : makeStripInk('', Math.floor(v.seed * 1000) + 7, question.margin).cursor;
     return a;
@@ -374,7 +384,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const L0 = nameR.layout(text.toUpperCase(), 0, nameY(e, cy), nameCap(H) * lay.Hw / H, lay.Ww * 0.86, [], nameLines(text.toUpperCase(), W, H));
     nameKey = '';                                       // la prochaine image refait la vraie mise en page
     const P = (x, y) => { const w = m[3] * x + m[7] * y + m[15]; return [((m[0] * x + m[4] * y + m[12]) / w * 0.5 + 0.5) * W, (0.5 - (m[1] * x + m[5] * y + m[13]) / w * 0.5) * H]; };
-    return L0.glyphs.map(g => { const a = P(g.x, g.base), b = P(g.x, g.base + L0.em); return { ch: g.ch, x: a[0], y: a[1], fs: a[1] - b[1] }; });
+    // fsx : l'em en largeur — le plan des cartes est vu un peu de biais, un em y paraît plus large que haut (08/10 : sans
+    // lui, les lettres de l'accueil étaient ≈ 2 % trop étroites et le prénom s'élargissait au relais)
+    return L0.glyphs.map(g => { const a = P(g.x, g.base), b = P(g.x, g.base + L0.em), c = P(g.x + L0.em, g.base); return { ch: g.ch, x: a[0], y: a[1], fs: a[1] - b[1], fsx: c[0] - a[0] }; });
   }
 
   function frame(t, dt, W, H) {
@@ -485,6 +497,15 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       card.draw(vp, eye, P, { model: model(Gq, p), lod: i === n - 1 ? 'fine' : 'coarse', shade: (0.55 + 0.45 * (i + 1) / n) * dimQ, fade: fadeD, occ: ended ? null : occQ, ...v });
     }
     for (const c of leaving) card.draw(vp, eye, P, { model: model(Gq, poseOf(c, t)), lod: 'fine', ink: c.ink, shade: dimQ, fade: fadeQ, ...c.v });
+    // l'esquisse « revenir » : un bout de la carte précédente se montre au bord gauche
+    if (discards > 0 && hasPrev() && !backHintDone && mode === 'q' && !ended && question && !question.anim && !peekQ
+      && t - Math.max(question.landedAt, lastKeyT) > L.cornerDelay - 1) { const e = seq[cur - 1]; peekQ = inkQuestion(e.id, e.v); }
+    if (peekQ && (backHintDone || ended || !question || seq[cur - 1]?.id !== peekQ.id) && backHint <= 0) { card.freeInk(peekQ.ink); peekQ = null; }
+    if (peekQ && backHint > 0.001 && fadeQ > 0.01) {
+      const rest = centerPose(peekQ.v), off = { ...rest, x: rest.x - (lay.Ww / 2 + CARD.w * 1.2), y: rest.y - 8, rz: rest.rz - 0.3 };
+      const show = { ...rest, x: -lay.Ww / 2 + 13 - CARD.w / 2, y: rest.y - 3, rz: rest.rz - 0.08 };
+      card.draw(vp, eye, P, { model: model(Gq, lerpPose(off, show, backHint)), lod: 'fine', ink: peekQ.ink, shade: dimQ, fade: fadeQ, ...peekQ.v });
+    }
     if (question && fadeQ > 0.01) {
       // coin supérieur droit légèrement corné après cornerDelay s
       const idleFor = question.anim ? -1 : t - question.landedAt;
@@ -495,7 +516,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
     if (answer && fadeQ > 0.01) {
       const cur = mode === 'q' && !busy(answer, t) && (writing || !answer.text) && !ended ? cursorAt(answer.cursorMM, t) : {};
-      card.draw(vp, eye, P, { model: (snap.a = model(Ga, anp)), lod: 'fine', ink: answer.ink, shade: mode === 'free' ? dimQ : dimA, fade: fadeQ, occ: answer.place === 'peek' && !ended ? occQ : null, ...answer.v, ...cur });
+      // son logo (en creux, comme au recto de toute carte) n'apparaît qu'une fois la réponse validée, en fondu
+      const la = ended && ended.kind === 'reponse' ? Math.max(0.002, sstep(0.05, 1.3, te)) : 0.002;
+      card.draw(vp, eye, { ...P, h: P.h * la, crease: (P.crease || 0) * la }, { model: (snap.a = model(Ga, anp)), lod: 'fine', ink: answer.ink, shade: mode === 'free' ? dimQ : dimA, fade: fadeQ, occ: answer.place === 'peek' && !ended ? occQ : null, ...answer.v, ...cur });
     }
     if (blank && blank.out < 0.999 && fadeB > 0.01) {
       // « carte blanche » tapé au recto tant qu'elle attend ; pendant son tour, l'encre change quand le recto est caché

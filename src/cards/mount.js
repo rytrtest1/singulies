@@ -21,15 +21,14 @@ const CSS = `
   opacity: 0; transition: opacity 1.2s; pointer-events: none;
   font: 500 12px/44px 'SG Garamond', serif; letter-spacing: 0.4em; padding-left: 0.4em; color: #fff; }
 .sc-pass.on { opacity: .44; pointer-events: auto; }
-/* RECEVOIR / PAR LA POSTE : deux lignes */
-.sc-pass.sc-two { white-space: pre-line; line-height: 22px; padding-top: 0; }
 .sc-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); }
 /* feuille : boutons accessibles (clavier, lecteur d'écran) posés sur la carte et la commande ; le toucher passe au canvas */
 .sc-hit { position: fixed; margin: 0; padding: 0; border: 0; background: transparent; color: transparent; font-size: 1px;
   pointer-events: none; z-index: 13; outline: none; }
 .sc-hit:focus-visible { outline: 1px solid rgba(255,255,255,.35); outline-offset: 4px; }
-/* RECEVOIR / PAR LA POSTE : posé sur l'enveloppe (centré sur son point, taille à l'échelle de l'enveloppe) */
-.sc-pass.sc-on-env { left: 0; right: auto; top: 0; width: 20em; margin-left: -10em; transform: translateY(-50%); transition: opacity .35s; }
+/* POSTER : sous l'enveloppe, il la suit ; apparaît en fondu, part vite */
+.sc-pass.sc-on-env { left: 0; right: auto; top: 0; width: 20em; margin-left: -10em; }
+.sc-pass.sc-on-env:not(.on) { transition: opacity .35s; }
 /* la fin : la tranche de l'enveloppe devient le champ de l'email (08/10) */
 .sc-mail { position: fixed; z-index: 13; opacity: 0; transition: opacity 1.1s; pointer-events: none; }
 .sc-mail.on { opacity: 1; pointer-events: auto; }
@@ -37,6 +36,11 @@ const CSS = `
   text-align: center; background: transparent; border: 0; border-radius: 0; padding: 0 0 5px; margin: 0; outline: none;
   caret-color: rgba(255,255,255,.7); -webkit-appearance: none; appearance: none; }
 .sc-mail input::placeholder { color: rgba(255,255,255,.3); }
+/* remplissage automatique : pas de fond coloré ni de rectangle derrière l'email */
+.sc-mail input:-webkit-autofill, .sc-mail input:-webkit-autofill:hover, .sc-mail input:-webkit-autofill:focus, .sc-mail input:autofill {
+  -webkit-text-fill-color: rgb(214,214,214); -webkit-box-shadow: 0 0 0 1000px #060606 inset; box-shadow: 0 0 0 1000px #060606 inset;
+  background-color: transparent !important; transition: background-color 600000s 0s, color 600000s 0s; caret-color: rgba(255,255,255,.7); }
+.sc-mail input::selection { background: rgba(255,255,255,.18); }
 .sc-mail .sc-line { height: 1px; background: rgba(255,255,255,.3); }
 /* après l'enveloppe : sur le noir, l'email ou le numéro « pour te tenir au courant » (06/10) */
 .sc-ask { position: fixed; inset: 0; z-index: 15; background: #060606; opacity: 0; transition: opacity 1.2s; pointer-events: none;
@@ -210,7 +214,7 @@ export async function mountCards(opts) {
     answer.blur(); postEl.classList.remove('on'); backEl.classList.remove('on');
     const box = el('div', 'sc-mail');
     const inp = document.createElement('input');
-    Object.assign(inp, { type: 'email', spellcheck: false, autocomplete: 'email', placeholder: 'ton email', name: 'email' });
+    Object.assign(inp, { type: 'email', spellcheck: false, autocomplete: 'email', placeholder: 'email', name: 'email' });
     inp.setAttribute('inputmode', 'email'); inp.setAttribute('autocapitalize', 'none'); inp.setAttribute('autocorrect', 'off');
     inp.setAttribute('enterkeyhint', 'done'); inp.setAttribute('aria-label', 'Ton email');
     const line = document.createElement('div'); line.className = 'sc-line';
@@ -243,7 +247,7 @@ export async function mountCards(opts) {
   // le champ de l'email suit la tranche (à l'écran) ; TERMINER dessous (clavier ouvert : au-dessus du clavier)
   function placeMail() {
     const Ln = sheet && sheet.edgeLine(); if (!Ln) return;
-    const x0 = Math.min(Ln.x0, Ln.x1), x1 = Math.max(Ln.x0, Ln.x1), y = (Ln.y0 + Ln.y1) / 2, w = Math.max(220, x1 - x0);
+    const x0 = Math.min(Ln.x0, Ln.x1), x1 = Math.max(Ln.x0, Ln.x1), y = (Ln.y0 + Ln.y1) / 2, w = Math.max(190, x1 - x0);
     const h = mail.box.offsetHeight || 30, cx = (x0 + x1) / 2;
     Object.assign(mail.box.style, { left: (cx - w / 2) + 'px', top: (y - h + 0.5) + 'px', width: w + 'px' });
     const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
@@ -364,13 +368,13 @@ export async function mountCards(opts) {
         if (es) syncFields();                     // remplissage automatique sans événement (Safari)
         giveEl.classList.remove('on');
         postEl.classList.toggle('on', !!(es && es.canPost && ar));
-        if (es && postEl.textContent !== es.sign) { postEl.textContent = es.sign; postEl.classList.toggle('sc-two', es.sign.includes('\n')); postEl.setAttribute('aria-label', es.sign.replace('\n', ' ').toLowerCase()); }
+        if (es && postEl.textContent !== es.sign) postEl.textContent = es.sign;
         // posé sur l'enveloppe, sous l'adresse : il la suit (caméra, inclinaison, clavier), à son échelle
         const sa = es && sheet.signAt();
         if (sa) {
           postEl.classList.add('sc-on-env');
-          const fs = Math.max(10, Math.min(16, 3.2 * sa.pxmm));
-          Object.assign(postEl.style, { left: sa.x + 'px', top: sa.y + 'px', fontSize: fs + 'px', lineHeight: (1.8 * fs) + 'px' });
+          const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
+          Object.assign(postEl.style, { left: sa.x + 'px', top: Math.min(sa.y + 14, kbTop - 50) + 'px' });
         }
         if (mail) placeMail();
         const ss = sheet.state();

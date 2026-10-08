@@ -31,10 +31,10 @@ const FOV = 26 * Math.PI / 180, TILT = 0.22, PITCH = 0.15, DECK = 10;
 // donne : une seule carte en l'air à la fois — la suivante quitte le paquet quand la précédente, presque posée, en
 // est loin (sinon leurs vols se croisent et elles se traversent)
 const INTRO_T = 1.4, DEAL_AT = 0.7, DEAL_T = 1.3, DEAL_GAP = 1.3 * 0.8, FLIP_T = 1.4, HOLD = 2.4, LEAVE_T = 1.3;
-// ordre de la donne = ordre d'empilement : la carte donnée plus tard se pose sur la précédente. Du haut vers le bas
-// (08/10 : le poème d'abord), chacune posée sur le bas de la précédente
-// (rien ne passe jamais à travers une autre carte) ; le paquet ne bouge pas
-const RANK = [0, 1, 2, 3];
+// ordre de la donne : du haut vers le bas, le poème d'abord (08/10) ; empilement (ZR) : chaque carte se glisse SOUS
+// la précédente — elle se pose d'abord à côté, à plat, puis glisse dessous (rien ne passe jamais à travers une autre
+// carte) ; le paquet ne bouge pas
+const RANK = [0, 1, 2, 3], ZR = [2, 1, 0, 3];
 // la lumière : d'abord le poème, puis chaque carte à son tour (s)
 const DWELL = [6.5, 2.8, 2.8];      // les trois cartes seulement (le paquet ne fait pas signe)
 
@@ -177,7 +177,7 @@ export async function mountPortal(opts = {}) {
         px = portrait ? W / 2 + o.dx * w : a0 + along + o.dx * w * 0.3;
         py = portrait ? a0 + along + o.dy * h : (top + zoneB) / 2 + o.dy * h + (i % 2 ? 0.08 : -0.08) * h;
       }
-      return { x: (px - W / 2) * s, y: (H / 2 - py) * s / Math.cos(TILT), rz: o.rz, z: i === JEU ? 0 : RANK[i] * Z_STEP };
+      return { x: (px - W / 2) * s, y: (H / 2 - py) * s / Math.cos(TILT), rz: o.rz, z: i === JEU ? 0 : ZR[i] * Z_STEP };
     });
     const fs = sigCap / capEm;
     sig.style.fontSize = fs.toFixed(2) + 'px'; sig.style.lineHeight = '1';
@@ -260,6 +260,15 @@ export async function mountPortal(opts = {}) {
     if (td < 0) return onDeckPose(c);
     if (td < DEAL_T) {                 // la donne (le tirage de la scène des cartes) : soulevée, retournée en l'air, posée
       const u = td / DEAL_T, a = onDeckPose(c);
+      // sous la précédente : posée juste à côté (hors de son bord), puis glissée dessous, à plat
+      if (c.i > 0 && c.i < JEU) {
+        const pre = { ...rest, ...(lay.W < lay.H * 1.1 ? { y: rest.y - (OV * CARD.h + 4) } : { x: rest.x + OV * CARD.w + 4 }) };
+        const S = 0.78;
+        if (u >= S) return lerpPose(pre, rest, ease((u - S) / (1 - S)));
+        const p = lerpPose(a, pre, sstep(0.08, 0.95, u / S));
+        p.ry = 0;
+        return turn(p, u / S, 1);
+      }
       const p = lerpPose(a, rest, sstep(0.08, 0.95, u));
       p.ry = 0;
       return turn(p, u, 1);
@@ -306,7 +315,7 @@ export async function mountPortal(opts = {}) {
     b.addEventListener('pointercancel', () => { if (pressIdx === c.i) pressIdx = -1; });
     b.addEventListener('focus', () => { hoverIdx = c.i; });
     b.addEventListener('blur', () => { if (hoverIdx === c.i) hoverIdx = -1; });
-    b.style.zIndex = String(1 + RANK[c.i]);           // la carte du dessus reçoit le toucher
+    b.style.zIndex = String(1 + ZR[c.i]);             // la carte du dessus reçoit le toucher
     b.addEventListener('click', e => { e.stopPropagation(); askOrientation(); choose(c); });
     root.appendChild(b);
     return b;
@@ -468,7 +477,7 @@ export async function mountPortal(opts = {}) {
       const ink = c.labelInk, inkBack = c.anim ? soonInk : null;
       const dim = 1;
       // ombre de la carte posée par-dessus (la suivante de la donne)
-      const nx = c.i < JEU - 1 ? cards[c.i + 1] : null;
+      const nx = c.i > 0 && c.i < JEU ? cards[c.i - 1] : null;
       // l'ombre suit la carte telle qu'elle est dessinée (table inclinée, respiration : image précédente) — sinon, en
       // inclinant le téléphone, l'ombre restait en place et dessinait le contour de la carte à côté de la vraie (06/10)
       const occ = nx && !leaving && landed(nx, t) && !nx.anim && nx.lastM ? { m: nx.lastM } : null;

@@ -50,16 +50,20 @@ const SEAL_D = 27, SEAL_K = 0.4, SEAL_IN = 8.6, SEAL_WOB = 0.085;   // cachet : 
 // elle traversait le devant de la poche en pivotant) ; seal : le cachet de cire se pose sur la pointe du rabat
 const E = { fade: [0, 0.7], cam: [0.1, 2.1], rise: [0.4, 2.1], cIn: [1.3, 2.4], rot: [2.2, 3.25], drop: [3.2, 3.5], slide: [3.45, 4.7],
   flap: [4.8, 5.9], seal: [5.85, 6.45], flip: [6.6, 8.0], cam2: [6.5, 8.3], write: 8.3 };
-export const ADDR = { x: 106, y: 96, lead: 6.35, lines: 5, chars: 34 };   // bloc d'adresse (mm, depuis le coin haut-gauche)
-// RECEVOIR / PAR LA POSTE : posé sur l'enveloppe, sous l'adresse (centre, mm depuis le coin haut-gauche) — il la suit
-const SIGN = { x: ADDR.x + 15 * TYPE.pitch, y: ADDR.y + 4 * ADDR.lead + 14 };
+// le destinataire : là où on l'écrit sur une enveloppe — quart bas-droit, à partir du milieu (mm, depuis le coin haut-gauche)
+export const ADDR = { x: 118, y: 100, lead: 6.35, lines: 5, chars: 34 };
+// l'expéditeur, en haut à gauche (08/10)
+const SENDER = { x: 14, y: 17, lead: 5.4, lines: ['@e.t.ernel', 'SINGULIES', 'Paris'] };
 // envoyée (08/10) : un coup de tampon blanc (le logo SS-cœur dans un cercle) dans le coin haut-droit de l'adresse,
 // jamais incliné pareil ; l'enveloppe se retourne (le cachet), puis bascule jusqu'à ne plus montrer que sa tranche
 // inférieure, comme glissée dans une boîte aux lettres ; la tranche devient le champ de l'email (mount.js) et le
 // reste de l'enveloppe se fond dans le noir. Horloge propre (s), réversible (le retour la fait redescendre) jusqu'à
 // ce que la tranche soit devenue le champ.
 const STAMP = { x: 31, y: 27, r: 12.5, logo: 16.5 };          // tampon : centre (mm, depuis le coin haut-droit), rayon, logo
-const PO = { cam: [0, 1.1], hit: 0.75, turn: [1.6, 2.8], tip: [2.65, 3.85], end: 3.85, fade: [3.95, 5.0] };
+// away : sa tranche seule visible, elle avance comme dans la fente d'une boîte aux lettres (la tranche, devenue le
+// champ de l'email, rétrécit avec elle : AWAY_K = sa taille d'arrivée) ; fade : puis l'enveloppe se fond, le champ reste
+const PO = { cam: [0, 1.1], hit: 0.75, turn: [1.6, 2.8], tip: [2.65, 3.85], end: 3.85, away: [3.9, 5.3], fade: [5.0, 6.0] };
+const AWAY_K = 0.62;
 // l'adresse en champs (06/10, Maxence : « clarifier le moment de l'adresse ») : chacun sa ligne, son invitation
 // tapée en léger tant qu'il est vide ; Entrée = le champ suivant. Destinataire en bas à droite, expéditeur (email,
 // téléphone : demandés après). POSTER dès que nom, adresse, code postal et ville sont là.
@@ -181,6 +185,7 @@ export function fieldsInk(f, seed, active, stamp = null) {
     if (v || !stamp) typeLines(cx, PX, [v || d.hint], p.x, p.y, 0, seed + k * 31, 1, v ? '#fff' : '#f00');
     if (d.id === active) cursor = { x: p.x + v.length * TYPE.pitch - 0.35, y: p.y };
   });
+  typeLines(cx, PX, SENDER.lines, SENDER.x, SENDER.y, SENDER.lead, seed + 53, 0.9);
   if (stamp) stampInk(cx, PX, stamp.mask, ENV.w - STAMP.x + stamp.dx, STAMP.y + stamp.dy, stamp.rot, stamp.seed);
   return { canvas: cv, cursor: cursor || { x: ADDR.x, y: ADDR.y } };
 }
@@ -338,8 +343,8 @@ export function createSheetScene(gl, opts) {
     const x0 = O_X - CARD.w / 2 - 2, x1 = Math.max(O_X + CARD.w / 2, C ? C_POSE.x + CARD.w / 2 : 0) + 2;
     // l'enveloppe sous la feuille ; puis l'adresse (téléphone : de près ; ordinateur : l'enveloppe entière)
     frames.E = frameFor(EC_Y - ENV.h / 2 - 8, SY + SHEET.h / 2 + 8, -ENV.w / 2, ENV.w / 2, ENV.w * 1.1, W, H);
-    // (l'adresse et, dessous, RECEVOIR / PAR LA POSTE : le clavier ouvert ne doit cacher ni l'une ni l'autre)
-    const ax = -ENV.w / 2 + ADDR.x + 15 * TYPE.pitch, ay = EC_Y + ENV.h / 2 - (ADDR.y + SIGN.y) / 2;
+    // (l'adresse et, sous l'enveloppe, POSTER : le clavier ouvert ne doit cacher ni l'une ni l'autre)
+    const ax = -ENV.w / 2 + ADDR.x + 15 * TYPE.pitch, ay = EC_Y + ENV.h / 2 - (ADDR.y - 6 + ENV.h + 16) / 2;
     frames.F = W < H * 1.1 ? frameFor(ay - 30, ay + 30, ax - 50, ax + 50, 0, W, H) : frameFor(EC_Y - ENV.h / 2 - 12, EC_Y + ENV.h / 2 + 12, -ENV.w / 2 - 8, ENV.w / 2 + 8, 0, W, H);
     // l'expéditeur (email ou numéro), en haut à gauche : de près sur téléphone ; ordinateur : l'enveloppe entière
     const qx = -ENV.w / 2 + CONTACT.x + 15 * TYPE.pitch, qy = EC_Y + ENV.h / 2 - (CONTACT.y + ADDR.lead * 0.5);
@@ -488,8 +493,11 @@ export function createSheetScene(gl, opts) {
       // sa tranche inférieure (le haut part dans l'axe du regard), comme glissée dans une fente
       // le coup : l'enveloppe cède un peu sous le tampon
       const hb = sstep(PO.hit - 0.12, PO.hit, pp) * (1 - sstep(PO.hit, PO.hit + 0.35, pp)) * mv;
-      Menv = M4.mul(T(EC.x, EC.y - 110 * (1 - uI) + 14 * Math.sin(Math.PI * uTurn),
-        EC.z - 50 * (1 - uI) + 70 * Math.sin(Math.PI * uFlip) * mv + 55 * Math.sin(Math.PI * uTurn) - 3 * hb),
+      // la tranche seule visible : elle avance droit devant, dans l'axe du regard (la fente)
+      const far = (frames.P ? frames.P.D : 600) * (1 / AWAY_K - 1) * ease(span(PO.away, pp)) * mv;
+      const dir = (v => { const l = Math.hypot(...v) || 1; return v.map(x => x / l); })([EC.x - eye[0], EC.y - eye[1], EC.z - eye[2]]);
+      Menv = M4.mul(T(EC.x + dir[0] * far, EC.y - 110 * (1 - uI) + 14 * Math.sin(Math.PI * uTurn) + dir[1] * far,
+        EC.z - 50 * (1 - uI) + 70 * Math.sin(Math.PI * uFlip) * mv + 55 * Math.sin(Math.PI * uTurn) - 3 * hb + dir[2] * far),
         M4.mul(G, M4.mul(M4.model(-(Math.PI / 2 - TILT) * uTip, 0, 0), M4.model(0, Math.PI * (uFlip + uTurn), 0))));
       lastMenv = Menv;
     }
@@ -924,17 +932,17 @@ export function createSheetScene(gl, opts) {
       const a = pr(-ENV.w / 2), b = pr(ENV.w / 2);
       return { x0: a[0], y0: a[1], x1: b[0], y1: b[1], done: env.pp >= PO.end };
     },
-    // où poser RECEVOIR / PAR LA POSTE : son centre à l'écran et l'échelle (px par mm) de l'enveloppe à cet endroit
+    // où poser POSTER : sous le bas de l'enveloppe, à l'aplomb de l'adresse, à l'écran (il la suit)
     signAt: () => {
       if (!env || !lastMenv || !vp) return null;
       const m = M4.mul(vp, M4.mul(lastMenv, M4.model(0, Math.PI, 0)));
       const pr = (fx, fy) => { const x = fx - ENV.w / 2, y = ENV.h / 2 - fy, cx = m[0] * x + m[4] * y + m[12], cy = m[1] * x + m[5] * y + m[13], cw = m[3] * x + m[7] * y + m[15]; return [(cx / cw * 0.5 + 0.5) * W, (0.5 - cy / cw * 0.5) * H]; };
-      const c = pr(SIGN.x, SIGN.y), e = pr(SIGN.x + 10, SIGN.y);
+      const ax = ADDR.x + 15 * TYPE.pitch, c = pr(ax, ENV.h), e = pr(ax + 10, ENV.h);
       return { x: c[0], y: c[1], pxmm: Math.hypot(e[0] - c[0], e[1] - c[1]) / 10 };
     },
     fieldRects: () => env && lastMenv && !env.back && !isPosting() && envClock(lastT) >= E.write && !NOADDR ? Object.fromEntries(FIELDS.map(d => [d.id, zoneRect(d.id)])) : null,
     state: () => ({
-      env: env ? { writing: env.writing, text: env.f[env.field] || '', fields: { ...env.f }, field: env.field, zone: zoneOf(env.field), canPost: !isPosting() && !env.back && envClock(lastT) >= E.write && !!envReady(), posted: env.postT >= 0, back: !!env.back, write: !env.back && envClock(lastT) >= E.write, sign: 'RECEVOIR\nPAR LA POSTE' }
+      env: env ? { writing: env.writing, text: env.f[env.field] || '', fields: { ...env.f }, field: env.field, zone: zoneOf(env.field), canPost: !isPosting() && !env.back && envClock(lastT) >= E.write && !!envReady(), posted: env.postT >= 0, back: !!env.back, write: !env.back && envClock(lastT) >= E.write, sign: 'POSTER' }
         : direct ? { writing: direct.writing, text: direct.contact, contact: direct.contact, zone: 'contact', canPost: direct.pu < 0.5 && !direct.back && contactOk(direct.contact), posted: direct.postT >= 0, back: !!direct.back, write: !direct.back && lastT - direct.t0 > 1.1, sign: 'ENVOYER' } : null, tau: tau(lastT), view: sv > 0.5 ? 'commande' : 'feuille', orders: orderAt >= 0, backing: !!backing, cursor: cursorOn(tau(lastT)) > 0.5, chosen: chosen ? chosen.id : null }),
     // tests / captures
     showOrders: () => showOrders(lastT), choose: id => { const o = orders.find(x => x.id === id); const q = quads[id]; if (o && q) { const r = rectOf(q); return tap((r.left + r.right) / 2, (r.top + r.bottom) / 2, lastT); } return null; },

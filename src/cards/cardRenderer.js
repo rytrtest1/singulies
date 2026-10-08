@@ -107,7 +107,7 @@ uniform vec3 uCurl;          // coin corné : sens du coin (x, y : ±1, repère 
 uniform sampler2D uLogo;
 uniform float uLogoSq, uLogoRange, uH, uB, uFoot, uFootW, uNoLogo;
 uniform vec2 uLogoOff, uLogoScale;
-uniform float uLogoIn;       // 1 : logo en creux sur les deux faces (la carte de la réponse, 08/10)
+uniform float uLogoIn;       // 1 : la face 0 (la réponse) est un recto : logo en creux (la carte de la réponse, 08/10)
 // cachet de cire (08/10) : (actif, rayon de l'empreinte du sceau, rayon de la cire, ondulation du bord) — la face 1 bombe
 // vers l'extérieur : empreinte plate, bourrelet de cire chassée autour, puis la cire retombe en ménisque jusqu'au bord
 uniform vec4 uSeal;
@@ -204,6 +204,8 @@ const float PI = 3.14159265;
 
 float logoD(vec2 p) {        // distance signée au contour (mm), < 0 dans le logo
   if (uNoLogo > 0.5) return uLogoRange;   // feuille sans logo
+  // face de la réponse (uLogoIn) : la même empreinte qu'au recto d'une carte — en creux, vue en miroir
+  if (uLogoIn > 0.5 && vFace == 0) p.x = 2.0 * uLogoOff.x - p.x;
   vec2 uv = (p - uLogoOff) / (uLogoSq * uLogoScale) + 0.5; uv.y = 1.0 - uv.y;
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return uLogoRange;
   return texture(uLogo, uv).r * min(abs(uLogoScale.x), abs(uLogoScale.y));

@@ -40,16 +40,16 @@ const out = await page.evaluate(() => {
     a.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); m.advance(0.3);
     res.push(sh.state().env.field + ':' + sh.state().env.canPost);
   }
-  const post = document.querySelector('.sc-pass.sc-two');
+  const post = [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER');
   return { res, fields: sh.state().env.fields, poster: post && post.classList.contains('on') };
 });
 await page.evaluate(() => window.__scene.advance(0.8));
 await page.screenshot({ path: `${dir}/champs.png` });
 console.log(JSON.stringify(out));
 // RECEVOIR PAR LA POSTE : le coup de tampon, le retournement, la bascule sur la tranche, puis la tranche = champ de l'email
-await page.evaluate(() => { document.querySelector('.sc-pass.sc-two').click(); });
+await page.evaluate(() => { [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER').click(); });
 let pt = 0;
-for (const p of [0.5, 1.0, 1.6, 2.2, 2.7, 3.2, 3.9, 5.2]) {
+for (const p of [0.5, 1.0, 2.2, 3.2, 3.9, 4.6, 5.4, 6.2]) {
   await page.evaluate(d => window.__scene.advance(d), p - pt); pt = p;
   await page.screenshot({ path: `${dir}/post-${p.toFixed(1)}.png` });
 }

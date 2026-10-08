@@ -472,7 +472,7 @@ function frame(ts) {
     const tg = S.targets && S.targets.length === here.length ? S.targets : null;
     if (S.riseT != null) {
       const u = CFG.reduced ? 1 : riseU(S.t, S.riseT), gu = CFG.reduced ? 1 : grayU(S.t, S.riseT);
-      if (tg) place = here.map((p, i) => ({ ch: p.ch, x: p.x + (tg[i].x - p.x) * u, y: p.y + (tg[i].y - p.y) * u, fs: p.fs + (tg[i].fs - p.fs) * u }));
+      if (tg) place = here.map((p, i) => ({ ch: p.ch, x: p.x + (tg[i].x - p.x) * u, y: p.y + (tg[i].y - p.y) * u, fs: p.fs + (tg[i].fs - p.fs) * u, fsx: p.fs + ((tg[i].fsx || tg[i].fs) - p.fs) * u }));
       bright = bright.map((b) => b + (NAME_GRAY - b) * gu);
       vig = 1 - (CFG.reduced ? smooth(S.riseT, S.riseT + 0.9, S.t) : smT(S.riseT, S.riseT + RISE, S.t));
       // la caméra descend : le prénom (le plus proche, z ≈ 3) monte de toute sa course, les mots lointains à peine
@@ -496,7 +496,7 @@ function frame(ts) {
     let al = active ? nameFade * (1 - 0.55 * Math.min(1, Math.abs(wheel.frac) * 2)) : nameFade;
     al *= bright ? bright[i] : NAME_REST;   // même clarté du prénom partout
     glyphs.push({
-      box: [g.x + gm.x0 * g.fs, g.y + dy + gm.y0 * g.fs, g.x + gm.x1 * g.fs, g.y + dy + gm.y1 * g.fs],
+      box: [g.x + gm.x0 * (g.fsx || g.fs), g.y + dy + gm.y0 * g.fs, g.x + gm.x1 * (g.fsx || g.fs), g.y + dy + gm.y1 * g.fs],
       uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: al, pxEm: g.fs,
     });
   });
