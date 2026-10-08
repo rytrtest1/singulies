@@ -6,7 +6,7 @@
 // fibres qui scintillent ; tranche plus claire, bords un peu cassés, irréguliers.
 import '../app/compat.js';            // (Safari d'avant iOS 17 : de simples <canvas> à la place d'OffscreenCanvas)
 import { program } from '../gl/gl.js';
-import { RELIEF } from '../app/perf.js';
+import { RELIEF, MAILLE } from '../app/perf.js';
 
 export const CARD = { w: 87, h: 51.5, r: 3, t: 0.125, logoSq: 38.501, logoRange: 2 };
 
@@ -68,7 +68,8 @@ function cardMesh(fine = true, seg = 12, dims = null) {
     return [x, y];
   };
   // maillage léger (cartes de la pile, vues de loin ou par la tranche) : 2 mm partout
-  const fz = dims ? dims.fine : [22, 23, 0.2, 0, 0];
+  let fz = dims ? dims.fine : [22, 23, 0.2, 0, 0];
+  if (fz && MAILLE) fz = [fz[0], fz[1], Math.max(fz[2], MAILLE), fz[3], fz[4]];   // essais (?maille=)
   const xs = fine && fz ? axis(w / 2, fz[0], fz[2], 2, fz[3]) : axis(w / 2, 0, 2, 2), ys = fine && fz ? axis(h / 2, fz[1], fz[2], 2, fz[4]) : axis(h / 2, 0, 2, 2);
   const nx = xs.length, ny = ys.length;
   for (const [z, s, f] of [[t / 2, 1, 0], [-t / 2, -1, 1]]) {      // 0 = dos (+z), 1 = recto (−z)
