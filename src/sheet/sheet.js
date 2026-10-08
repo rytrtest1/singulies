@@ -585,7 +585,7 @@ export function createSheetScene(gl, opts) {
       card.draw(vp, eye, P, { model: lerpM(C.A0, under, ease(u)), lod: 'fine', ink: null, fade: 1 - sstep(0.15, 1, u), shade: 1, ...C.av });
     }
     if (C && !hideInside) {
-      card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink: C.front, inkBack: C.back, fade: 1, shade: dimS, ...C.v, logoIn: C.ownBack, ...(uC > 0 ? { warp: C.v.warp.map(x => x * (1 - uC)) } : {}) });
+      card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink: C.front, inkBack: C.back, fade: 1, shade: dimS, ...C.v, ...(uC > 0 ? { warp: C.v.warp.map(x => x * (1 - uC)) } : {}) });
       quads.C = inEnv ? null : screenQuad(Mc);
     } else quads.C = null;
     // ---- la commande ----

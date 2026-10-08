@@ -124,7 +124,9 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - **Invitations des champs de l'enveloppe encore plus pâles** (encre ×0,3).
 - **Prénom au relais accueil → cartes** : l'accueil dessine aussi la largeur exacte de l'em vu sur le plan des cartes (`fsx`) — il ne s'élargit plus.
 - **Esquisse des questions** : avant toute question passée, « suivante » (2 fois) ; ensuite plus jamais — une seule fois « précédente », avec un bout de la carte précédente qui se montre au bord gauche.
-- **Pas de logo sur la réponse** (carte réponse sans logo ; sur la feuille, le logo seulement côté question : `logoIn`).
+- **Pas de logo sur la carte réponse** ; sur la feuille, la carte comme avant (pas de traitement spécial du logo — `logoIn` retiré : il faisait apparaître un logo gris en se retournant).
+- **Invitations en grisé** (encre pâle, comme l'enveloppe), curseur blanc devant : carte réponse *ta réponse est le thème du poème* (plus petite si besoin pour tenir sur la ligne), carte blanche *le thème de ton poème*.
+- **Téléphone : le clavier ne s'ouvre jamais seul dans la scène des cartes** (seulement en touchant la carte réponse / en prenant la carte blanche) ; **il se ferme quand une carte est balayée** (ou le paquet touché), sans jamais valider la réponse.
 - **Réalisme de l'enveloppe** : rabat du bas au dos (arêtes des rabats visibles, `clipRim`) ; **cachet de cire** : bord de cire irrégulier, empreinte plate, bourrelet de cire chassée, ménisque jusqu'au bord, cire argentée nacrée à paillettes (`uSeal`).
 
 ## Nuit du 07 au 08/10 (revue de l'audit GPT : `REVUE-AUDIT.md`, à valider par Maxence)

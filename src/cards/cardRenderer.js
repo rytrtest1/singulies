@@ -107,7 +107,6 @@ uniform vec3 uCurl;          // coin corné : sens du coin (x, y : ±1, repère 
 uniform sampler2D uLogo;
 uniform float uLogoSq, uLogoRange, uH, uB, uFoot, uFootW, uNoLogo;
 uniform vec2 uLogoOff, uLogoScale;
-uniform float uLogoIn;       // 1 : le logo seulement côté question — la face 0 (la réponse) n'en a pas (08/10)
 // cachet de cire (08/10) : (actif, rayon de l'empreinte du sceau, rayon de la cire, ondulation du bord) — la face 1 bombe
 // vers l'extérieur : empreinte plate, bourrelet de cire chassée autour, puis la cire retombe en ménisque jusqu'au bord
 uniform vec4 uSeal;
@@ -155,7 +154,7 @@ void main() {
     dzy -= (sealH(aPos.xy + vec2(0.0, e)) - sealH(aPos.xy - vec2(0.0, e))) / (2.0 * e);
   }
   // la feuille entière est poussée vers le dos : bosse au dos, creux au recto (même déplacement)
-  float g = f == 2 || (f == 0 && uLogoIn > 0.5) ? 0.0 : gaufrage(aPos.xy);
+  float g = f == 2 ? 0.0 : gaufrage(aPos.xy);
   vec3 p = aPos + vec3(0.0, 0.0, z + g);
   vec3 T = normalize(vec3(1.0, 0.0, dzx)), B = normalize(vec3(0.0, 1.0, dzy));
   vec3 Nu = normalize(cross(T, B));
@@ -185,7 +184,6 @@ uniform vec4 uClip;          // rabat d'enveloppe : (actif, base y, hauteur, dem
 uniform float uLogoSq, uLogoRange, uNoLogo;
 uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
 uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
-uniform float uLogoIn;
 uniform vec3 uLightPos, uEye, uRoomUp;
 // ombre portée par une autre carte (la carte retournée au-dessus du paquet) : rectangle à la hauteur uOccZ
 uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc;
@@ -204,7 +202,6 @@ const float PI = 3.14159265;
 
 float logoD(vec2 p) {        // distance signée au contour (mm), < 0 dans le logo
   if (uNoLogo > 0.5) return uLogoRange;   // feuille sans logo
-  if (uLogoIn > 0.5 && vFace == 0) return uLogoRange;   // face de la réponse : sans logo (08/10)
   vec2 uv = (p - uLogoOff) / (uLogoSq * uLogoScale) + 0.5; uv.y = 1.0 - uv.y;
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return uLogoRange;
   return texture(uLogo, uv).r * min(abs(uLogoScale.x), abs(uLogoScale.y));
@@ -338,7 +335,7 @@ void main() {
     float specE = uSpec * D_GGX(max(dot(Ng, He), 0.0), 0.35) * 0.25;
     col = vec3(alb * (irr * NL * occShadow(L, dist) + uEnv * env(Ng, L)) + irr * NL * specE);
   } else {
-    float s = vFace == 0 && uLogoIn < 0.5 ? 1.0 : -1.0;
+    float s = vFace == 0 ? 1.0 : -1.0;
     // relief du logo (dos : bosse, recto : creux) ; le pied est élargi à l'empreinte du pixel
     float fw = fwidth(logoD(vMM));
     gFootW = max(uFootW, fw * 1.2);
@@ -558,7 +555,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uLogoSq, CARD.logoSq); gl.uniform1f(u.uLogoRange, CARD.logoRange);
     gl.uniform2fv(u.uLogoOff, card.logoOff || [0, 0]);
     gl.uniform2fv(u.uLogoScale, card.logoScale || [1, 1]);
-    gl.uniform1f(u.uNoLogo, card.noLogo ? 1 : 0); gl.uniform1f(u.uLogoIn, card.logoIn ? 1 : 0);
+    gl.uniform1f(u.uNoLogo, card.noLogo ? 1 : 0);
     gl.uniform4fv(u.uSeal, card.seal || [0, 0, 1, 0]);
     gl.uniform4fv(u.uPaperXf, card.paperXf || [0, 0, 0, 0]);
     gl.uniform3fv(u.uWarp, card.warp || [0, 0, 0]);

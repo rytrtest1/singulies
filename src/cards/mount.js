@@ -76,6 +76,8 @@ export async function mountCards(opts) {
   const { name, base = './', seed, look = {}, onEnd, onExit, log = () => {} } = opts;
   const toSheet = opts.sheet ?? new URLSearchParams(location.search).get('feuille') !== '0';
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // téléphone : le clavier ne s'ouvre jamais tout seul dans la scène des cartes (08/10, Android), et se ferme quand une carte est balayée
+  const coarse = matchMedia('(pointer: coarse)').matches;
   if (!document.getElementById('sc-style')) {
     const st = document.createElement('style'); st.id = 'sc-style'; st.textContent = CSS; document.head.appendChild(st);
   }
@@ -361,7 +363,7 @@ export async function mountCards(opts) {
   }
   function focusAnswer() { if (document.activeElement !== answer) answer.focus({ preventScroll: true }); }
   const setValue = (s) => { if (answer.value !== s) { answer.value = s; try { answer.setSelectionRange(s.length, s.length); } catch { /* */ } } };
-  const scene = await createCardScene(gl, { base, seed, look, toSheet, on: { end: finish, write: focusAnswer, text: (d) => setValue(d.text) } });
+  const scene = await createCardScene(gl, { base, seed, look, toSheet, autoWrite: !coarse, on: { end: finish, write: focusAnswer, text: (d) => setValue(d.text) } });
   scene.setName(name);
 
   let started = false;
@@ -487,9 +489,12 @@ export async function mountCards(opts) {
   // question, la carte blanche, un signe : le geste décide)
   let lastPD = -1e9;
   addEventListener('pointerdown', () => { lastPD = performance.now(); }, true);
+  let quietBlur = false;
+  const closeKb = () => { if (!inputs.includes(document.activeElement)) { scene.stopWriting(); return; } quietBlur = true; try { answer.blur(); } finally { quietBlur = false; } };
   both('blur', e => {
     if (inputs.includes(e.relatedTarget)) return;
     if (sheet) { sheet.stopWriting(); return; }
+    if (quietBlur) { scene.stopWriting(); return; }       // fermé par nous (carte balayée) : jamais « la suite »
     const st = scene.state();
     if (st.writing && st.active && st.active.text && !st.ended && performance.now() - lastPD > 400 && give('clavier fermé')) return;
     scene.stopWriting();
@@ -563,12 +568,13 @@ export async function mountCards(opts) {
     if (down.sheet) { const mv = down.moved, f = down; down = null;
       if (isFlick(e.clientX - f.x, e.clientY - f.y, performance.now() - f.t)) flickUp(); sheet?.release(); if (!mv && sheet) { const r = sheet.tap(e.clientX, e.clientY, now()); if (r.type) log(r.type); } return; }
     const dx = e.clientX - down.x, dtm = Math.max(1, performance.now() - down.t);
-    if (down.moved) { const r = scene.release(dx, dx / dtm, now()); if (r.type) log(r.type); down = null; return; }
+    if (down.moved) { const r = scene.release(dx, dx / dtm, now()); if (r.type) log(r.type); if (coarse && (r.type === 'discard' || r.type === 'previous')) closeKb(); down = null; return; }
     if (down.took) { down = null; setValue(''); focusAnswer(); log('carte blanche'); return; }   // iPhone : le clavier s'ouvre au lâcher
     if (down.v) { const f = down; down = null; if (f.on !== 'blank' && isFlick(e.clientX - f.x, e.clientY - f.y, dtm)) flickUp(); return; }
     down = null;
     const r = scene.tap(e.clientX, e.clientY, now());
     if (r.type) log(r.type);
+    if (coarse && r.type && r.type !== 'write' && r.type !== 'flip') closeKb();
     if (r.type === 'write') { answer.value = scene.state().active?.text || ''; focusAnswer(); }
   });
   backEl.addEventListener('click', () => {

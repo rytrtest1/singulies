@@ -54,7 +54,9 @@ const bare = ch => ch.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 
 // toSheet : la fin ne s'éloigne plus dans le noir — la paire (ou la carte blanche) reste où elle est et la scène de la
 // feuille (sheet/sheet.js) la reprend, avec le prénom, la caméra et la lampe (snapshot)
-export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false } = {}) {
+// autoWrite : la carte réponse arrivée, le curseur prend la frappe (ordinateur) ; téléphone : non — le clavier ne
+// s'ouvre qu'en touchant la carte (08/10 : sur Android il s'ouvrait seul et cachait la carte blanche)
+export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true } = {}) {
   const card = await createCardRenderer(gl, base);
   const nameR = await createNameRelief(gl, card.paperTex);
   await loadTypeFont(base);
@@ -257,13 +259,16 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     a.cursorMM = pre ? pre.cursorMM : makeStripInk('', Math.floor(v.seed * 1000) + 7, question.margin).cursor;
     return a;
   }
+  const HINT_ANSWER = 'ta réponse est le thème du poème', HINT_BLANK = 'le thème de ton poème';
   function renderAnswer(c = act()) {
     if (!c) return;
     const sd = Math.floor(c.v.seed * 1000) + 7;
     const mg = c === answer && question ? question.margin : undefined;    // aligné sur la question
-    const m = c.place === 'peek' ? makeStripInk(c.text, sd, mg) : makeAnswerInk(c.text, sd, LINES, writing ? null : c.first, mg);
+    // invitation en grisé tant que rien n'est écrit : la réponse fait le thème du poème ; la carte blanche : son thème
+    const hint = c === blank ? HINT_BLANK : HINT_ANSWER;
+    const m = c.place === 'peek' ? makeStripInk(c.text, sd, mg, hint) : makeAnswerInk(c.text, sd, LINES, writing ? null : c.first, mg, hint);
     if (c.ink) card.freeInk(c.ink);
-    c.ink = card.makeInk(m.canvas); c.cursorMM = m.cursor; c.count = m.count;
+    c.ink = card.makeInk(m.canvas, !!m.hinted); c.inkRG = !!m.hinted; c.cursorMM = m.cursor; c.count = m.count;
   }
   function setAnswerText(clean, c = act()) { c.text = clean; c.first = 0; renderAnswer(c); }
   function setText(s) {
@@ -319,7 +324,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     mode = 'q'; backT = t;
     blank.from = poseOf(blank, t); blank.place = 'rest'; blank.anim = 'flip'; blank.t0 = t; blank.dur = FLIP_T;
     if (blank.ink) { card.freeInk(blank.ink); blank.ink = null; } blank.text = '';
-    startWriting();
+    if (autoWrite) startWriting();
     return true;
   }
   // la carte blanche s'offre après une première question passée, tant qu'aucune réponse n'est validée
@@ -405,10 +410,10 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     for (const c of [question, answer, blank]) if (c && c.anim && t - c.t0 >= c.dur) {
       const first = c === answer && c.anim === 'slide';
       c.anim = null;
-      if (first && !ended && mode === 'q') startWriting();             // la carte réponse vient d'apparaître : curseur, clavier
+      if (first && !ended && mode === 'q' && autoWrite) startWriting();   // la carte réponse vient d'apparaître : curseur, clavier
     }
     // la question est posée et il n'y a pas encore de carte réponse : elle sort du paquet
-    if (question && !question.anim && !answer && !ended) answer = makeAnswer(t);
+    if (question && !question.anim && !answer && !ended) { answer = makeAnswer(t); renderAnswer(answer); }
     leaving = leaving.filter(c => { if (t - c.t0 < c.dur) return true; if (c.ink) card.freeInk(c.ink); return false; });
     stepLight(dt);
     kb += ((writing && kbPx > 40 ? 1 : 0) - kb) * Math.min(1, dt * 4);
@@ -516,14 +521,14 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
     if (answer && fadeQ > 0.01) {
       const cur = mode === 'q' && !busy(answer, t) && (writing || !answer.text) && !ended ? cursorAt(answer.cursorMM, t) : {};
-      card.draw(vp, eye, P, { model: (snap.a = model(Ga, anp)), lod: 'fine', ink: answer.ink, shade: mode === 'free' ? dimQ : dimA, fade: fadeQ, occ: answer.place === 'peek' && !ended ? occQ : null, ...answer.v, ...cur });
+      card.draw(vp, eye, P, { model: (snap.a = model(Ga, anp)), lod: 'fine', ink: answer.ink, shade: mode === 'free' ? dimQ : dimA, fade: fadeQ, occ: answer.place === 'peek' && !ended ? occQ : null, ...answer.v, ...cur, inkRG: !!answer.inkRG });
     }
     if (blank && blank.out < 0.999 && fadeB > 0.01) {
       // « carte blanche » tapé au recto tant qu'elle attend ; pendant son tour, l'encre change quand le recto est caché
       const fu = blank.anim === 'flip' ? sstep(0.12, 0.85, clamp01((t - blank.t0) / blank.dur)) : 1;
       const label = blank.anim === 'flip' ? (blank.place === 'up' ? fu < 0.5 : fu >= 0.5) : blank.place === 'rest';
       const cur = mode === 'free' && !busy(blank, t) && (writing || !blank.text) && !ended ? cursorAt(blank.cursorMM || { x: 10, y: CARD.h / 2 - TYPE.lead + 1.2 }, t) : {};
-      card.draw(vp, eye, P, { model: (snap.b = model(Gb, bp)), lod: 'fine', ink: label ? blank.labelInk : blank.ink, shade: dimB, fade: fadeB, ...blank.v, ...cur });
+      card.draw(vp, eye, P, { model: (snap.b = model(Gb, bp)), lod: 'fine', ink: label ? blank.labelInk : blank.ink, inkRG: !label && !!blank.inkRG, shade: dimB, fade: fadeB, ...blank.v, ...cur });
     }
     // prénom (à plat, en retrait) ; ses lettres s'éclairent quand on les tape ; tout s'allume à la fin
     if (nameText) {

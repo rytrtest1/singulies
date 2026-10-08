@@ -179,7 +179,7 @@ export function answerLines(text, max = TYPE.maxChars) {
 export const ANSWER_MARGIN = (CARD.w - TYPE.maxChars * TYPE.pitch) / 2;
 // first : première ligne visible (par défaut : les dernières, pour écrire ; 0 = le début, pour relire)
 // margin : marge gauche (mm) — celle de la question pour s'aligner sur elle ; la ligne ne touche jamais le bord droit
-export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null, margin = ANSWER_MARGIN) {
+export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null, margin = ANSWER_MARGIN, hint = null) {
   const PX = INK_PXMM, W = Math.round(CARD.w * PX), H = Math.round(CARD.h * PX);
   const cv = new OffscreenCanvas(W, H), cx = cv.getContext('2d');
   cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
@@ -224,7 +224,9 @@ export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null, margin
   }
   const last = lines.length - 1 - first;
   const cursor = { x: margin + lines[lines.length - 1].length * TYPE.pitch - 0.35, y: y0 + Math.max(0, last) * lead };
-  return { canvas: cv, lines, cursor, hidden: first, count: lines.length };
+  const hinted = !!(hint && !text);
+  if (hinted) hintLine(cx, PX, hint, margin, y0, CARD.w - margin - 6);
+  return { canvas: cv, lines, cursor, hidden: first, count: lines.length, hinted };
 }
 
 // Réponse tapée directement sur la carte, sous la question : même marge, un interligne exactement après la
@@ -288,7 +290,25 @@ export function makeQAInk(question, answer, seed = 1) {
 const XH = 0.42 * TYPE.size * TYPE.yScale;
 export const STRIP = 2 * TYPE.lead - XH, STRIP_BASE = CARD.h - STRIP + TYPE.lead;
 export const answerMax = margin => Math.max(8, Math.min(TYPE.maxChars, Math.floor((CARD.w - margin - 8.5) / TYPE.pitch)));
-export function makeStripInk(text, seed = 1, margin = ANSWER_MARGIN) {
+// invitation en grisé (tant que rien n'est écrit) : frappée en rouge seul — la carte d'encre RG la rend pâle ;
+// plus petite si elle ne tient pas dans la largeur
+function hintLine(cx, PX, text, x, base, maxW) {
+  const k = Math.min(1, maxW / (text.length * TYPE.pitch)), fontPx = TYPE.size * PX * k;
+  const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
+  const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;
+  const r = createRng(4242);
+  cx.save(); cx.globalCompositeOperation = 'lighter';
+  [...text].forEach((ch, ci) => {
+    if (ch === ' ') return;
+    gx.setTransform(1, 0, 0, 1, 0, 0); gx.clearRect(0, 0, glyph.width, glyph.height);
+    gx.font = fontPx + 'px "' + FAMILY + '"'; gx.fillStyle = '#f00';
+    gx.translate(ox, oyB); gx.scale(TYPE.xScale, TYPE.yScale); gx.fillText(ch, 0, 0);
+    cx.globalAlpha = 0.85 + 0.15 * r();
+    cx.drawImage(glyph, (x + ci * TYPE.pitch * k) * PX - ox, (base + (r() - 0.5) * 0.12) * PX - oyB);
+  });
+  cx.restore();
+}
+export function makeStripInk(text, seed = 1, margin = ANSWER_MARGIN, hint = null) {
   const PX = INK_PXMM, W = Math.round(CARD.w * PX), H = Math.round(CARD.h * PX);
   const cv = new OffscreenCanvas(W, H), cx = cv.getContext('2d');
   cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
@@ -323,5 +343,7 @@ export function makeStripInk(text, seed = 1, margin = ANSWER_MARGIN) {
     });
     idx += line.length + 1;
   }
-  return { canvas: cv, cursor: { x: margin + lines[n - 1].length * TYPE.pitch - 0.35, y: STRIP_BASE }, count: n };
+  const hinted = !!(hint && !text);
+  if (hinted) hintLine(cx, PX, hint, margin, STRIP_BASE, CARD.w - margin - 6);
+  return { canvas: cv, cursor: { x: margin + lines[n - 1].length * TYPE.pitch - 0.35, y: STRIP_BASE }, count: n, hinted };
 }
