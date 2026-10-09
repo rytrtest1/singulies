@@ -169,9 +169,12 @@ export async function mountPortal(opts = {}) {
       // (09/10) les cartes gardent la taille de celles des questions : pour tenir, elles se recouvrent davantage, puis
       // le paquet sort un peu par le bas ; plus petites seulement en tout dernier recours (pendant la donne, chaque
       // carte se pose d'abord à la place libre la plus proche : slideFor)
+      // (09/10, soir) le paquet du jeu toujours entier, en priorité : d'abord les cartes se resserrent (jusqu'à 34 % :
+      // au-delà, la carte du dessus couvrirait le texte de celle de dessous), puis moins d'écart avec le paquet, et
+      // seulement alors des cartes un peu plus petites — jamais le paquet coupé par le bas
       GAPD = 0.14;
       if (over() > 0) OV = Math.min(0.34, OV + over() / h / 2);
-      if (over() > 0) DS = Math.max(0.55, DS - over() / h);
+      if (over() > 0) GAPD = Math.max(0.06, GAPD - over() / h);
       if (over() > 0) h = avail / (spanOf() + GAPD + DS);
     } else {
       if (h * asp * spanOf() > W * 0.78) OV = Math.min(0.3, 1 - (W * 0.78 / (h * asp) - 1.14) / 2);
