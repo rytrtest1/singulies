@@ -13,6 +13,10 @@ import { typeLines } from './typewriter.js';
 export const ENV = { w: 229, h: 162, r: 0.8, t: 0.12 };
 export const ENV_BACK_H = 155, FLAP_H = 78, ENV_Z = -3;
 export const SEAL_D = 27, SEAL_K = 0.4, SEAL_IN = 10.2, SEAL_WOB = 0.1;   // cachet : diamètre (mm), logo ≈ 15 mm dans l'empreinte (rayon 10,2 : ≈ 75 % du cachet, d'après la référence du 09/10), bord à 5–6 lobes
+// le cachet : matière (argent sombre, satiné, grainé) et forme (réglées le 09/10 ; banc : cachet.html)
+export const SEAL_LOOK0 = { metal: 1, albedo: 0.03, env: 0.016, rough: 0.5, spec: 0.9, sheen: 0, glint: 0.8, grain: 1.7, fiber: 0.05, envSpec: 1.6, h: 0.18, b: 0.35, foot: 0.4, footW: 0.12, crease: 0.3, edge: 0, diffRough: 0.3 };
+// envAz : direction de la lampe sur l'enveloppe (en haut à gauche : le relief se lit bombé) ; lamp : sa distance (× cartes)
+export const SEAL_SHAPE0 = { hd: 0.5, hc: 1.2, crest: 0.5, ring: 0.06, pits: 2, cavWall: 0.7, cavEdge: 0.5, ao: 0.18, aoW: 0.8, marbre: 1.4, envAz: -0.8, lamp: 1.3 };
 // (le dos monte presque jusqu'en haut — la poche : rien ne se voit à l'intérieur une fois fermée)
 
 // ---- LE TABLEAU DES DURÉES (s) -----------------------------------------------------------------------------------

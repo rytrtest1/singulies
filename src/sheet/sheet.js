@@ -19,7 +19,7 @@ import { createRng } from '../field/rng.js';
 import { releaseCanvas } from '../app/compat.js';
 import { handName } from '../text/accents.js';
 import {
-  ENV, ENV_BACK_H, FLAP_H, ENV_Z, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, E, ADDR, SENDER, senderCount, PO, MAIL_W, FIELDS, emailOk, telOk,
+  ENV, ENV_BACK_H, FLAP_H, ENV_Z, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, E, ADDR, SENDER, senderCount, PO, MAIL_W, FIELDS, emailOk, telOk,
   fieldsReady, fieldsOut, contactOk, cleanContact, fieldPos, senderInk, fieldsInk, contactCardInk,
 } from './envelope.js';
 import { typeLines } from './typewriter.js';
@@ -53,7 +53,7 @@ const ORDERS_ON = new URLSearchParams(location.search).get('commande') === '1' |
 // ?adresse=0 (essai avec des amis, 06/10) : pas de choix ni d'adresse — après l'acrostiche, l'enveloppe se fait
 // et part seule, la demande est envoyée (sans adresse ni contact), puis l'écran principal
 export const NOADDR = new URLSearchParams(location.search).get('adresse') === '0';
-const ENV_LAMP = +new URLSearchParams(location.search).get('lampeEnv') || 1.3;   // distance de la lampe sur l'enveloppe (× celle des cartes)
+const ENV_LAMP = +new URLSearchParams(location.search).get('lampeEnv') || SEAL_SHAPE0.lamp;   // distance de la lampe sur l'enveloppe (× celle des cartes)
 
 const clamp01 = u => Math.min(1, Math.max(0, u));
 const sstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
@@ -99,9 +99,9 @@ export function createSheetScene(gl, opts) {
     seal: [1, SEAL_IN, SEAL_D / 2, SEAL_WOB] };
   // cire argentée (référence du 09/10) : argent satiné, clair, presque mat — reflet large et doux, fines paillettes ;
   // logo en relief arrondi
-  const SEAL_LOOK = { metal: 1, albedo: 0.03, env: 0.016, rough: 0.5, spec: 0.9, sheen: 0, glint: 0.8, grain: 1.7, fiber: 0.05, envSpec: 1.6, h: 0.18, b: 0.35, foot: 0.4, footW: 0.12, crease: 0.3, edge: 0, diffRough: 0.3 };
+  const SEAL_LOOK = { ...SEAL_LOOK0 };
   // forme du cachet et ce qui l'entoure (réglables : scene-cartes.html?cachet&reponse=…, panneau « cachet »)
-  const SEAL_SHAPE = { hd: 0.5, hc: 1.2, crest: 0.5, ring: 0.06, pits: 2, cavWall: 0.7, cavEdge: 0.5, ao: 0.18, aoW: 0.8, marbre: 1.4, envAz: +(new URLSearchParams(location.search).get('lampeAz') ?? -0.8),   // en haut à gauche : le relief se lit bombé (09/10)
+  const SEAL_SHAPE = { ...SEAL_SHAPE0, envAz: +(new URLSearchParams(location.search).get('lampeAz') ?? SEAL_SHAPE0.envAz),
     lamp: ENV_LAMP, zoom: 1, camDy: 0, rotX: 0, rotY: 0, lampAz: NaN, lampEl: NaN };
   const sealPQ = () => ({ sealP: [SEAL_SHAPE.hd, SEAL_SHAPE.hc, SEAL_SHAPE.crest, SEAL_SHAPE.ring], sealQ: [SEAL_SHAPE.pits, SEAL_SHAPE.cavWall, SEAL_SHAPE.cavEdge, SEAL_SHAPE.aoW] });
   const botV = { ...pv(), noLogo: true, warp: [0, 0, 0] };
