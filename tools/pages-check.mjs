@@ -1,0 +1,24 @@
+// Les pages partagées (09/10) : poeme.html → directement le champ ; jeu.html → le jeu par-dessus le portail ;
+// l'adresse suit (portail → « poeme », jeu → « jeu », retour → la racine). Version compilée. node tools/pages-check.mjs
+import { preview } from 'vite';
+import { chromium } from 'playwright';
+const server = await preview({ preview: { port: 5189, strictPort: true, host: 'localhost' }, logLevel: 'error' });
+const browser = await chromium.launch({ headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
+const B = 'http://localhost:5189/';
+const out = {};
+const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const errs = []; page.on('pageerror', e => errs.push(String(e)));
+await page.goto(B + 'poeme.html'); await page.waitForTimeout(3500);
+out.poeme = await page.evaluate(() => ({ portal: window.__sg.S.portal, phase: window.__sg.S.phase, portalEl: !!document.getElementById('portal') }));
+await page.goto(B + 'jeu.html'); await page.waitForTimeout(5000);
+out.jeu = await page.evaluate(() => ({ url: location.pathname, jeu: !!document.getElementById('jeu') || !!document.querySelector('.sp-jeu') }));
+await page.goto(B); await page.waitForFunction(() => window.__sg?.portal?.readyFired, null, { timeout: 120000 });
+await page.evaluate(() => window.__sg.portal.seek?.(30));
+const r = await page.evaluate(() => { const r = window.__sg.portal.rect('poeme'); return [r.left + r.width / 2, r.top + r.height / 2]; });
+await page.mouse.click(r[0], r[1]); await page.waitForTimeout(1200);
+out.versPoeme = await page.evaluate(() => location.pathname);
+await page.keyboard.press('Escape'); await page.waitForTimeout(800);
+out.retour = await page.evaluate(() => location.pathname);
+out.errs = errs;
+console.log(JSON.stringify(out));
+await browser.close(); await new Promise(r => server.httpServer.close(r));

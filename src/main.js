@@ -24,6 +24,10 @@ const P = new URLSearchParams(location.search);
 // ?simple=1 : tout en simple ; ?simple=suite : le vrai champ de prénoms, puis la suite en simple
 const SIMPLE = P.get('simple') === '1' ? 'all' : P.get('simple') === 'suite' ? 'suite' : null;
 const simpleModule = () => import('./simple/simple.js');
+// les pages qu'on partage (09/10) : poeme.html (directement le champ), jeu.html (le jeu, par-dessus le portail) ;
+// chacune a sa vignette. L'adresse suit ce qu'on regarde (on partage donc ce qu'on voit).
+const PAGE = document.documentElement.dataset.page || '';
+const showPath = p => { try { history.replaceState(history.state, '', new URL(p, document.baseURI)); } catch { /* */ } };
 const CFG = {
   caseMode: P.get('case') === 'lower' ? 'lower' : 'upper',
   grain: P.get('grain') === '0' ? 0 : P.get('grain') === '1' ? 2 : 1,   // 0 noir pur, 1 fond uni (défaut), 2 grain
@@ -38,7 +42,7 @@ const CFG = {
   voice: P.get('saisie') === 'voix',   // « dis ou écris ton prénom » (essai)
   // portail (05/10) : ETERNEL + les cartes du jeu (ton prénom ton poème, la lettre, les livres, le jeu) avant le
   // champ ; ?portail=0 → directement le champ (tests)
-  portal: P.get('portail') !== '0',
+  portal: P.get('portail') !== '0' && document.documentElement.dataset.page !== 'poeme',
 };
 const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
@@ -222,7 +226,7 @@ function backToStart() {
   if (cardsReady && cardsReady !== 'failed') { cardsReady.canvas.style.transition = 'opacity 1.1s ease'; cardsReady.canvas.style.opacity = '0'; }
   clearValidated();
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  Promise.all([wait(1200), Promise.race([settled().catch(() => {}), wait(2500)])]).finally(() => location.reload());   // (une demande pas partie est gardée : elle repart à la visite suivante)
+  Promise.all([wait(1200), Promise.race([settled().catch(() => {}), wait(2500)])]).finally(() => location.replace(new URL('./', document.baseURI)));   // (une demande pas partie est gardée : elle repart à la visite suivante)
 }
 // retour depuis le paquet : l'accueil, prénom confirmé (comme un visiteur qui revient)
 function exitCards() { clearValidated(); location.reload(); }
@@ -293,6 +297,8 @@ function noCards() {
 
 function goBack() {
   if (S.phase === 'input' && portal && !S.portal && S.trans == null) { toPortal(); return; }
+  // page « poème » ouverte directement (lien partagé) : le retour mène au portail
+  if (S.phase === 'input' && !portal && PAGE === 'poeme' && S.trans == null) { location.href = new URL('./', document.baseURI).href; return; }
   if (S.phase === 'input' || S.phase === 'scene') return;
   document.getElementById('nocards')?.remove();
   clearStored();             // le prénom mémorisé est effacé, il reste affiché pour cette visite
@@ -649,20 +655,23 @@ function enterFromPortal() {
   input.readOnly = false; input.classList.remove('rest');
   // pas de focus automatique : le clavier ne sort que si l'on touche la zone du curseur (Maxence 05/10)
   setTimeout(() => { if (!S.portal) backEl.classList.add('on'); }, 1500);
+  showPath('poeme');
   portalGo?.();
   if (booted && !rafId && !document.hidden) { last = 0; rafId = requestAnimationFrame(frame); }
 }
 // retour (flèche, Échap) depuis le champ : le portail revient, le champ s'arrête une fois couvert
 function toPortal() {
-  S.portal = true;
+  S.portal = true; showPath('./');
   input.blur(); backEl.classList.remove('on');
   portal.show();
   setTimeout(() => { if (S.portal) { cancelAnimationFrame(rafId); rafId = 0; } }, 1000);
 }
 // « le jeu » : sa page par-dessus le portail (qui s'arrête une fois couvert) ; retour = le portail, qui redistribue
 function openJeu() {
-  const simple = () => simpleModule().then(m => m.mountSimpleJeu({ onBack: () => portal?.show() }));
-  import('./jeu/jeu.js').then(({ mountJeu }) => SIMPLE === 'all' ? null : mountJeu({ base: './', reduced: CFG.reduced, onBack: () => portal?.show() }))
+  showPath('jeu');
+  const backToPortal = () => { showPath('./'); portal?.show(); };
+  const simple = () => simpleModule().then(m => m.mountSimpleJeu({ onBack: backToPortal }));
+  import('./jeu/jeu.js').then(({ mountJeu }) => SIMPLE === 'all' ? null : mountJeu({ base: './', reduced: CFG.reduced, onBack: backToPortal }))
     .then(j => j || simple())                                    // sans WebGL2 : le jeu en version simple
     .catch(e => { console.warn('jeu', e); return simple(); })
     .then(j => { if (j) setTimeout(() => portal?.hide(), 1000); })
@@ -691,6 +700,7 @@ async function boot() {
   let gate = null;
   if (CFG.portal && S.phase === 'input') {
     gate = mountPortalPage();
+    if (PAGE === 'jeu') openJeu();                      // lien partagé vers le jeu : il s'ouvre par-dessus le portail
     // après la donne des cartes (dernière posée à ≈ 5,1 s) + un temps : la préparation du champ (lourde, ≈ 0,1–0,3 s
     // d'un bloc) faisait hoqueter la 3e carte juste avant qu'elle se pose (06/10) ; elle tombe maintenant au repos
     await Promise.race([gate.ready.then(() => new Promise(r => setTimeout(r, 6400))), gate.go]);
@@ -730,6 +740,7 @@ async function boot() {
   if (S.phase === 'black') { S.phaseAt = 0; enterBlack(true); }
   // pas de focus automatique à l'ouverture (ordinateur : une touche de lettre donne le focus au champ)
   booted = true;
+  if (PAGE === 'poeme' && S.phase === 'input') setTimeout(() => backEl.classList.add('on'), 1500);
   if (gate) await gate.go;
   if (!rafId) rafId = requestAnimationFrame(frame);
 }

@@ -160,7 +160,67 @@
     return out;
   }
 
+  // ---- les vignettes de partage (09/10, une par page) : 1200 × 630, rendues par le moteur ----
+  // l'image GL, puis par-dessus (Canvas 2D) les lettres ; c = canvas de sortie
+  async function compose(draw2d) {
+    const url0 = grab(); const img = new Image(); img.src = url0; await img.decode();
+    const c = document.createElement('canvas'); c.width = canvas.width; c.height = canvas.height;
+    const x = c.getContext('2d'); x.drawImage(img, 0, 0); draw2d(x);
+    return c.toDataURL('image/jpeg', 0.9);
+  }
+  const garamond = (x, txt, px, cx, cy, col = 'rgb(174,174,174)', ls = 0.45) => {
+    x.font = `500 ${px}px "SG Garamond"`; x.fillStyle = col; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+    try { x.letterSpacing = (px * ls) + 'px'; } catch { /* */ }
+    x.fillText(txt, cx + px * ls / 2, cy);
+  };
+  // accueil : ETERNEL, et le logo SS gaufré en grand, en fond (le label)
+  async function ogAccueil() {
+    card.addShape('fond', { w: 420, h: 220, r: 0.5, t: 0.2, fine: null });
+    const { vp, eye, P } = view(1200, 630, 420, 1.0);
+    card.draw(vp, eye, { ...P, h: 0.5 }, { model: M4.model(0, 0, 0), lod: 'fond', seed: 9, paperXf: [0, 0, 0, 0], warp: [0, 0, 0],
+      logoOff: [0, 0], logoScale: [4.4, 4.4], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35 });
+    return compose(x => garamond(x, 'ETERNEL', 64, 600, 338));
+  }
+  // le poème : la feuille noire, ETERNEL en colonne, les lignes à écrire
+  async function ogPoeme() {
+    card.addShape('sheet', { ...SHEET, fine: [10, 10, 0.25, 0, LOGO_Y] });
+    const pxmmT = 630 * 0.94 / SHEET.h, frac = SHEET.w * pxmmT / 1200;
+    const { vp, eye, P, pxmm } = view(1200, 630, SHEET.w, frac);
+    const word = 'ETERNEL', n = word.length, lead = Math.min(10.5, 148 / (n - 1)), cap = Math.min(6.4, lead * 0.6);
+    const COLX = -SHEET.w / 2 + 34, base = k => ((n - 1) / 2 - k) * lead - cap / 2;
+    const list = [...word].map((ch, k) => [base(k) - 0.9, COLX + cap * 1.05 + 2.54 * 1.2, 1, k + 1]);
+    card.draw(vp, eye, P, { model: M4.model(0, 0, 0), lod: 'sheet', seed: 41, paperXf: [1.2, -0.6, 0, 0], warp: [0.45, -0.25, 0.05],
+      logoOff: [0, LOGO_Y], logoScale: [LOGO_K, LOGO_K], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35, rules: { list, x1: SHEET.w / 2 - 30, a: 0.42 } });
+    return compose(x => {
+      const fs = cap / 0.65 * pxmm;
+      [...word].forEach((ch, k) => { x.font = `500 ${fs}px "SG Garamond"`; x.fillStyle = 'rgb(214,214,214)'; x.textAlign = 'left'; try { x.letterSpacing = '0px'; } catch { /* */ }
+        x.fillText(ch, 600 + COLX * pxmm, 315 - base(k) * pxmm); });
+    });
+  }
+  // le jeu : le paquet en 3D, « le jeu » tapé au dos de la carte du dessus, SINGULIES au-dessus
+  async function ogJeu() {
+    canvas.width = 1200; canvas.height = 630;
+    const W = 1200, H = 630, pxmm = W * 0.36 / CARD.w, Hw = H / pxmm, D = Hw / (2 * Math.tan(FOV / 2));
+    const eye = [0, -D * Math.sin(TILT), D * Math.cos(TILT)], cy = -12;
+    const vp = M4.mul(M4.perspective(FOV, W / H, D * 0.3, D * 3), M4.lookAt(eye, [0, cy, 0], [0, 1, 0]));
+    const k = Hw / 235, R = L.lightR0 * Hw, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R), az = L.lightAz + 0.35, el = L.elBase;
+    const P = { ...L, lightPos: [Math.cos(az) * D0 * Math.cos(el), Math.sin(az) * D0 * Math.cos(el), D0 * Math.sin(el)], light: L.light * k * k * Math.sin(el0) / Math.sin(el), spotI: 0 };
+    gl.viewport(0, 0, W, H); gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
+    const ink = card.makeInk(makeInkMap('le jeu', 21).canvas);
+    for (let i = 0; i < 12; i++) {
+      const j = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(i + 3);
+      const top = i === 11;
+      card.draw(vp, eye, P, { model: M4.model(0, 0, (j() - 0.5) * 0.09, (j() - 0.5) * 3.2, cy - (11 - i) * 0.7 + (j() - 0.5) * 1.2, i * 0.36), lod: top ? 'fine' : 'coarse',
+        seed: 10 + i, paperXf: [j() * 3 - 1.5, j() * 2 - 1, 0, 0], warp: [0.18, -0.08, 0.04], logoOff: [0, 0], shade: 0.55 + 0.45 * (i + 1) / 12,
+        ...(top ? { inkBack: ink } : {}) });
+    }
+    const out = await compose(x => garamond(x, 'SINGULIES', 44, 600, 92));
+    card.freeInk(ink);
+    return out;
+  }
+
   window.__assets = {
+    vignettes: async () => [['og.jpg', await ogAccueil()], ['og-poeme.jpg', await ogPoeme()], ['og-jeu.jpg', await ogJeu()]],
     simple,
     og: ogShot,
     questions: QUESTIONS.map(q => q.id),
