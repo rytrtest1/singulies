@@ -222,7 +222,10 @@ export async function mountJeu(opts = {}) {
     gl.enable(gl.DEPTH_TEST);
     const qp = question ? poseOf(question, t) : null;
     const occ = question && !question.anim ? { x: qp.x, y: qp.y, z: qp.z, rz: qp.rz } : null;
-    for (let i = 0; i < STACK; i++) card.draw(vp, eye, P, { model: model(Gq, deckPose(i, stack[i])), lod: i === STACK - 1 ? 'fine' : 'coarse', shade: 0.55 + 0.45 * (i + 1) / STACK, fade: intro, occ, ...stack[i] });
+    // effleurer (09/10) : le paquet et « commander » se soulèvent un peu sous la souris
+    hov.deck += ((hovOn === 'deck' ? 1 : 0) - hov.deck) * Math.min(1, dt * 9); hov.buy += ((hovOn === 'buy' ? 1 : 0) - hov.buy) * Math.min(1, dt * 9);
+    const dLift = reduced ? 0 : 2.2 * hov.deck;
+    for (let i = 0; i < STACK; i++) card.draw(vp, eye, P, { model: model(Gq, i === STACK - 1 ? { ...deckPose(i, stack[i]), z: deckPose(i, stack[i]).z + dLift } : deckPose(i, stack[i])), lod: i === STACK - 1 ? 'fine' : 'coarse', shade: 0.55 + 0.45 * (i + 1) / STACK, fade: intro, occ, ...stack[i] });
     for (const c of leaving) card.draw(vp, eye, P, { model: model(Gq, poseOf(c, t)), lod: 'fine', ink: c.ink, fade: intro, ...c.v });
     if (question) card.draw(vp, eye, P, { model: model(Gq, qp), lod: 'fine', ink: question.ink, fade: intro, ...question.v });
     // « commander » : apparaît après la première question ; sautille après la troisième (quand rien ne bouge)
@@ -237,14 +240,15 @@ export async function mountJeu(opts = {}) {
     const idle = t - Math.max(lastGesture + 2, firstAt + 3);
     if (!reduced && !buy.anim && shown >= 3 && idle > 0) dz += hop(idle % 5);
     buy.press += ((pressBuy ? 1 : 0) - buy.press) * Math.min(1, dt * 14);
-    bp = { ...bp, y: bp.y - 20 * (1 - bIn), z: bp.z + dz - 0.5 * buy.press - 20 * (1 - bIn) };
+    bp = { ...bp, y: bp.y - 20 * (1 - bIn), z: bp.z + dz - 0.5 * buy.press + (reduced ? 0 : 2.2 * hov.buy) - 20 * (1 - bIn) };
     if (bIn > 0.004) card.draw(vp, eye, P, { model: model(Gb, bp), lod: 'fine', ink: buy.ink, inkBack: buy.anim ? soonInk : null, fade: intro * bIn, shade: 1 - L.unfocusDim * 0.5, ...buy.v });
     quads.deck = screenQuad({ ...deckPose(STACK - 1, stack[STACK - 1]), z: FACE_Z });
     quads.buy = bIn > 0.6 ? screenQuad(buyPose()) : null;
     place(deckBtn, quads.deck); place(buyBtn, quads.buy);
     backEl.classList.toggle('on', t - startT > 1.5);
   }
-  let firstAt = 1e9, pressBuy = false;
+  let firstAt = 1e9, pressBuy = false, hovOn = null;
+  const hov = { deck: 0, buy: 0 };
   const inside = (q, x, y) => {
     if (!q) return false;
     let s = 0;
@@ -259,6 +263,10 @@ export async function mountJeu(opts = {}) {
   let down = null;
   canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, moved: false }; pressBuy = inside(quads.buy, e.clientX, e.clientY); });
   addEventListener('pointermove', e => {
+    if (!down && visible && e.pointerType === 'mouse') {
+      hovOn = inside(quads.buy, e.clientX, e.clientY) ? 'buy' : inside(quads.deck, e.clientX, e.clientY) ? 'deck' : null;
+      canvas.style.cursor = hovOn ? 'pointer' : '';
+    }
     if (!down || !visible) return;
     const dx = e.clientX - down.x;
     if (!down.moved && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(e.clientY - down.y)) down.moved = true;

@@ -483,7 +483,10 @@ export async function mountCards(opts) {
   // demande), souris sur ordinateur, doigt en repli ----
   let down = null, gyroLive = false;
   const ptr = { x: 0, y: 0 };
-  canvas.addEventListener('pointerdown', e => { if (!started) return; if (sheet) { sheet.press(e.clientX, e.clientY); down = { x: e.clientX, y: e.clientY, sheet: true, d: 0, t: performance.now() }; return; } down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false, on: scene.hitAt(e.clientX, e.clientY) }; });
+  canvas.addEventListener('pointerdown', e => { if (!started) return; if (sheet) { sheet.press(e.clientX, e.clientY); down = { x: e.clientX, y: e.clientY, sheet: true, d: 0, t: performance.now() }; return; } down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, v: false, on: scene.hitAt(e.clientX, e.clientY) }; scene.setPress(down.on); if (e.pointerType !== 'mouse') scene.setHover(down.on); });
+  // effleurer (09/10) : la souris au-dessus d'une carte qu'on peut toucher la soulève un peu (et la main apparaît)
+  canvas.addEventListener('pointerleave', () => { if (!sheet) { scene.setHover(null); scene.setPress(null); } canvas.style.cursor = ''; });
+  addEventListener('pointercancel', () => { scene.setPress(null); scene.setHover(null); });
   // premier geste : si l'écriture attend le clavier, on l'ouvre (iPhone)
   addEventListener('touchend', e => { if (isField(e.target)) return; if (started && (sheet ? sheet.state().env?.writing : scene.state().writing)) focusAnswer(); }, { passive: true });
   // relire la réponse validée : molette
@@ -509,6 +512,7 @@ export async function mountCards(opts) {
       if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(e.clientX - down.x) && Math.sign(dy) !== down.d) { down.d = Math.sign(dy); down.moved = true; sheet?.scroll(dy < 0 ? -1 : 1, now()); sheet?.release(); }
       return;
     }
+    if (!down && !sheet && e.pointerType === 'mouse') { const id = scene.hitAt(e.clientX, e.clientY); scene.setHover(id); canvas.style.cursor = id ? 'pointer' : ''; }
     if (down) {
       const dx = e.clientX - down.x, dy = e.clientY - down.y;
       if (!down.moved && !down.v && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) down.moved = true;
@@ -527,6 +531,7 @@ export async function mountCards(opts) {
     ptr.x = Math.max(-1, Math.min(1, ox / (innerWidth * 0.3))); ptr.y = Math.max(-1, Math.min(1, -oy / (innerHeight * 0.3)));
   });
   canvas.addEventListener('pointerup', e => {
+    scene.setPress(null); if (e.pointerType !== 'mouse') scene.setHover(null);
     if (!down) return;
     if (down.sheet) { const mv = down.moved, f = down; down = null;
       if (isFlick(e.clientX - f.x, e.clientY - f.y, performance.now() - f.t)) flickUp(); sheet?.release(); if (!mv && sheet) { const r = sheet.tap(e.clientX, e.clientY, now()); if (r.type) log(r.type); } return; }

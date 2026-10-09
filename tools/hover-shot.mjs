@@ -1,0 +1,20 @@
+// Effleurer (09/10) : la souris au-dessus d'une carte la soulève un peu. node tools/hover-shot.mjs → captures/hover/*.png
+import { createServer } from 'vite';
+import { chromium } from 'playwright';
+import { mkdirSync } from 'fs';
+const PORT = 5186;
+const server = await createServer({ server: { port: PORT, strictPort: true, host: 'localhost' }, logLevel: 'error' });
+await server.listen();
+const browser = await chromium.launch({ headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
+mkdirSync('captures/hover', { recursive: true });
+const page = await browser.newPage({ viewport: { width: 1000, height: 800 } });
+const errs = []; page.on('pageerror', e => errs.push(String(e)));
+await page.goto(`http://localhost:${PORT}/scene-cartes.html?prenom=LEA&seed=3&envoi=0`);
+await page.waitForFunction(() => window.__scene && window.__scene.ready);
+await page.waitForTimeout(3500);
+await page.mouse.move(20, 780); await page.waitForTimeout(600); await page.screenshot({ path: 'captures/hover/rien.png' });
+const r = await page.evaluate(() => window.__scene.scene.cardRect());
+await page.mouse.move((r.left + r.right) / 2, (r.top + r.bottom) / 2); await page.waitForTimeout(700);
+await page.screenshot({ path: 'captures/hover/question.png' });
+console.log(JSON.stringify({ cursor: await page.evaluate(() => document.querySelector('canvas').style.cursor), errs }));
+await browser.close(); await server.close();

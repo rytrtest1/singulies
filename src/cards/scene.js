@@ -116,6 +116,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
 
   // ---------- animations ----------
   let dragX = 0, dragging = false;
+  let hovId = null, prId = null;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const hovA = {}, prA = {}, lift = id => 2.2 * (hovA[id] || 0) - 1.1 * (prA[id] || 0);
   const busy = (c, t) => !!(c && c.anim && t - c.t0 < c.dur);
   // carte réponse : 'peek' (dépasse d'une ligne sous la question, on écrit), 'below' (sortie dessous, validée),
   // 'center' (thème libre, à la place de la question)
@@ -461,6 +464,16 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       }
       if ((ended.kind === 'theme' || mode === 'free') && ended.aFrom) bp = recede(ended.aFrom);   // la carte vierge écrite s'éloigne seule
     }
+    // effleurer (09/10) : la carte sous la souris se soulève un peu, sous le doigt elle s'enfonce — on sent qu'elle répond
+    for (const id of ['question', 'answer', 'blank', 'deck']) {
+      hovA[id] = (hovA[id] || 0) + ((hovId === id ? 1 : 0) - (hovA[id] || 0)) * Math.min(1, dt * 9);
+      prA[id] = (prA[id] || 0) + ((prId === id ? 1 : 0) - (prA[id] || 0)) * Math.min(1, dt * 16);
+    }
+    if (!ended && !reduced) {
+      if (question) qp = { ...qp, z: qp.z + lift('question') };
+      if (anp && answer.place !== 'peek') anp = { ...anp, z: anp.z + lift('answer') };   // (glissée sous la question : elle y reste)
+      if (bp) bp = { ...bp, z: bp.z + lift('blank') };
+    }
     const ap = focusAns > 0.5 ? (mode === 'free' ? bp : anp) || qp : qp;      // carte en focus : la lampe et le projecteur la suivent
     const R = L.lightR0 * lay.Hw, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R), ln = Math.hypot(lp.x, lp.y) || 1;
     const el = lamp.e;
@@ -505,6 +518,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const n = fadeD > 0.01 ? visibleStack() : 0;
     for (let i = 0; i < n; i++) {
       const v = stack[STACK - n + i], p = deckPose(i, v);
+      if (i === n - 1 && !ended && !reduced) p.z += lift('deck');
       card.draw(vp, eye, P, { model: model(Gq, p), lod: i === n - 1 ? 'fine' : 'coarse', shade: (0.55 + 0.45 * (i + 1) / n) * dimQ, fade: fadeD, occ: ended ? null : occQ, ...v });
     }
     for (const c of leaving) card.draw(vp, eye, P, { model: model(Gq, poseOf(c, t)), lod: 'fine', ink: c.ink, shade: dimQ, fade: fadeQ, ...c.v });
@@ -702,7 +716,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function setKeyboard(px) { kbPx = px; }
   function setBreath(x, y) { breath.x = x; breath.y = y; }
   return {
-    frame, tap, drag, release, give, pass, back, start, prepare, reopen, snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
+    frame, tap, drag, release, give, pass, back, start, prepare, reopen, snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
     state: () => ({ freeFor: mode === 'free' ? lastT - freeT : 0, hasPrev: hasPrev(), idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),
