@@ -293,22 +293,30 @@ export async function mountPortal(opts = {}) {
     return rest;
   }
 
+  // distance à l'œil où la carte, vue de face, déborde l'écran (portrait : sa largeur ; paysage : sa hauteur)
+  function fillDist() {
+    const tf = Math.tan(FOV / 2), a = (lay.W || 1) / (lay.H || 1);
+    return Math.min((CARD.w / 2) / (tf * a * 1.12), (CARD.h / 2) / (tf * 1.08));
+  }
   // ---- choix ----
   function choose(c) {
     const t = now();
     if (!c || leaving || !landed(c, t)) return;
     lastGesture = t;
+    // (09/10) la carte touchée mène à la suite : on « entre » dans la carte du poème (et dans celle d'un lien) — elle
+    // vient vers soi, de face, jusqu'à remplir l'écran, son papier noir devient le noir de la page suivante ; le jeu :
+    // le paquet glisse au milieu et s'enfonce dans le fond, d'où sa page le fait revenir
+    const enter = kind => { leaving = { c, t0: t, kind, from: cards.map(k => poseOf(k, t)), M0: c.lastM, dEnd: fillDist() }; root.classList.add('off', 'leaving'); root.inert = true; };
     if (c.id === 'poeme') {
-      leaving = { c, t0: t, from: cards.map(k => poseOf(k, t)) };
-      root.classList.add('off', 'leaving'); root.inert = true;
+      enter('into');
       opts.onPoem?.();                  // dans le geste : la page ouvre le clavier
       setTimeout(() => { if (leaving) { visible = false; stop(); } }, (LEAVE_T + 0.2) * 1000);
       return;
     }
     const url = LINKS[c.id];
-    if (url) { location.href = url; return; }
-    // le jeu : sa page, dans le même monde (jeu/jeu.js) — proposition ; la page la recouvre, le portail s'arrête
-    if (c.id === 'jeu' && opts.onJeu) { opts.onJeu(); return; }
+    if (url) { enter('into'); setTimeout(() => { location.href = url; }, reduced ? 0 : 1050); return; }
+    // le jeu : sa page, dans le même monde (jeu/jeu.js) ; elle se fond par-dessus pendant que le paquet s'éloigne
+    if (c.id === 'jeu' && opts.onJeu) { enter('deck'); setTimeout(() => opts.onJeu(), reduced ? 0 : 650); return; }
     if (cards.some(k => k.anim)) return;          // une seule carte se retourne à la fois
     if (!soonInk) soonInk = inkOf('bientôt', c.v);
     c.anim = { t0: t, off: slideFor(c) };
@@ -411,7 +419,7 @@ export async function mountPortal(opts = {}) {
 
     const D = lay.D;
     eye = [0, -D * Math.sin(TILT), D * Math.cos(TILT)];
-    vp = M4.mul(M4.perspective(FOV, W / H, D * 0.3, D * 3), M4.lookAt(eye, [0, 0, 0], [0, 1, 0]));
+    vp = M4.mul(M4.perspective(FOV, W / H, leaving && leaving.kind === 'into' ? Math.min(D * 0.3, leaving.dEnd * 0.6) : D * 0.3, D * 3), M4.lookAt(eye, [0, 0, 0], [0, 1, 0]));
     // lumière : celle de la scène des cartes (mêmes formules, rapportées à l'écran) ; la lampe en orbite autour du
     // milieu (toutes les cartes se lisent), le projecteur sur la carte éclairée (rapporté à la taille d'une carte)
     const Hw = 2 * D * Math.tan(FOV / 2), k = Hw / 235;
@@ -458,7 +466,8 @@ export async function mountPortal(opts = {}) {
       if (c.anim && t - c.anim.t0 > 2 * FLIP_T + HOLD + 0.05) c.anim = null;
     }
     const jeu = cards[JEU], sj = lay.slot[JEU];
-    const Gdeck0 = M4.mul(Gin, group(sj.x, sj.y, jeu.bph, leaving ? 0 : jeu.w, jeu.bf));
+    let Gdeck0 = M4.mul(Gin, group(sj.x, sj.y, jeu.bph, leaving ? 0 : jeu.w, jeu.bf));
+    if (leaving && leaving.kind === 'deck' && !reduced) { const e = ease(clamp01(lu / 0.9)); Gdeck0 = M4.mul(M4.model(0, 0, 0, -sj.x * e, -sj.y * e, -110 * e * e), Gdeck0); }
     const Gdeck = leaving && leaving.c !== jeu ? recede(Gdeck0) : Gdeck0;
 
     for (const c of cards) {
@@ -478,7 +487,7 @@ export async function mountPortal(opts = {}) {
       if (onDeck || c.i === JEU) G = c === leaving?.c ? Gdeck0 : Gdeck;
       else G = M4.mul(Gin, group(s.x, s.y, c.bph, leaving ? 0 : c.w, c.bf));
       if (leaving) {
-        if (c === leaving.c) fade *= 1 - sstep(0.45, 1, lu);
+        if (c === leaving.c) fade *= leaving.kind === 'into' && !reduced ? 1 : 1 - sstep(0.45, 1, lu);
         else { fade *= 1 - away; if (c.i !== JEU) G = recede(G); }
       }
       // l'encre change quand le recto est caché (tour « bientôt »)
@@ -490,7 +499,13 @@ export async function mountPortal(opts = {}) {
       // l'ombre suit la carte telle qu'elle est dessinée (table inclinée, respiration : image précédente) — sinon, en
       // inclinant le téléphone, l'ombre restait en place et dessinait le contour de la carte à côté de la vraie (06/10)
       const occ = nx && !leaving && landed(nx, t) && !nx.anim && nx.lastM ? { m: nx.lastM } : null;
-      const Mc = model(G, p); c.lastM = Mc;
+      let Mc = model(G, p);
+      if (leaving && c === leaving.c && leaving.kind === 'into' && leaving.M0 && !reduced) {
+        const e = ease(clamp01(lu / 0.95)), D = lay.D, dir = eye.map(v => v / Math.hypot(...eye)), k = D - leaving.dEnd;
+        const Mt = M4.mul(M4.model(TILT, 0, 0, dir[0] * k, dir[1] * k, dir[2] * k), M4.model(0, Math.PI, 0));
+        Mc = new Float32Array(16); for (let i = 0; i < 16; i++) Mc[i] = leaving.M0[i] + (Mt[i] - leaving.M0[i]) * e;
+      }
+      c.lastM = Mc;
       if (fade > 0.01) card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink, inkBack, shade: dim, fade, ...c.v, curl: [-1, 1, -0.3 * c.curlA], occ });
       // bouton : rectangle écran de la carte au repos
       const rp = restPose(c);
