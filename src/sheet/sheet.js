@@ -53,7 +53,7 @@ const ORDERS_ON = new URLSearchParams(location.search).get('commande') === '1' |
 // ?adresse=0 (essai avec des amis, 06/10) : pas de choix ni d'adresse — après l'acrostiche, l'enveloppe se fait
 // et part seule, la demande est envoyée (sans adresse ni contact), puis l'écran principal
 export const NOADDR = new URLSearchParams(location.search).get('adresse') === '0';
-const ENV_LAMP = +new URLSearchParams(location.search).get('lampeEnv') || 1.3;   // distance de la lampe sur l'enveloppe (× celle des cartes)
+const ENV_LAMP = +new URLSearchParams(location.search).get('lampeEnv') || 0.95;   // distance de la lampe sur l'enveloppe (× celle des cartes)
 
 const clamp01 = u => Math.min(1, Math.max(0, u));
 const sstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
@@ -99,9 +99,9 @@ export function createSheetScene(gl, opts) {
     seal: [1, SEAL_IN, SEAL_D / 2, SEAL_WOB] };
   // cire argentée (référence du 09/10) : argent satiné, clair, presque mat — reflet large et doux, fines paillettes ;
   // logo en relief arrondi
-  const SEAL_LOOK = { albedo: 0.3, env: 0.18, rough: 0.45, spec: 9, sheen: 0.25, glint: 0.5, grain: 1.1, fiber: 0.035, envSpec: 1.8, h: 0.24, b: 0.28, foot: 0.35, footW: 0.12, crease: 0.12, edge: 0, diffRough: 0.5 };
+  const SEAL_LOOK = { albedo: 0.24, env: 0.02, rough: 0.08, spec: 40, sheen: 0, glint: 4, grain: 3.65, fiber: 0.018, envSpec: 6, h: 0.24, b: 0.39, foot: 0.41, footW: 0.12, crease: 0, edge: 0, diffRough: 0 };   // réglé par Maxence (09/10, ?cachet)
   // forme du cachet et ce qui l'entoure (réglables : scene-cartes.html?cachet&reponse=…, panneau « cachet »)
-  const SEAL_SHAPE = { hd: 0.55, hc: 1.5, crest: 0.42, ring: 0.08, pits: 1, cavWall: 0.5, cavEdge: 0.45, ao: 0.25, aoW: 0.9, marbre: 0.7,
+  const SEAL_SHAPE = { hd: 0.3, hc: 1.3, crest: 0.59, ring: 0.12, pits: 4, cavWall: 0.59, cavEdge: 0.16, ao: 0, aoW: 0.1, marbre: 0.7,
     lamp: ENV_LAMP, zoom: 1, camDy: 0, lampAz: NaN, lampEl: NaN };
   const sealPQ = () => ({ sealP: [SEAL_SHAPE.hd, SEAL_SHAPE.hc, SEAL_SHAPE.crest, SEAL_SHAPE.ring], sealQ: [SEAL_SHAPE.pits, SEAL_SHAPE.cavWall, SEAL_SHAPE.cavEdge, SEAL_SHAPE.aoW] });
   const botV = { ...pv(), noLogo: true, warp: [0, 0, 0] };
