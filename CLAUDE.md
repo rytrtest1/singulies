@@ -135,6 +135,15 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - **Sans WebGL2 / cartes en échec** : plus de noir sans issue — *ton téléphone n'arrive pas / à montrer la suite. / écris-moi ton prénom : @e.t.ernel* (`noCards` dans main.js).
 - **Pages partagées et vignettes** (09/10) : `index.html` (ETERNEL + logo SS gaufré en fond, `og.jpg`), `poeme.html` → `/poeme` (directement le champ ; la feuille, ETERNEL en colonne, `og-poeme.jpg`), `jeu.html` → `/jeu` (le jeu par-dessus le portail ; le paquet, SINGULIES, `og-jeu.jpg`). L'adresse suit ce qu'on regarde (`showPath` dans main.js). Vignettes : `node tools/og-image.mjs`. Adresses absolues github.io : à changer avec le nom de domaine. Lettre : vignette à faire quand sa page existera.
 
+## Retours du 09/10 (après la revue)
+- **Prénom : clavier fermé = la suite** (OK de l'iPhone, Entrée, toucher ailleurs, prénom proposé par le clavier) : la transition part 1 s après, **sauf si l'on retouche le prénom** dans cette seconde (le clavier revient, on corrige). Pas quand on quitte l'onglet, ni pour la flèche retour.
+- Carte réponse : *ta réponse est le thème*.
+- **Glisser la question vers la droite** : la précédente revient un peu du bord gauche avec le doigt (sous la question), et repart de là si l'on lâche.
+- **Effleurer** : dans les cartes et sur la page du jeu, la carte qu'on peut toucher se soulève un peu sous la souris (main), s'enfonce sous le doigt.
+- **Portail → la suite** : poème (et lien) = on entre dans la carte (elle vient de face jusqu'à remplir l'écran, son noir devient celui de la page suivante) ; jeu = le paquet glisse au milieu et s'enfonce dans le fond, sa page le fait revenir (elle s'ouvre à 0,65 s).
+- **Enveloppe** : le coup de tampon quand l'enveloppe est entière à l'écran, sec (« pam »), rebond amorti et secousse de la vue ; l'ombre de la carte la suit exactement (même vers l'enveloppe) ; destinataire en deux champs : **prénom déjà écrit** (celui du poème, accentué, modifiable) et **nom à côté**.
+- À faire dans d'autres conversations : reprise de la version simple, cachet et tampon plus réalistes.
+
 ## Revue de l'audit, décisions de Maxence (09/10, détail : fin de `REVUE-AUDIT.md`)
 - **Noms** : ETERNEL = l'auteur (titre, onglet, vignette, expéditeur des emails) ; **SINGULIES = le jeu**, et le label : **toujours en capitales, sans accent** ; logo SS = la marque du label (au dos des cartes, cachet, en-tête de la feuille, icône, pied des emails, emballage) — **jamais un bouton ni un chargement**.
 - **Polices** : Courier (SG Machine) = **ce qui est imprimé sur un objet** (questions, réponses, adresse, email, intitulés des cartes, signature *- ETERNEL -*) ; EB Garamond = **ce qui flotte au-dessus des objets** (prénoms, ETERNEL, signes PASSER / POSTER / COMMANDER / PAYER).
