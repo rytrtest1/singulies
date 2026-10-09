@@ -159,7 +159,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 
 ## Cachet et enveloppe (09/10, réglés par Maxence)
 - **Lampe de l'enveloppe à la mesure de l'objet, pas de la vue** (elle reculait avec la caméra : lumière plate, papier délavé) : 0,9 × la distance des cartes (`ENV_LAMP`).
-- **Cachet d'après la référence** (photo d'un cachet argenté) : grand disque plat (empreinte ≈ 75 %), **logo en relief**, fin anneau, bourrelet rond à 5–6 lobes ; argent (reflet de la pièce fort, presque pas de reflet de la lampe), grain et marbrure marqués, paillettes ; pas d'ombre portée. Valeurs : `SEAL_LOOK` / `SEAL_SHAPE` dans sheet.js.
+- **Cachet d'après la référence** (photo d'un cachet argenté) : grand disque plat (empreinte ≈ 75 %), **logo en relief**, fin anneau, bourrelet rond à 5–6 lobes, **très plat** (bourrelet 0,3 mm, empreinte 0,1 mm : le relief vient de la lumière) ; argent (reflet de la pièce fort, presque pas de reflet de la lampe), grain et marbrure marqués, paillettes ; pas d'ombre portée. Valeurs : `SEAL_LOOK` / `SEAL_SHAPE` dans sheet.js.
 - **Réglages en direct** : `scene-cartes.html?cachet&envoi=0` (temps figé sur le cachet posé, curseurs, ligne `s.…` à recopier) ; captures : `node tools/seal-shot.mjs <nom>`.
 
 ## Revue de l'audit, décisions de Maxence (09/10, détail : fin de `REVUE-AUDIT.md`)

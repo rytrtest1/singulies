@@ -99,9 +99,9 @@ export function createSheetScene(gl, opts) {
     seal: [1, SEAL_IN, SEAL_D / 2, SEAL_WOB] };
   // cire argentée (référence du 09/10) : argent satiné, clair, presque mat — reflet large et doux, fines paillettes ;
   // logo en relief arrondi
-  const SEAL_LOOK = { albedo: 0.5, env: 0, rough: 0.08, spec: 0.5, sheen: 0, glint: 4, grain: 2.4, fiber: 0.018, envSpec: 6, h: 0.24, b: 0.39, foot: 0.41, footW: 0.12, crease: 0, edge: 0, diffRough: 0 };   // réglé par Maxence (09/10, ?cachet)
+  const SEAL_LOOK = { albedo: 0.28, env: 0, rough: 0.08, spec: 0.5, sheen: 0, glint: 4, grain: 2.4, fiber: 0.018, envSpec: 6, h: 0.24, b: 0.39, foot: 0.41, footW: 0.12, crease: 0.52, edge: 0, diffRough: 0 };   // réglé par Maxence (09/10, ?cachet)
   // forme du cachet et ce qui l'entoure (réglables : scene-cartes.html?cachet&reponse=…, panneau « cachet »)
-  const SEAL_SHAPE = { hd: 0.3, hc: 1.3, crest: 0.59, ring: 0.12, pits: 4, cavWall: 0.59, cavEdge: 0.16, ao: 0, aoW: 0.1, marbre: 1.9,
+  const SEAL_SHAPE = { hd: 0.1, hc: 0.3, crest: 0.59, ring: 0.12, pits: 4, cavWall: 1, cavEdge: 0.16, ao: 0, aoW: 0.1, marbre: 1.9,
     lamp: ENV_LAMP, zoom: 1, camDy: 0, lampAz: NaN, lampEl: NaN };
   const sealPQ = () => ({ sealP: [SEAL_SHAPE.hd, SEAL_SHAPE.hc, SEAL_SHAPE.crest, SEAL_SHAPE.ring], sealQ: [SEAL_SHAPE.pits, SEAL_SHAPE.cavWall, SEAL_SHAPE.cavEdge, SEAL_SHAPE.aoW] });
   const botV = { ...pv(), noLogo: true, warp: [0, 0, 0] };
