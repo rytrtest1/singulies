@@ -320,7 +320,10 @@ void main() {
     float yy = vMM.y - uClip.y, ax = abs(vMM.x), k = uClip.w / uClip.z;
     float d = (ax + k * yy - uClip.w) / sqrt(1.0 + k * k);
     float tipY = uClip.z - 5.0 * sqrt(1.0 + k * k) / k;
-    if (yy > tipY) d = max(d, length(vec2(ax, yy - tipY)) - 5.0);
+    // l'arrondi ne commence qu'aux points où le cercle touche les bords (au-dessus de son centre) : sinon un épaulement
+    // (09/10 : visible depuis que le rabat reste ouvert pendant l'adresse)
+    float tanY = tipY + 5.0 * k / sqrt(1.0 + k * k);
+    if (yy > tanY) d = max(d, length(vec2(ax, yy - tipY)) - 5.0);
     if (d > 0.0) discard;
     clipRim = smoothstep(-0.45, 0.0, d);              // l'arête coupée du rabat accroche la lumière (on voit le bord)
   }

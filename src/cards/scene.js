@@ -228,7 +228,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // une carte déjà vue revient de son côté (s = −1 : de la gauche, +1 : de la droite)
   function bringBack(t, k, s) {
     const e = seq[k]; cur = k;
-    const Q = inkQuestion(e.id, e.v);
+    let Q;
+    if (peekQ && peekQ.id === e.id) { Q = peekQ; peekQ = null; } else Q = inkQuestion(e.id, e.v);
     const rest = centerPose(e.v);
     question = { ...Q, anim: 'return', t0: t, dur: RETURN_T, from: { ...rest, x: rest.x + s * (lay.Ww / 2 + CARD.w * 1.2), y: rest.y - 8, rz: rest.rz + s * 0.3 }, landedAt: t + RETURN_T };
     showAnswerOf(question);
@@ -399,6 +400,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     lastT = t;
     layout(W, H);
     if (pendingDraw >= 0 && t >= pendingDraw) { pendingDraw = -1; drawNext(t); }
+    // la question suivante se prépare pendant qu'on lit celle-ci (09/10, à-coups sur iPhone X : sa frappe se faisait
+    // au moment où la question passée s'envolait) ; la précédente, ramenée de côté, reprend l'encre de l'esquisse
+    if (question && !question.anim && !preQ && !dragging && t - question.landedAt > 1.2 && pendingDraw < 0) prepare();
     if (!blank) {
       const v = { ...variant(), noLogo: true };
       blank = { v, ink: null, labelInk: card.makeInk(makeInkMap('carte blanche', Math.floor(v.seed * 1000) + 3).canvas), text: '', cursorMM: null, first: 0, place: 'rest', out: 1, appearT: null };

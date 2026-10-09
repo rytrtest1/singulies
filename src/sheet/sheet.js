@@ -291,13 +291,19 @@ export function createSheetScene(gl, opts) {
     }
     // le coup de tampon (jamais incliné pareil ; le retour l'efface)
     if (env && !NOADDR && (pp >= PO.hit) !== !!env.stamp) {
-      env.stamp = pp >= PO.hit ? { mask: card.logoMask(), rot: (rnd() < 0.5 ? -1 : 1) * rnd.range(0.05, 0.5), dx: rnd.range(-2.5, 2.5), dy: rnd.range(-2, 2), seed: (rnd() * 1e9) >>> 0 } : null;
-      renderAddress();
+      if (pp >= PO.hit && env.stampPre) {                      // préparé au toucher de POSTER : ici, seulement l'envoi au GPU
+        env.stamp = env.stampPre.stamp; card.updateInk(env.ink, env.stampPre.canvas, 0, 0); releaseCanvas(env.stampPre.canvas);
+        env.cursor = env.stampPre.cursor; env.stampPre = null;
+      } else {
+        env.stamp = pp >= PO.hit ? newStamp() : null;
+        renderAddress();
+      }
     }
     const writePhase = inEnv && !env.back && ev >= E.write && !posting && !NOADDR;
     // essai sans adresse : retournée, l'enveloppe part d'elle-même
     if (NOADDR && inEnv && !env.back && env.postT < 0 && ev >= E.write + 0.5) { env.postT = t; env.sent = false; }
 
+    if (!env && !backing && ENVELOPE && tu > CURSOR_AT + 0.3) prepareEnv();
     // passage automatique vers la commande : le curseur posé, et jamais moins de 3 s après le dernier geste
     if (!backing && orderAt < 0 && tu > CURSOR_AT + 1.8 && t - lastGesture > 3) showOrders(t);
     if (backing) sT = 0;
@@ -664,12 +670,26 @@ export function createSheetScene(gl, opts) {
     if (!f.email && emailOk(savedContact)) f.email = savedContact;
     if (!f.tel && telOk(savedContact)) f.tel = savedContact;
     env = { t0: t, back: null, postT: -1, pp: 0, senderN: 0, writing: false, f, field: FIELDS.find(d => !(f[d.id] || '').trim())?.id || 'nom', ink: null, cursor: { x: ADDR.x, y: ADDR.y }, sent: false };
-    renderAddress();
+    const pre = preEnv; preEnv = null;
+    if (pre && pre.key === JSON.stringify([f, env.field])) { env.ink = pre.ink; env.cursor = pre.cursor; }
+    else { if (pre) card.freeInk(pre.ink); renderAddress(); }
   }
+  // l'encre de l'enveloppe (toute la face, 10 px/mm : lourde à taper) se prépare pendant que l'acrostiche se lit,
+  // pas au moment où la vue descend vers l'enveloppe (09/10, à-coups sur iPhone X)
+  let preEnv = null;
+  function prepareEnv() {
+    if (preEnv || env || NOADDR) return;
+    const f = { ...savedFields }, field = FIELDS.find(d => !(f[d.id] || '').trim())?.id || 'nom';
+    const m = fieldsInk(f, 991, field, null, 0, HINTS);
+    preEnv = { key: JSON.stringify([f, field]), ink: card.makeInk(m.canvas, true), cursor: m.cursor };
+    releaseCanvas(m.canvas);
+  }
+  const newStamp = () => ({ mask: card.logoMask(), rot: (rnd() < 0.5 ? -1 : 1) * rnd.range(0.05, 0.5), dx: rnd.range(-2.5, 2.5), dy: rnd.range(-2, 2), seed: (rnd() * 1e9) >>> 0 });
   let savedFields = {}, savedContact = '';           // l'adresse et le contact restent si l'on revient en arrière
   const zoneOf = id => FIELDS.find(d => d.id === id)?.zone || 'addr';
   function closeEnv() {
     if (env?.ink) card.freeInk(env.ink);
+    if (env?.stampPre) releaseCanvas(env.stampPre.canvas);
     if (env) { savedFields = { ...env.f }; savedContact = env.f.email || env.f.tel || savedContact; }
     env = null; chosen = null; kb = 0;
     // revenue à la feuille : elle ne repart pas tout de suite (le temps de revenir encore en arrière, aux cartes)
@@ -759,6 +779,12 @@ export function createSheetScene(gl, opts) {
       gesture(t); direct.writing = false; direct.postT = t; direct.sent = false; return true;
     }
     if (!env || env.back || env.postT >= 0 || !envReady()) return false;
+    // le coup de tampon se prépare au toucher (la vue recule ensuite : rien de lourd pendant le mouvement)
+    if (!NOADDR && !env.stamp) {
+      if (env.stampPre) releaseCanvas(env.stampPre.canvas);
+      const stamp = newStamp(), m = fieldsInk(env.f, 991, null, stamp, env.senderN, HINTS);
+      env.stampPre = { stamp, canvas: m.canvas, cursor: m.cursor };
+    }
     gesture(t); env.writing = false; env.postT = t; env.sent = false; return true;
   }
   // rectangle écran d'un champ (sa ligne, sur toute sa longueur)
@@ -780,6 +806,8 @@ export function createSheetScene(gl, opts) {
   function setTilt(x, y) { tilt.x = Math.max(-1, Math.min(1, x)); tilt.y = Math.max(-1, Math.min(1, y)); }
   function free() {
     for (const o of orders) card.freeInk(o.ink);
+    if (preEnv) card.freeInk(preEnv.ink);
+    if (env?.stampPre) releaseCanvas(env.stampPre.canvas);
     if (sigTex) card.freeInk(sigTex);
     if (env?.ink) card.freeInk(env.ink);
     if (direct?.ink) card.freeInk(direct.ink);
