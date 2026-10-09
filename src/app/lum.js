@@ -4,7 +4,7 @@
 //   lisible : réglé pour lire — encre des cartes et de l'enveloppe, mots du champ, prénom, ETERNEL, signes ;
 //             le fond reste noir (le contraste vient du texte, pas d'un voile gris)
 // L'adresse garde ses paramètres d'une page à l'autre (showPath) : le choix tient tout le parcours.
-const Q = new URLSearchParams(location.search);
+const Q = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
 export const LUM_MODE = ['boost', 'lisible'].includes(Q.get('lum')) ? Q.get('lum') : 'base';
 const L = LUM_MODE === 'lisible';
 export const LUM = {
@@ -13,7 +13,7 @@ export const LUM = {
   ink: L ? 1.15 : 0.85,          // encre des cartes (inkAlb)
   envInk: L ? 1.05 : 0.75,       // encre de l'enveloppe
 };
-if (LUM_MODE !== 'base') {
+if (LUM_MODE !== 'base' && typeof document !== 'undefined') {
   const css = LUM_MODE === 'boost'
     ? 'html { filter: brightness(1.45); }'
     : `#portal .pt-sig { color: rgb(205,205,205) !important; }
