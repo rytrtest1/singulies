@@ -11,12 +11,11 @@ import { createCardScene } from '../cards/scene.js';
 import { JEU_LINK, ITEMS } from '../portal/items.js';
 import QUESTIONS from '../cards/questions.json';
 import { dpr3d } from '../app/perf.js';
-import { CARD } from '../cards/cardRenderer.js';
 export { JEU_LINK };
 
 const CSS = `
-#jeu { position: fixed; inset: 0; z-index: 22; background: #060606; opacity: 0; transition: opacity .9s ease; touch-action: pinch-zoom; }
-#jeu.on { opacity: 1; }
+#jeu { position: fixed; inset: 0; z-index: 22; background: #060606; opacity: 0; transition: opacity .9s ease; touch-action: pinch-zoom; pointer-events: none; }
+#jeu.on { opacity: 1; pointer-events: auto; }
 #jeu.fast { transition-duration: .35s; }
 #jeu canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #jeu .jeu-sign { position: absolute; left: 0; right: 0; text-align: center; margin: 0; padding: 0 0 0 .4em; border: 0; background: transparent;
@@ -118,15 +117,15 @@ export async function mountJeu(opts = {}) {
   if (opts.hold || RELAY) scene.drawAt(1e9);
   if (!opts.hold && !RELAY) reveal();
   // relais : deux images pour tout préparer (shaders, textures), puis rien ne tourne jusqu'au toucher
-  if (RELAY) requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => { if (!taken) { visible = false; cancelAnimationFrame(raf); raf = 0; } })));
+  // (puis la couche est vidée : sinon sa dernière image — le paquet à sa place — apparaissait un instant au toucher)
+  if (RELAY) requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => { if (!taken) { visible = false; cancelAnimationFrame(raf); raf = 0; gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } })));
   let taken = false, going = false;
-  const sceneCardW = () => CARD.w * (scene.layout.W || innerWidth) / (scene.layout.Ww || 1);
   function takeOver() {
-    const d = opts.portal?.()?.deckScreen?.() || { x: innerWidth / 2, y: innerHeight * 0.75, w: sceneCardW() };
+    const d = opts.portal?.()?.deckScreen?.() || { x: innerWidth / 2, y: innerHeight * 0.75, w: 0 };
     taken = true; going = false; visible = true; firstAt = null; shareReady = false;
     for (const b of [backEl, buyEl, shareEl]) b.style.transition = '';
     root.style.transition = 'none'; root.classList.add('on');
-    scene.relayIn(d.x, d.y, d.w / sceneCardW(), now());
+    scene.relayIn(d.x, d.y, d.w, now());
     last = 0; if (!raf) raf = requestAnimationFrame(frame);
     requestAnimationFrame(() => opts.portal?.()?.giveDeck?.());          // le portail cesse de le dessiner
     setTimeout(() => { if (!going) { backEl.classList.add('on'); buyEl.classList.add('on'); } }, 1500);
@@ -220,10 +219,10 @@ export async function mountJeu(opts = {}) {
       // rembobine le reste en même temps, puis reprend son paquet
       going = true; ta.blur();
       for (const b of [backEl, buyEl, shareEl]) { b.style.transition = 'opacity .25s'; b.classList.remove('on'); }
-      const d = opts.portal?.()?.deckScreen?.() || { x: innerWidth / 2, y: innerHeight * 0.75, w: sceneCardW() };
-      scene.relayOut(d.x, d.y, d.w / sceneCardW(), now(), () => {
+      const d = opts.portal?.()?.deckScreen?.() || { x: innerWidth / 2, y: innerHeight * 0.75, w: 0 };
+      scene.relayOut(d.x, d.y, d.w, now(), () => {
         opts.onReturned?.();
-        requestAnimationFrame(() => requestAnimationFrame(() => { visible = false; root.classList.remove('on'); }));
+        requestAnimationFrame(() => requestAnimationFrame(() => { visible = false; root.classList.remove('on'); cancelAnimationFrame(raf); raf = 0; gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }));
       });
       opts.onBack?.();
       return;

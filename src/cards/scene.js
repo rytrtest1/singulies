@@ -222,13 +222,15 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // qui redescend à la place du portail. Une seule scène dessine la carte du début à la fin : aucun fondu.
   let relay = null;
   const backInkOf = v => firstBack ? card.makeInk(makeInkMap(firstBack.label, Math.floor(v.seed * 1000) + 7, firstBack.lines, firstBack.center).canvas) : null;
-  function relayIn(px, py, scale, t) {
+  // wpx : largeur à l'écran d'une carte du portail (le rapport avec les nôtres se calcule à l'image, quand notre
+  // disposition est connue — sinon, avant la première image, la carte partait énorme)
+  function relayIn(px, py, wpx, t) {
     if (question) { card.freeInk(question.ink); if (question.backInk) card.freeInk(question.backInk); question = null; }   // (une visite précédente)
     firstBackUsed = false;
-    relay = { dir: 'in', px, py, scale, t0: t, dur: DRAW_T, off: null }; pendingDraw = t;
+    relay = { dir: 'in', px, py, wpx, scale: null, t0: t, dur: DRAW_T, off: null }; pendingDraw = t;
   }
-  function relayOut(px, py, scale, t, done) {
-    relay = { dir: 'out', px, py, scale, t0: t, dur: DRAW_T, off: null, done };
+  function relayOut(px, py, wpx, t, done) {
+    relay = { dir: 'out', px, py, wpx, scale: null, t0: t, dur: DRAW_T, off: null, done };
     if (jw) setJeuWrite(false);
     writing = false; dragging = false; dragX = 0; pendingDraw = -1;
     if (question) {
@@ -552,6 +554,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const rk = relayK(t);
     if (relay) {
       // décalage (monde) qui pose le haut de notre paquet exactement sur la carte du portail (résolu une fois)
+      if (relay.scale == null) { const mine = CARD.w * W / lay.Ww; relay.scale = relay.wpx > 0 && mine > 0 ? Math.min(2, Math.max(0.5, relay.wpx / mine)) : 1; }
       if (!relay.off) {
         const top = [0, lay.yDeck, STACK * PITCH], sW = lay.Ww / W;
         let ox = 0, oy = 0;
