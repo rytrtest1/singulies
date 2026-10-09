@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0b">
+<title>Un poème à ton prénom — ETERNEL</title>
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+<style>
+  /* « La feuille qui attend » (élue par la réunion du 09/10, reunion/VERDICT.md) — version 1 d'essai */
+  :root { --bg: #0b0b0b; --ink: #e9e5dd; --soft: #8f897f; --line: #2b2926; --field: #141413; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 17px/1.55 'SG Garamond', Georgia, serif; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  main { max-width: 520px; margin: 0 auto; padding: 0 16px 48px; }
+  [hidden] { display: none !important; }
+  .mono { font-family: 'SG Machine', 'Courier New', monospace; }
+
+  /* à remplacer par Maxence */
+  .todo { position: relative; outline: 1px dashed #5b554b; outline-offset: -1px; }
+  .todo::after { content: attr(data-todo); position: absolute; left: 8px; right: 8px; bottom: 8px; font: 11px/1.35 'SG Machine', monospace; color: #b7ae9f; background: rgba(0,0,0,.72); padding: 5px 7px; border-radius: 3px; }
+
+  /* premier écran : tout sans défiler */
+  .top { text-align: center; padding: 14px 0 10px; }
+  .brand { font: 500 15px/1 'SG Garamond', serif; letter-spacing: .45em; padding-left: .45em; }
+  .who-is { font-size: 13px; color: var(--soft); margin-top: 4px; }
+  .media { height: min(30svh, 240px); border-radius: 4px; background: #000 url(./simple/enveloppe-dos.jpg) center / cover; }
+  h1 { font: 500 clamp(27px, 7.4vw, 34px)/1.15 'SG Garamond', serif; margin: 18px 0 14px; }
+  .ask { display: block; font-size: 17px; color: var(--soft); margin-bottom: 6px; }
+  .name { width: 100%; font: 22px/1 'SG Machine', monospace; letter-spacing: .12em; text-transform: uppercase; padding: 14px; border: 1px solid #3b3833; border-radius: 4px; background: var(--field); color: var(--ink); }
+  .name::placeholder { color: #4d4943; letter-spacing: .05em; }
+  .name:focus { outline: 1px solid var(--ink); border-color: transparent; }
+  .price { margin: 10px 0 0; font-size: 16px; }
+  .price b { font-weight: 500; }
+
+  /* la colonne : chaque lettre ouvre une ligne vide */
+  .col { --lh: 34px; margin: 22px 0 0; color: var(--ink); }
+  .col .ac-row b { color: #dcd7cd; }
+  .col .ac-row i { border-color: #4a4640; }
+  .col-note { font: 15px/1.5 'SG Machine', monospace; color: var(--soft); margin: 14px 0 0; transition: opacity .5s; }
+  .col.empty + .col-note { display: none; }
+
+  .photo { margin: 26px 0 0; aspect-ratio: 727 / 1040; max-height: 70svh; margin-inline: auto; background: #000 url(./simple/feuille.jpg) center / 110% 105.8%; border-radius: 2px; }
+
+  .choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 26px 0 0; }
+  .btn { display: block; width: 100%; padding: 16px 10px; border: 1px solid var(--ink); border-radius: 4px; background: var(--ink); color: var(--bg); font: 500 18px/1 'SG Garamond', serif; cursor: pointer; text-align: center; text-decoration: none; }
+  .btn.ghost { background: transparent; color: var(--ink); }
+  .btn:active { transform: translateY(1px); }
+  .how { margin: 34px 0 0; padding: 0; list-style: none; color: #c4bfb5; font-size: 16px; }
+  .how li { padding: 10px 0; border-top: 1px solid var(--line); }
+  .how li:last-child { border-bottom: 1px solid var(--line); }
+
+  /* étapes suivantes */
+  .back { display: inline-block; margin: 16px 0 0; padding: 8px 0; background: none; border: 0; color: var(--soft); font: 16px 'SG Garamond', serif; cursor: pointer; }
+  h2 { font: 500 26px/1.2 'SG Garamond', serif; margin: 10px 0 16px; }
+  .small { font-size: 14px; color: var(--soft); }
+  .links { display: flex; justify-content: center; gap: 22px; margin: 12px 0 0; flex-wrap: wrap; }
+  .links button { background: none; border: 0; padding: 6px 2px; font: 16px 'SG Garamond', serif; color: #c4bfb5; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: #5b554b; cursor: pointer; }
+  .field { display: block; margin: 18px 0 0; }
+  .field > span { display: block; font-size: 15px; color: var(--soft); margin-bottom: 6px; }
+  .field input, .field textarea { width: 100%; font: 17px/1.45 'SG Machine', monospace; padding: 12px 14px; border: 1px solid #3b3833; border-radius: 4px; background: var(--field); color: var(--ink); }
+  .field textarea { min-height: 84px; resize: vertical; }
+  .field input:focus, .field textarea:focus { outline: 1px solid var(--ink); border-color: transparent; }
+  .status { font: 15px/1.5 'SG Machine', monospace; color: #c4bfb5; margin: 16px 0 0; text-align: center; }
+  .recap { margin: 28px 0 12px; padding: 14px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font: 15px/1.7 'SG Machine', monospace; color: #c4bfb5; }
+  .legal { font-size: 13px; color: var(--soft); margin: 10px 0 0; text-align: center; }
+  .seg { display: grid; gap: 8px; margin: 18px 0 0; }
+  .seg label { display: block; }
+  .seg input { position: absolute; opacity: 0; }
+  .seg span { display: block; padding: 12px 14px; border: 1px solid #3b3833; border-radius: 4px; cursor: pointer; }
+  .seg input:checked + span { border-color: var(--ink); }
+  .seg input:checked + span::before { content: '● '; }
+  .seg input:not(:checked) + span::before { content: '○ '; color: var(--soft); }
+  .seg input:focus-visible + span { outline: 1px solid var(--ink); }
+
+  /* le paquet tire une carte */
+  .deck { position: relative; aspect-ratio: 770 / 452; margin: 8px 6px 0; perspective: 1400px; }
+  .deck .pile { position: absolute; inset: 0; border-radius: 3.5% / 6%; background: #000 url(./simple/dos.jpg) center / 117% 122%; box-shadow: 0 1px 0 #1d1c1a; }
+  .deck .pile:nth-child(1) { transform: translate(5px, 9px); filter: brightness(.6); }
+  .deck .pile:nth-child(2) { transform: translate(2px, 4px); filter: brightness(.8); }
+  .deck .flip { position: absolute; inset: 0; transform-style: preserve-3d; }
+  .deck .face { position: absolute; inset: 0; -webkit-backface-visibility: hidden; backface-visibility: hidden; border-radius: 3.5% / 6%; }
+  .deck .back { background: #000 url(./simple/dos.jpg) center / 117% 122%; }
+  .deck .front { transform: rotateY(180deg); }
+  .deck .flip.drawn { transform: rotateY(180deg); }
+  .deck .flip.draw { animation: draw 1s cubic-bezier(.35, .1, .25, 1) both; }
+  .deck .flip.away { animation: away .38s ease-in both; }
+  .deck.none .flip, .deck.none .pile { opacity: .25; }
+  @keyframes draw { 0% { transform: none; } 35% { transform: translateY(-16%) rotateY(0); } 80% { transform: translateY(-4%) rotateY(180deg); } 100% { transform: rotateY(180deg); } }
+  @keyframes away { from { transform: rotateY(180deg); } to { transform: translateX(-120%) rotateY(180deg) rotateZ(8deg); opacity: 0; } }
+
+  /* après le paiement */
+  .done h2 { font-size: 34px; margin-top: 40px; }
+  .bon { container-type: inline-size; aspect-ratio: 770 / 452; margin: 22px 0 10px; border-radius: 3.5% / 6%; background: #000 url(./simple/vierge.jpg) center / 117% 122%; display: flex; flex-direction: column; justify-content: center; padding: 8cqw 9cqw; font: 4.6cqw/1.75 'SG Machine', monospace; color: #cfcac0; text-align: center; }
+  .bon .who { font: 500 8cqw/1.2 'SG Garamond', serif; letter-spacing: .3em; padding-left: .3em; color: #e2ddd3; margin: 1.5cqw 0; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .test { margin: 26px 0 0; padding: 12px 14px; border: 1px dashed #5b554b; border-radius: 4px; font: 13px/1.5 'SG Machine', monospace; color: #b7ae9f; }
+  .world { display: block; text-align: center; margin: 36px 0 0; color: var(--soft); font-size: 15px; }
+
+  footer { text-align: center; color: #6c675e; font-size: 13px; padding: 24px 16px 36px; }
+  footer a { color: inherit; }
+
+  @media (min-width: 900px) { main { max-width: 560px; } }
+  @media (prefers-reduced-motion: reduce) { .deck .flip.draw, .deck .flip.away { animation-duration: .01s; } }
+  @media print {
+    body { background: #fff; }
+    body * { visibility: hidden; }
+    .bon, .bon * { visibility: visible; }
+    .bon { position: absolute; left: 20mm; top: 20mm; width: 120mm; background: #fff; color: #111; border: .3mm solid #111; }
+    .bon .who { color: #111; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- 1. le premier écran, et ce que le prénom fait apparaître -->
+  <section id="home">
+    <div class="top">
+      <div class="brand">ETERNEL</div>
+      <div class="who-is">le poète des vidéos</div>
+    </div>
+    <div class="media todo" data-todo="à remplacer : 6 s de tes mains qui tapent (vidéo muette, en boucle) — idéalement ton visage et ta voix"></div>
+    <h1>je t'écris un poème à la machine.</h1>
+    <label class="ask" for="name">écris un prénom.</label>
+    <input class="name" id="name" autocomplete="given-name" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done" maxlength="30" placeholder="léa">
+    <p class="price"><b class="prix">64 €</b>, port compris · posté le <span class="envoi">24 octobre</span></p>
+
+    <div class="ac col empty" id="col" aria-live="polite"></div>
+    <p class="col-note">ces lignes n'existent pas encore.<br>je les tape pour toi.</p>
+
+    <div class="photo todo" data-todo="à remplacer : la photo d'une vraie feuille finie (et l'enveloppe, le cachet)"></div>
+
+    <div class="choice">
+      <button class="btn" data-go="moi">pour moi</button>
+      <button class="btn ghost" data-go="offrir">pour l'offrir</button>
+    </div>
+
+    <ul class="how">
+      <li>une feuille A5 noire, ton prénom en colonne, chaque vers tapé à la machine.</li>
+      <li>la carte de ta question glissée avec, dans une enveloppe noire fermée à la cire.</li>
+      <li>écrit par moi, jamais par une IA. posté le <span class="envoi">24 octobre</span>.</li>
+    </ul>
+  </section>
+
+  <!-- 2. pour moi : le paquet tire une carte -->
+  <section id="moi" hidden>
+    <button class="back" data-back>← retour</button>
+    <h2>je tire une carte pour toi.</h2>
+    <div class="deck" id="deck1"></div>
+    <div id="q1">
+      <label class="field" id="ansWrap"><span>ta réponse, une ligne suffit</span><textarea id="answer" placeholder="j'en ferai le thème du poème"></textarea></label>
+      <p class="status" id="ansKept" hidden>je l'écris sur la question seule.</p>
+      <div class="links">
+        <button id="another1">une autre</button>
+        <button id="keep">garde ta réponse pour toi</button>
+        <button id="skip">passer</button>
+      </div>
+    </div>
+    <p class="status" id="skipped" hidden>pas de question : j'écris à partir de ton prénom.<br><button class="back" id="unskip" style="margin:4px 0 0">reprendre une carte</button></p>
+    <div class="recap" id="recap1"></div>
+    <button class="btn pay" data-kind="moi">payer <span class="prix">64 €</span></button>
+    <p class="legal">paiement sécurisé par stripe · ton adresse et ton email à l'étape suivante.<br>un poème à ton prénom est fait pour toi : il ne peut être ni repris ni échangé.</p>
+  </section>
+
+  <!-- 3. pour l'offrir -->
+  <section id="offrir" hidden>
+    <button class="back" data-back>← retour</button>
+    <h2>à qui je l'écris ?</h2>
+    <label class="field"><span>son prénom</span><input class="name" id="gname" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="30"></label>
+    <label class="field"><span>un mot de toi, glissé dans l'enveloppe (facultatif)</span><textarea id="mot"></textarea></label>
+    <div class="seg" role="radiogroup" aria-label="sa question">
+      <label><input type="radio" name="gq" value="moi" checked><span>je choisis sa question</span></label>
+      <label><input type="radio" name="gq" value="tirer"><span>je tire sa carte, et je réponds pour elle ou lui</span></label>
+    </div>
+    <div id="gdraw" hidden>
+      <div class="deck" id="deck2" style="margin-top:22px"></div>
+      <label class="field"><span>ta réponse, en pensant à elle ou à lui</span><textarea id="ganswer"></textarea></label>
+      <div class="links"><button id="another2">une autre</button></div>
+    </div>
+    <div class="recap" id="recap2"></div>
+    <p class="small" style="margin:0 0 12px">tu reçois aussi un bon à lui donner tout de suite : une carte à envoyer, ou à imprimer.</p>
+    <button class="btn pay" data-kind="offrir">payer <span class="prix">64 €</span></button>
+    <p class="legal">paiement sécurisé par stripe · son adresse et ton email à l'étape suivante.<br>un poème à son prénom est fait pour elle ou lui : il ne peut être ni repris ni échangé.</p>
+  </section>
+
+  <!-- 4. après le paiement -->
+  <section id="fin" class="done" hidden>
+    <h2>c'est noté.</h2>
+    <p id="finText"></p>
+    <div id="bonWrap" hidden>
+      <div class="bon" id="bon"></div>
+      <div class="row2">
+        <button class="btn" id="sendBon">envoyer le bon</button>
+        <button class="btn ghost" id="printBon">l'imprimer</button>
+      </div>
+      <p class="status" id="bonStatus" hidden></p>
+    </div>
+    <p class="test">essai : rien n'a été payé ni envoyé. ici viendra le retour de stripe.</p>
+    <a class="world" href="./">entrer dans le monde d'eternel →</a>
+  </section>
+
+</main>
+<footer>ETERNEL · <a href="./confidentialite.html">confidentialité</a> · mentions légales · conditions de vente <span class="mono">(à rédiger)</span></footer>
+
+<script type="module">
+  import '/src/basique/basique.css';
+  import { norm, acrostic, QUESTIONS } from '/src/basique/basique.js';
+
+  // ——— à remplir par Maxence ———
+  const PRIX = '64 €';
+  const ENVOI = '24 octobre';          // date d'envoi de la fournée
+  const ARRIVEE = '27 octobre';        // « chez toi vers le … »
+  const STRIPE = { moi: null, offrir: null };   // liens Stripe (Payment Links plafonnés : 20 places)
+  const DOUCES = [21, 41, 70, 69, 16];           // les cinq premières cartes (questions douces)
+
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => [...document.querySelectorAll(s)];
+  $$('.prix').forEach((e) => (e.textContent = PRIX));
+  $$('.envoi').forEach((e) => (e.textContent = ENVOI));
+
+  // ——— le prénom → la colonne ———
+  const name = $('#name');
+  const N = () => norm(name.value).trim();
+  // le prénom tel qu'on l'a tapé, pour les phrases (Clémence, pas CLEMENCE)
+  const said = (v) => { v = v.trim().replace(/\s+/g, ' '); return v.charAt(0).toUpperCase() + v.slice(1).toLowerCase(); };
+  name.addEventListener('input', () => acrostic($('#col'), name.value));
+  // téléphone : le champ remonte en haut pour que la colonne se voie au-dessus du clavier
+  name.addEventListener('focus', () => {
+    if (innerWidth > 700) return;
+    setTimeout(() => scrollTo({ top: name.getBoundingClientRect().top + scrollY - 70, behavior: 'smooth' }), 250);
+  });
+  name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); name.blur(); } });
+
+  // ——— le paquet ———
+  const douces = DOUCES.map((id) => QUESTIONS.find((q) => q.id === id)).filter(Boolean);
+  function Deck(el) {
+    el.innerHTML = '<div class="pile"></div><div class="pile"></div><div class="flip"><div class="face back"></div><div class="face front qcard"><p></p></div></div>';
+    const flip = el.querySelector('.flip'), p = el.querySelector('.front p');
+    let i = -1, busy = false;
+    const d = {
+      q: null,
+      draw() {
+        if (busy) return; busy = true;
+        const go = () => {
+          i = (i + 1) % douces.length; d.q = douces[i]; p.textContent = d.q.q;
+          flip.className = 'flip draw';
+          setTimeout(() => { flip.className = 'flip drawn'; busy = false; d.onchange?.(); }, 1000);
+        };
+        if (d.q) { flip.className = 'flip away'; setTimeout(() => { flip.className = 'flip'; void flip.offsetWidth; go(); }, 380); }
+        else go();
+      },
+      reset() { d.q = null; i = -1; flip.className = 'flip'; },
+    };
+    el.addEventListener('click', () => d.draw());
+    return d;
+  }
+  const deck1 = Deck($('#deck1')), deck2 = Deck($('#deck2'));
+
+  // ——— pour moi ———
+  let mode = 'reponse';   // reponse | garde | passer
+  function setMode(m) {
+    mode = m;
+    $('#ansWrap').hidden = m !== 'reponse';
+    $('#ansKept').hidden = m !== 'garde';
+    $('#keep').textContent = m === 'garde' ? 'finalement, je réponds' : 'garde ta réponse pour toi';
+    $('#q1').hidden = m === 'passer';
+    $('#skipped').hidden = m !== 'passer';
+    $('#deck1').classList.toggle('none', m === 'passer');
+    recap();
+  }
+  // chaque carte garde sa propre réponse
+  const answers = {};
+  $('#answer').addEventListener('input', () => { if (deck1.q) answers[deck1.q.id] = $('#answer').value; });
+  $('#another1').onclick = () => deck1.draw();
+  $('#keep').onclick = () => setMode(mode === 'garde' ? 'reponse' : 'garde');
+  $('#skip').onclick = () => setMode('passer');
+  $('#unskip').onclick = () => setMode('reponse');
+  deck1.onchange = () => { $('#answer').value = answers[deck1.q.id] || ''; recap(); };
+  deck2.onchange = () => { $('#ganswer').value = ''; recap(); };
+
+  // ——— pour l'offrir ———
+  $$('input[name=gq]').forEach((r) => r.addEventListener('change', () => {
+    const tirer = $('input[name=gq]:checked').value === 'tirer';
+    $('#gdraw').hidden = !tirer;
+    if (tirer && !deck2.q) setTimeout(() => deck2.draw(), 150);
+    recap();
+  }));
+  $('#another2').onclick = () => deck2.draw();
+  $('#gname').addEventListener('input', recap);
+
+  function recap() {
+    const n = N();
+    const q = mode === 'passer' ? 'sans question' : deck1.q ? `question n° ${deck1.q.id}` + (mode === 'garde' ? ', réponse gardée' : '') : '';
+    $('#recap1').innerHTML = `${n ? said(name.value) : '—'}${q ? ' · ' + q : ''}<br>posté le ${ENVOI}, chez toi vers le ${ARRIVEE}`;
+    const g = norm($('#gname').value).trim();
+    const tirer = $('input[name=gq]:checked').value === 'tirer';
+    $('#recap2').innerHTML = `${g ? said($('#gname').value) : '—'} · ${tirer && deck2.q ? `question n° ${deck2.q.id}` : 'je choisis sa question'}<br>posté le ${ENVOI}, chez elle ou lui vers le ${ARRIVEE}`;
+  }
+
+  // ——— les écrans (adresse = #moi, #offrir, #fin : le bouton retour du téléphone marche) ———
+  let kind = 'moi';
+  function show() {
+    let h = location.hash.slice(1);
+    if (h && h !== 'fin' && !N()) h = '';           // pas de prénom → le premier écran
+    if (h === 'fin' && !$('#finText').textContent) h = '';
+    ['home', 'moi', 'offrir', 'fin'].forEach((id) => ($('#' + id).hidden = id !== (h || 'home')));
+    if (h === 'moi' && !deck1.q && mode !== 'passer') setTimeout(() => deck1.draw(), 350);
+    if (h === 'offrir' && !$('#gname').value) $('#gname').value = name.value;
+    recap();
+    scrollTo(0, 0);
+  }
+  addEventListener('hashchange', show);
+  $$('[data-go]').forEach((b) => b.onclick = () => {
+    if (!N()) { name.focus(); name.placeholder = "d'abord un prénom"; return; }
+    location.hash = b.dataset.go;
+  });
+  $$('[data-back]').forEach((b) => b.onclick = () => history.back());
+
+  // ——— payer (essai : pas de Stripe) ———
+  $$('.pay').forEach((b) => b.onclick = () => {
+    kind = b.dataset.kind;
+    if (kind === 'offrir' && !norm($('#gname').value).trim()) { $('#gname').focus(); return; }
+    if (STRIPE[kind]) { location.href = STRIPE[kind]; return; }
+    const n = kind === 'offrir' ? norm($('#gname').value).trim() : N();
+    $('#finText').textContent = kind === 'offrir'
+      ? `je tape le poème de ${said($('#gname').value)} le ${ENVOI} et je le poste à son adresse. en attendant, voici son bon :`
+      : `je tape ton poème le ${ENVOI}. je t'écris un email le jour où il part.`;
+    $('#bonWrap').hidden = kind !== 'offrir';
+    $('#bon').innerHTML = `eternel t'écrit.<div class="who">${n}</div>un poème à ton prénom,<br>tapé à la machine,<br>posté le ${ENVOI}.`;
+    location.hash = 'fin';
+  });
+  $('#sendBon').onclick = async () => {
+    const n = norm($('#gname').value).trim();
+    const text = `eternel t'écrit. ${n}, un poème à ton prénom, tapé à la machine, posté le ${ENVOI}.`;
+    try { if (navigator.share) { await navigator.share({ text }); return; } await navigator.clipboard.writeText(text); $('#bonStatus').textContent = 'copié.'; }
+    catch { $('#bonStatus').textContent = text; }
+    $('#bonStatus').hidden = false;
+  };
+  $('#printBon').onclick = () => print();
+
+  setMode('reponse');
+  show();
+</script>
+</body>
+</html>
