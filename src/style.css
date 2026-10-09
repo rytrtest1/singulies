@@ -33,15 +33,15 @@ body { -webkit-tap-highlight-color: transparent; }
   color: #fff; opacity: 0; transition: opacity .9s ease; pointer-events: none; cursor: pointer;
 }
 /* signes discrets (flèches, PASSER) : une seule opacité dans toute l'app, 0,4 (sous le prénom) ; survol 0,6 */
-#back.on { opacity: .44; pointer-events: auto; }
+#back.on { opacity: .62; pointer-events: auto; }
 /* aller à la suite : petit signe sous le prénom confirmé, placé par le script (zone 44 px) */
 #next {
   position: fixed; left: 50%; top: 60%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
   color: #fff; opacity: 0; transition: opacity 1.2s ease; pointer-events: none; cursor: pointer;
 }
-#next.on { opacity: .44; pointer-events: auto; }
-#next.on:hover { opacity: .6; }
-#back.on:hover { opacity: .6; }
+#next.on { opacity: .62; pointer-events: auto; }
+#next.on:hover { opacity: .85; }
+#back.on:hover { opacity: .85; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* la suite ne peut pas s'afficher (pas de WebGL2) : une porte, tapée comme le reste */
 #nocards { position: fixed; left: 16px; right: 16px; top: 50%; transform: translateY(-50%); text-align: center; white-space: pre-line;

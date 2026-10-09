@@ -19,16 +19,16 @@ const CSS = `
 #jeu.fast { transition-duration: .35s; }
 #jeu canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #jeu .jeu-sign { position: absolute; left: 0; right: 0; text-align: center; margin: 0; padding: 0 0 0 .4em; border: 0; background: transparent;
-  font: 500 12px/44px 'SG Garamond', Georgia, serif; letter-spacing: .4em; color: #fff; opacity: 0; transition: opacity 1.1s;
+  font: 500 14px/44px 'SG Garamond', Georgia, serif; letter-spacing: .4em; color: #fff; opacity: 0; transition: opacity 1.1s;
   pointer-events: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-#jeu .jeu-sign.on { opacity: .44; pointer-events: auto; }
+#jeu .jeu-sign.on { opacity: .62; pointer-events: auto; }
 #jeu .jeu-share { transition: opacity 1.4s, top .8s ease; }
-#jeu .jeu-sign.on:hover { opacity: .6; }
+#jeu .jeu-sign.on:hover { opacity: .85; }
 #jeu .jeu-back { position: absolute; left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); width: 44px; height: 44px;
   margin: 0; padding: 0; border: 0; background: transparent; color: #fff; opacity: 0; transition: opacity .8s; display: flex; align-items: center;
   justify-content: center; cursor: pointer; pointer-events: none; }
-#jeu .jeu-back.on { opacity: .44; pointer-events: auto; }
-#jeu .jeu-back.on:hover { opacity: .6; }
+#jeu .jeu-back.on { opacity: .62; pointer-events: auto; }
+#jeu .jeu-back.on:hover { opacity: .85; }
 #jeu .jeu-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 #jeu .jeu-ta { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; margin: 0;
   font-size: 16px; resize: none; background: transparent; color: transparent; caret-color: transparent; outline: none;

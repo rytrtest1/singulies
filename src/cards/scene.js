@@ -11,7 +11,7 @@
 // vers la couleur du fond, jamais vers le noir.
 // Lumière : manière 1 (orbite + hauteur) + la carte en focus s'incline vers la souris / le téléphone.
 import { createCardRenderer, M4, CARD } from './cardRenderer.js';
-import { loadTypeFont, makeInkMap, makeAnswerInk, makeStripInk, STRIP, TYPE } from './ink.js';
+import { loadTypeFont, makeInkMap, makeAnswerInk, makeStripInk, STRIP, TYPE, CTYPE } from './ink.js';
 import { releaseCanvas } from '../app/compat.js';
 import { createNameRelief } from './nameRelief.js';
 import { createRng } from '../field/rng.js';
@@ -32,7 +32,7 @@ export const LOOK = {
   rough: 0.64, spec: 3.1, sheen: 0, glint: 0.35, edge: 3, grain: 1.25, diffRough: 0.65, envSpec: 0.32, toe: 0.0078,
   nameFlat: 0.68,   // prénom à plat, même clarté que sur l'accueil (NAME_REST, 05/10) ; 0 → prénom en relief (nameAlb, nameRelief…)
   nameAlb: 0.5, nameRelief: 0.05, nameBevel: 0.07, nameSpec: 0.4, nameGrain: 1.25, nameFiber: 0.06, nameGlint: 0.35,
-  inkAlb: 0.35, inkPress: 0.1, inkWear: 3, inkThr: 0.35, inkVar: 0.6, inkPaper: 11.5, inkOrg: 0,
+  inkAlb: 0.85, inkPress: 0.1, inkWear: 3, inkThr: 0.35, inkVar: 0.6, inkPaper: 11.5, inkOrg: 0,
   cornerDelay: 5,    // s avant que le coin se corne
 };
 const FOV = 26 * Math.PI / 180;
@@ -678,7 +678,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // curseur à une position (mm depuis le coin haut-gauche de la face lue, recto) : trait fin qui respire
   function cursorAt(cm, t) {
     const a = 0.55 + 0.4 * Math.sin(t * 2.4);
-    return { cursor: [CARD.w / 2 - cm.x, CARD.h / 2 - cm.y - 0.8, TYPE.size * 0.92, a], cursorFace: 1 };
+    return { cursor: [CARD.w / 2 - cm.x, CARD.h / 2 - cm.y - 0.8, CTYPE.size * 0.92, a], cursorFace: 1 };
   }
 
   // ---------- sélection ----------

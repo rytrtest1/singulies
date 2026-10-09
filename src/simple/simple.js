@@ -61,14 +61,14 @@ const CSS = `
 .sp-title span.on { opacity: 1; }
 .sp-btn { position: absolute; margin: 0; padding: 0; border: 0; background: transparent; color: transparent; font-size: 1px; cursor: pointer; outline: none; }
 .sp-btn:focus-visible { outline: 1px solid rgba(255,255,255,.35); outline-offset: 4px; }
-.sp-sign { position: absolute; left: 0; right: 0; text-align: center; font: 500 12px/44px 'SG Garamond', Georgia, serif; letter-spacing: .4em;
+.sp-sign { position: absolute; left: 0; right: 0; text-align: center; font: 500 14px/44px 'SG Garamond', Georgia, serif; letter-spacing: .4em;
   padding: 0 0 0 .4em; margin: 0; border: 0; background: transparent; color: #fff; opacity: 0; transition: opacity 1.2s; pointer-events: none; cursor: pointer; }
-.sp-sign.on { opacity: .44; pointer-events: auto; }
-.sp-sign.on:hover { opacity: .6; }
+.sp-sign.on { opacity: .62; pointer-events: auto; }
+.sp-sign.on:hover { opacity: .85; }
 .sp-back { position: absolute; left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); width: 44px; height: 44px;
   display: flex; align-items: center; justify-content: center; color: #fff; opacity: 0; transition: opacity .8s; pointer-events: none;
   border: 0; background: transparent; padding: 0; cursor: pointer; z-index: 3; }
-.sp-back.on { opacity: .44; pointer-events: auto; }
+.sp-back.on { opacity: .62; pointer-events: auto; }
 .sp-write { position: absolute; margin: 0; padding: 0; border: 0; outline: none; resize: none; background: transparent; overflow: hidden;
   font: 16px/1.7 'SG Machine', 'Courier New', monospace; color: rgb(222,222,222); caret-color: rgba(255,255,255,.8); text-transform: lowercase;
   -webkit-user-select: text; user-select: text; -webkit-appearance: none; border-radius: 0; }

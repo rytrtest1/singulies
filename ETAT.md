@@ -325,3 +325,8 @@ Voir « Point de reprise » en tête de fichier.
 - `mountSimpleJeu` refait comme le jeu 3D : PARTAGER (place fixe, après le temps de lire), COMMANDER en bas (« BIENTÔT »), glisser à gauche / à droite, question partagée (`jeu?q=`) avec carte réponse, PARTAGER une fois écrit, puis le jeu seul. `main.js` lui passe `firstQ` / `answer`.
 - Vérifié (Chromium sans 3D, 390×844, `tools/simple-check.mjs`) : PARTAGER + COMMANDER affichés, retour au portail, question partagée (PARTAGER absent puis présent après « la mer »), aucune erreur. Unitaires OK.
 - Vignettes og régénérées : identiques (déjà à jour). TEST-5-PERSONNES.md : mention du mode test.
+
+## 09/10 (soir) — lisibilité (retours du test à 5)
+- Cartes : texte ×1,15 (CTYPE), encre inkAlb 0,85 → mesuré (tools/luminance.mjs, SwiftShader 390×844) : encre p99,5 = 132 (avant ≈ 75–100), max 172, prénom 173, papier 16. Signes : 0,62 / survol 0,85, 14 px.
+- Régénérés : public/simple/*, public/email/q/*, vignettes og (dont q/). Portail 390×844 : intitulés lisibles, non recouverts. Unitaires 45/45, simple-check OK.
+- Non touché : gris du champ de prénoms, prénom, enveloppe.

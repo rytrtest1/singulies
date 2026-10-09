@@ -9,6 +9,10 @@ import { createRng } from '../field/rng.js';
 
 export const INK_PXMM = 24;
 export const TYPE = { pitch: 2.54, lead: 8.6, size: 2.54 / 0.6, xScale: 1.0, yScale: 1.1, maxChars: 24, weight: 0.035 };
+// texte des cartes 15 % plus grand que la frappe relevée (09/10, test : « on ne lit pas assez ») ; même interligne ;
+// l'enveloppe et la feuille gardent TYPE
+export const CARD_K = 1.15;
+export const CTYPE = { ...TYPE, pitch: TYPE.pitch * CARD_K, size: TYPE.size * CARD_K, weight: TYPE.weight * CARD_K };
 const FAMILY = 'SG Machine';
 
 let fontReady = null;
@@ -37,7 +41,7 @@ const CLITICS = new Set(['te', 'le', 'la', 'les', 'un', 'une', 'du', 'des', 'de'
   'mes', 'tes', 'ses', 'ce', 'ces', 'cet', 'cette', 'que', 'qu', 'ne', 'n', 'l', 'd', 'j', 'je', 'tu', 'il', 'elle', 'on', 'nous', 'vous',
   'et', 'ou', 'au', 'aux', 'en', 'y', 'leur', 'leurs', 'notre', 'votre', 'quel', 'quelle', 'parce']);
 const isClitic = w => CLITICS.has(w) || /['’]$/.test(w);
-export function breakLines(text, max = TYPE.maxChars) {
+export function breakLines(text, max = CTYPE.maxChars) {
   const w = text.split(' '), lines = [];
   let i = 0;
   while (i < w.length) {
@@ -74,12 +78,12 @@ export function makeInkMap(question, seed = 1, lines0 = null, center = false) {
   // mise en page (mm, origine en haut à gauche de la face lue)
   // bloc centré sur la carte (au même endroit pour toutes) : lignes alignées à gauche, bloc centré
   const longest = Math.max(...lines.map(l => l.length));
-  const margin = (CARD.w - longest * TYPE.pitch) / 2;
-  const lead = TYPE.lead;
+  const margin = (CARD.w - longest * CTYPE.pitch) / 2;
+  const lead = CTYPE.lead;
   const blockH = (lines.length - 1) * lead;
   const y0 = CARD.h / 2 - blockH / 2 + 1.2;           // ligne de base de la 1re ligne (hauteur d'x centrée)
   const tilt = 0;
-  const fontPx = TYPE.size * PX;
+  const fontPx = CTYPE.size * PX;
   const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
   const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;   // origine du caractère dans la vignette
   cx.save();
@@ -91,7 +95,7 @@ export function makeInkMap(question, seed = 1, lines0 = null, center = false) {
     const drift = g() * 0.04;                           // la ligne monte ou descend un peu
     [...line].forEach((ch, ci) => {
       if (ch === ' ' || ch === ' ') return;
-      const x = margin + (center ? (longest - line.length) / 2 : 0) * TYPE.pitch + ci * TYPE.pitch + g() * 0.06;
+      const x = margin + (center ? (longest - line.length) / 2 : 0) * CTYPE.pitch + ci * CTYPE.pitch + g() * 0.06;
       const y = base + drift * ci / Math.max(1, line.length) + g() * 0.09;
       const press = Math.min(1, Math.max(0.5, 0.82 + g() * 0.14));
       const rot = g() * 0.5 * Math.PI / 180;
@@ -101,10 +105,10 @@ export function makeInkMap(question, seed = 1, lines0 = null, center = false) {
       gx.clearRect(0, 0, glyph.width, glyph.height);
       gx.font = `${fontPx}px "${FAMILY}"`;
       gx.fillStyle = '#fff'; gx.strokeStyle = '#fff';
-      gx.translate(ox, oyB); gx.scale(TYPE.xScale, TYPE.yScale);
+      gx.translate(ox, oyB); gx.scale(CTYPE.xScale, CTYPE.yScale);
       gx.fillText(ch, 0, 0);
       // graisse : la frappe écrase l'encre un peu au-delà du dessin
-      gx.lineWidth = TYPE.weight * PX + (CLOG.has(ch) && rnd() < 0.12 ? 0.12 * PX : 0);
+      gx.lineWidth = CTYPE.weight * PX + (CLOG.has(ch) && rnd() < 0.12 ? 0.12 * PX : 0);
       gx.lineJoin = 'round';
       gx.strokeText(ch, 0, 0);
       gx.setTransform(1, 0, 0, 1, 0, 0);
@@ -127,12 +131,12 @@ export function makeInkMap(question, seed = 1, lines0 = null, center = false) {
   });
   // traces de carbone : trait horizontal cassé au milieu des lettres, points, bavure en bout de ligne
   cx.globalAlpha = 1;
-  const xh = 0.32 * TYPE.size;                           // milieu de la hauteur d'x (mm au-dessus de la base)
+  const xh = 0.32 * CTYPE.size;                           // milieu de la hauteur d'x (mm au-dessus de la base)
   if (rnd() < 0.5 && lines.length) {
     const li = Math.floor(rnd() * lines.length), line = lines[li];
     const c0 = Math.floor(rnd() * Math.max(1, line.length - 4)), c1 = Math.min(line.length + 1, c0 + 3 + Math.floor(rnd() * 7));
     const y = y0 + li * lead - xh + g() * 0.15;
-    for (let x = margin + c0 * TYPE.pitch; x < margin + c1 * TYPE.pitch; x += 0.12) {
+    for (let x = margin + c0 * CTYPE.pitch; x < margin + c1 * CTYPE.pitch; x += 0.12) {
       if (rnd() < 0.18) continue;
       cx.fillStyle = `rgba(255,255,255,${rnd.range(0.12, 0.4)})`;
       cx.fillRect(x * PX, (y + g() * 0.03) * PX, 0.14 * PX, rnd.range(0.08, 0.16) * PX);
@@ -140,7 +144,7 @@ export function makeInkMap(question, seed = 1, lines0 = null, center = false) {
   }
   if (rnd() < 0.35 && lines.length) {                    // bavure de carbone au bout d'une ligne
     const li = Math.floor(rnd() * lines.length), y = y0 + li * lead - xh;
-    let x = margin + lines[li].length * TYPE.pitch + rnd.range(0.5, 1.5);
+    let x = margin + lines[li].length * CTYPE.pitch + rnd.range(0.5, 1.5);
     for (let i = 0; i < 3 + rnd() * 6; i++) {
       cx.fillStyle = `rgba(255,255,255,${rnd.range(0.1, 0.3)})`;
       const w = rnd.range(0.4, 1.6);
@@ -161,7 +165,7 @@ export function makeInkMap(question, seed = 1, lines0 = null, center = false) {
 // Comme une machine : les mots ne bougent jamais une fois tapés (retour à la ligne quand le mot ne tient
 // plus, sans rééquilibrage) ; chaque frappe garde ses défauts propres (tirés de son rang dans le texte).
 // Trois lignes visibles au plus : au-delà, la ligne du haut disparaît d'un coup.
-export function answerLines(text, max = TYPE.maxChars) {
+export function answerLines(text, max = CTYPE.maxChars) {
   const lines = [''];
   for (const word of text.split(/(\s+)/)) {
     if (!word) continue;
@@ -178,7 +182,7 @@ export function answerLines(text, max = TYPE.maxChars) {
   return lines.map(l => l.replace(/^ +/, ''));
 }
 
-export const ANSWER_MARGIN = (CARD.w - TYPE.maxChars * TYPE.pitch) / 2;
+export const ANSWER_MARGIN = (CARD.w - CTYPE.maxChars * CTYPE.pitch) / 2;
 // first : première ligne visible (par défaut : les dernières, pour écrire ; 0 = le début, pour relire)
 // margin : marge gauche (mm) — celle de la question pour s'aligner sur elle ; la ligne ne touche jamais le bord droit
 export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null, margin = ANSWER_MARGIN, hint = null) {
@@ -187,11 +191,11 @@ export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null, margin
   cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
   const r0 = createRng(seed);
   // bloc de 3 lignes centré, au même endroit sur toutes les cartes (marge d'une ligne pleine centrée)
-  const lead = TYPE.lead, y0 = CARD.h / 2 - lead + 1.2;
+  const lead = CTYPE.lead, y0 = CARD.h / 2 - lead + 1.2;
   const lines = answerLines(text, answerMax(margin));
   first = first == null ? Math.max(0, lines.length - maxLines) : Math.max(0, Math.min(first, lines.length - 1));
   const shown = Math.min(lines.length, first + maxLines);
-  const fontPx = TYPE.size * PX;
+  const fontPx = CTYPE.size * PX;
   const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
   const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;
   cx.globalCompositeOperation = 'lighter';
@@ -203,14 +207,14 @@ export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null, margin
       const r = createRng((seed * 7919 + (idx + ci) * 104729) >>> 0);
       const g = () => { let s = 0; for (let i = 0; i < 4; i++) s += r(); return (s - 2) / 0.58; };
       if (ch === ' ') return;
-      const x = margin + ci * TYPE.pitch + g() * 0.06, y = base + g() * 0.09;
+      const x = margin + ci * CTYPE.pitch + g() * 0.06, y = base + g() * 0.09;
       const press = Math.min(1, Math.max(0.5, 0.82 + g() * 0.14)), rot = g() * 0.5 * Math.PI / 180;
       gx.setTransform(1, 0, 0, 1, 0, 0); gx.globalCompositeOperation = 'source-over';
       gx.clearRect(0, 0, glyph.width, glyph.height);
       gx.font = `${fontPx}px "${FAMILY}"`; gx.fillStyle = '#fff'; gx.strokeStyle = '#fff';
-      gx.translate(ox, oyB); gx.scale(TYPE.xScale, TYPE.yScale);
+      gx.translate(ox, oyB); gx.scale(CTYPE.xScale, CTYPE.yScale);
       gx.fillText(ch, 0, 0);
-      gx.lineWidth = TYPE.weight * PX + (CLOG.has(ch) && r() < 0.12 ? 0.12 * PX : 0); gx.lineJoin = 'round';
+      gx.lineWidth = CTYPE.weight * PX + (CLOG.has(ch) && r() < 0.12 ? 0.12 * PX : 0); gx.lineJoin = 'round';
       if (gx.lineWidth > 0) gx.strokeText(ch, 0, 0);
       gx.setTransform(1, 0, 0, 1, 0, 0);
       if (r() < 0.4) {
@@ -225,7 +229,7 @@ export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null, margin
     idx += line.length + 1;
   }
   const last = lines.length - 1 - first;
-  const cursor = { x: margin + lines[lines.length - 1].length * TYPE.pitch - 0.35, y: y0 + Math.max(0, last) * lead };
+  const cursor = { x: margin + lines[lines.length - 1].length * CTYPE.pitch - 0.35, y: y0 + Math.max(0, last) * lead };
   const hinted = !!(hint && !text);
   if (hinted) cursor.x = hintLine(cx, PX, hint, margin, y0, CARD.w - 2 * Math.min(margin, 9)) - 0.35;
   return { canvas: cv, lines, cursor, hidden: first, count: lines.length, hinted };
@@ -248,7 +252,7 @@ export function makeQAInk(question, answer, seed = 1) {
   cx.save();
   cx.translate(q.margin * PX, (q.y0 - scroll) * PX); cx.rotate(q.tilt); cx.translate(-q.margin * PX, -(q.y0 - scroll) * PX);
   cx.globalCompositeOperation = 'lighter';
-  const fontPx = TYPE.size * PX;
+  const fontPx = CTYPE.size * PX;
   const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
   const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;
   let idx = 0;
@@ -258,12 +262,12 @@ export function makeQAInk(question, answer, seed = 1) {
       const r = createRng((seed * 7919 + (idx + ci) * 104729 + 31) >>> 0);
       const g = () => { let s = 0; for (let i = 0; i < 4; i++) s += r(); return (s - 2) / 0.58; };
       if (ch === ' ') return;
-      const x = q.margin + ci * TYPE.pitch + g() * 0.06, y = b + g() * 0.09;
+      const x = q.margin + ci * CTYPE.pitch + g() * 0.06, y = b + g() * 0.09;
       const press = Math.min(1, Math.max(0.5, 0.82 + g() * 0.14)), rot = g() * 0.5 * Math.PI / 180;
       gx.setTransform(1, 0, 0, 1, 0, 0); gx.globalCompositeOperation = 'source-over';
       gx.clearRect(0, 0, glyph.width, glyph.height);
       gx.font = `${fontPx}px "${FAMILY}"`; gx.fillStyle = '#fff';
-      gx.translate(ox, oyB); gx.scale(TYPE.xScale, TYPE.yScale);
+      gx.translate(ox, oyB); gx.scale(CTYPE.xScale, CTYPE.yScale);
       gx.fillText(ch, 0, 0);
       gx.setTransform(1, 0, 0, 1, 0, 0);
       if (r() < 0.4) {
@@ -280,7 +284,7 @@ export function makeQAInk(question, answer, seed = 1) {
   cx.restore();
   const last = lines[lines.length - 1];
   // curseur (mm depuis le coin haut-gauche de la face lue), sur la ligne en cours, dans l'inclinaison de la carte
-  const cxm = q.margin + last.length * TYPE.pitch - 0.35, cym = base(lines.length - 1) - scroll;
+  const cxm = q.margin + last.length * CTYPE.pitch - 0.35, cym = base(lines.length - 1) - scroll;
   const dy = (cxm - q.margin) * Math.sin(q.tilt);
   return { canvas: cv, cursor: { x: cxm, y: cym + dy }, scroll, lines };
 }
@@ -289,15 +293,15 @@ export function makeQAInk(question, answer, seed = 1) {
 // dans cette bande (STRIP_BASE mm du haut de la carte), les précédentes au-dessus, cachées sous la question.
 // La bande visible fait un interligne au-dessus de la ligne et un en dessous (même blanc qu'entre deux lignes
 // de la question) : hauteur = 2 × interligne − hauteur d'x ; ligne de base à un interligne du bord de la question.
-const XH = 0.42 * TYPE.size * TYPE.yScale;
-export const STRIP = 2 * TYPE.lead - XH, STRIP_BASE = CARD.h - STRIP + TYPE.lead;
-export const answerMax = margin => Math.max(8, Math.min(TYPE.maxChars, Math.floor((CARD.w - margin - 8.5) / TYPE.pitch)));
+const XH = 0.42 * CTYPE.size * CTYPE.yScale;
+export const STRIP = 2 * CTYPE.lead - XH, STRIP_BASE = CARD.h - STRIP + CTYPE.lead;
+export const answerMax = margin => Math.max(8, Math.min(CTYPE.maxChars, Math.floor((CARD.w - margin - 8.5) / CTYPE.pitch)));
 // invitation en grisé (tant que rien n'est écrit) : frappée en rouge seul — la carte d'encre RG la rend pâle ;
 // plus petite si elle ne tient pas dans la largeur ; centrée sur la carte (09/10), le curseur devant elle.
 // Rend le x (mm) de sa première lettre.
 function hintLine(cx, PX, text, x, base, maxW) {
-  const k = Math.min(1, maxW / (text.length * TYPE.pitch)), fontPx = TYPE.size * PX * k;
-  x = (CARD.w - (text.length - 0.4) * TYPE.pitch * k) / 2;
+  const k = Math.min(1, maxW / (text.length * CTYPE.pitch)), fontPx = CTYPE.size * PX * k;
+  x = (CARD.w - (text.length - 0.4) * CTYPE.pitch * k) / 2;
   const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
   const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;
   const r = createRng(4242);
@@ -306,9 +310,9 @@ function hintLine(cx, PX, text, x, base, maxW) {
     if (ch === ' ') return;
     gx.setTransform(1, 0, 0, 1, 0, 0); gx.clearRect(0, 0, glyph.width, glyph.height);
     gx.font = fontPx + 'px "' + FAMILY + '"'; gx.fillStyle = '#f00';
-    gx.translate(ox, oyB); gx.scale(TYPE.xScale, TYPE.yScale); gx.fillText(ch, 0, 0);
+    gx.translate(ox, oyB); gx.scale(CTYPE.xScale, CTYPE.yScale); gx.fillText(ch, 0, 0);
     cx.globalAlpha = 0.85 + 0.15 * r();
-    cx.drawImage(glyph, (x + ci * TYPE.pitch * k) * PX - ox, (base + (r() - 0.5) * 0.12) * PX - oyB);
+    cx.drawImage(glyph, (x + ci * CTYPE.pitch * k) * PX - ox, (base + (r() - 0.5) * 0.12) * PX - oyB);
   });
   cx.restore();
   return x;
@@ -317,8 +321,8 @@ export function makeStripInk(text, seed = 1, margin = ANSWER_MARGIN, hint = null
   const PX = INK_PXMM, W = Math.round(CARD.w * PX), H = Math.round(CARD.h * PX);
   const cv = new OffscreenCanvas(W, H), cx = cv.getContext('2d');
   cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
-  const lines = answerLines(text, answerMax(margin)), n = lines.length, lead = TYPE.lead;
-  const fontPx = TYPE.size * PX;
+  const lines = answerLines(text, answerMax(margin)), n = lines.length, lead = CTYPE.lead;
+  const fontPx = CTYPE.size * PX;
   const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
   const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;
   cx.globalCompositeOperation = 'lighter';
@@ -329,12 +333,12 @@ export function makeStripInk(text, seed = 1, margin = ANSWER_MARGIN, hint = null
       const r = createRng((seed * 7919 + (idx + ci) * 104729) >>> 0);
       const g = () => { let s = 0; for (let i = 0; i < 4; i++) s += r(); return (s - 2) / 0.58; };
       if (ch === ' ') return;
-      const x = margin + ci * TYPE.pitch + g() * 0.06, y = base + g() * 0.09;
+      const x = margin + ci * CTYPE.pitch + g() * 0.06, y = base + g() * 0.09;
       const press = Math.min(1, Math.max(0.5, 0.82 + g() * 0.14)), rot = g() * 0.5 * Math.PI / 180;
       gx.setTransform(1, 0, 0, 1, 0, 0); gx.globalCompositeOperation = 'source-over';
       gx.clearRect(0, 0, glyph.width, glyph.height);
       gx.font = `${fontPx}px "${FAMILY}"`; gx.fillStyle = '#fff';
-      gx.translate(ox, oyB); gx.scale(TYPE.xScale, TYPE.yScale);
+      gx.translate(ox, oyB); gx.scale(CTYPE.xScale, CTYPE.yScale);
       gx.fillText(ch, 0, 0);
       gx.setTransform(1, 0, 0, 1, 0, 0);
       if (r() < 0.4) {
@@ -350,5 +354,5 @@ export function makeStripInk(text, seed = 1, margin = ANSWER_MARGIN, hint = null
   }
   const hinted = !!(hint && !text);
   const hx = hinted ? hintLine(cx, PX, hint, margin, STRIP_BASE, CARD.w - 2 * Math.min(margin, 9)) : null;
-  return { canvas: cv, cursor: { x: hinted ? hx - 0.35 : margin + lines[n - 1].length * TYPE.pitch - 0.35, y: STRIP_BASE }, count: n, hinted };
+  return { canvas: cv, cursor: { x: hinted ? hx - 0.35 : margin + lines[n - 1].length * CTYPE.pitch - 0.35, y: STRIP_BASE }, count: n, hinted };
 }

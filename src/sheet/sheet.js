@@ -491,7 +491,7 @@ export function createSheetScene(gl, opts) {
         fadeD = 1 - sstep(0.3, 1, direct.pu);
         o.postY = -40 * pu;
         if (u > 0.95 && !direct.back && direct.pu < 0.5 && (direct.writing || !direct.contact))
-          curD = { cursor: [direct.cursor.x - CARD.w / 2, CARD.h / 2 - direct.cursor.y - 0.8, TYPE.size * 0.92, 0.55 + 0.4 * Math.sin(t * 2.4)], cursorFace: 0 };
+          curD = { cursor: [direct.cursor.x - CARD.w / 2, CARD.h / 2 - direct.cursor.y - 0.8, TYPE.size * 1.15 * 0.92, 0.55 + 0.4 * Math.sin(t * 2.4)], cursorFace: 0 };
         if (direct.back && tb >= 1) closeDirect();
       } else o.postY = 0;
       if (o.anim) {                               // lien d'attente : un demi-tour (« bientôt »), puis retour

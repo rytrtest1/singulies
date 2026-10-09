@@ -244,6 +244,9 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 ## Fin de phase
 Test sans consigne : 5 personnes sur mobile. Comprennent-elles qu'il faut écrire ? Si non, on en reparle avant d'ajouter quoi que ce soit.
 
+## Lisibilité (09/10 soir, après le test à 5)
+- Texte des cartes **15 % plus grand** (`CTYPE`, `CARD_K` dans ink.js ; même interligne ; enveloppe et feuille gardent `TYPE`) ; **encre plus claire** (inkAlb 0,35 → 0,85 : encre ≈ 132, max 172, toujours sous le prénom 173) ; **signes** (flèches, PASSER, POSTER, PARTAGER, COMMANDER…) opacité 0,44 → 0,62 (survol 0,85), 12 → 14 px. Images simples, cartes de l'email et vignettes régénérées.
+
 ## Retours du 09/10 (fin de matinée)
 - Retour du jeu : le paquet reste à la place du portail jusqu'à ce que la couche soit vidée (plus de carte droite qui clignote). Tirage : le paquet est d'abord un cran plus bas (la carte tirée et la nouvelle carte du dessus se confondaient une image). Essai : `tools/frame-diff.mjs`.
 - Question partagée : le champ est posé sur la carte réponse et reçoit le toucher (comme les questions du poème).
