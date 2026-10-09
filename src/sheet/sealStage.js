@@ -22,7 +22,7 @@ card.addShape('env', { ...ENV, fine: null });
 card.addShape('envBack', { ...ENV, h: ENV_BACK_H, fine: null });
 card.addShape('flap', { ...ENV, h: FLAP_H, fine: null });
 card.addShape('botFlap', { ...ENV, fine: null });
-card.addShape('seal', { w: SEAL_D, h: SEAL_D, r: SEAL_D / 2, t: 0.2, fine: [SEAL_D / 2 + 1, SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: SEAL_WOB });
+card.addShape('seal', { w: SEAL_D, h: SEAL_D, r: SEAL_D / 2, t: 0.2, fine: [SEAL_D / 2 + 1, SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: SEAL_WOB, alwaysFine: true });
 let sd = 7;
 const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
 const pv = () => ({ seed: rnd() * 100, paperXf: [rnd() * 5 - 2.5, rnd() * 3 - 1.5, rnd() < 0.5 ? 0 : Math.PI, 0], warp: [0.05 + rnd() * 0.1, -rnd() * 0.08, 0], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35, noLogo: true });
@@ -62,7 +62,7 @@ function frame() {
   card.draw(vp, eye, Pl, { model: Mf, lod: 'flap', fade: 1, shade: 1, ...flapV, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: ao(FLAP_H / 2 - 7), sealQ });
   const Ms = M4.mul(Mf, T(0, FLAP_H / 2 - 7, -0.19));
   card.draw(vp, eye, { ...Pl, ...look }, { model: Ms, lod: 'seal', fade: 1, shade: 1, ...sealV, paperLo: shape.marbre,
-    sealP: [shape.hd, shape.hc, shape.crest, shape.ring], sealQ, sealR: [shape.film, shape.sss], blend: true });
+    sealP: [shape.hd, shape.hc, shape.crest, shape.ring], sealQ, sealR: [shape.film, shape.sss, shape.offX, shape.offY], logoOff: [shape.offX, shape.offY], blend: true });
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -90,9 +90,11 @@ const R = [
   ['shape', 'marbre', 0, 2, 0.05, 'cire : marbrure'],
   ['look', 'glint', 0, 4, 0.05, 'cire : paillettes'],
   ['shape', 'hc', 0.2, 3, 0.05, 'forme : hauteur du bourrelet (mm)'],
+  ['shape', 'offX', -3, 3, 0.05, "forme : empreinte décentrée (gauche ↔ droite)"],
+  ['shape', 'offY', -3, 3, 0.05, "forme : empreinte décentrée (bas ↔ haut)"],
   ['shape', 'hd', 0, 2, 0.05, "forme : hauteur de l'empreinte (mm)"],
   ['shape', 'crest', 0.1, 0.9, 0.01, 'forme : crête (centre ↔ bord)'],
-  ['shape', 'ring', 0, 0.4, 0.01, "forme : anneau de l'empreinte"],
+  ['shape', 'ring', 0, 0.4, 0.01, 'forme : double filet'],
   ['shape', 'pits', 0, 6, 0.1, 'forme : piqûres'],
   ['look', 'h', 0, 0.6, 0.01, 'logo : relief'],
   ['look', 'b', 0.05, 1.5, 0.01, 'logo : arrondi'],

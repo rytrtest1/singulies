@@ -102,26 +102,34 @@ function cardMesh(fine = true, seg = 12, dims = null) {
 // le cachet de cire : bord ondulé et profil (maillage et lumière)
 const SEAL_GLSL = /* glsl */`
 float sealWob(float a) { return 0.5 * sin(5.0 * a + 0.7) + 0.22 * sin(3.0 * a + 2.1) + 0.2 * sin(7.0 * a + 4.2) + 0.08 * sin(13.0 * a + 1.3); }   // = cardMesh
+float sealRe(vec2 p) { return uSeal.z * (1.0 + uSeal.w * sealWob(atan(p.y, p.x))); }
+// position dans le bourrelet : 0 au bord de l'empreinte, 1 au bord de la cire (négatif dans l'empreinte)
+float sealT(vec2 p) { float d1 = length(p - uSealR.zw) - uSeal.y, d2 = sealRe(p) - length(p); return d1 / max(0.3, d1 + d2); }
 float sealH(vec2 p) {
-  // (09/10, d'après la référence) : grand disque plat de l'empreinte, paroi qui monte jusqu'à un bourrelet bien rond,
-  // puis la cire retombe raide jusqu'au papier ; le bourrelet est plus large dans les lobes
-  float r = length(p), a = atan(p.y, p.x);
-  float Re = uSeal.z * (1.0 + uSeal.w * sealWob(a));
-  float Ri = uSeal.y, Rc = mix(Ri, Re, uSealP.z);                 // bord de l'empreinte, crête du bourrelet
-  float hd = uSealP.x, hc = uSealP.y * (1.0 + 0.13 * sin(4.0 * a + 1.1) + 0.08 * sin(9.0 * a + 0.3) + 0.05 * sin(15.0 * a + 2.0));
+  // (09/10, d'après les références) : l'empreinte n'est pas au centre de la cire (uSealR.zw) — la cire a coulé
+  // davantage d'un côté, où le bourrelet est large et haut ; de l'autre, le sceau touche presque le bord. Fond plat,
+  // paroi raide (le bord du sceau), crête ronde, puis la cire retombe jusqu'au papier.
+  float r = length(p), a = atan(p.y, p.x), Re = sealRe(p);
+  float ri = length(p - uSealR.zw), d1 = ri - uSeal.y, d2 = Re - r, w = max(0.3, d1 + d2), t = d1 / w;
+  if (d2 <= 0.0) return 0.0;
+  float hd = uSealP.x, cr = uSealP.z;
+  float hc = uSealP.y * (0.5 + 0.5 * smoothstep(1.2, 5.0, w)) * (1.0 + 0.06 * sin(4.0 * a + 1.1) + 0.03 * sin(9.0 * a + 0.3) + 0.015 * sin(15.0 * a + 2.0));
   float h;
-  if (r < Rc) h = hd + (hc - hd) * smoothstep(Ri - 0.5, Rc, r);
-  else { float u = clamp((r - Rc) / max(0.5, Re - Rc), 0.0, 1.0); h = hc * sqrt(1.0 - u * u); }
-  // le cercle gravé du sceau laisse un fin anneau en relief au bord de l'empreinte
-  float ring = uSealP.w * exp(-pow((r - (Ri - 0.9)) / 0.2, 2.0));
-  // la cire n'est pas lisse : fines ondulations et quelques petites piqûres sur le bourrelet
-  float rim = smoothstep(Ri, Rc, r) * step(r, Re);
+  // la paroi : raide sur ≈ 0,4 mm (le bord du sceau enfoncé), puis la cire s'arrondit jusqu'à la crête
+  // (continue à la crête : là où le bourrelet est mince, la paroi n'atteint pas toute sa hauteur — sinon une marche)
+  float hcr = hd + (max(hc, hd) - hd) * (0.7 * smoothstep(-0.05, 0.4, cr * w) + 0.3);
+  if (t < cr) h = hd + (max(hc, hd) - hd) * (0.7 * smoothstep(-0.05, 0.4, d1) + 0.3 * smoothstep(0.0, cr, t));
+  else { float u = clamp((t - cr) / (1.0 - cr), 0.0, 1.0); h = hcr * sqrt(1.0 - u * u); }
+  // le double filet gravé du sceau, en relief au bord de l'empreinte
+  float ring = uSealP.w * (exp(-pow((ri - (uSeal.y - 0.6)) / 0.16, 2.0)) + 0.7 * exp(-pow((ri - (uSeal.y - 1.15)) / 0.12, 2.0)));
+  // la cire n'est pas lisse : fines ondulations, piqûres et petites bavures sur le bourrelet
+  float rim = smoothstep(0.0, cr, t);
   float pits = rim * (0.015 * sin(a * 31.0 + r * 4.1) * sin(a * 19.0 - r * 6.7)
-    - 0.03 * pow(max(0.0, sin(a * 13.0 + r * 2.3) * sin(a * 8.0 - r * 3.9)), 12.0));
-  // rien n'est parfait (09/10) : la cire pressée un peu de travers, de petites bosses dans l'empreinte
-  float tilt = 1.0 + 0.32 * dot(p, vec2(0.6, -0.8)) / uSeal.z;
-  float lumps = 0.05 * sin(p.x * 1.3 + 0.7 * sin(p.y * 0.9)) * sin(p.y * 1.1 - 0.5) + 0.025 * sin(p.x * 3.1 - p.y * 2.3 + 1.0);
-  return (h + lumps * step(r, Re - 0.3)) * tilt + ring + pits * uSealQ.x;
+    + 0.02 * sin(a * 47.0 + 3.0 * sin(a * 5.0)) * smoothstep(0.6, 1.0, t));
+  // la cire pressée un peu de travers, de petites bosses dans l'empreinte
+  float tilt = 1.0 + 0.25 * dot(p, vec2(0.6, -0.8)) / uSeal.z;
+  float lumps = 0.015 * sin(p.x * 1.3 + 0.7 * sin(p.y * 0.9)) * sin(p.y * 1.1 - 0.5) + 0.006 * sin(p.x * 3.1 - p.y * 2.3 + 1.0);
+  return (h + lumps * (1.0 - rim)) * tilt + ring * step(t, 0.0) + pits * uSealQ.x;
 }
 `;
 
@@ -139,6 +147,7 @@ uniform vec2 uLogoOff, uLogoScale;
 // cachet de cire (08/10) : (actif, rayon de l'empreinte du sceau, rayon de la cire, ondulation du bord) — la face 1 bombe
 // vers l'extérieur : empreinte plate, bourrelet de cire chassée autour, puis la cire retombe en ménisque jusqu'au bord
 uniform vec4 uSeal;
+uniform vec4 uSealR;          // cire : (bord translucide, diffusion, décentrage de l'empreinte x, y)
 uniform vec4 uSealP, uSealQ;   // cachet, réglages : (creux de l'empreinte, bourrelet, crête, anneau), (piqûres, cavité paroi, cavité bord, largeur de l'ombre de contact)
 ${SEAL_GLSL}out vec3 vWorld, vT, vB, vN; out vec2 vMM; flat out int vFace;
 // même profil que le shader de surface, pied un peu adouci (le maillage a un pas de 0,2 mm)
@@ -208,7 +217,7 @@ uniform vec3 uLightPos, uEye, uRoomUp;
 uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc;
 // cachet (même uniforme que le maillage) ; ombre de contact d'un objet posé (centre xy mm, rayon, force)
 uniform vec4 uSeal, uAO, uSealP, uSealQ;
-uniform vec2 uSealR;          // cire : épaisseur (mm) sous laquelle elle devient translucide (le bord étalé laisse voir le papier), diffusion de la lumière dans la cire (0–1)
+uniform vec4 uSealR;          // cire : épaisseur (mm) sous laquelle elle devient translucide (le bord étalé laisse voir le papier), diffusion de la lumière dans la cire (0–1), décentrage de l'empreinte (mm)
 ${SEAL_GLSL}
 uniform mat4 uOccInv; uniform float uOccExact;     // ombre exacte : repère de la carte qui fait de l'ombre (inclinée)
 // projecteur de mise en valeur (carte active) : cône doux
@@ -471,8 +480,8 @@ void main() {
     if (uSeal.x > 0.5) {
       float k = prof(d); wax = 0.85 + 0.25 * k; alb *= 0.92 + 0.12 * k;
       // cavité : la lumière de la pièce entre mal au pied de la paroi (disque ↔ bourrelet) et sous les lobes
-      float r = length(p), Re = uSeal.z * (1.0 + uSeal.w * sealWob(atan(p.y, p.x)));
-      cav = (1.0 - uSealQ.y * exp(-pow((r - (uSeal.y - 0.3)) / 1.1, 2.0))) * (1.0 - uSealQ.z * smoothstep(Re - 1.2, Re, r));
+      float r = length(p), Re = sealRe(p), ri = length(p - uSealR.zw);
+      cav = (1.0 - uSealQ.y * exp(-pow((ri - (uSeal.y - 0.05)) / 0.45, 2.0))) * (1.0 - uSealQ.z * smoothstep(Re - 1.2, Re, r));
     }
     float NL = max(dot(n, L), 0.0), NV = max(dot(n, V), 1e-3);
     vec3 H = normalize(L + V); float NH = max(dot(n, H), 0.0), VH = max(dot(V, H), 0.0);
@@ -526,8 +535,7 @@ void main() {
   float aw = uAlpha;
   if (uSeal.x > 0.5 && vFace != 0 && uSealR.x > 0.0) {
     // seulement au-delà de la crête (le film qui s'étale) : le fond de l'empreinte reste une couche de cire pleine
-    float rr = length(vMM), Rc = mix(uSeal.y, uSeal.z * (1.0 + uSeal.w * sealWob(atan(vMM.y, vMM.x))), uSealP.z);
-    aw *= mix(1.0, smoothstep(0.0, uSealR.x, sealH(vMM)), smoothstep(Rc, Rc + 0.4, rr));
+    aw *= mix(1.0, smoothstep(0.0, uSealR.x, sealH(vMM)), smoothstep(uSealP.z, uSealP.z + 0.15, sealT(vMM)));
   }
   o = vec4(mix(vec3(6.0 / 255.0), col, uFade), aw);
 }`;
@@ -603,7 +611,8 @@ export async function createCardRenderer(gl, base = './') {
   function addShape(name, dims) {
     if (!meshes[name]) {
       upload(name, cardMesh(true, dims.seg || 6, dims), dims);
-      if (dims.fine) { upload(name + '~', cardMesh(false, dims.seg || 6, dims), dims); LIGHT[name] = name + '~'; }
+      // alwaysFine : toujours le maillage fin (le cachet : parois raides de moins d'un millimètre, petit objet)
+      if (dims.fine && !dims.alwaysFine) { upload(name + '~', cardMesh(false, dims.seg || 6, dims), dims); LIGHT[name] = name + '~'; }
     }
     return name;
   }
@@ -666,7 +675,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uShadow, RELIEF ? 1 : 0);
     gl.uniform1f(u.uShade, card.shade ?? 1); gl.uniform1f(u.uFade, card.fade ?? 1);
     const al = card.alpha ?? 1, bl = al < 1 || !!card.blend; gl.uniform1f(u.uAlpha, al);
-    gl.uniform2fv(u.uSealR, card.sealR || [0, 0]);
+    gl.uniform4fv(u.uSealR, card.sealR || [0, 0, 0, 0]);
     if (bl) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); }
     gl.bindVertexArray(m.vao);
     gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_INT, 0);

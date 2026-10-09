@@ -86,7 +86,7 @@ export function createSheetScene(gl, opts) {
   card.addShape('envBack', { ...ENV, h: ENV_BACK_H, fine: null });
   card.addShape('flap', { ...ENV, h: FLAP_H, fine: null });
   // le cachet de cire argenté (06/10) : un disque bombé, le logo frappé en creux
-  card.addShape('seal', { w: SEAL_D, h: SEAL_D, r: SEAL_D / 2, t: 0.2, fine: [SEAL_D / 2 + 1, SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: SEAL_WOB });
+  card.addShape('seal', { w: SEAL_D, h: SEAL_D, r: SEAL_D / 2, t: 0.2, fine: [SEAL_D / 2 + 1, SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: SEAL_WOB, alwaysFine: true });
   // le rabat du bas, au dos : la poche d'une vraie enveloppe (ses bords en biais se voient, sous le rabat du haut)
   card.addShape('botFlap', { ...ENV, fine: null });
   const pv = () => ({ seed: rnd() * 100, paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0],
@@ -549,7 +549,7 @@ export function createSheetScene(gl, opts) {
       if (P_LOGO && uSe > 0) {
         const dropZ = reduced ? 0 : 14 * Math.pow(1 - ease(uSe), 2), sq = 1 + 0.06 * Math.sin(Math.PI * sstep(0.55, 1, uSe));
         const Ms = M4.mul(Mf, M4.mul(T(0, FLAP_H / 2 - 7, -(0.06 + 0.1 + 0.03 + dropZ)), new Float32Array([sq, 0, 0, 0, 0, sq, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])));
-        card.draw(vp, eye, { ...P, ...SEAL_LOOK }, { model: Ms, lod: 'seal', fade: envFade * sstep(0, 0.35, uSe), shade: 1, ...sealV, paperLo: SEAL_SHAPE.marbre, ...pq, sealR: [SEAL_SHAPE.film, SEAL_SHAPE.sss], blend: true });
+        card.draw(vp, eye, { ...P, ...SEAL_LOOK }, { model: Ms, lod: 'seal', fade: envFade * sstep(0, 0.35, uSe), shade: 1, ...sealV, paperLo: SEAL_SHAPE.marbre, ...pq, sealR: [SEAL_SHAPE.film, SEAL_SHAPE.sss, SEAL_SHAPE.offX, SEAL_SHAPE.offY], logoOff: [SEAL_SHAPE.offX, SEAL_SHAPE.offY], blend: true });
       }
     }
     // « en direct » envoyé : l'événement, une fois la carte partie

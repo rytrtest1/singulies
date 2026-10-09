@@ -12,11 +12,11 @@ import { typeLines } from './typewriter.js';
 // s'écrase, puis elle bascule jusqu'à sa tranche (09/10 : le cachet vient du geste de la personne, plus avant).
 export const ENV = { w: 229, h: 162, r: 0.8, t: 0.12 };
 export const ENV_BACK_H = 155, FLAP_H = 78, ENV_Z = -3;
-export const SEAL_D = 27, SEAL_K = 0.4, SEAL_IN = 10.2, SEAL_WOB = 0.1;   // cachet : diamètre (mm), logo ≈ 15 mm dans l'empreinte (rayon 10,2 : ≈ 75 % du cachet, d'après la référence du 09/10), bord à 5–6 lobes
+export const SEAL_D = 27, SEAL_K = 0.35, SEAL_IN = 8.8, SEAL_WOB = 0.1;   // cachet : diamètre (mm), logo ≈ 15 mm dans l'empreinte (rayon 10,2 : ≈ 75 % du cachet, d'après la référence du 09/10), bord à 5–6 lobes
 // le cachet : matière (argent sombre, satiné, grainé) et forme (réglées le 09/10 ; banc : cachet.html)
-export const SEAL_LOOK0 = { metal: 1, albedo: 0.03, env: 0.016, rough: 0.5, spec: 0.9, sheen: 0, glint: 0.8, grain: 1.7, fiber: 0.05, envSpec: 1.6, h: 0.18, b: 0.35, foot: 0.4, footW: 0.12, crease: 0.3, edge: 0, diffRough: 0.3 };
+export const SEAL_LOOK0 = { lightR: 60, metal: 1, albedo: 0.03, env: 0.016, rough: 0.22, spec: 2.2, sheen: 0, glint: 1.4, grain: 1, fiber: 0.025, envSpec: 2.2, h: 0.22, b: 0.25, foot: 0.7, footW: 0.12, crease: 0.08, edge: 0, diffRough: 0.3 };   // lightR : le reflet d'une source plus petite que la grande lampe douce des cartes (sur le métal, sinon un voile)
 // envAz : direction de la lampe sur l'enveloppe (en haut à gauche : le relief se lit bombé) ; lamp : sa distance (× cartes)
-export const SEAL_SHAPE0 = { hd: 0.5, hc: 1.2, crest: 0.5, ring: 0.06, pits: 2, cavWall: 0.7, cavEdge: 0.15, ao: 0.1, aoW: 0.8, marbre: 1.4, envAz: -0.8, lamp: 1.3, film: 0.8, sss: 0.5 };   // film : épaisseur (mm) sous laquelle la cire est translucide ; sss : diffusion dans la cire
+export const SEAL_SHAPE0 = { hd: 0.4, hc: 1.7, crest: 0.4, ring: 0.1, offX: -1.2, offY: -0.9, pits: 0.5, cavWall: 0.7, cavEdge: 0.15, ao: 0.1, aoW: 0.8, marbre: 1.4, envAz: -0.8, lamp: 1.3, film: 0.8, sss: 0.5 };   // film : épaisseur (mm) sous laquelle la cire est translucide ; sss : diffusion dans la cire
 // (le dos monte presque jusqu'en haut — la poche : rien ne se voit à l'intérieur une fois fermée)
 
 // ---- LE TABLEAU DES DURÉES (s) -----------------------------------------------------------------------------------
