@@ -19,7 +19,7 @@ import { createRng } from '../field/rng.js';
 import { releaseCanvas } from '../app/compat.js';
 import { handName } from '../text/accents.js';
 import {
-  ENV, ENV_BACK_H, FLAP_H, ENV_Z, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, SEAL_PRESS0, E, ADDR, SENDER, senderCount, PO, MAIL_W, FIELDS, emailOk, telOk,
+  ENV, ENV_BACK_H, FLAP_H, ENV_Z, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, SEAL_PRESS0, envPieces, E, ADDR, SENDER, senderCount, PO, MAIL_W, FIELDS, emailOk, telOk,
   fieldsReady, fieldsOut, contactOk, cleanContact, fieldPos, senderInk, fieldsInk, contactCardInk,
 } from './envelope.js';
 import { typeLines } from './typewriter.js';
@@ -442,10 +442,12 @@ export function createSheetScene(gl, opts) {
       C.occ = u > 0.9 && !hideInside ? { m: Mc } : null;
     }
     // ---- dessin : enveloppe (fond), feuille, carte, lettres, puis le dos de l'enveloppe et le rabat (devant) ----
+    // pleine : bombée une fois la feuille glissée dedans ; l'ombre du rabat du haut une fois fermé
+    const EP = envPieces(inEnv ? ease(span(E.slide, ev)) : 0, uFlap);
     if (Menv && envFade > 0.004) {
       const cur = writePhase && (env.writing || !env.f[env.field]) ? { cursor: [ENV.w / 2 - env.cursor.x, ENV.h / 2 - env.cursor.y - 0.8, TYPE.size * 0.92, (0.55 + 0.4 * Math.sin(t * 2.4)) * sstep(E.write, E.write + 0.8, ev)], cursorFace: 1 } : {};
       // l'encre de l'enveloppe : posée SUR le papier, bien lisible (06/10 : on la croyait sous la feuille) — lampe lointaine ici
-      card.draw(vp, eye, { ...P, inkAlb: 0.75, inkPaper: 4, inkVar: 0.3 }, { model: Menv, lod: 'env', ink: env.ink, inkRG: true, fade: envFade, shade: 1, ...envV.front, ...cur });
+      card.draw(vp, eye, { ...P, inkAlb: 0.75, inkPaper: 4, inkVar: 0.3 }, { model: Menv, lod: 'env', ...EP.front, ink: env.ink, inkRG: true, fade: envFade, shade: 1, ...envV.front, ...cur });
       quads.env = screenQuad(Menv, ENV.w, ENV.h);
     } else quads.env = null;
     // la signature : frappe par frappe (le retour la défait) ; la texture n'est créée qu'au moment de taper
@@ -544,18 +546,18 @@ export function createSheetScene(gl, opts) {
       // le cachet posé : son ombre de contact sur ce qu'il recouvre (rabat, dos, rabat du bas ; repère de chacun)
       const uSe0 = P_LOGO ? span(PO.seal, pp) : 0, aoK = SEAL_SHAPE.ao * sstep(0.6, 1, uSe0), sy = ENV.h / 2 - FLAP_H + 7;
       const aoOf = y => aoK > 0 ? [0, y, SEAL_D / 2, aoK] : null, pq = sealPQ();
-      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy + (ENV.h - ENV_BACK_H) / 2), sealQ: pq.sealQ });
-      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', fade: envFade, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2], ao: aoOf(sy), sealQ: pq.sealQ });
+      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...EP.back, fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy + (ENV.h - ENV_BACK_H) / 2), sealQ: pq.sealQ });
+      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', ...EP.bot, fade: envFade, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2], ao: aoOf(sy), sealQ: pq.sealQ });
       const th = Math.PI * uFlap, hz = 1.9 * uFlap;
       const Mf = M4.mul(Menv, M4.mul(M4.mul(T(0, ENV.h / 2, hz), M4.model(th, 0, 0)), T(0, FLAP_H / 2, 0)));
-      card.draw(vp, eye, P, { model: Mf, lod: 'flap', fade: envFade, shade: 1, ...envV.flap, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: aoOf(FLAP_H / 2 - 7), sealQ: pq.sealQ });
+      card.draw(vp, eye, P, { model: Mf, lod: 'flap', ...EP.flap, fade: envFade, shade: 1, ...envV.flap, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: aoOf(FLAP_H / 2 - 7), sealQ: pq.sealQ });
       // le cachet se pose À CHEVAL sur la pointe du rabat fermé (06/10 : il était trop haut), il descend, s'écrase un peu ;
       // 09/10 : après POSTER, une fois l'enveloppe retournée et le rabat fermé (le geste de la personne le scelle)
       const uSe = span(PO.seal, pp);
       if (P_LOGO && uSe > 0) {
         // la pose : la cire coule, le sceau (invisible) appuie, elle refroidit (sealForm) ; mouvement réduit : le cachet fini
         const Fm = sealForm(reduced ? 1 : SEAL_PRESS0 + (1 - SEAL_PRESS0) * uSe, SEAL_LOOK, SEAL_SHAPE);
-        const Ms = M4.mul(Mf, T(0, FLAP_H / 2 - 7, -0.19));
+        const Ms = M4.mul(Mf, T(0, FLAP_H / 2 - 7, -0.19 - EP.sealDz));
         card.draw(vp, eye, { ...P, ...Fm.look }, { model: Ms, lod: sealLod, fade: envFade * sstep(0, reduced ? 0.35 : 0.1, uSe), shade: 1, ...sealV, paperLo: SEAL_SHAPE.marbre, ...pq,
           sealP: [SEAL_SHAPE.hd, SEAL_SHAPE.hc, SEAL_SHAPE.crest, Fm.ring], sealQ: [Fm.pits, Fm.cavWall, SEAL_SHAPE.cavEdge, SEAL_SHAPE.aoW], form: Fm.form,
           sealV4: [SD.wobPhase, SD.crest, SD.tilt, Fm.peau], sealR: [SEAL_SHAPE.film, SEAL_SHAPE.sss, SEAL_SHAPE.offX, SEAL_SHAPE.offY], logoOff: [SEAL_SHAPE.offX, SEAL_SHAPE.offY], blend: true });

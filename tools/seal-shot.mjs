@@ -38,7 +38,7 @@ const shot = async k => { const b = await page.screenshot({ path: `${dir}/${k}-$
 await shot('face');
 await page.evaluate(() => { [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER').click(); });
 let pt = 0;
-for (const [k, p] of [['entiere', 1.0], ['dos', 3.0], ['approche', 4.0], ['cachet', 5.1], ['recul', 5.9], ['bascule', 6.6], ['tranche', 7.2]]) {
+for (const [k, p] of [['entiere', 1.0], ['tampon', 2.0], ['dos', 3.0], ['approche', 4.0], ['cachet', 5.1], ['recul', 6.9], ['retour', 7.55], ['bascule', 8.2], ['tranche', 8.8]]) {
   await page.evaluate(d => window.__scene.advance(d), p - pt); pt = p;
   await shot(k);
 }

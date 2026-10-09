@@ -153,6 +153,9 @@ layout(location=2) in float aFace;
 uniform mat4 uVP, uModel;
 uniform vec2 uCard;
 uniform vec3 uWarp;          // gondolage (mm) : courbure en x, en y, torsion
+// enveloppe (09/10) : bombé (mm au centre, centre de la pièce dans l'enveloppe en y, sens de y, sens de z) — la feuille et la
+// carte dedans gonflent les deux faces ; nul sur les bords (toutes les pièces suivent la même courbe)
+uniform vec4 uPillow;
 uniform vec3 uCurl;          // coin corné : sens du coin (x, y : ±1, repère de la carte), soulèvement (mm, signé)
 uniform sampler2D uLogo;
 uniform float uLogoSq, uLogoRange, uH, uB, uFoot, uFootW, uNoLogo;
@@ -187,6 +190,13 @@ void main() {
     z += uCurl.z * k * k;
     dzx += uCurl.z * 2.0 * k / cc * uCurl.x;
     dzy += uCurl.z * 2.0 * k / cc * uCurl.y;
+  }
+  if (uPillow.x != 0.0) {
+    float pu = aPos.x / 114.5, pv = (uPillow.y + uPillow.z * aPos.y) / 81.0;      // demi-mesures de l'enveloppe C5
+    if (abs(pu) < 1.0 && abs(pv) < 1.0) {
+      float a2 = 1.0 - pu * pu, b2 = 1.0 - pv * pv, A = uPillow.x * uPillow.w;
+      z += A * a2 * b2; dzx += A * (-2.0 * pu / 114.5) * b2; dzy += A * a2 * (-2.0 * pv / 81.0) * uPillow.z;
+    }
   }
   int f = int(aFace + 0.5);
   if (uSeal.x > 0.5 && f == 1) {
@@ -362,6 +372,16 @@ float occShadow(vec3 L, float dist) {
   return 1.0 - 0.9 * (1.0 - smoothstep(-pen, pen, d));
 }
 
+// ombre fine sous le bord d'un rabat (triangle : force, y de la base, y de la pointe, demi-largeur ; repère de l'enveloppe)
+uniform vec4 uPillow, uTriA, uTriB;
+float triSh(vec2 e, vec4 T) {
+  if (T.x <= 0.0) return 1.0;
+  vec2 d = vec2(T.w, T.y - T.z), q = vec2(abs(e.x), e.y - T.z);
+  float sd = dot(q, normalize(vec2(d.y, -d.x))) * sign(T.y - T.z);
+  if (sd <= 0.0) return 1.0;                                     // sous le rabat : caché
+  float t = clamp(dot(q, d) / dot(d, d), 0.0, 1.0);
+  return 1.0 - T.x * exp(-length(q - d * t) / 0.9);
+}
 float clipRim = 0.0;
 void main() {
   if (uSeal.x > 0.5 && uSealF.x < 1.0 && length(vMM) > sealRe(vMM) * sealS()) discard;   // la cire n'a pas encore coulé jusque-là
@@ -528,6 +548,11 @@ void main() {
     float amb = uEnv * (alb * env(n, L) + uEnvSpec * wax * Fv * env(Rv, L));
     spec *= wax; amb *= cav; diff *= mix(1.0, cav, 0.5);
     sh *= occShadow(L, dist);
+    if (uTriA.x > 0.0 || uTriB.x > 0.0) {
+      vec2 e = vec2(p.x, uPillow.y + uPillow.z * p.y);
+      float tr = triSh(e, uTriA) * triSh(e, uTriB);
+      diff *= tr; sh *= tr; amb *= mix(1.0, tr, 0.7);
+    }
     // ombre de contact (le cachet sur le rabat) : le papier s'assombrit au pied de la cire, un peu plus du côté
     // opposé à la lampe
     if (uAO.w > 0.0) {
@@ -671,6 +696,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uNoLogo, card.noLogo ? 1 : 0);
     gl.uniform4fv(u.uSeal, card.seal || [0, 0, 1, 0]);
     gl.uniform4fv(u.uAO, card.ao || [0, 0, 0, 0]);
+    gl.uniform4fv(u.uPillow, card.pillow || [0, 0, 1, 1]); gl.uniform4fv(u.uTriA, card.triA || [0, 0, 0, 0]); gl.uniform4fv(u.uTriB, card.triB || [0, 0, 0, 0]);
     gl.uniform4fv(u.uSealP, card.sealP || [0.55, 1.5, 0.42, 0.08]); gl.uniform4fv(u.uSealQ, card.sealQ || [1, 0.5, 0.45, 0.9]);
     gl.uniform4fv(u.uPaperXf, card.paperXf || [0, 0, 0, 0]);
     gl.uniform3fv(u.uWarp, card.warp || [0, 0, 0]);

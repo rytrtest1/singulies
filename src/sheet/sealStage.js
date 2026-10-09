@@ -3,7 +3,7 @@
 // l'image = tourner l'enveloppe ; la ligne des valeurs changées se recopie (et se passe dans l'adresse : ?s.albedo=…).
 import { createCardRenderer, M4, CARD } from '../cards/cardRenderer.js';
 import { LOOK } from '../cards/scene.js';
-import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, SEAL_PRESS0 } from './envelope.js';
+import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, SEAL_PRESS0, envPieces } from './envelope.js';
 
 const FOV = 26 * Math.PI / 180, TILT = 0.22, TF = Math.tan(FOV / 2), CAM_AZ = -Math.PI / 2;
 const P = new URLSearchParams(location.search);
@@ -13,7 +13,7 @@ const T = (x, y, z) => M4.model(0, 0, 0, x, y, z);
 const sstep = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
 
 const look = { ...SEAL_LOOK0 };
-const shape = { ...SEAL_SHAPE0, zoom: 0.35, rotX: 0, rotY: 0, breath: 1, form: 1 };
+const shape = { ...SEAL_SHAPE0, zoom: 0.35, rotX: 0, rotY: 0, breath: 1, form: 1, bulge: 1 };
 let poseT0 = -1;                                           // « rejouer la pose » : la cire coule, le sceau appuie, elle refroidit (2,3 s)
 for (const [k, v] of P) if (k.startsWith('s.')) { const n = k.slice(2); if (n in look) look[n] = +v; else if (n in shape) shape[n] = +v; }
 
@@ -65,12 +65,13 @@ function frame() {
   // l'enveloppe, côté cachet, tournée à la main autour du cachet
   const Menv = M4.mul(T(0, SY, 0), M4.mul(M4.model(shape.rotX, shape.rotY, 0), T(0, -SY, 0)));
   const ao = y => shape.ao > 0 ? [0, y, SEAL_D / 2, shape.ao] : null, sealQ = [shape.pits, shape.cavWall, shape.cavEdge, shape.aoW];
-  card.draw(vp, eye, Pl, { model: Menv, lod: 'env', fade: 1, shade: 1, ...front });
-  card.draw(vp, eye, Pl, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', fade: 1, shade: 1, ...back, ao: ao(SY + (ENV.h - ENV_BACK_H) / 2), sealQ });
-  card.draw(vp, eye, Pl, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', fade: 1, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2], ao: ao(SY), sealQ });
+  const EP = envPieces(shape.bulge, 1);
+  card.draw(vp, eye, Pl, { model: Menv, lod: 'env', ...EP.front, fade: 1, shade: 1, ...front });
+  card.draw(vp, eye, Pl, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...EP.back, fade: 1, shade: 1, ...back, ao: ao(SY + (ENV.h - ENV_BACK_H) / 2), sealQ });
+  card.draw(vp, eye, Pl, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', ...EP.bot, fade: 1, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2], ao: ao(SY), sealQ });
   const Mf = M4.mul(Menv, M4.mul(M4.mul(T(0, ENV.h / 2, 1.9), M4.model(Math.PI, 0, 0)), T(0, FLAP_H / 2, 0)));
-  card.draw(vp, eye, Pl, { model: Mf, lod: 'flap', fade: 1, shade: 1, ...flapV, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: ao(FLAP_H / 2 - 7), sealQ });
-  const Ms = M4.mul(Mf, T(0, FLAP_H / 2 - 7, -0.19));
+  card.draw(vp, eye, Pl, { model: Mf, lod: 'flap', ...EP.flap, fade: 1, shade: 1, ...flapV, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: ao(FLAP_H / 2 - 7), sealQ });
+  const Ms = M4.mul(Mf, T(0, FLAP_H / 2 - 7, -0.19 - EP.sealDz));
   if (poseT0 >= 0) { shape.form = Math.min(1, SEAL_PRESS0 + (1 - SEAL_PRESS0) * (performance.now() - poseT0) / 1500); if (shape.form >= 1) poseT0 = -1; if (window.__syncForm) window.__syncForm(); }
   const Fm = sealForm(shape.form, look, shape);
   card.draw(vp, eye, { ...Pl, ...Fm.look }, { model: Ms, lod: sealLod, fade: 1, shade: 1, ...sealV, paperLo: shape.marbre, sealV4: [SD.wobPhase, SD.crest, SD.tilt, Fm.peau], form: Fm.form,
@@ -84,6 +85,7 @@ main();
 // ---- le panneau ----
 const R = [
   ['shape', 'zoom', 0.15, 1, 0.01, 'vue : cachet de près ↔ enveloppe entière'],
+  ['shape', 'bulge', 0, 3, 0.05, 'enveloppe : bombé (× 1,2 mm)'],
   ['shape', 'form', 0, 1, 0.005, 'pose : coule → pression → refroidit (glisser)'],
   ['shape', 'rotY', -1.4, 1.4, 0.01, "tourner (ou glisser sur l'image)"],
   ['shape', 'rotX', -1.4, 1.4, 0.01, 'basculer'],

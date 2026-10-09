@@ -14,7 +14,7 @@ export const ENV = { w: 229, h: 162, r: 0.8, t: 0.12 };
 export const ENV_BACK_H = 155, FLAP_H = 78, ENV_Z = -3;
 export const SEAL_D = 27, SEAL_K = 0.35, SEAL_IN = 8.8, SEAL_WOB = 0.055;   // cachet : diamètre (mm), logo ≈ 15 mm dans l'empreinte (rayon 10,2 : ≈ 75 % du cachet, d'après la référence du 09/10), bord à 5–6 lobes
 // le cachet : matière (argent sombre, satiné, grainé) et forme (réglées le 09/10 ; banc : cachet.html)
-export const SEAL_LOOK0 = { lightR: 150, metal: 0.4, albedo: 0.085, env: 0.065, rough: 0.38, spec: 2.4, sheen: 0.15, glint: 0.7, grain: 0.8, fiber: 0.012, envSpec: 1.2, h: 0.2, b: 0.28, foot: 0.65, footW: 0.12, crease: 0.08, edge: 0, diffRough: 0.4 };   // cire à pigment argenté (pas un métal) ; lightR : reflet d'une source moyenne
+export const SEAL_LOOK0 = { lightR: 150, metal: 0.4, albedo: 0.085, env: 0.065, rough: 0.38, spec: 2.0, sheen: 0.15, glint: 0.7, grain: 0.8, fiber: 0.012, envSpec: 1.2, h: 0.2, b: 0.28, foot: 0.65, footW: 0.12, crease: 0.08, edge: 0, diffRough: 0.4 };   // cire à pigment argenté (pas un métal) ; lightR : reflet d'une source moyenne
 // envAz : direction de la lampe sur l'enveloppe (en haut à gauche : le relief se lit bombé) ; lamp : sa distance (× cartes)
 export const SEAL_SHAPE0 = { hd: 0.35, hc: 1.1, crest: 0.45, ring: 0.09, offX: 0, offY: 0, coule: 0.7, peau: 0.02, pits: 0.5, cavWall: 0.7, cavEdge: 0.15, ao: 0.1, aoW: 0.8, marbre: 1.4, envAz: -0.8, lamp: 1.3, film: 0.8, sss: 0.65 };   // film : épaisseur (mm) sous laquelle la cire est translucide ; sss : diffusion dans la cire
 // (le dos monte presque jusqu'en haut — la poche : rien ne se voit à l'intérieur une fois fermée)
@@ -65,7 +65,7 @@ export function senderCount(ev) {
 // le cachet de cire tombe et s'écrase sur sa pointe ; puis elle bascule jusqu'à ne plus montrer que sa tranche
 // inférieure, comme glissée dans une boîte aux lettres ; la tranche devient le champ de l'email (mount.js) et le reste
 // se fond dans le noir. Horloge propre (s), réversible (le retour défait tout) jusqu'à ce que la tranche soit le champ.
-export const STAMP = { x: 31, y: 27, r: 12.5, logo: 16.5 };   // tampon : centre (mm, depuis le coin haut-droit), rayon, logo
+export const STAMP = { x: 31, y: 27, r: 12.5, logo: 13.5 };   // tampon : centre (mm, depuis le coin haut-droit), rayon, logo
 export const PO = chain([
   ['cam', 1.1],              // la vue recule jusqu'à l'enveloppe entière
   ['pam', 0.6, 0.15],        // puis le coup de tampon, d'un coup sec (09/10 : « pam ! », l'enveloppe entière à l'écran)
@@ -127,34 +127,60 @@ export function senderInk(seed, n) {
   typeLines(cx, PX, SENDER.lines, SENDER.x, SENDER.y, SENDER.lead, seed + 53, 0.9, '#fff', n);
   return { canvas: cv, x: Math.round(S_BOX.x * PX), y: Math.round(S_BOX.y * PX) };
 }
-// un coup de tampon : encre blanche inégale (appui plus fort d'un côté, manques, grain du papier qui ne prend pas)
+// un coup de tampon (09/10, refait) : encre blanche sur papier noir — l'encre s'accumule au bord des traits (le
+// caoutchouc l'écrase vers l'extérieur), le centre des pleins est plus pâle ; appui inégal (un côté peut presque
+// manquer) ; elle ne prend que sur les fibres du papier (grain étiré, pas des points ronds) ; parfois un léger doublé
 export function stampInk(cx, PX, mask, x, y, rot, seed) {
-  const r = createRng(seed >>> 0), S = Math.ceil(2 * (STAMP.r + 1.5) * PX), c = new OffscreenCanvas(S, S), g = c.getContext('2d');
-  g.translate(S / 2, S / 2);
-  g.strokeStyle = '#fff'; g.lineWidth = 0.55 * PX;
-  g.beginPath(); g.arc(0, 0, STAMP.r * PX, 0, Math.PI * 2); g.stroke();
-  g.lineWidth = 0.28 * PX;
-  g.beginPath(); g.arc(0, 0, (STAMP.r - 1.3) * PX, 0, Math.PI * 2); g.stroke();
-  const L = STAMP.logo / 0.62 * PX;                              // le logo occupe ≈ 62 % de son carré
-  g.drawImage(mask, -L / 2, -L / 2, L, L);
-  g.setTransform(1, 0, 0, 1, 0, 0);
-  // appui inégal : un côté du tampon plus chargé que l'autre
-  const a = r() * Math.PI * 2, gr = g.createLinearGradient(S / 2 - Math.cos(a) * S / 2, S / 2 - Math.sin(a) * S / 2, S / 2 + Math.cos(a) * S / 2, S / 2 + Math.sin(a) * S / 2);
-  gr.addColorStop(0, 'rgba(255,255,255,' + r.range(0.45, 0.65) + ')'); gr.addColorStop(1, 'rgba(255,255,255,1)');
-  g.globalCompositeOperation = 'destination-in'; g.fillStyle = gr; g.fillRect(0, 0, S, S);
-  // manques : quelques taches plus pâles, et le grain du papier où l'encre ne prend pas
-  g.globalCompositeOperation = 'destination-out';
-  for (let i = 0; i < 9; i++) {
-    const px = r() * S, py = r() * S, rr = r.range(1.5, 5) * PX, q = g.createRadialGradient(px, py, 0, px, py, rr);
-    q.addColorStop(0, 'rgba(0,0,0,' + r.range(0.25, 0.6) + ')'); q.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = q; g.fillRect(px - rr, py - rr, 2 * rr, 2 * rr);
+  const r = createRng(seed >>> 0), S = Math.ceil(2 * (STAMP.r + 1.5) * PX), c = new OffscreenCanvas(S, S), g = c.getContext('2d', { willReadFrequently: true });
+  const shape = () => {
+    g.strokeStyle = '#fff'; g.lineWidth = 0.6 * PX;
+    g.beginPath(); g.arc(0, 0, STAMP.r * PX, 0, Math.PI * 2); g.stroke();
+    g.lineWidth = 0.25 * PX;
+    g.beginPath(); g.arc(0, 0, (STAMP.r - 1.25) * PX, 0, Math.PI * 2); g.stroke();
+    const L = STAMP.logo / 0.62 * PX;                            // le logo occupe ≈ 62 % de son carré
+    g.drawImage(mask, -L / 2, -L / 2, L, L);
+  };
+  g.translate(S / 2, S / 2); shape();
+  const A = g.getImageData(0, 0, S, S).data;                     // la forme nette
+  // la forme adoucie : pour savoir où l'on est au bord d'un trait, où au milieu d'un plein
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, S); g.filter = `blur(${(0.35 * PX).toFixed(1)}px)`;
+  g.translate(S / 2, S / 2); shape(); g.filter = 'none';
+  const B = g.getImageData(0, 0, S, S).data;
+  // bruit doux (valeurs sur une grille, interpolées) ; étiré pour les fibres
+  const grid = (n) => { const a = new Float32Array((n + 1) * (n + 1)); for (let k = 0; k < a.length; k++) a[k] = r(); return a; };
+  const noise = (G, n, u, v) => { u = Math.max(0, Math.min(n - 1e-3, u)); v = Math.max(0, Math.min(n - 1e-3, v));
+    const i = u | 0, j = v | 0, fu = u - i, fv = v - j, su = fu * fu * (3 - 2 * fu), sv = fv * fv * (3 - 2 * fv), w = n + 1;
+    return (G[j * w + i] * (1 - su) + G[j * w + i + 1] * su) * (1 - sv) + (G[(j + 1) * w + i] * (1 - su) + G[(j + 1) * w + i + 1] * su) * sv; };
+  const nP = 6, nF = 90, nM = 22, GP = grid(nP), GF = grid(nF), GM = grid(nM);
+  const pa = r() * Math.PI * 2, pc = Math.cos(pa), ps = Math.sin(pa), lo = r.range(0.42, 0.65);   // côté qui a moins appuyé
+  const fa = r() * Math.PI, fc = Math.cos(fa), fs = Math.sin(fa);                                  // sens des fibres
+  const out = g.createImageData(S, S), O = out.data;
+  for (let yy = 0; yy < S; yy++) for (let xx = 0; xx < S; xx++) {
+    const k = (yy * S + xx) * 4, a = A[k + 3] / 255;
+    if (a < 0.01) continue;
+    const b = B[k + 3] / 255, u = xx / S, v = yy / S;
+    // bord des traits : là où la forme nette dépasse la forme adoucie (l'encre y est plus dense)
+    const edge = Math.max(0, Math.min(1, (a - b) * 3 + (1 - b) * 0.6));
+    // appui : un dégradé franc d'un côté à l'autre, ondulé
+    const t = ((u - 0.5) * pc + (v - 0.5) * ps) * 1.7 + (noise(GP, nP, u * nP, v * nP) - 0.5) * 0.9;
+    const press = Math.max(0, Math.min(1, lo + (1 - lo) * (0.5 + t)));
+    // fibres : bruit fin étiré dans un sens ; l'encre ne prend que sur leurs sommets
+    const fu2 = (u * fc + v * fs) * nF * 0.35, fv2 = (-u * fs + v * fc) * nF;
+    const fib = noise(GF, nF, ((fu2 % nF) + nF) % nF, ((fv2 % nF) + nF) % nF);
+    const mott = noise(GM, nM, u * nM, v * nM);
+    let ink = a * (0.68 + 0.32 * edge) * (0.78 + 0.22 * mott) * (0.55 + 0.45 * press);
+    // moins d'appui : l'encre ne prend plus que sur les sommets des fibres
+    const thr = (1 - press) * 0.85 - edge * 0.15;
+    ink *= Math.max(0, Math.min(1, (fib - thr) * 5 + 0.55));
+    const val = Math.max(0, Math.min(1, ink)) * 0.82;
+    O[k] = O[k + 1] = O[k + 2] = 255; O[k + 3] = Math.round(val * 255);
   }
-  for (let i = 0; i < 520; i++) {
-    g.fillStyle = 'rgba(0,0,0,' + r.range(0.4, 1) + ')';
-    g.beginPath(); g.arc(r() * S, r() * S, r.range(0.08, 0.3) * PX, 0, Math.PI * 2); g.fill();
-  }
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, S); g.putImageData(out, 0, 0);
   cx.save(); cx.globalCompositeOperation = 'lighter'; cx.translate(x * PX, y * PX); cx.rotate(rot);
-  cx.drawImage(c, -S / 2, -S / 2); cx.restore();
+  cx.drawImage(c, -S / 2, -S / 2);
+  // parfois le tampon a glissé : un doublé très pâle, décalé de quelques dixièmes de millimètre
+  if (r() < 0.45) { const d = r.range(0.25, 0.5) * PX, da = r() * Math.PI * 2; cx.globalAlpha = r.range(0.12, 0.22); cx.drawImage(c, -S / 2 + Math.cos(da) * d, -S / 2 + Math.sin(da) * d); }
+  cx.restore();
 }
 // stamp : { mask, rot, dx, dy, seed } — le coup de tampon, une fois l'enveloppe envoyée ; alors les noms des champs
 // restés vides ne se voient plus (le formulaire est rempli)
@@ -219,4 +245,20 @@ export function sealForm(u, look, shape) {
   const L = { ...look, rough: look.rough + (0.12 - look.rough) * (1 - cool), spec: look.spec + (4 - look.spec) * (1 - cool),
     env: look.env + (0.09 - look.env) * (1 - cool), h: look.h * press, crease: look.crease * press, grain: look.grain * cool, glint: look.glint * cool };
   return { form: u, look: L, ring: shape.ring * press, peau: shape.peau * cool, pits: shape.pits * cool, cavWall: shape.cavWall * press };
+}
+
+// l'enveloppe pleine (09/10) : un léger bombé (la feuille et la carte dedans ; bulge 0 → 1) et l'ombre fine sous le bord
+// des rabats (closed : le rabat du haut fermé, 0 → 1) — ce que chaque pièce reçoit (cardRenderer : uPillow, uTriA/B)
+export const ENV_BULGE = 1.2, FLAP_SH = 0.38;
+export function envPieces(bulge, closed) {
+  const A = ENV_BULGE * bulge, c2 = closed * closed;
+  const flapTri = [FLAP_SH * c2, ENV.h / 2, ENV.h / 2 - FLAP_H, ENV.w / 2], botTri = [FLAP_SH, -ENV.h / 2, -ENV.h / 2 + ENV.h * 0.58, ENV.w / 2];
+  const sy = ENV.h / 2 - FLAP_H + 7, wSeal = 1 - (sy / (ENV.h / 2)) ** 2;
+  return {
+    front: { pillow: [A, 0, 1, -1] },
+    back: { pillow: [A, -(ENV.h - ENV_BACK_H) / 2, 1, 1], triA: flapTri, triB: botTri },
+    bot: { pillow: [A, 0, 1, 1], triA: flapTri },
+    flap: { pillow: [A * c2, ENV.h / 2 - FLAP_H / 2, -1, -1] },
+    sealDz: A * c2 * wSeal,                                      // le cachet monte avec le rabat bombé
+  };
 }
