@@ -108,7 +108,7 @@ float sealH(vec2 p) {
   float r = length(p), a = atan(p.y, p.x);
   float Re = uSeal.z * (1.0 + uSeal.w * sealWob(a));
   float Ri = uSeal.y, Rc = mix(Ri, Re, uSealP.z);                 // bord de l'empreinte, crête du bourrelet
-  float hd = uSealP.x, hc = uSealP.y * (1.0 + 0.04 * sin(4.0 * a + 1.1) + 0.02 * sin(9.0 * a + 0.3));
+  float hd = uSealP.x, hc = uSealP.y * (1.0 + 0.13 * sin(4.0 * a + 1.1) + 0.08 * sin(9.0 * a + 0.3) + 0.05 * sin(15.0 * a + 2.0));
   float h;
   if (r < Rc) h = hd + (hc - hd) * smoothstep(Ri - 0.5, Rc, r);
   else { float u = clamp((r - Rc) / max(0.5, Re - Rc), 0.0, 1.0); h = hc * sqrt(1.0 - u * u); }
@@ -118,7 +118,10 @@ float sealH(vec2 p) {
   float rim = smoothstep(Ri, Rc, r) * step(r, Re);
   float pits = rim * (0.015 * sin(a * 31.0 + r * 4.1) * sin(a * 19.0 - r * 6.7)
     - 0.03 * pow(max(0.0, sin(a * 13.0 + r * 2.3) * sin(a * 8.0 - r * 3.9)), 12.0));
-  return h + ring + pits * uSealQ.x;
+  // rien n'est parfait (09/10) : la cire pressée un peu de travers, de petites bosses dans l'empreinte
+  float tilt = 1.0 + 0.32 * dot(p, vec2(0.6, -0.8)) / uSeal.z;
+  float lumps = 0.05 * sin(p.x * 1.3 + 0.7 * sin(p.y * 0.9)) * sin(p.y * 1.1 - 0.5) + 0.025 * sin(p.x * 3.1 - p.y * 2.3 + 1.0);
+  return (h + lumps * step(r, Re - 0.3)) * tilt + ring + pits * uSealQ.x;
 }
 `;
 

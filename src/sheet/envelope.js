@@ -12,7 +12,7 @@ import { typeLines } from './typewriter.js';
 // s'écrase, puis elle bascule jusqu'à sa tranche (09/10 : le cachet vient du geste de la personne, plus avant).
 export const ENV = { w: 229, h: 162, r: 0.8, t: 0.12 };
 export const ENV_BACK_H = 155, FLAP_H = 78, ENV_Z = -3;
-export const SEAL_D = 27, SEAL_K = 0.4, SEAL_IN = 10.2, SEAL_WOB = 0.07;   // cachet : diamètre (mm), logo ≈ 15 mm dans l'empreinte (rayon 10,2 : ≈ 75 % du cachet, d'après la référence du 09/10), bord à 5–6 lobes
+export const SEAL_D = 27, SEAL_K = 0.4, SEAL_IN = 10.2, SEAL_WOB = 0.1;   // cachet : diamètre (mm), logo ≈ 15 mm dans l'empreinte (rayon 10,2 : ≈ 75 % du cachet, d'après la référence du 09/10), bord à 5–6 lobes
 // (le dos monte presque jusqu'en haut — la poche : rien ne se voit à l'intérieur une fois fermée)
 
 // ---- LE TABLEAU DES DURÉES (s) -----------------------------------------------------------------------------------
