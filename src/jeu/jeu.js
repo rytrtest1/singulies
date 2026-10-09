@@ -60,9 +60,9 @@ export async function mountJeu(opts = {}) {
   const say = t => { sr.textContent = ''; setTimeout(() => { sr.textContent = t; }, 60); };
   const ev = (id, action) => window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id, action } }));
 
-  let current = null, visible = true, started = false, kbPx = 0;
+  let current = null, visible = true, started = false, kbPx = 0, firstAt = null, shareReady = false;
   const scene = await createCardScene(gl, { base, jeu: true, jeuWrite: answering, autoWrite: false, firstQ: opts.firstQ ?? null, noIntro: !!opts.noIntro, on: {
-    draw: d => { current = d.id; const q = QUESTIONS.find(x => x.id === d.id)?.q; if (q) say(q); ev(d.id, 'tiree'); },
+    draw: d => { current = d.id; if (firstAt == null) firstAt = now() + 1.6; /* la question posée, puis PARTAGER */ const q = QUESTIONS.find(x => x.id === d.id)?.q; if (q) say(q); ev(d.id, 'tiree'); },
     discard: d => { ev(d.id, 'passee'); if (answering) stopAnswering(); },
   } });
   scene.setName('');
@@ -78,12 +78,16 @@ export async function mountJeu(opts = {}) {
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     scene.frame(t, dt, W, H);
-    // PARTAGER sous la carte (question partagée : sous la réponse, une fois quelque chose écrit) ; COMMANDER en bas
+    // PARTAGER : un signe fixe, au-dessus de COMMANDER (jamais attaché à la carte, 09/10) ; il vient en fondu une fois la
+    // première question posée (question partagée : une fois quelque chose écrit) et reste ; clavier ouvert : au-dessus
     const st = scene.state(), said = answering && !!(st.active && st.active.text);
-    const r = answering ? scene.activeRect() : scene.cardRect();
-    if (r && current != null && (!answering || said)) { shareEl.style.top = Math.min(r.bottom + 10, H - 104 - kbPx) + 'px'; shareEl.classList.add('on'); } else shareEl.classList.remove('on');
+    const buyTop = H - Math.max(58, H * 0.075);
+    if (firstAt != null && t - firstAt > 0) shareReady = true;
+    shareEl.style.top = (kbPx > 40 ? H - kbPx - 54 : buyTop - 40) + 'px';
+    shareEl.classList.toggle('on', answering ? said : shareReady);
+    const r = answering ? scene.activeRect() : null;
     if (answering && r) Object.assign(ta.style, { left: r.left + 'px', top: r.top + 'px', width: Math.max(1, r.right - r.left) + 'px', height: Math.max(1, r.bottom - r.top) + 'px' });
-    buyEl.style.top = (H - Math.max(58, H * 0.075)) + 'px';
+    buyEl.style.top = buyTop + 'px';
     const br = reduced ? { x: 0, y: 0 } : { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
     scene.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
     raf = requestAnimationFrame(frame);
