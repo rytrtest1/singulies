@@ -8,8 +8,8 @@ import LETTERS from '../../public/email/l/tailles.json';
 
 export const EMAILJS = { service: 'service_8wqf489', template: 'template_cuh5tub', key: 'XreMhhJCN9l5J6V5J',   // identifiants publics (aucun secret)
   // confirmation envoyée à la personne (récapitulatif) : second modèle EmailJS, To = {{to_email}}
-  // (ressources/email-confirmation.html) ; null tant qu'il n'est pas créé
-  confirm: null };
+  // (ressources/email-confirmation.html)
+  confirm: 'template_lryyumd' };
 const K_PENDING = 'singulies.pending';
 const OFF = (() => { try { return new URLSearchParams(location.search).get('envoi') === '0'; } catch { return false; } })();
 const ready = () => !OFF && EMAILJS.service && EMAILJS.template && EMAILJS.key;
