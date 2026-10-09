@@ -107,18 +107,18 @@ float sealH(vec2 p) {
   // puis la cire retombe raide jusqu'au papier ; le bourrelet est plus large dans les lobes
   float r = length(p), a = atan(p.y, p.x);
   float Re = uSeal.z * (1.0 + uSeal.w * sealWob(a));
-  float Ri = uSeal.y, Rc = mix(Ri, Re, 0.42);                 // bord de l'empreinte, crête du bourrelet
-  float hd = 0.55, hc = 1.5 * (1.0 + 0.04 * sin(4.0 * a + 1.1) + 0.02 * sin(9.0 * a + 0.3));
+  float Ri = uSeal.y, Rc = mix(Ri, Re, uSealP.z);                 // bord de l'empreinte, crête du bourrelet
+  float hd = uSealP.x, hc = uSealP.y * (1.0 + 0.04 * sin(4.0 * a + 1.1) + 0.02 * sin(9.0 * a + 0.3));
   float h;
   if (r < Rc) h = hd + (hc - hd) * smoothstep(Ri - 0.5, Rc, r);
   else { float u = clamp((r - Rc) / max(0.5, Re - Rc), 0.0, 1.0); h = hc * sqrt(1.0 - u * u); }
   // le cercle gravé du sceau laisse un fin anneau en relief au bord de l'empreinte
-  float ring = 0.08 * exp(-pow((r - (Ri - 0.9)) / 0.2, 2.0));
+  float ring = uSealP.w * exp(-pow((r - (Ri - 0.9)) / 0.2, 2.0));
   // la cire n'est pas lisse : fines ondulations et quelques petites piqûres sur le bourrelet
   float rim = smoothstep(Ri, Rc, r) * step(r, Re);
   float pits = rim * (0.015 * sin(a * 31.0 + r * 4.1) * sin(a * 19.0 - r * 6.7)
     - 0.03 * pow(max(0.0, sin(a * 13.0 + r * 2.3) * sin(a * 8.0 - r * 3.9)), 12.0));
-  return h + ring + pits;
+  return h + ring + pits * uSealQ.x;
 }
 `;
 
@@ -136,6 +136,7 @@ uniform vec2 uLogoOff, uLogoScale;
 // cachet de cire (08/10) : (actif, rayon de l'empreinte du sceau, rayon de la cire, ondulation du bord) — la face 1 bombe
 // vers l'extérieur : empreinte plate, bourrelet de cire chassée autour, puis la cire retombe en ménisque jusqu'au bord
 uniform vec4 uSeal;
+uniform vec4 uSealP, uSealQ;   // cachet, réglages : (creux de l'empreinte, bourrelet, crête, anneau), (piqûres, cavité paroi, cavité bord, largeur de l'ombre de contact)
 ${SEAL_GLSL}out vec3 vWorld, vT, vB, vN; out vec2 vMM; flat out int vFace;
 // même profil que le shader de surface, pied un peu adouci (le maillage a un pas de 0,2 mm)
 float gaufrage(vec2 p) {
@@ -203,7 +204,7 @@ uniform vec3 uLightPos, uEye, uRoomUp;
 // ombre portée par une autre carte (la carte retournée au-dessus du paquet) : rectangle à la hauteur uOccZ
 uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc;
 // cachet (même uniforme que le maillage) ; ombre de contact d'un objet posé (centre xy mm, rayon, force)
-uniform vec4 uSeal, uAO;
+uniform vec4 uSeal, uAO, uSealP, uSealQ;
 ${SEAL_GLSL}
 uniform mat4 uOccInv; uniform float uOccExact;     // ombre exacte : repère de la carte qui fait de l'ombre (inclinée)
 // projecteur de mise en valeur (carte active) : cône doux
@@ -465,7 +466,7 @@ void main() {
       float k = prof(d); wax = 0.85 + 0.25 * k; alb *= 0.92 + 0.12 * k;
       // cavité : la lumière de la pièce entre mal au pied de la paroi (disque ↔ bourrelet) et sous les lobes
       float r = length(p), Re = uSeal.z * (1.0 + uSeal.w * sealWob(atan(p.y, p.x)));
-      cav = (1.0 - 0.5 * exp(-pow((r - (uSeal.y - 0.3)) / 1.1, 2.0))) * (1.0 - 0.45 * smoothstep(Re - 1.2, Re, r));
+      cav = (1.0 - uSealQ.y * exp(-pow((r - (uSeal.y - 0.3)) / 1.1, 2.0))) * (1.0 - uSealQ.z * smoothstep(Re - 1.2, Re, r));
     }
     float NL = max(dot(n, L), 0.0), NV = max(dot(n, V), 1e-3);
     vec3 H = normalize(L + V); float NH = max(dot(n, H), 0.0), VH = max(dot(V, H), 0.0);
@@ -490,7 +491,7 @@ void main() {
       vec2 Lp = vec2(dot(L, T), dot(L, Bv)); float lp = length(Lp);
       vec2 c = uAO.xy - (lp > 1e-3 ? Lp / lp : vec2(0.0)) * 1.4 * lp / max(dot(L, Ng), 0.2);
       float dd = max(0.0, length(p - c) - uAO.z);
-      float ao = 1.0 - uAO.w * exp(-dd / 0.9);
+      float ao = 1.0 - uAO.w * exp(-dd / max(0.05, uSealQ.w));
       sh *= ao; amb *= mix(1.0, ao, 0.8);
     }
     // projecteur : éclaire la carte active (l'encre surtout, le papier reste sombre), cône à bord doux
@@ -620,6 +621,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uNoLogo, card.noLogo ? 1 : 0);
     gl.uniform4fv(u.uSeal, card.seal || [0, 0, 1, 0]);
     gl.uniform4fv(u.uAO, card.ao || [0, 0, 0, 0]);
+    gl.uniform4fv(u.uSealP, card.sealP || [0.55, 1.5, 0.42, 0.08]); gl.uniform4fv(u.uSealQ, card.sealQ || [1, 0.5, 0.45, 0.9]);
     gl.uniform4fv(u.uPaperXf, card.paperXf || [0, 0, 0, 0]);
     gl.uniform3fv(u.uWarp, card.warp || [0, 0, 0]);
     gl.uniform3fv(u.uCurl, card.curl || [0, 0, 0]);

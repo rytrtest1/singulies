@@ -100,6 +100,10 @@ export function createSheetScene(gl, opts) {
   // cire argentée (référence du 09/10) : argent satiné, clair, presque mat — reflet large et doux, fines paillettes ;
   // logo en relief arrondi
   const SEAL_LOOK = { albedo: 0.3, env: 0.18, rough: 0.45, spec: 9, sheen: 0.25, glint: 0.5, grain: 1.1, fiber: 0.035, envSpec: 1.8, h: 0.24, b: 0.28, foot: 0.35, footW: 0.12, crease: 0.12, edge: 0, diffRough: 0.5 };
+  // forme du cachet et ce qui l'entoure (réglables : scene-cartes.html?cachet&reponse=…, panneau « cachet »)
+  const SEAL_SHAPE = { hd: 0.55, hc: 1.5, crest: 0.42, ring: 0.08, pits: 1, cavWall: 0.5, cavEdge: 0.45, ao: 0.25, aoW: 0.9, marbre: 0.7,
+    lamp: ENV_LAMP, zoom: 1, camDy: 0, lampAz: NaN, lampEl: NaN };
+  const sealPQ = () => ({ sealP: [SEAL_SHAPE.hd, SEAL_SHAPE.hc, SEAL_SHAPE.crest, SEAL_SHAPE.ring], sealQ: [SEAL_SHAPE.pits, SEAL_SHAPE.cavWall, SEAL_SHAPE.cavEdge, SEAL_SHAPE.aoW] });
   const botV = { ...pv(), noLogo: true, warp: [0, 0, 0] };
 
   const sheetV = {
@@ -342,18 +346,19 @@ export function createSheetScene(gl, opts) {
     camS.cx = lerp(0, cxT, ci); camS.cy = lerp(from.cam.cy, cyT, ci); camS.D = Math.exp(lerp(Math.log(from.cam.D), lD, ci));
     // le coup de tampon se sent jusque dans la vue : une secousse brève, amortie
     const jph = pp - PO.hit, jolt = inEnv && !NOADDR && !reduced && jph > 0 && jph < 0.45 ? Math.exp(-jph * 11) * Math.sin(jph * 52) * 0.006 : 0;
-    const cx = camS.cx, cy = camS.cy + jolt * camS.D, D = camS.D * (1 + 0.5 * Math.abs(jolt)) * (window.__camZoom || 1), Hw = 2 * D * TF;   // __camZoom : essais (vue rapprochée)
+    const cx = camS.cx, cy = camS.cy + jolt * camS.D + SEAL_SHAPE.camDy, D = camS.D * (1 + 0.5 * Math.abs(jolt)) * (window.__camZoom || SEAL_SHAPE.zoom), Hw = 2 * D * TF;   // zoom : essais (vue rapprochée)
     eye = [cx, cy - D * Math.sin(TILT), D * Math.cos(TILT)];
     vp = M4.mul(M4.perspective(FOV, W / H, D * 0.25, D * 3), M4.lookAt(eye, [cx, cy, 0], [0, 1, 0]));
 
     // lumière : la lampe suit ce qu'on regarde (la feuille, la commande, l'enveloppe)
     stepLight(dt, t);
+    if (Number.isFinite(SEAL_SHAPE.lampAz)) { lamp.a = CAM_AZ + Math.PI + SEAL_SHAPE.lampAz; lamp.e = SEAL_SHAPE.lampEl; lamp.va = lamp.ve = 0; }   // réglages : lampe tenue
     let fy = SY + lerp(0, oTop - CARD.h, s), fxT = lerp(0, O_X, s);
     if (inEnv) { fy = lerp(fy, EC.y + 20, uCam); fxT = lerp(fxT, 0, uCam); }
     { const w2 = 1.8; for (const [k, v, tg] of [['x', 'vx', fxT], ['y', 'vy', fy]]) { ap[v] += (w2 * w2 * (tg - ap[k]) - 2 * w2 * ap[v]) * dt; ap[k] += ap[v] * dt; } }
     // l'enveloppe : la lampe est à la mesure de l'objet, pas de la vue (09/10 : elle reculait avec la caméra quand la
     // vue montrait l'enveloppe entière — lumière plate, papier délavé, cachet sans relief) ; même force reçue
-    const k = inEnv ? lerp(Hw / 235, ENV_LAMP, uCam) : Hw / 235;
+    const k = inEnv ? lerp(Hw / 235, SEAL_SHAPE.lamp, uCam) : Hw / 235;
     const R = L.lightR0 * 235 * k, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R), el = lamp.e;
     const lightPos = [ap.x + Math.cos(lamp.a) * D0 * Math.cos(el), ap.y + Math.sin(lamp.a) * D0 * Math.cos(el), D0 * Math.sin(el)];
     const light = L.light * k * k * Math.sin(el0) / Math.sin(el);
@@ -525,20 +530,20 @@ export function createSheetScene(gl, opts) {
     gl.enable(gl.DEPTH_TEST);
     if (Menv && envFade > 0.004) {
       // le cachet posé : son ombre de contact sur ce qu'il recouvre (rabat, dos, rabat du bas ; repère de chacun)
-      const uSe0 = P_LOGO ? span(PO.seal, pp) : 0, aoK = 0.25 * sstep(0.6, 1, uSe0), sy = ENV.h / 2 - FLAP_H + 7;
-      const aoOf = y => aoK > 0 ? [0, y, SEAL_D / 2, aoK] : null;
-      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy + (ENV.h - ENV_BACK_H) / 2) });
-      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', fade: envFade, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2], ao: aoOf(sy) });
+      const uSe0 = P_LOGO ? span(PO.seal, pp) : 0, aoK = SEAL_SHAPE.ao * sstep(0.6, 1, uSe0), sy = ENV.h / 2 - FLAP_H + 7;
+      const aoOf = y => aoK > 0 ? [0, y, SEAL_D / 2, aoK] : null, pq = sealPQ();
+      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy + (ENV.h - ENV_BACK_H) / 2), sealQ: pq.sealQ });
+      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', fade: envFade, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2], ao: aoOf(sy), sealQ: pq.sealQ });
       const th = Math.PI * uFlap, hz = 1.9 * uFlap;
       const Mf = M4.mul(Menv, M4.mul(M4.mul(T(0, ENV.h / 2, hz), M4.model(th, 0, 0)), T(0, FLAP_H / 2, 0)));
-      card.draw(vp, eye, P, { model: Mf, lod: 'flap', fade: envFade, shade: 1, ...envV.flap, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: aoOf(FLAP_H / 2 - 7) });
+      card.draw(vp, eye, P, { model: Mf, lod: 'flap', fade: envFade, shade: 1, ...envV.flap, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: aoOf(FLAP_H / 2 - 7), sealQ: pq.sealQ });
       // le cachet se pose À CHEVAL sur la pointe du rabat fermé (06/10 : il était trop haut), il descend, s'écrase un peu ;
       // 09/10 : après POSTER, une fois l'enveloppe retournée et le rabat fermé (le geste de la personne le scelle)
       const uSe = span(PO.seal, pp);
       if (P_LOGO && uSe > 0) {
         const dropZ = reduced ? 0 : 14 * Math.pow(1 - ease(uSe), 2), sq = 1 + 0.06 * Math.sin(Math.PI * sstep(0.55, 1, uSe));
         const Ms = M4.mul(Mf, M4.mul(T(0, FLAP_H / 2 - 7, -(0.06 + 0.1 + 0.03 + dropZ)), new Float32Array([sq, 0, 0, 0, 0, sq, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])));
-        card.draw(vp, eye, { ...P, ...SEAL_LOOK }, { model: Ms, lod: 'seal', fade: envFade * sstep(0, 0.35, uSe), shade: 1, ...sealV });
+        card.draw(vp, eye, { ...P, ...SEAL_LOOK }, { model: Ms, lod: 'seal', fade: envFade * sstep(0, 0.35, uSe), shade: 1, ...sealV, paperLo: SEAL_SHAPE.marbre, ...pq });
       }
     }
     // « en direct » envoyé : l'événement, une fois la carte partie
@@ -867,6 +872,7 @@ export function createSheetScene(gl, opts) {
     // tests / captures
     showOrders: () => showOrders(lastT), choose: id => { const o = orders.find(x => x.id === id); const q = quads[id]; if (o && q) { const r = rectOf(q); return tap((r.left + r.right) / 2, (r.top + r.bottom) / 2, lastT); } return null; },
     timing: { landAll, CURSOR_AT, INTRO_END },
+    sealTune: { look: SEAL_LOOK, shape: SEAL_SHAPE, lamp: () => ({ az: wrapA(lamp.a - CAM_AZ - Math.PI), el: lamp.e }) },
     // zones écran (px CSS) de ce qu'on peut toucher : la carte, les deux cartes de la commande
     rects: () => ({ card: quads.C || null, poste: quads.poste || null, direct: quads.direct || null }),
     tapId(id, t) { const q = id === 'card' ? quads.C : quads[id]; if (!q) return { type: null }; const r = rectOf(q); return tap((r.left + r.right) / 2, (r.top + r.bottom) / 2, t); },

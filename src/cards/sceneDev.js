@@ -17,7 +17,7 @@ mountCards({ name: PRENOM, base: './', seed: P.has('seed') ? +P.get('seed') : un
   window.__scene = m; m.ready = true;
   m.start();
   panel(m.scene);
-  autoplay(m);
+  if (P.has('cachet')) sealBench(m); else autoplay(m);
 });
 
 function panel(scene) {
@@ -89,3 +89,84 @@ window.__toSheet = async () => {
   return !!m.sheet;
 };
 window.__at = tau => { const m = window.__scene; const d = tau - m.sheet.state().tau; if (d > 0) m.advance(d); return m.sheet.state(); };
+
+// réglages du cachet (&cachet) : l'enveloppe jusqu'au cachet posé, le temps figé, puis des curseurs qui changent
+// tout en direct ; la ligne des valeurs changées se recopie (et se passe aussi dans l'adresse : &s.albedo=0.4…)
+async function sealBench(m) {
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const sc = m.scene;
+  await new Promise(res => { const iv = setInterval(() => { const st = sc.state(); if (st.active && !st.writing && st.active.kind === 'question' && !st.ended) sc.startWriting(); if (st.active && st.writing) { clearInterval(iv); res(); } }, 150); });
+  m.type(P.get('reponse') || 'bonjour toi'); await sleep(300); sc.stopWriting(); await sleep(500); sc.give(m.now());
+  await window.__toSheet();
+  window.__at(m.sheet.timing.CURSOR_AT + 0.5); m.sheet.showOrders();
+  m.advance(10.4 / 1.45);
+  const sh = m.sheet, el = () => [...document.querySelectorAll('.sc-answer')].find(x => document.activeElement === x) || document.querySelectorAll('.sc-answer')[1];
+  sh.startWriting(); m.advance(0.3);
+  for (const v of ['Martin', '3 rue Haute', '', 'Paris', '75011']) {
+    const a = el(); a.value = v; a.dispatchEvent(new Event('input'));
+    a.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); m.advance(0.3);
+  }
+  document.activeElement && document.activeElement.blur();
+  m.advance(1.2);
+  [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER').click();
+  m.advance(4.9);
+  for (const e of document.querySelectorAll('.sc-pass')) e.style.display = 'none';
+  const T = sh.sealTune, L0 = T.lamp();
+  if (!Number.isFinite(T.shape.lampAz)) { T.shape.lampAz = +L0.az.toFixed(2); T.shape.lampEl = +L0.el.toFixed(2); }
+  T.shape.zoom = 0.3; T.shape.camDy = -55;   // le cachet en haut de l'écran, au-dessus du panneau
+  const G = { look: T.look, shape: T.shape };
+  for (const [k, v] of P) if (k.startsWith('s.')) { const n = k.slice(2); if (n in T.look) T.look[n] = +v; else if (n in T.shape) T.shape[n] = +v; }
+  const redraw = () => m.step(0, 0);
+  redraw();
+  const R = [
+    ['shape', 'zoom', 0.1, 1, 0.01, 'vue : rapprochée ↔ enveloppe entière'],
+    ['shape', 'lampAz', -1.9, 1.9, 0.01, 'lampe : direction (0 = derrière le cachet)'],
+    ['shape', 'lampEl', 0.25, 1.4, 0.01, 'lampe : hauteur (rad)'],
+    ['shape', 'lamp', 0.6, 2.5, 0.05, 'lampe : distance (× cartes)'],
+    ['look', 'albedo', 0.02, 1, 0.01, 'cire : clarté'],
+    ['look', 'env', 0, 0.6, 0.01, 'cire : lumière de la pièce'],
+    ['look', 'spec', 0, 40, 0.5, 'cire : reflet de la lampe'],
+    ['look', 'rough', 0.08, 1, 0.01, 'cire : rugosité (reflet net ↔ diffus)'],
+    ['look', 'envSpec', 0, 6, 0.05, 'cire : reflet de la pièce (métal)'],
+    ['look', 'sheen', 0, 2, 0.01, 'cire : lustre rasant'],
+    ['look', 'diffRough', 0, 1, 0.01, 'cire : mat'],
+    ['look', 'grain', 0, 4, 0.05, 'cire : grain'],
+    ['look', 'fiber', 0, 0.15, 0.002, 'cire : relief du grain'],
+    ['shape', 'marbre', 0, 2, 0.05, 'cire : marbrure'],
+    ['look', 'glint', 0, 4, 0.05, 'cire : paillettes'],
+    ['shape', 'hc', 0.3, 4, 0.05, 'forme : hauteur du bourrelet (mm)'],
+    ['shape', 'hd', 0, 2, 0.05, "forme : hauteur de l'empreinte (mm)"],
+    ['shape', 'crest', 0.1, 0.9, 0.01, 'forme : crête (près du centre ↔ du bord)'],
+    ['shape', 'ring', 0, 0.4, 0.01, "forme : anneau autour de l'empreinte"],
+    ['shape', 'pits', 0, 4, 0.05, 'forme : piqûres de la cire'],
+    ['look', 'h', 0, 1, 0.01, 'logo : relief'],
+    ['look', 'b', 0.05, 1.5, 0.01, 'logo : arrondi'],
+    ['look', 'foot', 0, 1, 0.01, 'logo : bord net'],
+    ['look', 'crease', 0, 1, 0.01, 'logo : trait sombre au pied'],
+    ['shape', 'cavWall', 0, 1, 0.01, 'ombre : creux au pied du bourrelet'],
+    ['shape', 'cavEdge', 0, 1, 0.01, 'ombre : bord de la cire'],
+    ['shape', 'ao', 0, 1, 0.01, 'ombre portée : force'],
+    ['shape', 'aoW', 0.1, 5, 0.05, 'ombre portée : largeur (mm)'],
+  ];
+  const init = {}; for (const [g, k] of R) init[g + k] = G[g][k];
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:6px;right:6px;bottom:6px;z-index:5;font:12px system-ui;color:#999';
+  const box = document.createElement('div');
+  box.style.cssText = 'max-height:44vh;overflow:auto;background:rgba(0,0,0,.85);padding:8px;border-radius:8px';
+  const out = document.createElement('div'); out.style.cssText = 'margin:4px 0 8px;color:#ddd;user-select:all;word-break:break-all';
+  const show = () => { out.textContent = R.filter(([g, k]) => G[g][k] !== init[g + k] && k !== 'zoom').map(([g, k]) => 's.' + k + '=' + G[g][k]).join('&') || '(rien de changé)'; };
+  box.appendChild(out);
+  for (const [g, k, a, b, st, label] of R) {
+    const l = document.createElement('label'); l.style.cssText = 'display:grid;grid-template-columns:44% 1fr 46px;gap:6px;align-items:center;margin:3px 0';
+    l.innerHTML = `<span>${label}</span><input type=range min=${a} max=${b} step=${st} value=${G[g][k]}><span>${G[g][k]}</span>`;
+    const inp = l.children[1], v = l.children[2];
+    inp.oninput = () => { G[g][k] = +inp.value; v.textContent = inp.value; show(); redraw(); };
+    box.appendChild(l);
+  }
+  const btn = document.createElement('button');
+  btn.textContent = 'cachet'; btn.style.cssText = 'background:#222;color:#bbb;border:0;border-radius:6px;padding:6px 10px;font:12px system-ui;margin-bottom:6px';
+  btn.onclick = () => { box.style.display = box.style.display === 'none' ? 'block' : 'none'; };
+  wrap.append(btn, box);
+  for (const ev of ['pointerdown', 'touchstart', 'wheel', 'keydown']) wrap.addEventListener(ev, e => e.stopPropagation());
+  show(); document.body.appendChild(wrap);
+}
