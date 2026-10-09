@@ -4,6 +4,7 @@
 import { createCardScene } from './scene.js';
 import { createSheetScene, FIELDS, MAIL_W } from '../sheet/sheet.js';
 import { dpr3d } from '../app/perf.js';
+import QUESTIONS from './questions.json';
 
 const CSS = `
 .sc-c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: pinch-zoom; }
@@ -63,6 +64,8 @@ const CSS = `
 .sc-ask input::placeholder { color: rgba(255,255,255,.28); }
 .sc-ask .sc-pass { position: static; margin-top: 22px; }
 .sc-ask .ask-skip { margin-top: 4px; }
+/* lecteur d'écran : ce que la 3D montre, dit à voix haute (invisible) */
+.sc-sr { position: fixed; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .sc-veil { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 1.4s; pointer-events: none; z-index: 14; }
 `;
 
@@ -135,6 +138,12 @@ export async function mountCards(opts) {
   const backEl = el('div', 'sc-sign sc-back', '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M14.5 6 L8.5 12 L14.5 18" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
   backEl.setAttribute('role', 'button'); backEl.setAttribute('aria-label', 'Retour');
   const veil = el('div', 'sc-veil');
+  // lecteur d'écran (09/10) : la question tirée n'existait que dessinée. Le champ où l'on écrit porte la question
+  // comme nom (on entend « As-tu… ? , zone de texte »), et chaque carte, la feuille, l'enveloppe sont annoncées.
+  const sr = el('div', 'sc-sr'); sr.setAttribute('aria-live', 'polite');
+  const say = txt => { sr.textContent = ''; setTimeout(() => { sr.textContent = txt; }, 60); };
+  let srLabel = 'Réponse';
+  const labelAnswer = l => { srLabel = l; if (answer === ta) ta.setAttribute('aria-label', l); };
 
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: !!opts.shot });
   if (!gl) return null;
@@ -172,7 +181,7 @@ export async function mountCards(opts) {
   function openSheet() {
     answer.blur();
     sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced,
-      on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); },
+      on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.'); },
         // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)
         write: d => {
           useEl(d.field ? fieldEls[d.field.id] : ta);
@@ -207,6 +216,7 @@ export async function mountCards(opts) {
         } } });
     scene.hideName(true);
     sheetAt = now(); api.sheet = sheet;
+    say(name + ' : ton prénom en colonne, une lettre par ligne du poème, ' + [...name].filter(c => c !== ' ').join(', ') + '.');
   }
   // ---- l'enveloppe envoyée a basculé sur sa tranche : la tranche devient le champ de l'email (08/10). L'invitation
   // « ton email » en grisé, comme sur l'enveloppe ; COMMANDER (ou Entrée) dès qu'il est valable — pas d'autre issue.
@@ -283,6 +293,7 @@ export async function mountCards(opts) {
     go.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); finish(); } });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); finish(); } });
     mail = { box, inp, go, inner, draw };
+    say('l’enveloppe est partie. ton email, puis COMMANDER.');
     api.ask = { input: inp, send: finish };
   }
   // le champ de l'email suit la tranche (à l'écran) ; COMMANDER dessous (clavier ouvert : au-dessus du clavier)
@@ -303,14 +314,16 @@ export async function mountCards(opts) {
     useEl(ta);
     for (const e of Object.values(fieldEls)) { e.blur(); e.style.width = '1px'; e.style.height = '1px'; }
     sheet.free(); sheet = null; api.sheet = null; placeHits(); postEl.classList.remove('on');
-    answer.setAttribute('aria-label', 'Réponse'); answer.setAttribute('enterkeyhint', 'done');
+    answer.setAttribute('aria-label', srLabel); answer.setAttribute('enterkeyhint', 'done');
     answer.setAttribute('autocomplete', 'off'); answer.setAttribute('autocapitalize', 'none');
     scene.reopen(now());
     log('retour aux cartes');
   }
   function focusAnswer() { if (document.activeElement !== answer) answer.focus({ preventScroll: true }); }
   const setValue = (s) => { if (answer.value !== s) { answer.value = s; try { answer.setSelectionRange(s.length, s.length); } catch { /* */ } } };
-  const scene = await createCardScene(gl, { base, seed, look, toSheet, autoWrite: !coarse, on: { end: finish, write: focusAnswer, text: (d) => setValue(d.text) } });
+  const scene = await createCardScene(gl, { base, seed, look, toSheet, autoWrite: !coarse, on: { end: finish, write: focusAnswer, text: (d) => setValue(d.text),
+    draw: d => { const q = QUESTIONS.find(x => x.id === d.id)?.q; if (q) { labelAnswer(q); say(q); } },
+    blank: () => { labelAnswer('carte blanche : le thème de ton poème'); say('carte blanche. écris le thème de ton poème.'); } } });
   scene.setName(name);
 
   let started = false;
@@ -526,7 +539,10 @@ export async function mountCards(opts) {
   backEl.addEventListener('click', () => {
     if (sheet) { if (sheet.back(now())) { backEl.classList.remove('on'); log('retour'); } return; }
     if (scene.state().mode !== 'free') { if (onExit) { answer.blur(); onExit(); } return; }
-    if (scene.back(now())) { answer.value = scene.state().active?.text || ''; focusAnswer(); log('retour'); }
+    if (scene.back(now())) {
+      answer.value = scene.state().active?.text || ''; focusAnswer(); log('retour');
+      const q = QUESTIONS.find(x => x.id === scene.state().active?.id)?.q; if (q) labelAnswer(q);
+    }
   });
   // la suite : réponse (ou carte blanche) donnée
   function give(how) {
