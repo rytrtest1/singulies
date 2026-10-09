@@ -198,7 +198,8 @@
     });
   }
   // le jeu : le paquet en 3D, « le jeu » tapé au dos de la carte du dessus, SINGULIES au-dessus
-  async function ogJeu() {
+  // q : une question (lien partagé jeu?q=… → q/<id>) : la carte du dessus retournée, la question lisible
+  async function ogJeu(q = null) {
     canvas.width = 1200; canvas.height = 630;
     const W = 1200, H = 630, pxmm = W * 0.36 / CARD.w, Hw = H / pxmm, D = Hw / (2 * Math.tan(FOV / 2));
     const eye = [0, -D * Math.sin(TILT), D * Math.cos(TILT)], cy = -12;
@@ -206,13 +207,13 @@
     const k = Hw / 235, R = L.lightR0 * Hw, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R), az = L.lightAz + 0.35, el = L.elBase;
     const P = { ...L, lightPos: [Math.cos(az) * D0 * Math.cos(el), Math.sin(az) * D0 * Math.cos(el), D0 * Math.sin(el)], light: L.light * k * k * Math.sin(el0) / Math.sin(el), spotI: 0 };
     gl.viewport(0, 0, W, H); gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
-    const ink = card.makeInk(makeInkMap('le jeu', 21).canvas);
+    const ink = card.makeInk(q ? makeInkMap(q.q, 1000 + q.id).canvas : makeInkMap('le jeu', 21).canvas);
     for (let i = 0; i < 12; i++) {
       const j = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(i + 3);
       const top = i === 11;
-      card.draw(vp, eye, P, { model: M4.model(0, 0, (j() - 0.5) * 0.09, (j() - 0.5) * 3.2, cy - (11 - i) * 0.7 + (j() - 0.5) * 1.2, i * 0.36), lod: top ? 'fine' : 'coarse',
+      card.draw(vp, eye, P, { model: M4.model(0, top && q ? Math.PI : 0, (j() - 0.5) * 0.09, (j() - 0.5) * 3.2, cy - (11 - i) * 0.7 + (j() - 0.5) * 1.2, i * 0.36 + (top && q ? 0.4 : 0)), lod: top ? 'fine' : 'coarse',
         seed: 10 + i, paperXf: [j() * 3 - 1.5, j() * 2 - 1, 0, 0], warp: [0.18, -0.08, 0.04], logoOff: [0, 0], shade: 0.55 + 0.45 * (i + 1) / 12,
-        ...(top ? { inkBack: ink } : {}) });
+        ...(top ? (q ? { ink } : { inkBack: ink }) : {}) });
     }
     const out = await compose(x => garamond(x, 'SINGULIES', 44, 600, 92));
     card.freeInk(ink);
@@ -221,6 +222,7 @@
 
   window.__assets = {
     vignettes: async () => [['og.jpg', await ogAccueil()], ['og-poeme.jpg', await ogPoeme()], ['og-jeu.jpg', await ogJeu()]],
+    vignetteQ: async id => ogJeu(QUESTIONS.find(q => q.id === id)),
     simple,
     og: ogShot,
     questions: QUESTIONS.map(q => q.id),

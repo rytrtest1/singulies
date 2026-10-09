@@ -701,7 +701,9 @@ let jeuQ = P.get('q') != null && /^\d+$/.test(P.get('q')) ? +P.get('q') : null;
 function openJeu(fromPortal = false) {
   showPath('jeu');
   const t0 = performance.now();
-  const backToPortal = () => { showPath('./'); portal?.show(); };
+  // retour : le portail, resté dessous (jamais le champ de prénoms), se rembobine pendant que la page s'efface
+  const backToPortal = () => { showPath('./'); if (portal?.back) portal.back(); else portal?.show(); };
+  const under = () => { if (portal?.pause) portal.pause(); else portal?.hide(); };
   // question partagée (lien jeu?q=…) : à la première ouverture seulement, on y répond
   const shared = PAGE === 'jeu' && jeuQ != null && !jeuShared; jeuShared = true;
   const simple = () => simpleModule().then(m => m.mountSimpleJeu({ onBack: backToPortal }));
@@ -711,12 +713,12 @@ function openJeu(fromPortal = false) {
     .catch(e => { console.warn('jeu', e); return simple(); })
     .then(j => {
       if (!j) return;
-      if (!(fromPortal && j.reveal)) { setTimeout(() => portal?.hide(), 1000); return; }
+      if (!(fromPortal && j.reveal)) { setTimeout(under, 1000); return; }
       // deux images plus tard, sa page connaît la place de son paquet : le portail y amène le sien, puis la page
       // apparaît dessus (fondu court) et le portail s'efface
       requestAnimationFrame(() => requestAnimationFrame(() => {
         const r = j.scene?.cardRect?.(); if (r) portal?.deckTo?.((r.left + r.right) / 2, (r.top + r.bottom) / 2);
-        setTimeout(() => { j.reveal(); setTimeout(() => portal?.hide(), 450); }, Math.max(0, 1180 - (performance.now() - t0)));
+        setTimeout(() => { j.reveal(); setTimeout(under, 450); }, Math.max(0, 1180 - (performance.now() - t0)));
       }));
     })
     .catch(e => console.warn('jeu simple', e));

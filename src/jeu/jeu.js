@@ -8,7 +8,7 @@
 // respire (on y répond) ; PARTAGER n'apparaît qu'une fois quelque chose écrit, et partage la réponse avec la question ;
 // une fois partagée (ou la question passée), la carte réponse se fond : le jeu seul, poser une question à son tour.
 import { createCardScene } from '../cards/scene.js';
-import { JEU_LINK } from '../portal/items.js';
+import { JEU_LINK, ITEMS } from '../portal/items.js';
 import QUESTIONS from '../cards/questions.json';
 import { dpr3d } from '../app/perf.js';
 export { JEU_LINK };
@@ -22,6 +22,7 @@ const CSS = `
   font: 500 12px/44px 'SG Garamond', Georgia, serif; letter-spacing: .4em; color: #fff; opacity: 0; transition: opacity 1.1s;
   pointer-events: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 #jeu .jeu-sign.on { opacity: .44; pointer-events: auto; }
+#jeu .jeu-share { transition: opacity 1.4s, top .8s ease; }
 #jeu .jeu-sign.on:hover { opacity: .6; }
 #jeu .jeu-back { position: absolute; left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); width: 44px; height: 44px;
   margin: 0; padding: 0; border: 0; background: transparent; color: #fff; opacity: 0; transition: opacity .8s; display: flex; align-items: center;
@@ -48,7 +49,7 @@ export async function mountJeu(opts = {}) {
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true });
   if (!gl) { root.remove(); return null; }
   const backEl = el('button', 'jeu-back', BACK_SVG); backEl.type = 'button'; backEl.setAttribute('aria-label', 'Retour');
-  const shareEl = el('button', 'jeu-sign', 'PARTAGER'); shareEl.type = 'button'; shareEl.setAttribute('aria-label', 'Partager cette question, pour la poser à quelqu’un');
+  const shareEl = el('button', 'jeu-sign jeu-share', 'PARTAGER'); shareEl.type = 'button'; shareEl.setAttribute('aria-label', 'Partager cette question, pour la poser à quelqu’un');
   const buyEl = el('button', 'jeu-sign', 'COMMANDER'); buyEl.type = 'button'; buyEl.setAttribute('aria-label', 'Commander le jeu SINGULIES');
   // question partagée : on y répond (le champ natif reçoit la frappe, la carte affiche)
   let answering = opts.firstQ != null && !!opts.answer;
@@ -61,8 +62,11 @@ export async function mountJeu(opts = {}) {
   const ev = (id, action) => window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id, action } }));
 
   let current = null, visible = true, started = false, kbPx = 0, firstAt = null, shareReady = false;
-  const scene = await createCardScene(gl, { base, jeu: true, jeuWrite: answering, autoWrite: false, firstQ: opts.firstQ ?? null, noIntro: !!opts.noIntro, on: {
-    draw: d => { current = d.id; if (firstAt == null) firstAt = now() + 1.6; /* la question posée, puis PARTAGER */ const q = QUESTIONS.find(x => x.id === d.id)?.q; if (q) say(q); ev(d.id, 'tiree'); },
+  const scene = await createCardScene(gl, { base, jeu: true, jeuWrite: answering, autoWrite: false, firstQ: opts.firstQ ?? null, noIntro: !!opts.noIntro,
+    firstBack: opts.hold ? ITEMS.find(x => x.id === 'jeu') : null, on: {
+    draw: d => { current = d.id; const q = QUESTIONS.find(x => x.id === d.id)?.q;
+      if (firstAt == null) firstAt = now() + 1.5 + 1.2 + 0.045 * (q || '').length;   // posée, puis le temps de la lire : PARTAGER
+      if (q) say(q); ev(d.id, 'tiree'); },
     discard: d => { ev(d.id, 'passee'); if (answering) stopAnswering(); },
   } });
   scene.setName('');
@@ -78,12 +82,14 @@ export async function mountJeu(opts = {}) {
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     scene.frame(t, dt, W, H);
-    // PARTAGER : un signe fixe, au-dessus de COMMANDER (jamais attaché à la carte, 09/10) ; il vient en fondu une fois la
-    // première question posée (question partagée : une fois quelque chose écrit) et reste ; clavier ouvert : au-dessus
+    // PARTAGER : sous la carte, à une place fixe (la place de repos de la question, jamais attaché à la carte qui
+    // bouge, 09/10) ; il vient en fondu une fois la première question lue (question partagée : sous la réponse, une
+    // fois quelque chose écrit) et reste ; clavier ouvert : au-dessus du clavier
     const st = scene.state(), said = answering && !!(st.active && st.active.text);
     const buyTop = H - Math.max(58, H * 0.075);
     if (firstAt != null && t - firstAt > 0) shareReady = true;
-    shareEl.style.top = (kbPx > 40 ? H - kbPx - 54 : buyTop - 40) + 'px';
+    const mk = scene.marks();
+    if (mk) shareEl.style.top = Math.min((answering ? mk.peekBottom : mk.deckBottom) + 14, kbPx > 40 ? H - kbPx - 54 : buyTop - 48) + 'px';
     shareEl.classList.toggle('on', answering ? said : shareReady);
     const r = answering ? scene.activeRect() : null;
     if (answering && r) Object.assign(ta.style, { left: r.left + 'px', top: r.top + 'px', width: Math.max(1, r.right - r.left) + 'px', height: Math.max(1, r.bottom - r.top) + 'px' });
@@ -93,13 +99,17 @@ export async function mountJeu(opts = {}) {
     raf = requestAnimationFrame(frame);
   }
   function start() { if (!started) { started = true; scene.start(now()); } if (!raf && visible) { last = 0; raf = requestAnimationFrame(frame); } }
+  // venu du portail (hold) : la page se pose d'un coup sur le paquet du portail (aucun fondu), et la carte du dessus
+  // se retourne aussitôt sur la première question
   function reveal() {
-    root.classList.toggle('fast', !!opts.hold);
-    requestAnimationFrame(() => root.classList.add('on'));
+    // (la carte est tirée à l'image suivante, puis la page apparaît : les deux dans la même image)
+    if (opts.hold) { root.style.transition = 'none'; scene.drawAt(now()); requestAnimationFrame(() => root.classList.add('on')); }
+    else requestAnimationFrame(() => root.classList.add('on'));
     setTimeout(() => { backEl.classList.add('on'); buyEl.classList.add('on'); }, opts.hold ? 300 : 1200);
   }
   start();
-  if (!opts.hold) reveal();
+  if (opts.hold) scene.drawAt(1e9);
+  else reveal();
 
   // ---- gestes : comme les questions du poème ----
   let down = null;
@@ -161,7 +171,7 @@ export async function mountJeu(opts = {}) {
     const id = current, q = (QUESTIONS.find(x => x.id === id)?.q || '').toLowerCase();
     const said = answering ? (scene.state().active?.text || '').trim() : '';
     if (answering && !said) return;
-    const link = new URL('jeu?q=' + id, document.baseURI).href;
+    const link = new URL('q/' + id, document.baseURI).href;      // sa page porte la vignette de la question (tools/og-image.mjs)
     const text = '« ' + q + ' »\n' + (said ? '— ' + said + '\n\n' : '') + 'une question de SINGULIES, le jeu d’Eternel';
     ev(id, said ? 'repondue' : 'partagee');
     ta.blur();
@@ -177,8 +187,11 @@ export async function mountJeu(opts = {}) {
 
   function leave() {
     if (!visible) return;
-    visible = false; ta.blur(); vv?.removeEventListener('resize', onVV); root.classList.remove('fast'); root.classList.remove('on');
-    setTimeout(() => { cancelAnimationFrame(raf); raf = 0; root.remove(); try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* */ } opts.onBack?.(); }, 900);
+    // le portail, dessous, se rembobine pendant que la page s'efface
+    visible = false; ta.blur(); vv?.removeEventListener('resize', onVV);
+    root.style.transition = 'opacity .55s ease'; root.classList.remove('on');
+    opts.onBack?.();
+    setTimeout(() => { cancelAnimationFrame(raf); raf = 0; root.remove(); try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* */ } }, 650);
   }
   backEl.addEventListener('click', leave);
   addEventListener('keydown', function esc(e) { if (!document.body.contains(root)) { removeEventListener('keydown', esc); return; } if (visible && e.key === 'Escape') leave(); });

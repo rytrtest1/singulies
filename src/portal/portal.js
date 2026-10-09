@@ -246,7 +246,7 @@ export async function mountPortal(opts = {}) {
   for (const c of cards) { c.bph = rnd() * 6.28; c.bf = rnd.range(0.8, 1.25); }
 
   // ---- états ----
-  let startT = 0, leaving = null, visible = true, raf = 0, last = 0, vp = null, eye = null, lastGesture = -99;
+  let paused = false, startT = 0, leaving = null, visible = true, raf = 0, last = 0, vp = null, eye = null, lastGesture = -99;
   let hoverIdx = -1, pressIdx = -1, focusIdx = JEU, snap = false;
   const dealAt = c => startT + DEAL_AT + RANK[c.i] * DEAL_GAP;
   const landed = (c, t) => reduced ? t - startT > 0.3 : t >= dealAt(c) + DEAL_T;
@@ -565,7 +565,7 @@ export async function mountPortal(opts = {}) {
   function leaveT(t) { const r = leaving && leaving.rev; return r ? r.at - (t - r.t1) : t; }
   function start() { if (!raf && visible) { last = 0; raf = requestAnimationFrame(frame); } }
   function stop() { cancelAnimationFrame(raf); raf = 0; }
-  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else if (visible && !leaving) start(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else if (visible && !leaving && !paused) start(); });
 
   const api = {
     root, canvas, now, readyFired: false,
@@ -574,6 +574,7 @@ export async function mountPortal(opts = {}) {
     // la page du jeu donne la place exacte de son paquet (px CSS, centre)
     deckTo(px, py) { if (leaving && leaving.kind === 'deck') leaving.target = { x: (px - lay.W / 2) * lay.s, y: (lay.H / 2 - py) * lay.s / Math.cos(TILT) }; },
     show() {
+      paused = false;
       sig.style.opacity = '';
       leaving = null; visible = true; startT = now(); lastGesture = -99; hoverIdx = pressIdx = -1; focusIdx = JEU;
       for (const c of cards) { c.anim = null; c.curlA = 0; c.press = 0; c.w = c.i === JEU ? 1 : 0; }
@@ -582,12 +583,16 @@ export async function mountPortal(opts = {}) {
     // retour (depuis le champ, ou d'un lien sortant) : la carte dans laquelle on était entré se rembobine ; sinon
     // (le jeu, la fin du parcours) le paquet redistribue
     back() {
-      if (!leaving || leaving.kind !== 'into' || reduced) { api.show(); return; }
+      paused = false;
+      if (!leaving || reduced) { api.show(); return; }
       const t = now();
       if (!leaving.rev) leaving.rev = { t1: t, at: Math.min(t, leaving.t0 + LEAVE_T) };
-      sig.style.opacity = ''; visible = true; lastGesture = t; hoverIdx = pressIdx = -1;
+      if (leaving.kind !== 'deck') sig.style.opacity = '';       // le jeu : ETERNEL revient avec le rembobinage
+      visible = true; lastGesture = t; hoverIdx = pressIdx = -1;
       root.classList.remove('off', 'leaving'); start();
     },
+    // une page posée par-dessus (le jeu) : le portail reste affiché dessous, immobile (jamais le champ de prénoms)
+    pause() { paused = true; stop(); },
     hide() { visible = false; root.classList.add('off'); root.inert = true; stop(); },
     // tests
     choose: id => choose(cards.find(c => c.id === id)),
