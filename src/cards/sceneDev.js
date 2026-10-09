@@ -17,7 +17,7 @@ mountCards({ name: PRENOM, base: './', seed: P.has('seed') ? +P.get('seed') : un
   window.__scene = m; m.ready = true;
   m.start();
   panel(m.scene);
-  if (P.has('cachet')) sealBench(m); else autoplay(m);
+  if (P.has('cachet')) sealBench(m); else if (P.has('enveloppe')) envPlay(m); else autoplay(m);
 });
 
 function panel(scene) {
@@ -92,7 +92,7 @@ window.__at = tau => { const m = window.__scene; const d = tau - m.sheet.state()
 
 // réglages du cachet (&cachet) : l'enveloppe jusqu'au cachet posé, le temps figé, puis des curseurs qui changent
 // tout en direct ; la ligne des valeurs changées se recopie (et se passe aussi dans l'adresse : &s.albedo=0.4…)
-async function sealBench(m) {
+async function toAddress(m) {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const sc = m.scene;
   await new Promise(res => { const iv = setInterval(() => { const st = sc.state(); if (st.active && !st.writing && st.active.kind === 'question' && !st.ended) sc.startWriting(); if (st.active && st.writing) { clearInterval(iv); res(); } }, 150); });
@@ -108,7 +108,43 @@ async function sealBench(m) {
   }
   document.activeElement && document.activeElement.blur();
   m.advance(1.2);
-  [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER').click();
+}
+const poster = () => [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER').click();
+
+// l'envoi seul (&enveloppe) : tout est préparé en accéléré (cartes, feuille, adresse remplie), puis l'envoi se joue en
+// temps réel — recul, coup de tampon, retournement, rabat, cachet — et s'arrête sur le cachet posé ; « rejouer »
+async function envPlay(m) {
+  const veil = document.createElement('div');
+  veil.style.cssText = 'position:fixed;inset:0;z-index:4;background:#060606';
+  document.body.appendChild(veil);
+  log.style.display = 'none';
+  await toAddress(m);
+  const sh = m.sheet;
+  const play = (sec, then) => {
+    let last = performance.now(), left = sec;
+    const f = n => { const dt = Math.min(0.05, (n - last) / 1000); last = n; left -= dt; m.advance(dt, 1 / Math.max(dt, 1e-3)); if (left > 0) requestAnimationFrame(f); else then && then(); };
+    requestAnimationFrame(f);
+  };
+  veil.style.transition = 'opacity .8s'; veil.style.opacity = '0';
+  setTimeout(() => veil.remove(), 900);
+  play(1.4, () => {
+    poster();
+    play(5.0, () => {
+      for (const e of document.querySelectorAll('.sc-pass')) e.style.display = 'none';
+      const b = document.createElement('button');
+      b.textContent = 'rejouer';
+      b.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:5;background:#1a1a1a;color:#aaa;border:0;border-radius:6px;padding:10px 18px;font:13px system-ui';
+      b.onclick = () => location.reload();
+      b.addEventListener('pointerdown', e => e.stopPropagation());
+      document.body.appendChild(b);
+    });
+  });
+}
+
+async function sealBench(m) {
+  await toAddress(m);
+  const sh = m.sheet;
+  poster();
   m.advance(4.9);
   for (const e of document.querySelectorAll('.sc-pass')) e.style.display = 'none';
   const T = sh.sealTune, L0 = T.lamp();
