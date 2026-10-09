@@ -28,7 +28,9 @@ const simpleModule = () => import('./simple/simple.js');
 // les pages qu'on partage (09/10) : poeme.html (directement le champ), jeu.html (le jeu, par-dessus le portail) ;
 // chacune a sa vignette. L'adresse suit ce qu'on regarde (on partage donc ce qu'on voit).
 const PAGE = document.documentElement.dataset.page || '';
-const showPath = p => { try { history.replaceState(history.state, '', new URL(p, document.baseURI)); } catch { /* */ } };
+// (09/10 : les réglages de l'adresse — ?test=1, ?envoi=0… — restent ; sans eux, le mode test se perdait en entrant
+// dans le poème ; la question partagée q= ne suit que le jeu)
+const showPath = p => { try { const u = new URL(p, document.baseURI), k = new URLSearchParams(location.search); if (!/^jeu/.test(p)) k.delete('q'); u.search = k.toString(); history.replaceState(history.state, '', u); } catch { /* */ } };
 // retour depuis un lien sortant (mes livres → Amazon) : le navigateur rend la page telle qu'on l'a quittée (cache
 // avant/arrière : portail « entré » dans la carte) ; la carte se rembobine jusqu'à sa place (09/10)
 addEventListener('pageshow', e => { if (e.persisted && S.portal) (portal?.back || portal?.show)?.(); });
@@ -230,7 +232,7 @@ function backToStart() {
   if (cardsReady && cardsReady !== 'failed') { cardsReady.canvas.style.transition = 'opacity 1.1s ease'; cardsReady.canvas.style.opacity = '0'; }
   clearValidated();
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  Promise.all([wait(1200), Promise.race([settled().catch(() => {}), wait(2500)])]).finally(() => location.replace(new URL('./', document.baseURI)));   // (une demande pas partie est gardée : elle repart à la visite suivante)
+  Promise.all([wait(1200), Promise.race([settled().catch(() => {}), wait(2500)])]).finally(() => { const u = new URL('./', document.baseURI), k = new URLSearchParams(location.search); k.delete('q'); u.search = k.toString(); location.replace(u); });   // (une demande pas partie est gardée : elle repart à la visite suivante)
 }
 // retour depuis le paquet : l'accueil, prénom confirmé (comme un visiteur qui revient)
 function exitCards() { clearValidated(); location.reload(); }
