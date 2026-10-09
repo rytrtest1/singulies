@@ -213,7 +213,7 @@ function loadCards(name) {
   if (SIMPLE) { cards = Promise.resolve(); cardsReady = 'failed'; why('cartes : version simple demandée'); return; }
   prefetchCards();
   cards = cardsModule.then(({ mountCards }) => mountCards({
-    name, base: './', onExit: exitCards, hidden: true,
+    name, base: './', onExit: exitCards, hidden: true, firstQ: jeuQ,
     onEnd: () => {}, onDone: backToStart,
   })).then((m) => {
     if (!m) throw new Error('webgl2');
@@ -688,14 +688,29 @@ function toPortal() {
   setTimeout(() => { if (S.portal) { cancelAnimationFrame(rafId); rafId = 0; } }, 1000);
 }
 // « le jeu » : sa page par-dessus le portail (qui s'arrête une fois couvert) ; retour = le portail, qui redistribue
-function openJeu() {
+// le jeu : sa page (le portail y hisse son paquet, la page se pose exactement dessus) ; retour = le portail
+// « une réponse, un poème » : le parcours du poème, avec cette question en premier (jeuQ)
+let jeuQ = P.get('q') != null && /^\d+$/.test(P.get('q')) ? +P.get('q') : null;
+function openJeu(fromPortal = false) {
   showPath('jeu');
+  const t0 = performance.now();
   const backToPortal = () => { showPath('./'); portal?.show(); };
+  const toPoem = id => { jeuQ = id; showPath('poeme'); portal?.hide(); enterFromPortal(); };
   const simple = () => simpleModule().then(m => m.mountSimpleJeu({ onBack: backToPortal }));
-  import('./jeu/jeu.js').then(({ mountJeu }) => SIMPLE === 'all' ? null : mountJeu({ base: './', reduced: CFG.reduced, onBack: backToPortal }))
+  import('./jeu/jeu.js').then(({ mountJeu }) => SIMPLE === 'all' ? null : mountJeu({ base: './', reduced: CFG.reduced, onBack: backToPortal, onPoem: toPoem,
+    hold: fromPortal, noIntro: fromPortal, firstQ: PAGE === 'jeu' ? jeuQ : null }))
     .then(j => j || simple())                                    // sans WebGL2 : le jeu en version simple
     .catch(e => { console.warn('jeu', e); return simple(); })
-    .then(j => { if (j) setTimeout(() => portal?.hide(), 1000); })
+    .then(j => {
+      if (!j) return;
+      if (!(fromPortal && j.reveal)) { setTimeout(() => portal?.hide(), 1000); return; }
+      // deux images plus tard, sa page connaît la place de son paquet : le portail y amène le sien, puis la page
+      // apparaît dessus (fondu court) et le portail s'efface
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const r = j.scene?.cardRect?.(); if (r) portal?.deckTo?.((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+        setTimeout(() => { j.reveal(); setTimeout(() => portal?.hide(), 450); }, Math.max(0, 1180 - (performance.now() - t0)));
+      }));
+    })
     .catch(e => console.warn('jeu simple', e));
 }
 function mountPortalPage() {
@@ -703,10 +718,10 @@ function mountPortalPage() {
   const go = new Promise(res => { portalGo = res; });
   const ready = new Promise(res => {
     import('./portal/portal.js')
-      .then(({ mountPortal }) => SIMPLE === 'all' ? null : mountPortal({ base: './', reduced: CFG.reduced, onReady: res, onPoem: enterFromPortal, onJeu: openJeu }))
+      .then(({ mountPortal }) => SIMPLE === 'all' ? null : mountPortal({ base: './', reduced: CFG.reduced, onReady: res, onPoem: enterFromPortal, onJeu: () => openJeu(true) }))
       .catch(e => { console.warn('portail', e); why('portail : ' + (e && e.message || e)); document.getElementById('portal')?.remove(); return null; })
       // sans WebGL2 (ou le portail en échec) : le portail en version simple — mêmes cartes, mêmes gestes
-      .then(p => p || (why('portail : version simple'), window.dispatchEvent(new CustomEvent('singulies:simple', { detail: { where: 'portail' } })), simpleModule().then(m => m.mountSimplePortal({ onReady: res, onPoem: enterFromPortal, onJeu: openJeu }))))
+      .then(p => p || (why('portail : version simple'), window.dispatchEvent(new CustomEvent('singulies:simple', { detail: { where: 'portail' } })), simpleModule().then(m => m.mountSimplePortal({ onReady: res, onPoem: enterFromPortal, onJeu: () => openJeu(false) }))))
       .then(p => { portal = p; })
       .catch(e => { console.warn('portail simple', e); S.portal = false; portalGo(); res(); });
   });

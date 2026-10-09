@@ -118,8 +118,10 @@ export async function mountPortal(opts = {}) {
   const deck = Array.from({ length: DECK }, variant);
   const cards = ITEMS.map((it, i) => {
     const v = variant();
-    const c = { ...it, i, v, ink: inkOf(it.label, v), w: 0, press: 0, curlA: 0, ph: -1, anim: null };
+    // le jeu (09/10) : le dos du paquet (logo en relief, pas en creux), « SINGULIES / le jeu » tapé dessus
+    const c = { ...it, i, v, ink: it.lines ? null : inkOf(it.label, v), w: 0, press: 0, curlA: 0, ph: -1, anim: null };
     c.labelInk = c.ink;
+    if (it.lines) c.backInk = card.makeInk(makeInkMap(it.label, Math.floor(v.seed * 1000) + 7, it.lines).canvas);
     return c;
   });
   cards[JEU].w = 1;
@@ -156,14 +158,13 @@ export async function mountPortal(opts = {}) {
     // les cartes à la taille de celles de la scène des questions (08/10) ; pour tenir dans l'écran, dans l'ordre :
     // moins d'écart avec le paquet (GAPD), le paquet qui sort un peu par le bas (DS : part visible), un peu plus de
     // recouvrement (OV) ; en dernier recours seulement, des cartes plus petites
-    let h = W < H ? Math.min(W * 0.80 / asp, H * 0.27) : H * 0.27, GAPD = 0.34, DS = 1.08;
+    let h = W < H ? Math.min(W * 0.80 / asp, H * 0.27) : H * 0.27, GAPD = 0.34, DS = 0.5;   // (09/10 : le paquet à moitié visible, en bas)
     OV = 0.16;
     const spanOf = () => 1 + 2 * (1 - OV) + 0.14;             // trois cartes qui se recouvrent + marge des biais
     const avail = bot - top;
     if (portrait) {
       const over = () => (spanOf() + GAPD + DS) * h - avail;
       if (over() > 0) GAPD = Math.max(0.18, GAPD - over() / h);
-      if (over() > 0) DS = Math.max(0.72, DS - over() / h);
       if (over() > 0) OV = Math.min(0.3, OV + over() / h / 2);
       if (over() > 0) h = avail / (spanOf() + GAPD + DS);
     } else {
@@ -172,8 +173,9 @@ export async function mountPortal(opts = {}) {
     }
     const span = spanOf();
     const w = h * asp, s = CARD.w / w;
+    lay.s = s;
     lay.D = s * (H / 2) / Math.tan(FOV / 2);
-    const deckC = bot - h * (DS - 0.53);                      // centre du paquet (son épaisseur dessous)
+    const deckC = H - h * 0.04;                               // centre du paquet : sur le bord bas, à moitié visible
     const zoneB = deckC - h * (0.5 + GAPD);                   // bas de la zone des trois cartes
     const len = (portrait ? h : w) * (span - 0.14);
     const a0 = portrait ? top + (zoneB - top - len) / 2 : (W - len) / 2;
@@ -198,7 +200,7 @@ export async function mountPortal(opts = {}) {
   const onDeckPose = c => deckPose(DECK + (ITEMS.length - 1 - RANK[c.i]), c.v);
   const restPose = c => {
     const s = lay.slot[c.i], z = c.i === JEU ? DECK * PITCH + 1.4 : s.z;   // au-dessus du paquet, sans le toucher (gondolages)
-    return { x: s.x + c.v.jx, y: s.y + c.v.jy, z, rx: 0, ry: Math.PI, rz: s.rz + c.v.jr };
+    return { x: s.x + c.v.jx, y: s.y + c.v.jy, z, rx: 0, ry: c.i === JEU ? 0 : Math.PI, rz: s.rz + c.v.jr };   // le jeu : son dos
   };
   // glissement qui dégage une carte de toutes celles posées au-dessus d'elle (rectangles au repos, biais compris,
   // 2 mm de marge), sans sortir de l'écran : la plus courte des directions essayées. Une carte qui se retourne ne
@@ -278,6 +280,7 @@ export async function mountPortal(opts = {}) {
         p.ry = 0;
         return turn(p, u / S, 1);
       }
+      if (c.i === JEU) return lerpPose(a, rest, sstep(0.08, 0.95, u));   // le dos du paquet reste le dos
       const p = lerpPose(a, rest, sstep(0.08, 0.95, u));
       p.ry = 0;
       return turn(p, u, 1);
@@ -306,7 +309,7 @@ export async function mountPortal(opts = {}) {
     // (09/10) la carte touchée mène à la suite : on « entre » dans la carte du poème (et dans celle d'un lien) — elle
     // vient vers soi, de face, jusqu'à remplir l'écran, son papier noir devient le noir de la page suivante ; le jeu :
     // le paquet glisse au milieu et s'enfonce dans le fond, d'où sa page le fait revenir
-    const enter = kind => { leaving = { c, t0: t, kind, from: cards.map(k => poseOf(k, t)), M0: c.lastM, dEnd: fillDist() }; root.classList.add('off', 'leaving'); root.inert = true; };
+    const enter = kind => { leaving = { c, t0: t, kind, from: cards.map(k => poseOf(k, t)), M0: c.lastM, dEnd: fillDist(), target: null }; if (kind !== 'deck') root.classList.add('off', 'leaving'); root.inert = true; };
     if (c.id === 'poeme') {
       enter('into');
       opts.onPoem?.();                  // dans le geste : la page ouvre le clavier
@@ -316,7 +319,9 @@ export async function mountPortal(opts = {}) {
     const url = LINKS[c.id];
     if (url) { enter('into'); setTimeout(() => { location.href = url; }, reduced ? 0 : 1050); return; }
     // le jeu : sa page, dans le même monde (jeu/jeu.js) ; elle se fond par-dessus pendant que le paquet s'éloigne
-    if (c.id === 'jeu' && opts.onJeu) { enter('deck'); setTimeout(() => opts.onJeu(), reduced ? 0 : 650); return; }
+    // (09/10) le paquet se hisse à la place principale pendant que le reste s'écarte ; la page du jeu prend le relais
+    // sans coupure (elle se prépare, invisible, et vient se poser exactement sur lui)
+    if (c.id === 'jeu' && opts.onJeu) { enter('deck'); opts.onJeu(); return; }
     if (cards.some(k => k.anim)) return;          // une seule carte se retourne à la fois
     if (!soonInk) soonInk = inkOf('bientôt', c.v);
     c.anim = { t0: t, off: slideFor(c) };
@@ -467,7 +472,13 @@ export async function mountPortal(opts = {}) {
     }
     const jeu = cards[JEU], sj = lay.slot[JEU];
     let Gdeck0 = M4.mul(Gin, group(sj.x, sj.y, jeu.bph, leaving ? 0 : jeu.w, jeu.bf));
-    if (leaving && leaving.kind === 'deck' && !reduced) { const e = ease(clamp01(lu / 0.9)); Gdeck0 = M4.mul(M4.model(0, 0, 0, -sj.x * e, -sj.y * e, -110 * e * e), Gdeck0); }
+    const eDeck = leaving && leaving.kind === 'deck' ? (reduced ? 1 : ease(clamp01(lu / 0.9))) : 0;
+    if (eDeck > 0) {
+      // sa place : celle du paquet de la page du jeu (deckTo), à défaut au milieu, un peu au-dessus
+      const tg = leaving.target || { x: 0, y: (lay.H / 2 - lay.H * 0.38) * lay.s / Math.cos(TILT) };
+      Gdeck0 = M4.mul(M4.model(0, 0, 0, (tg.x - sj.x) * eDeck, (tg.y - sj.y) * eDeck, 26 * Math.sin(Math.PI * eDeck) * (reduced ? 0 : 1)), Gdeck0);
+      sig.style.opacity = String(1 - eDeck);
+    }
     const Gdeck = leaving && leaving.c !== jeu ? recede(Gdeck0) : Gdeck0;
 
     for (const c of cards) {
@@ -488,11 +499,15 @@ export async function mountPortal(opts = {}) {
       else G = M4.mul(Gin, group(s.x, s.y, c.bph, leaving ? 0 : c.w, c.bf));
       if (leaving) {
         if (c === leaving.c) fade *= leaving.kind === 'into' && !reduced ? 1 : 1 - sstep(0.45, 1, lu);
+        else if (leaving.kind === 'deck') {           // les autres s'écartent, de leur côté
+          const side = (lay.slot[c.i].x || (c.i % 2 ? 1 : -1)) > 0 ? 1 : -1, Ww = 2 * lay.D * Math.tan(FOV / 2) * lay.W / lay.H;
+          fade *= 1 - eDeck; G = M4.mul(M4.model(0, 0, side * 0.08 * eDeck, side * Ww * 0.75 * eDeck, -6 * eDeck, 0), G);
+        }
         else { fade *= 1 - away; if (c.i !== JEU) G = recede(G); }
       }
       // l'encre change quand le recto est caché (tour « bientôt »)
       // « bientôt » est tapé au dos (sur le logo gaufré), visible le temps du demi-tour
-      const ink = c.labelInk, inkBack = c.anim ? soonInk : null;
+      const ink = c.labelInk, inkBack = c.anim ? soonInk : c.backInk || null;
       const dim = 1;
       // ombre de la carte posée par-dessus (la suivante de la donne)
       const nx = c.i > 0 && c.i < JEU ? cards[c.i - 1] : null;
@@ -541,7 +556,10 @@ export async function mountPortal(opts = {}) {
     root, canvas, now, readyFired: false,
     get shown() { return visible && !leaving; },
     // retour depuis le champ : le paquet revient et distribue de nouveau
+    // la page du jeu donne la place exacte de son paquet (px CSS, centre)
+    deckTo(px, py) { if (leaving && leaving.kind === 'deck') leaving.target = { x: (px - lay.W / 2) * lay.s, y: (lay.H / 2 - py) * lay.s / Math.cos(TILT) }; },
     show() {
+      sig.style.opacity = '';
       leaving = null; visible = true; startT = now(); lastGesture = -99; hoverIdx = pressIdx = -1; focusIdx = JEU;
       for (const c of cards) { c.anim = null; c.curlA = 0; c.press = 0; c.w = c.i === JEU ? 1 : 0; }
       root.classList.remove('off', 'leaving'); root.inert = false; start();

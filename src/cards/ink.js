@@ -61,14 +61,16 @@ export function breakLines(text, max = TYPE.maxChars) {
 const CLOG = new Set('eaoêéèàâôœgqdbp'.split(''));
 
 // Carte d'encre : OffscreenCanvas (largeur CARD.w × INK_PXMM), lettres blanches sur noir.
-export function makeInkMap(question, seed = 1) {
+// lines : lignes imposées, telles quelles (09/10 : « SINGULIES » en capitales, puis « le jeu ») — sinon le texte en
+// minuscules, coupé automatiquement
+export function makeInkMap(question, seed = 1, lines0 = null) {
   const rnd = createRng(seed), g = () => {           // gaussienne approchée
     let s = 0; for (let i = 0; i < 4; i++) s += rnd(); return (s - 2) / 0.58;
   };
   const PX = INK_PXMM, W = Math.round(CARD.w * PX), H = Math.round(CARD.h * PX);
   const cv = new OffscreenCanvas(W, H), cx = cv.getContext('2d');
   cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
-  const text = cardText(question), lines = breakLines(text);
+  const text = cardText(question), lines = lines0 || breakLines(text);
   // mise en page (mm, origine en haut à gauche de la face lue)
   // bloc centré sur la carte (au même endroit pour toutes) : lignes alignées à gauche, bloc centré
   const longest = Math.max(...lines.map(l => l.length));

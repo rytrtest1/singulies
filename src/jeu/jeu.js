@@ -1,302 +1,153 @@
-// « le jeu » (proposition de la nuit du 05 au 06/10) : la page du paquet, depuis le portail. Même monde que le portail
-// et la scène des cartes (papier, lumière, gestes). Le paquet arrive du fond et tire pour la personne : la carte du
-// dessus se soulève, se retourne en l'air et se pose à côté, question visible — on goûte le jeu. Toucher le paquet ou
-// glisser la question de côté : la suivante (la précédente part de son côté). Sous le paquet, une carte « le
-// commander » (lien JEU_LINK ; lien d'attente pour l'instant : un demi-tour, « bientôt », puis retour) ; après la
-// troisième question elle sautille (touche-moi). Retour (flèche, Échap) : le portail.
-import { createCardRenderer, M4, CARD } from '../cards/cardRenderer.js';
-import { loadTypeFont, makeInkMap } from '../cards/ink.js';
-import { LOOK } from '../cards/scene.js';
-import { createRng } from '../field/rng.js';
+// « le jeu » (09/10, v2) : la page du paquet SINGULIES, dans le même monde et avec les mêmes gestes que les questions
+// du poème (la scène des cartes, en mode jeu) : le paquet tire une question ; glisser à gauche = la suivante, à
+// droite = la précédente (elle revient du bord), toucher le paquet ou le coin corné = une autre. Sous la question,
+// comme la carte réponse, « une réponse, un poème » : la toucher = le parcours du poème, avec cette question.
+// PARTAGER (sous la carte) : la poser à quelqu'un — le partage du téléphone (messages, Instagram…), avec la question et
+// un lien qui l'ouvre directement (jeu?q=…) ; sur ordinateur, le lien est copié. COMMANDER (en bas, toujours là) : sa
+// page d'achat (JEU_LINK ; « bientôt » en attendant). Retour (flèche, Échap) : le portail.
+import { createCardScene } from '../cards/scene.js';
+import { JEU_LINK } from '../portal/items.js';
 import QUESTIONS from '../cards/questions.json';
 import { dpr3d } from '../app/perf.js';
-
-import { JEU_LINK } from '../portal/items.js';   // page d'achat du jeu (null = « bientôt ») — partagé avec la version simple
 export { JEU_LINK };
-const BUY = 'commander';                      // (09/10 : « commander », puis la page de l'objet, puis PAYER)
-const FOV = 26 * Math.PI / 180, TILT = 0.22, TF = Math.tan(FOV / 2);
-const STACK = 12, PITCH = 0.15;
-const DRAW_T = 1.5, DISCARD_T = 0.6, FLIP_T = 1.3, HOLD = 2.2;
 
 const CSS = `
 #jeu { position: fixed; inset: 0; z-index: 22; background: #060606; opacity: 0; transition: opacity .9s ease; touch-action: pinch-zoom; }
 #jeu.on { opacity: 1; }
+#jeu.fast { transition-duration: .35s; }
 #jeu canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-#jeu button { position: absolute; margin: 0; padding: 0; border: 0; background: transparent; color: transparent; font-size: 1px;
-  cursor: pointer; -webkit-tap-highlight-color: transparent; outline: none; }
-#jeu button:focus-visible { outline: 1px solid rgba(255,255,255,.35); outline-offset: 4px; }
-#jeu .jeu-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); width: 44px; height: 44px;
-  color: #fff; opacity: 0; transition: opacity .8s; display: flex; align-items: center; justify-content: center; font-size: 0; }
-#jeu .jeu-back.on { opacity: .44; }
+#jeu .jeu-sign { position: absolute; left: 0; right: 0; text-align: center; margin: 0; padding: 0 0 0 .4em; border: 0; background: transparent;
+  font: 500 12px/44px 'SG Garamond', Georgia, serif; letter-spacing: .4em; color: #fff; opacity: 0; transition: opacity 1.1s;
+  pointer-events: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#jeu .jeu-sign.on { opacity: .44; pointer-events: auto; }
+#jeu .jeu-sign.on:hover { opacity: .6; }
+#jeu .jeu-back { position: absolute; left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); width: 44px; height: 44px;
+  margin: 0; padding: 0; border: 0; background: transparent; color: #fff; opacity: 0; transition: opacity .8s; display: flex; align-items: center;
+  justify-content: center; cursor: pointer; pointer-events: none; }
+#jeu .jeu-back.on { opacity: .44; pointer-events: auto; }
 #jeu .jeu-back.on:hover { opacity: .6; }
+#jeu .jeu-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 `;
+const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M14.5 6 L8.5 12 L14.5 18" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>';
 
-const clamp01 = u => Math.min(1, Math.max(0, u));
-const sstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
-const ease = u => u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
-const lerp = (a, b, u) => a + (b - a) * u;
-const lerpPose = (a, b, u) => ({ x: lerp(a.x, b.x, u), y: lerp(a.y, b.y, u), z: lerp(a.z, b.z, u), rx: lerp(a.rx, b.rx, u), ry: lerp(a.ry, b.ry, u), rz: lerp(a.rz, b.rz, u) });
-const hop = ph => 3.2 * sstep(0, 0.16, ph) * (1 - sstep(0.16, 0.45, ph)) + 1.1 * sstep(0.45, 0.57, ph) * (1 - sstep(0.57, 0.85, ph));
-
-// opts : { base, reduced, onBack() }
+// opts : { base, reduced, onBack(), onPoem(id) (une réponse, un poème), firstQ (question tirée en premier),
+//          hold (la page reste invisible jusqu'à reveal() : le portail y amène son paquet), noIntro }
 export async function mountJeu(opts = {}) {
   const { base = './', reduced = false } = opts;
-  if (!document.getElementById('jeu-style')) {
-    const st = document.createElement('style'); st.id = 'jeu-style'; st.textContent = CSS; document.head.appendChild(st);
-  }
+  if (!document.getElementById('jeu-style')) { const st = document.createElement('style'); st.id = 'jeu-style'; st.textContent = CSS; document.head.appendChild(st); }
   const root = document.createElement('div'); root.id = 'jeu';
-  const canvas = document.createElement('canvas'); canvas.setAttribute('aria-hidden', 'true');
-  const backEl = document.createElement('button'); backEl.className = 'jeu-back'; backEl.type = 'button'; backEl.setAttribute('aria-label', 'Retour');
-  backEl.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M14.5 6 L8.5 12 L14.5 18" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>';
-  const deckBtn = document.createElement('button'); deckBtn.type = 'button'; deckBtn.textContent = 'une autre question'; deckBtn.setAttribute('aria-label', 'une autre question');
-  const buyBtn = document.createElement('button'); buyBtn.type = 'button'; buyBtn.textContent = BUY; buyBtn.setAttribute('aria-label', BUY);
-  const live = document.createElement('div'); live.setAttribute('aria-live', 'polite');
-  live.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)';
-  root.append(canvas, deckBtn, buyBtn, backEl, live);
+  const canvas = document.createElement('canvas');
+  const el = (tag, cls, html = '') => { const e = document.createElement(tag); e.className = cls; e.innerHTML = html; root.appendChild(e); return e; };
+  root.appendChild(canvas);
   document.body.appendChild(root);
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true });
   if (!gl) { root.remove(); return null; }
-  gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT);
-  requestAnimationFrame(() => root.classList.add('on'));
+  const backEl = el('button', 'jeu-back', BACK_SVG); backEl.type = 'button'; backEl.setAttribute('aria-label', 'Retour');
+  const shareEl = el('button', 'jeu-sign', 'PARTAGER'); shareEl.type = 'button'; shareEl.setAttribute('aria-label', 'Partager cette question, pour la poser à quelqu’un');
+  const buyEl = el('button', 'jeu-sign', 'COMMANDER'); buyEl.type = 'button'; buyEl.setAttribute('aria-label', 'Commander le jeu SINGULIES');
+  const poemBtn = el('button', 'jeu-sr', 'une réponse, un poème'); poemBtn.type = 'button';
+  const nextBtn = el('button', 'jeu-sr', 'une autre question'); nextBtn.type = 'button';
+  const sr = el('div', 'jeu-sr'); sr.setAttribute('aria-live', 'polite');
+  const say = t => { sr.textContent = ''; setTimeout(() => { sr.textContent = t; }, 60); };
+  const ev = (id, action) => window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id, action } }));
 
-  const t0 = performance.now();
-  let vclock = null;
-  const now = () => vclock ?? (performance.now() - t0) / 1000;
-  const rnd = createRng();
-  const [card] = await Promise.all([createCardRenderer(gl, base), loadTypeFont(base)]);
-  const L = { ...LOOK };
-  const variant = () => ({
-    seed: rnd() * 100, paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0],
-    logoOff: [rnd.range(-0.15, 0.15), rnd.range(-0.15, 0.15)],
-    warp: [rnd.range(0.05, 0.35), rnd.range(-0.2, 0.05), rnd.range(-0.12, 0.12)],
-    jx: rnd.range(-0.5, 0.5), jy: rnd.range(-0.4, 0.4), jr: rnd.range(-0.012, 0.012),
-  });
-  const stack = Array.from({ length: STACK }, variant);
-  const order = QUESTIONS.map(q => q.q);
-  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-  let next = 0, shown = 0;
-  const buy = { v: variant(), anim: null, press: 0 };
-  buy.ink = card.makeInk(makeInkMap(BUY, Math.floor(buy.v.seed * 1000) + 5).canvas);
-  let soonInk = null;
+  let current = null, visible = true, started = false;
+  const scene = await createCardScene(gl, { base, jeu: true, autoWrite: false, firstQ: opts.firstQ ?? null, noIntro: !!opts.noIntro, on: {
+    draw: d => { current = d.id; const q = QUESTIONS.find(x => x.id === d.id)?.q; if (q) say(q); ev(d.id, 'tiree'); },
+    discard: d => ev(d.id, 'passee'),
+    poem: d => goPoem(d.id),
+  } });
+  scene.setName('');
 
-  // ---- disposition : le paquet (et la question posée dessus) au centre, « commander » dessous ----
-  const lay = { W: 1, H: 1, D: 300, Hw: 100, yDeck: 0, yBuy: -60 };
-  function layout(W, H) {
-    const portrait = W < H;
-    const cardHpx = portrait ? Math.min(W * 0.78 / (CARD.w / CARD.h), H * 0.24) : H * 0.25;
-    lay.W = W; lay.H = H;
-    lay.D = (CARD.h / cardHpx) * (H / 2) / TF;
-    lay.Hw = 2 * lay.D * TF;
-    lay.yDeck = (0.5 - 0.4) * lay.Hw;
-    lay.yBuy = (0.5 - 0.77) * lay.Hw / Math.cos(TILT);
-  }
-  const deckPose = (i, v) => ({ x: v.jx, y: lay.yDeck + v.jy, z: i * PITCH, rx: 0, ry: 0, rz: v.jr });
-  const FACE_Z = STACK * PITCH + 1.4;
-  const facePose = (v, dx = 0) => ({ x: v.jx * 3 + 1.2 + dx, y: lay.yDeck + v.jy * 2 - 0.8, z: FACE_Z, rx: 0, ry: Math.PI, rz: v.jr * 1.5 + dx * 0.0015 });
-  const buyPose = () => ({ x: buy.v.jx * 2, y: lay.yBuy + buy.v.jy, z: 0, rx: 0, ry: Math.PI, rz: buy.v.jr * 2 - 0.02 });
-
-  // ---- questions : la carte du dessus se soulève, se retourne en l'air, se pose (celle de la scène des cartes) ----
-  let question = null, leaving = [], pendingDraw = -1, startT = 0, lastGesture = -99, dragX = 0, dragging = false;
-  const busy = (c, t) => !!(c && c.anim && t - c.t0 < c.dur);
-  function draw(t) {
-    if (next >= order.length) next = 0;
-    const v = stack.pop(); stack.unshift(variant());
-    const q = order[next++];
-    question = { q, v, ink: card.makeInk(makeInkMap(q, Math.floor(v.seed * 1000) + next).canvas), anim: 'draw', t0: t, dur: DRAW_T, from: deckPose(STACK - 1, v) };
-    shown++;
-    live.textContent = q;
-  }
-  function discard(t, dir = -1) {
-    if (!question || busy(question, t)) return false;
-    leaving.push({ ...question, anim: 'discard', t0: t, dur: DISCARD_T, dir, from: poseOf(question, t) });
-    question = null; pendingDraw = t + DISCARD_T * 0.45;
-    return true;
-  }
-  function poseOf(c, t) {
-    const u = clamp01((t - c.t0) / c.dur);
-    if (c.anim === 'draw') {
-      const a = c.from, b = facePose(c.v), up = sstep(0, 0.35, u), down = sstep(0.6, 1, u), e = ease(u);
-      const p = lerpPose(a, b, e);
-      p.z += (CARD.w / 2 + 8) * (up - down) * 0.9; p.ry = Math.PI * sstep(0.2, 0.7, u); p.rx = -0.12 * (up - down);
-      return p;
-    }
-    if (c.anim === 'discard') {
-      const a = c.from, e = Math.pow(u, 1.8), s = c.dir;
-      return { ...a, x: a.x + s * e * (lay.W / lay.H * lay.Hw / 2 + CARD.w * 1.2), y: a.y - 8 * u, z: a.z + 4 * sstep(0, 0.3, u), rz: a.rz + s * 0.3 * e };
-    }
-    return facePose(c.v, dragging && c === question ? dragX : 0);
-  }
-  function buyNow(t) {
-    lastGesture = t;
-    if (JEU_LINK) { location.href = JEU_LINK; return; }
-    if (buy.anim) return;
-    if (!soonInk) soonInk = card.makeInk(makeInkMap('bientôt', 77).canvas);
-    buy.anim = { t0: t };
-  }
-
-  // ---- lumière (celle de la scène des cartes : lampe rasante, de côté, qui respire) + inclinaison ----
-  const ptr = { x: 0, y: 0 }, tilt = { x: 0, y: 0 }, ts = { x: 0, y: 0 };
-  const lamp = { a: L.lightAz, va: 0, e: L.elBase, ve: 0 };
-  const CAM_AZ = -Math.PI / 2, wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
-  function stepLight(dt, t) {
-    const kk = Math.min(1, dt * 3); ts.x += (tilt.x - ts.x) * kk; ts.y += (tilt.y - ts.y) * kk;
-    const backDir = CAM_AZ + Math.PI, lim = Math.PI - L.lampGap;
-    let rel = wrapA(L.lightAz + L.breathAz * (0.72 * Math.sin(t * 0.33) + 0.28 * Math.sin(t * 0.69 + 1.3)) + 1.2 * L.tiltAmp * L.lightVar * ts.x - backDir);
-    rel = lim * Math.tanh(rel / lim);
-    const mid = (L.elMin + L.elMax) / 2, half = (L.elMax - L.elMin) / 2;
-    let e = L.elBase + L.breathEl * (0.7 * Math.sin(t * 0.27 + 2.1) + 0.3 * Math.sin(t * 0.61 + 0.4)) + ts.y * L.elevAmp * L.lightVar;
-    e = mid + half * Math.tanh((e - mid) / half);
-    const w = 2.2, z = 0.85, da = wrapA(backDir + rel - lamp.a);
-    lamp.va += (w * w * da - 2 * z * w * lamp.va) * dt; lamp.a += lamp.va * dt;
-    lamp.ve += (w * w * (e - lamp.e) - 2 * z * w * lamp.ve) * dt; lamp.e += lamp.ve * dt;
-  }
-  addEventListener('pointermove', e => {
-    if (e.pointerType !== 'mouse' || !lay.W) return;
-    ptr.x = Math.max(-1, Math.min(1, (e.clientX / lay.W - 0.5) * 2)); ptr.y = Math.max(-1, Math.min(1, -(e.clientY / lay.H - 0.5) * 2));
-  });
-  function onOrient(e) { if (e.beta != null && e.gamma != null) { ptr.x = Math.max(-1, Math.min(1, e.gamma / 25)); ptr.y = Math.max(-1, Math.min(1, -(e.beta - 50) / 25)); } }
-  const DO = window.DeviceOrientationEvent;
-  if (DO && typeof DO.requestPermission !== 'function') addEventListener('deviceorientation', onOrient);
-  let asked = false;
-  root.addEventListener('touchend', () => {
-    if (asked || !DO || typeof DO.requestPermission !== 'function') return;
-    asked = true; DO.requestPermission().then(r => { if (r === 'granted') addEventListener('deviceorientation', onOrient); }).catch(() => { asked = false; });
-  }, { passive: true });
-
-  // ---- image ----
-  let vp = null, eye = null, raf = 0, last = 0, visible = true;
-  const quads = {};
-  function screenQuad(p) {
-    const mvp = M4.mul(vp, M4.model(p.rx, p.ry, p.rz, p.x, p.y, p.z));
-    return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => {
-      const x = sx * CARD.w / 2, y = sy * CARD.h / 2;
-      const cx = mvp[0] * x + mvp[4] * y + mvp[12], cy = mvp[1] * x + mvp[5] * y + mvp[13], cw = mvp[3] * x + mvp[7] * y + mvp[15];
-      return [(cx / cw * 0.5 + 0.5) * lay.W, (0.5 - cy / cw * 0.5) * lay.H];
-    });
-  }
-  function place(b, q) {
-    if (!q) { b.style.width = '0px'; return; }
-    const xs = q.map(p => p[0]), ys = q.map(p => p[1]), x0 = Math.min(...xs), y0 = Math.min(...ys);
-    Object.assign(b.style, { left: x0 + 'px', top: y0 + 'px', width: (Math.max(...xs) - x0) + 'px', height: (Math.max(...ys) - y0) + 'px' });
-  }
-  function frame(n, manualDt) {
-    if (vclock != null && manualDt == null) return;
-    if (manualDt == null) raf = requestAnimationFrame(frame);
-    const dt = manualDt ?? Math.min(0.05, last ? (n - last) / 1000 : 0.016); last = n;
-    const t = now();
-    const dpr = dpr3d(), W = innerWidth, H = innerHeight;
+  // ---- l'horloge, la boucle ----
+  const t0 = performance.now(), now = () => (performance.now() - t0) / 1000;
+  let raf = 0, last = 0, ptr = { x: 0, y: 0 };
+  function frame(n) {
+    if (!visible) { raf = 0; return; }
+    const t = now(), dt = Math.min(0.05, last ? (n - last) / 1000 : 0.016); last = n;
+    const dpr = dpr3d(), W = canvas.clientWidth || innerWidth, H = canvas.clientHeight || innerHeight;
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
-    layout(W, H);
-    if (pendingDraw >= 0 && t >= pendingDraw) { pendingDraw = -1; draw(t); }
-    if (question && question.anim && t - question.t0 >= question.dur) question.anim = null;
-    leaving = leaving.filter(c => { if (t - c.t0 < c.dur) return true; card.freeInk(c.ink); return false; });
     gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    scene.frame(t, dt, W, H);
+    // PARTAGER sous la carte « une réponse, un poème » ; COMMANDER en bas, toujours là
+    const r = scene.activeRect();
+    if (r && current != null) { shareEl.style.top = Math.min(r.bottom + 10, H - 104) + 'px'; shareEl.classList.add('on'); } else shareEl.classList.remove('on');
+    buyEl.style.top = (H - Math.max(58, H * 0.075)) + 'px';
     const br = reduced ? { x: 0, y: 0 } : { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
-    tilt.x = Math.max(-1, Math.min(1, ptr.x + 0.4 * br.x)); tilt.y = Math.max(-1, Math.min(1, ptr.y + 0.4 * br.y));
-    stepLight(dt, t);
-
-    const D = lay.D, cy = (lay.yDeck + lay.yBuy) / 2 + 4;
-    eye = [0, cy - D * Math.sin(TILT), D * Math.cos(TILT)];
-    vp = M4.mul(M4.perspective(FOV, W / H, D * 0.3, D * 3), M4.lookAt(eye, [0, cy, 0], [0, 1, 0]));
-    const k = lay.Hw / 235;
-    const R = L.lightR0 * lay.Hw, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R), el = lamp.e;
-    const ap = { x: 0, y: lay.yDeck };
-    const lightPos = [ap.x + Math.cos(lamp.a) * D0 * Math.cos(el), ap.y + Math.sin(lamp.a) * D0 * Math.cos(el), D0 * Math.sin(el)];
-    const P = { ...L, lightPos, light: L.light * k * k * Math.sin(el0) / Math.sin(el), spotI: 0 };
-
-    // le paquet (avec la question posée dessus) s'incline vers la souris / le téléphone ; « commander » respire
-    const intro = reduced ? sstep(0, 0.8, t - startT) : ease(clamp01((t - startT) / 1.4));
-    const crx = -ts.y * L.cardTilt, cry = ts.x * L.cardTilt;
-    const group = (py, ph, wt) => {
-      const sw = (reduced ? 0 : L.sway) * 0.5 * (1 - wt), tt = t;
-      const rx = crx * wt + sw * (0.6 * Math.sin(tt * 0.61 + ph) + 0.4 * Math.sin(tt * 1.37 + 2.1 * ph));
-      const ry = cry * wt + sw * 1.2 * (0.6 * Math.sin(tt * 0.47 + 1.7 * ph) + 0.4 * Math.sin(tt * 1.13 + 0.6 * ph));
-      return M4.mul(M4.mul(M4.model(0, 0, 0, 0, py, 0), M4.model(rx, ry, 0)), M4.model(0, 0, 0, 0, -py, 0));
-    };
-    const Gin = M4.model(0, 0, 0, 0, 0, -30 * (1 - intro));
-    const Gq = M4.mul(Gin, group(lay.yDeck, 0, 1));
-    const Gb = M4.mul(Gin, group(lay.yBuy, 2.3, 0));
-    const model = (G, p) => M4.mul(G, M4.model(p.rx, p.ry, p.rz, p.x, p.y, p.z));
-    gl.enable(gl.DEPTH_TEST);
-    const qp = question ? poseOf(question, t) : null;
-    const occ = question && !question.anim ? { x: qp.x, y: qp.y, z: qp.z, rz: qp.rz } : null;
-    // effleurer (09/10) : le paquet et « commander » se soulèvent un peu sous la souris
-    hov.deck += ((hovOn === 'deck' ? 1 : 0) - hov.deck) * Math.min(1, dt * 9); hov.buy += ((hovOn === 'buy' ? 1 : 0) - hov.buy) * Math.min(1, dt * 9);
-    const dLift = reduced ? 0 : 2.2 * hov.deck;
-    for (let i = 0; i < STACK; i++) card.draw(vp, eye, P, { model: model(Gq, i === STACK - 1 ? { ...deckPose(i, stack[i]), z: deckPose(i, stack[i]).z + dLift } : deckPose(i, stack[i])), lod: i === STACK - 1 ? 'fine' : 'coarse', shade: 0.55 + 0.45 * (i + 1) / STACK, fade: intro, occ, ...stack[i] });
-    for (const c of leaving) card.draw(vp, eye, P, { model: model(Gq, poseOf(c, t)), lod: 'fine', ink: c.ink, fade: intro, ...c.v });
-    if (question) card.draw(vp, eye, P, { model: model(Gq, qp), lod: 'fine', ink: question.ink, fade: intro, ...question.v });
-    // « commander » : apparaît après la première question ; sautille après la troisième (quand rien ne bouge)
-    const bIn = shown >= 1 ? ease(clamp01((t - firstAt - 1.2) / 1.2)) : 0;
-    let bp = buyPose(), dz = 0;
-    if (buy.anim) {
-      const tf = t - buy.anim.t0, u1 = clamp01(tf / FLIP_T), u2 = clamp01((tf - FLIP_T - HOLD) / FLIP_T);
-      bp.ry += Math.PI * (sstep(0.15, 0.85, u1) - sstep(0.15, 0.85, u2));
-      dz += (CARD.w / 2 + 8) * (Math.sin(Math.PI * u1) + Math.sin(Math.PI * u2)) * (reduced ? 0 : 1);
-      if (tf > 2 * FLIP_T + HOLD) buy.anim = null;
-    }
-    const idle = t - Math.max(lastGesture + 2, firstAt + 3);
-    if (!reduced && !buy.anim && shown >= 3 && idle > 0) dz += hop(idle % 5);
-    buy.press += ((pressBuy ? 1 : 0) - buy.press) * Math.min(1, dt * 14);
-    bp = { ...bp, y: bp.y - 20 * (1 - bIn), z: bp.z + dz - 0.5 * buy.press + (reduced ? 0 : 2.2 * hov.buy) - 20 * (1 - bIn) };
-    if (bIn > 0.004) card.draw(vp, eye, P, { model: model(Gb, bp), lod: 'fine', ink: buy.ink, inkBack: buy.anim ? soonInk : null, fade: intro * bIn, shade: 1 - L.unfocusDim * 0.5, ...buy.v });
-    quads.deck = screenQuad({ ...deckPose(STACK - 1, stack[STACK - 1]), z: FACE_Z });
-    quads.buy = bIn > 0.6 ? screenQuad(buyPose()) : null;
-    place(deckBtn, quads.deck); place(buyBtn, quads.buy);
-    backEl.classList.toggle('on', t - startT > 1.5);
+    scene.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
+    raf = requestAnimationFrame(frame);
   }
-  let firstAt = 1e9, pressBuy = false, hovOn = null;
-  const hov = { deck: 0, buy: 0 };
-  const inside = (q, x, y) => {
-    if (!q) return false;
-    let s = 0;
-    for (let i = 0; i < 4; i++) {
-      const [ax, ay] = q[i], [bx, by] = q[(i + 1) % 4], c = (bx - ax) * (y - ay) - (by - ay) * (x - ax);
-      if (c !== 0) { if (s === 0) s = Math.sign(c); else if (Math.sign(c) !== s) return false; }
-    }
-    return true;
-  };
+  function start() { if (!started) { started = true; scene.start(now()); } if (!raf && visible) { last = 0; raf = requestAnimationFrame(frame); } }
+  function reveal() {
+    root.classList.toggle('fast', !!opts.hold);
+    requestAnimationFrame(() => root.classList.add('on'));
+    setTimeout(() => { backEl.classList.add('on'); buyEl.classList.add('on'); }, opts.hold ? 300 : 1200);
+  }
+  start();
+  if (!opts.hold) reveal();
 
-  // ---- gestes : toucher le paquet = une autre ; glisser la question de côté = une autre ; « commander » ----
+  // ---- gestes : comme les questions du poème ----
   let down = null;
-  canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, moved: false }; pressBuy = inside(quads.buy, e.clientX, e.clientY); });
+  canvas.addEventListener('pointerdown', e => {
+    down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, on: scene.hitAt(e.clientX, e.clientY) };
+    scene.setPress(down.on); if (e.pointerType !== 'mouse') scene.setHover(down.on);
+  });
+  canvas.addEventListener('pointerleave', () => { scene.setHover(null); scene.setPress(null); canvas.style.cursor = ''; });
   addEventListener('pointermove', e => {
-    if (!down && visible && e.pointerType === 'mouse') {
-      hovOn = inside(quads.buy, e.clientX, e.clientY) ? 'buy' : inside(quads.deck, e.clientX, e.clientY) ? 'deck' : null;
-      canvas.style.cursor = hovOn ? 'pointer' : '';
+    if (!visible) return;
+    if (!down && e.pointerType === 'mouse') { const id = scene.hitAt(e.clientX, e.clientY); scene.setHover(id); canvas.style.cursor = id ? 'pointer' : ''; }
+    if (down) {
+      const dx = e.clientX - down.x, dy = e.clientY - down.y;
+      if (!down.moved && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) down.moved = true;
+      if (down.moved) { scene.drag(dx); return; }
     }
-    if (!down || !visible) return;
-    const dx = e.clientX - down.x;
-    if (!down.moved && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(e.clientY - down.y)) down.moved = true;
-    if (down.moved && question && !busy(question, now())) { dragging = true; dragX = dx * lay.Hw / lay.H; }
+    if (e.pointerType !== 'mouse') return;
+    const r = scene.cardRect(); if (!r) return;
+    const x = e.clientX, y = e.clientY, ox = x < r.left ? x - r.left : x > r.right ? x - r.right : 0, oy = y < r.top ? y - r.top : y > r.bottom ? y - r.bottom : 0;
+    ptr.x = Math.max(-1, Math.min(1, ox / (innerWidth * 0.3))); ptr.y = Math.max(-1, Math.min(1, -oy / (innerHeight * 0.3)));
   });
   canvas.addEventListener('pointerup', e => {
+    scene.setPress(null); if (e.pointerType !== 'mouse') scene.setHover(null);
     if (!down) return;
-    const dx = e.clientX - down.x, moved = down.moved; down = null; pressBuy = false;
-    const t = now(); lastGesture = t;
-    if (moved) { dragging = false; dragX = 0; if (Math.abs(dx) > lay.W * 0.2) discard(t, Math.sign(dx)); return; }
-    if (inside(quads.buy, e.clientX, e.clientY)) { buyNow(t); return; }
-    if (inside(quads.deck, e.clientX, e.clientY)) discard(t, -1);
+    const f = down; down = null;
+    const dx = e.clientX - f.x, dtm = Math.max(1, performance.now() - f.t);
+    if (f.moved) { scene.release(dx, dx / dtm, now()); return; }
+    scene.tap(e.clientX, e.clientY, now());
   });
-  // boutons accessibles (clavier, lecteur d'écran) ; le toucher passe au canvas
-  for (const b of [deckBtn, buyBtn]) b.style.pointerEvents = 'none';
-  deckBtn.addEventListener('click', () => { lastGesture = now(); discard(now(), -1); });
-  buyBtn.addEventListener('click', () => buyNow(now()));
-  function leave() { visible = false; root.classList.remove('on'); setTimeout(() => { stop(); root.remove(); opts.onBack?.(); }, 900); }
-  backEl.addEventListener('click', leave);
-  addEventListener('keydown', e => { if (visible && e.key === 'Escape') leave(); });
+  nextBtn.addEventListener('click', () => scene.tap(...(r => r ? [(r.left + r.right) / 2, (r.top + r.bottom) / 2] : [0, 0])(scene.cardRect()), now()));
+  poemBtn.addEventListener('click', () => { if (current != null) goPoem(current); });
 
-  function start() { if (!raf && visible) { last = 0; raf = requestAnimationFrame(frame); } }
-  function stop() { cancelAnimationFrame(raf); raf = 0; }
-  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else start(); });
-  startT = now(); pendingDraw = startT + 1.1; firstAt = startT + 1.1 + DRAW_T;
-  start();
-  return {
-    root, leave,
-    manual: on => { if (on) { vclock = now(); stop(); } else { vclock = null; start(); } },
-    advance: (sec, fps = 30) => { for (let i = 0; i < Math.round(sec * fps); i++) { vclock += 1 / fps; frame(0, 1 / fps); } },
-    next: () => discard(now(), -1), buy: () => buyNow(now()), state: () => ({ shown, question: question?.q || null }),
-  };
+  // ---- partager une question : la poser à quelqu'un qu'on connaît ----
+  async function share() {
+    if (current == null) return;
+    const id = current, q = (QUESTIONS.find(x => x.id === id)?.q || '').toLowerCase();
+    const link = new URL('jeu?q=' + id, document.baseURI).href;
+    const text = '« ' + q + ' »\nune question de SINGULIES, le jeu d’Eternel';
+    ev(id, 'partagee');
+    try { if (navigator.share) { await navigator.share({ title: 'SINGULIES', text, url: link }); return; } }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(text + '\n' + link); flash(shareEl, 'LIEN COPIÉ'); } catch { flash(shareEl, link); }
+  }
+  function flash(b, txt) { const t = b.textContent; b.textContent = txt; setTimeout(() => { b.textContent = t; }, 1800); }
+  shareEl.addEventListener('click', share);
+  buyEl.addEventListener('click', () => { if (JEU_LINK) { location.href = JEU_LINK; return; } flash(buyEl, 'BIENTÔT'); });
+
+  // ---- une réponse, un poème : le parcours du poème, avec cette question ----
+  function goPoem(id) {
+    if (!opts.onPoem) return;
+    visible = false; cancelAnimationFrame(raf); raf = 0;
+    root.classList.remove('fast'); root.classList.remove('on');
+    setTimeout(() => { root.remove(); try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* */ } }, 950);
+    opts.onPoem(id);
+  }
+  function leave() {
+    if (!visible) return;
+    visible = false; root.classList.remove('fast'); root.classList.remove('on');
+    setTimeout(() => { cancelAnimationFrame(raf); raf = 0; root.remove(); try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* */ } opts.onBack?.(); }, 900);
+  }
+  backEl.addEventListener('click', leave);
+  addEventListener('keydown', function esc(e) { if (!document.body.contains(root)) { removeEventListener('keydown', esc); return; } if (visible && e.key === 'Escape') leave(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelAnimationFrame(raf); raf = 0; } else if (visible && !raf) { last = 0; raf = requestAnimationFrame(frame); } });
+  return { root, leave, reveal, scene, now };
 }

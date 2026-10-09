@@ -57,7 +57,10 @@ const bare = ch => ch.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 // feuille (sheet/sheet.js) la reprend, avec le prénom, la caméra et la lampe (snapshot)
 // autoWrite : la carte réponse arrivée, le curseur prend la frappe (ordinateur) ; téléphone : non — le clavier ne
 // s'ouvre qu'en touchant la carte (08/10 : sur Android il s'ouvrait seul et cachait la carte blanche)
-export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true } = {}) {
+// jeu (09/10) : la page du jeu — mêmes questions, mêmes gestes, sans prénom ni écriture ; la carte sous la question
+//   porte « une réponse, un poème » (la toucher : emit('poem', { id })) ; pas de carte blanche
+// firstQ : la question tirée en premier (lien partagé, ou venue du jeu) ; noIntro : le paquet est déjà là (relais)
+export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true, jeu = false, firstQ = null, noIntro = false } = {}) {
   const card = await createCardRenderer(gl, base);
   const nameR = await createNameRelief(gl, card.paperTex);
   await loadTypeFont(base);
@@ -67,6 +70,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
 
   const order = QUESTIONS.map(q => q.id);
   for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  if (firstQ != null && order.includes(+firstQ)) { order.splice(order.indexOf(+firstQ), 1); order.unshift(+firstQ); }
+  if (jeu) autoWrite = false;
+  const JEU_LABEL = 'une réponse, un poème';
   const variant = () => ({
     seed: rnd() * 100,
     paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0],
@@ -272,7 +278,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const mg = c === answer && question ? question.margin : undefined;    // aligné sur la question
     // invitation en grisé tant que rien n'est écrit : la réponse fait le thème du poème ; la carte blanche : son thème
     const hint = c === blank ? HINT_BLANK : HINT_ANSWER;
-    const m = c.place === 'peek' ? makeStripInk(c.text, sd, mg, hint) : makeAnswerInk(c.text, sd, LINES, writing ? null : c.first, mg, hint);
+    const m = jeu && c === answer ? makeStripInk(JEU_LABEL, sd, mg, null)
+      : c.place === 'peek' ? makeStripInk(c.text, sd, mg, hint) : makeAnswerInk(c.text, sd, LINES, writing ? null : c.first, mg, hint);
     if (c.ink) card.freeInk(c.ink);
     c.ink = card.makeInk(m.canvas, !!m.hinted); releaseCanvas(m.canvas); c.inkRG = !!m.hinted; c.cursorMM = m.cursor; c.count = m.count;
   }
@@ -292,7 +299,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   }
   function startWriting() {
     const answer = act();
-    if (!answer || ended) return false;
+    if (!answer || ended || jeu) return false;
     writing = true;
     if (question && answer.place === 'below') moveAnswer(lastT, 'peek');     // retour dans la bande sous la question
     renderAnswer(); emit('write', {}); return true;
@@ -334,7 +341,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     return true;
   }
   // la carte blanche s'offre après une première question passée, tant qu'aucune réponse n'est validée
-  const choicesOn = () => !ended && mode === 'q' && discards >= 1 && !(answer && answer.text && !writing && answer.place === 'below');
+  const choicesOn = () => !jeu && !ended && mode === 'q' && discards >= 1 && !(answer && answer.text && !writing && answer.place === 'below');
 
   // ---------- lumière (manière 1) + inclinaison de la carte en focus ----------
   const tilt = { x: 0, y: 0 }, ts = { x: 0, y: 0 };
@@ -652,6 +659,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
     if (h === 'blank') return chooseBlank(t) ? { type: 'write' } : { type: null };
     if (h === 'question' && nearCorner(x, y)) return discard(t, 1) ? { type: 'discard' } : { type: null };
+    if (h === 'answer' && jeu) { if (question && !question.anim) { emit('poem', { id: question.id }); return { type: 'poem' }; } return { type: null }; }
     if (h === 'answer') return startWriting() ? { type: 'write' } : { type: null };
     if (h === 'deck' && question) return discard(t, -1) ? { type: 'discard' } : { type: null };
     return { type: null };
@@ -683,7 +691,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     return 'end';
   }
 
-  function start(t) { startT = t; pendingDraw = t + 1.1; }      // le paquet arrive (fondu), puis il tire
+  function start(t) { startT = noIntro ? t - 10 : t; pendingDraw = t + (noIntro ? 0.3 : 1.1); }      // le paquet arrive (fondu), puis il tire
   // retour depuis la feuille : la scène revient telle qu'on l'a laissée (question, réponse, carte blanche), en
   // fondu depuis le fond ; les lettres du prénom, revenues d'elles-mêmes à leur place, redescendent au repos
   function reopen(t) {
