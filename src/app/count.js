@@ -5,7 +5,7 @@
 // Service : GoatCounter (gratuit, sans cookie : il ne compte que des passages). COUNTER = null : rien ne part.
 // Pour l'activer : créer un compte sur goatcounter.com (code « eternel », par exemple), puis
 //   COUNTER = 'https://eternel.goatcounter.com/count'
-export const COUNTER = null;
+export const COUNTER = 'https://rytrtest1.goatcounter.com/count';
 
 const Q = new URLSearchParams(location.search);
 const OFF = !COUNTER || Q.get('envoi') === '0' || navigator.doNotTrack === '1' || window.doNotTrack === '1';

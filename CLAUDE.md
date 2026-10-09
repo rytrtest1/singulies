@@ -244,6 +244,9 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 ## Fin de phase
 Test sans consigne : 5 personnes sur mobile. Comprennent-elles qu'il faut écrire ? Si non, on en reparle avant d'ajouter quoi que ce soit.
 
+## Compteur
+- **Actif depuis le 09/10** : GoatCounter `rytrtest1` (`COUNTER` dans src/app/count.js) ; tableau de bord https://rytrtest1.goatcounter.com ; `?envoi=0` (essais) et « Ne pas suivre » = rien ne part.
+
 ## Lisibilité (09/10 soir, après le test à 5)
 - Texte des cartes **15 % plus grand** (`CTYPE`, `CARD_K` dans ink.js ; même interligne ; enveloppe et feuille gardent `TYPE`) ; **encre plus claire** (inkAlb 0,35 → 0,85 : encre ≈ 132, max 172, toujours sous le prénom 173) ; **signes** (flèches, PASSER, POSTER, PARTAGER, COMMANDER…) opacité 0,44 → 0,62 (survol 0,85), 12 → 14 px. Images simples, cartes de l'email et vignettes régénérées.
 

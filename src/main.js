@@ -816,6 +816,6 @@ const stats = { drawCalls: 0, gpuMB: 0, letters: 0, warmupMs: 0 };
 window.__sg = { stats, model, S, CFG, get portal() { return portal; }, get atlas() { return atlas; }, get field() { return field; }, get voice() { return voice; }, validate, submitName, startTransition, goBack, get bridge() { return bridge; } };
 
 fpsMeter();      // ?fps=1 : images par seconde (essais de fluidité)
-installCount(PAGE);   // des totaux anonymes (inactif tant que COUNTER = null)
+installCount(PAGE);   // des totaux anonymes (GoatCounter rytrtest1 ; ?envoi=0 ou « Ne pas suivre » : rien)
 installSend();   // la demande part par email quand l'enveloppe est postée (ou « en direct »)
 boot();
