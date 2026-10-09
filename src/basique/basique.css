@@ -1,0 +1,30 @@
+/* Versions basiques : les objets (feuille, carte) rendus par le moteur, le texte posé par-dessus. */
+@font-face { font-family: 'SG Garamond'; src: url(/fonts/EBGaramond-500.woff2) format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'SG Machine'; src: url(/fonts/CourierPrime-latin.woff2) format('woff2'); font-display: swap; }
+@font-face { font-family: 'SG Machine'; src: url(/fonts/CourierPrime-latin-ext.woff2) format('woff2'); unicode-range: U+0100-024F; font-display: swap; }
+
+/* la feuille A5 (feuille.jpg, 800 × 1100) avec l'acrostiche du prénom */
+/* recadrée sur le papier (727 × 1040 dans l'image) */
+.sheet { position: relative; container-type: inline-size; aspect-ratio: 727 / 1040; background: #000 url(/simple/feuille.jpg) center / 110% 105.8%; border-radius: 1px; }
+.sheet .ac { position: absolute; left: 23cqw; right: 7cqw; top: 24.5cqw; --lh: min(7cqw, calc(108cqw / var(--n, 1))); }
+.sheet .ac-row b { color: #d2d2d2; font-size: calc(var(--lh) * .95); }
+.sheet .ac-row i { border-color: rgba(255, 255, 255, .13); }
+.sheet .hint { position: absolute; left: 0; right: 0; top: 62cqw; text-align: center; font: 3.8cqw/1.5 'SG Machine', monospace; color: rgba(255, 255, 255, .28); transition: opacity .4s; }
+.sheet .ac:not(.empty) + .hint { opacity: 0; }
+
+/* l'acrostiche en général : lettre + ligne à écrire */
+.ac-row { display: flex; align-items: baseline; height: var(--lh, 1.6em); line-height: var(--lh, 1.6em); animation: acIn .5s both cubic-bezier(.2, .7, .3, 1); }
+.ac-row b { font: 500 1.4em/1 'SG Garamond', Georgia, serif; width: 1.05em; flex: none; }
+.ac-row i { flex: 1; border-bottom: 1px dashed currentColor; opacity: .9; margin-left: .3em; transform-origin: left; animation: lineIn .7s .25s both ease-out; }
+.ac-gap { height: calc(var(--lh, 1.6em) * .6); }
+@keyframes acIn { from { opacity: 0; transform: translateY(-.6em); } }
+@keyframes lineIn { from { transform: scaleX(0); } }
+
+/* la carte question (vierge.jpg, 900 × 550), la question tapée dessus */
+/* recadrée sur la carte (770 × 452 dans l'image) */
+.qcard { position: relative; container-type: inline-size; aspect-ratio: 770 / 452; background: #000 url(/simple/vierge.jpg) center / 117% 122%; border-radius: 3cqw; }
+.qcard p { position: absolute; inset: 8cqw 9cqw; margin: 0; display: flex; align-items: center; justify-content: center; text-align: center;
+  font: 5.2cqw/1.7 'SG Machine', 'Courier New', monospace; color: #c9c9c9; text-shadow: 0 0 .5px rgba(255,255,255,.4); transition: opacity .25s; }
+.qcard p.out { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) { .ac-row, .ac-row i { animation: none; } }

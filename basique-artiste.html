@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#060606">
+<title>Eternel — poèmes à la machine</title>
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+<style>
+  :root { --bg: #060606; --ink: #d6d6d6; --soft: #7d7d7d; --dim: #4a4a4a; --line: #222; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 16px/1.75 'SG Machine', 'Courier New', monospace; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  header { position: sticky; top: 0; z-index: 2; background: rgba(6,6,6,.92); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+  header .in { max-width: 1040px; margin: 0 auto; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .logo { font: 500 16px/1 'SG Garamond', serif; letter-spacing: .45em; text-decoration: none; }
+  nav { display: flex; gap: 16px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+  nav a { text-decoration: none; color: var(--soft); }
+  nav a:hover { color: var(--ink); }
+  @media (max-width: 600px) { nav .opt { display: none; } nav a { color: var(--ink); border: 1px solid #555; padding: 8px 12px; } }
+  main { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  .kicker { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--soft); margin: 0 0 14px; }
+  .kicker::before { content: '— '; }
+  h1 { font: 500 clamp(40px, 10vw, 84px)/1.02 'SG Garamond', serif; margin: 0 0 22px; color: #e8e8e8; }
+  h1 em { font-style: italic; color: #9a9a9a; }
+  h2 { font: 500 clamp(28px, 6vw, 44px)/1.15 'SG Garamond', serif; margin: 0 0 18px; color: #e3e3e3; }
+  section { padding: 64px 0; border-bottom: 1px solid var(--line); }
+  .hero { padding: 56px 0 64px; display: grid; gap: 36px; }
+  @media (min-width: 860px) { .hero { grid-template-columns: 1.15fr .85fr; align-items: center; gap: 64px; } }
+  .hero p { max-width: 32em; color: #b4b4b4; }
+  .hero .sheet { max-width: min(360px, 72vw); width: 100%; justify-self: center; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+  .cta { display: inline-block; margin-top: 10px; padding: 15px 26px; border: 1px solid #cfcfcf; color: #eee; text-decoration: none; font: 500 15px/1 'SG Garamond', serif; letter-spacing: .3em; text-transform: uppercase; }
+  .cta:hover { background: #eee; color: #060606; }
+  .price { color: var(--soft); font-size: 14px; margin-top: 14px; }
+
+  .cols { display: grid; gap: 32px; }
+  @media (min-width: 760px) { .cols { grid-template-columns: repeat(3, 1fr); } }
+  .cols h3 { font: 500 22px/1.2 'SG Garamond', serif; margin: 6px 0 8px; color: #e3e3e3; }
+  .cols p { margin: 0; color: #a9a9a9; font-size: 15px; }
+  .num { font-size: 12px; color: var(--soft); letter-spacing: .1em; }
+
+  .quotes { display: grid; gap: 22px; margin-top: 8px; }
+  @media (min-width: 760px) { .quotes { grid-template-columns: repeat(3, 1fr); } }
+  .quotes .qcard { box-shadow: 0 20px 50px rgba(0,0,0,.5); }
+
+  .video { aspect-ratio: 9 / 16; max-width: 320px; border: 1px solid var(--line); display: grid; place-items: center; text-align: center; color: var(--soft); padding: 24px; font-size: 14px; background: #0b0b0b; }
+  .vrow { display: grid; gap: 28px; }
+  @media (min-width: 760px) { .vrow { grid-template-columns: 320px 1fr; align-items: center; gap: 56px; } }
+
+  .offers { display: grid; gap: 0; }
+  .offer { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 20px 0; border-top: 1px solid var(--line); text-decoration: none; align-items: baseline; }
+  .offer:last-child { border-bottom: 1px solid var(--line); }
+  .offer b { font: 500 24px/1.2 'SG Garamond', serif; color: #e3e3e3; }
+  .offer span { display: block; color: var(--soft); font-size: 14px; }
+  .offer em { font-style: normal; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); white-space: nowrap; }
+  a.offer:hover b { text-decoration: underline; text-underline-offset: 5px; }
+
+  .form { display: grid; gap: 36px; }
+  @media (min-width: 860px) { .form { grid-template-columns: 1fr 300px; gap: 64px; align-items: start; } .form .side { position: sticky; top: 90px; } }
+  .field { display: block; margin: 0 0 18px; }
+  .field > span { display: block; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); margin-bottom: 4px; }
+  .field input, .field textarea, .field select { width: 100%; font: 17px/1.5 'SG Machine', monospace; color: #eee; background: transparent; border: 0; border-bottom: 1px solid #3a3a3a; padding: 8px 0; border-radius: 0; }
+  .field select { appearance: none; }
+  .field select option { background: #111; }
+  .field textarea { min-height: 90px; resize: vertical; }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: 0; border-bottom-color: #ddd; }
+  .row2 { display: grid; grid-template-columns: 1fr 1.6fr; gap: 16px; }
+  .qpick { margin: 0 0 18px; }
+  .qpick .qcard { max-width: 420px; }
+  .qpick button { margin-top: 10px; background: none; border: 0; color: var(--soft); font: 13px/1 'SG Machine', monospace; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; padding: 6px 0; margin-right: 18px; }
+  .qpick button:hover { color: #ddd; }
+  .send { margin-top: 8px; padding: 16px 30px; border: 1px solid #cfcfcf; background: none; color: #eee; font: 500 15px/1 'SG Garamond', serif; letter-spacing: .3em; cursor: pointer; }
+  .send:hover { background: #eee; color: #060606; }
+  .small { font-size: 13px; color: var(--soft); }
+  .done { display: none; margin-top: 18px; color: #cfcfcf; }
+  .done.on { display: block; }
+  .side .sheet { box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+  .ac.inline { display: none; color: #cfcfcf; margin: -6px 0 22px; --lh: 30px; }
+  .ac.inline .ac-row i { color: #333; }
+  @media (max-width: 859px) { .form .side { display: none; } .ac.inline { display: block; } }
+  .side p { font-size: 13px; color: var(--soft); text-align: center; margin: 10px 0 0; }
+  .contact { display: grid; gap: 8px; }
+  footer { max-width: 1040px; margin: 0 auto; padding: 28px 16px 48px; font-size: 13px; color: var(--dim); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+</style>
+</head>
+<body>
+<header><div class="in">
+  <a class="logo" href="#">ETERNEL</a>
+  <nav><a class="opt" href="#poeme">le poème</a><a class="opt" href="#ailleurs">le jeu, les livres</a><a href="#demande">commander</a></nav>
+</div></header>
+
+<main>
+  <section class="hero">
+    <div>
+      <p class="kicker">poèmes aux inconnus</p>
+      <h1>Un prénom,<br><em>un poème.</em></h1>
+      <p>Dans la rue, je demande son prénom à un inconnu, une question, et je lui écris un poème à la machine à écrire. Chaque lettre du prénom ouvre un vers.</p>
+      <p>Tu peux en recevoir un, chez toi, par la poste. Ou l'offrir.</p>
+      <a class="cta" href="#demande">demander mon poème</a>
+      <p class="price">XX € · livraison comprise</p>
+    </div>
+    <div class="sheet" aria-label="exemple : un acrostiche"><div class="ac" id="acHero"></div></div>
+  </section>
+
+  <section id="poeme">
+    <p class="kicker">01 / comment ça se passe</p>
+    <h2>Trois choses de toi, puis la machine.</h2>
+    <div class="cols">
+      <div><span class="num">01</span><h3>Ton prénom</h3><p>Ou celui de la personne à qui tu l'offres. Il devient la colonne du poème.</p></div>
+      <div><span class="num">02</span><h3>Une question</h3><p>Tirée de mon jeu de cartes. Tu y réponds en quelques mots, ou tu me donnes un thème.</p></div>
+      <div><span class="num">03</span><h3>Une enveloppe</h3><p>Je tape le poème sur une feuille noire, je le glisse avec la carte de ta question, cachet de cire, et il part.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <p class="kicker">02 / exemples</p>
+    <h2>Quelques questions de mon jeu.</h2>
+    <div class="quotes">
+      <div class="qcard"><p>sais-tu te retenir d'aimer ?</p></div>
+      <div class="qcard"><p>attends-tu parfois qu'on devine ?</p></div>
+      <div class="qcard"><p>réfléchir ou dire ?</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="vrow">
+      <div class="video">ici : une vidéo de rue<br>(Instagram / TikTok, intégrée)</div>
+      <div>
+        <p class="kicker">03 / en vidéo</p>
+        <h2>Une machine, un trottoir, un inconnu.</h2>
+        <p style="color:#a9a9a9">Je le fais dans la rue, les vidéos sont sur <a id="insta" href="#">Instagram</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="ailleurs">
+    <p class="kicker">04 / ailleurs</p>
+    <h2>Le reste de mon travail.</h2>
+    <div class="offers">
+      <div class="offer"><div><b>SINGULIES, le jeu</b><span>les 73 cartes de questions, à poser à quelqu'un</span></div><em>bientôt</em></div>
+      <div class="offer"><div><b>Une lettre chez toi, chaque mois</b><span>un poème tapé à la machine, dans ta boîte aux lettres</span></div><em>bientôt</em></div>
+      <a class="offer" id="livres" href="#" target="_blank" rel="noopener"><div><b>Mes livres</b><span>le recueil, sur Amazon</span></div><em>voir ↗</em></a>
+    </div>
+  </section>
+
+  <section id="demande">
+    <p class="kicker">05 / commander</p>
+    <h2>Demander ton poème.</h2>
+    <p class="small" style="margin:-6px 0 30px">je lis chaque demande et je te réponds par email pour le paiement.</p>
+    <form class="form" id="form" autocomplete="on">
+      <div>
+        <label class="field"><span>pour qui</span>
+          <select name="pour" id="pour"><option value="moi">pour moi</option><option value="offrir">pour l'offrir</option></select>
+        </label>
+        <label class="field"><span id="nameLabel">ton prénom</span><input id="name" name="prenom" autocomplete="given-name" spellcheck="false" maxlength="30" required></label>
+        <div class="ac inline empty" id="acInline"></div>
+        <div class="qpick">
+          <div class="field" style="margin:0 0 8px"><span id="qLabel">ta question</span></div>
+          <div class="qcard" id="qcard"><p></p></div>
+          <button type="button" id="another">une autre</button><button type="button" id="theme">je préfère te donner un thème</button>
+        </div>
+        <label class="field"><span id="answerLabel">ta réponse</span><textarea name="reponse" id="answer"></textarea></label>
+        <label class="field"><span>prénom et nom du destinataire</span><input name="nom" autocomplete="name" required></label>
+        <label class="field"><span>adresse</span><input name="adresse" autocomplete="address-line1" required></label>
+        <div class="row2">
+          <label class="field"><span>code postal</span><input name="cp" autocomplete="postal-code" inputmode="numeric" required></label>
+          <label class="field"><span>ville</span><input name="ville" autocomplete="address-level2" required></label>
+        </div>
+        <label class="field"><span>ton email</span><input name="email" type="email" autocomplete="email" required></label>
+        <label class="field"><span>un mot pour moi (facultatif)</span><textarea name="message" style="min-height:60px"></textarea></label>
+        <button class="send" type="submit">ENVOYER</button>
+        <p class="done" id="done"></p>
+      </div>
+      <div class="side">
+        <div class="sheet"><div class="ac empty" id="acForm"></div><div class="hint">ton prénom ici</div></div>
+        <p>la colonne de ton poème</p>
+      </div>
+    </form>
+  </section>
+</main>
+<footer><span>ETERNEL · SINGULIES</span><span><a href="./confidentialite.html">confidentialité</a> · <a id="insta2" href="#">@e.t.ernel</a></span></footer>
+
+<script type="module">
+  import '/src/basique/basique.css';
+  import { acrostic, bindName, showQuestion, fakeSubmit, norm, AMAZON, INSTAGRAM } from '/src/basique/basique.js';
+  const $ = (s) => document.querySelector(s);
+  $('#livres').href = AMAZON; $('#insta').href = INSTAGRAM; $('#insta2').href = INSTAGRAM;
+
+  // la feuille de l'en-tête : des prénoms qui s'écrivent l'un après l'autre
+  const names = ['LEA', 'SAMIR', 'CHLOE', 'NOAH', 'INES', 'MALO'];
+  let k = 0;
+  const cycle = () => { acrostic($('#acHero'), ''); setTimeout(() => acrostic($('#acHero'), names[k++ % names.length]), 400); };
+  cycle();
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) setInterval(cycle, 4200);
+
+  bindName($('#name'), [$('#acForm'), $('#acInline')]);
+  $('#pour').onchange = (e) => {
+    const gift = e.target.value === 'offrir';
+    $('#nameLabel').textContent = gift ? 'son prénom' : 'ton prénom';
+    $('#qLabel').textContent = gift ? 'une question, réponds en pensant à elle ou à lui' : 'ta question';
+  };
+  showQuestion($('#qcard'));
+  $('#another').onclick = () => { showQuestion($('#qcard')); $('#answerLabel').textContent = 'ta réponse'; };
+  $('#theme').onclick = () => { $('#qcard p').textContent = 'le thème de ton poème'; $('#answerLabel').textContent = 'ton thème'; $('#answer').focus(); };
+  fakeSubmit($('#form'), () => {
+    $('#done').textContent = `merci. je lis ta demande pour ${norm($('#name').value).trim()} et je t'écris. (essai : rien n'a été envoyé)`;
+    $('#done').classList.add('on');
+  });
+</script>
+</body>
+</html>

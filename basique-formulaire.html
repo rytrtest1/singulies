@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fbfaf6">
+<title>Ton poème — ETERNEL</title>
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+<style>
+  :root { --bg: #fbfaf6; --ink: #171717; --soft: #6b6b66; --line: #d8d6cf; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 16px/1.6 'SG Machine', 'Courier New', monospace; -webkit-font-smoothing: antialiased; }
+  main { max-width: 560px; margin: 0 auto; padding: max(28px, env(safe-area-inset-top)) 16px 80px; }
+  .brand { text-align: center; font: 500 13px/1 'SG Garamond', serif; letter-spacing: .5em; padding-left: .5em; color: var(--soft); margin: 0 0 32px; }
+  h1 { font: 500 clamp(32px, 9vw, 42px)/1.12 'SG Garamond', serif; text-align: center; margin: 0 0 14px; }
+  .sub { text-align: center; margin: 0 0 8px; }
+  .facts { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--soft); margin: 0 0 40px; padding: 0; list-style: none; }
+  .facts li { white-space: nowrap; }
+
+  fieldset { border: 0; padding: 0; margin: 0 0 40px; }
+  legend { display: flex; gap: 12px; align-items: baseline; padding: 0; margin: 0 0 14px; font: 500 22px/1.2 'SG Garamond', serif; }
+  legend b { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--ink); color: var(--bg); font: 13px/1 'SG Machine', monospace; flex: none; transform: translateY(-2px); }
+  .help { font-size: 14px; color: var(--soft); margin: -6px 0 14px; }
+  input, textarea { width: 100%; font: 18px/1.4 'SG Machine', monospace; color: var(--ink); background: #fff; border: 1px solid #c8c6be; border-radius: 6px; padding: 13px 14px; }
+  textarea { min-height: 100px; resize: vertical; }
+  input:focus, textarea:focus { outline: 2px solid var(--ink); outline-offset: -1px; }
+  label.f { display: block; margin: 0 0 12px; }
+  label.f span { display: block; font-size: 13px; color: var(--soft); margin: 0 0 4px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px; }
+  #name { font: 500 26px/1.2 'SG Garamond', serif; letter-spacing: .25em; text-transform: uppercase; text-align: center; }
+  #name::placeholder { letter-spacing: .05em; text-transform: none; font-size: 20px; color: #aaa; }
+
+  .preview { margin: 16px 0 0; padding: 18px 20px; border: 1px dashed var(--line); border-radius: 6px; color: #2a2a2a; min-height: 56px; }
+  .preview .ac { --lh: 34px; }
+  .preview .ac-row b { font-size: 26px; }
+  .preview .ac-row i { color: #bbb; }
+  .preview .empty::before { content: 'ton acrostiche apparaîtra ici'; color: #aaa; font-size: 14px; }
+
+  .seg { display: flex; border: 1px solid var(--ink); border-radius: 6px; overflow: hidden; margin: 0 0 14px; }
+  .seg button { flex: 1; padding: 11px 4px; border: 0; background: transparent; font: 14px/1.2 'SG Machine', monospace; color: var(--ink); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .qcard { border-radius: 6px; box-shadow: 0 14px 30px rgba(0,0,0,.18); }
+  .link { background: none; border: 0; padding: 10px 0; font: 14px/1 'SG Machine', monospace; text-decoration: underline; text-underline-offset: 4px; color: var(--ink); cursor: pointer; }
+  .improv { padding: 18px; border: 1px solid var(--line); border-radius: 6px; font-size: 15px; display: none; }
+
+  .recap { border-top: 2px solid var(--ink); padding-top: 18px; }
+  .recap dl { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin: 0 0 18px; font-size: 15px; }
+  .recap dd { margin: 0; text-align: right; }
+  .recap .tot { font-weight: bold; font-size: 18px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .pay { width: 100%; padding: 18px; border: 0; border-radius: 6px; background: var(--ink); color: var(--bg); font: 500 19px/1 'SG Garamond', serif; letter-spacing: .08em; cursor: pointer; }
+  .pay:active { transform: translateY(1px); }
+  .safe { text-align: center; font-size: 13px; color: var(--soft); margin: 10px 0 0; }
+  .done { display: none; margin-top: 18px; padding: 18px; background: var(--ink); color: var(--bg); border-radius: 6px; }
+  .done.on { display: block; }
+  .faq { margin-top: 56px; font-size: 14px; color: #3a3a37; }
+  .faq h2 { font: 500 20px/1.2 'SG Garamond', serif; margin: 0 0 8px; color: var(--ink); }
+  .faq p { margin: 0 0 16px; }
+  footer { text-align: center; font-size: 12px; color: var(--soft); padding: 0 16px 40px; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <p class="brand">ETERNEL</p>
+  <h1>Ton prénom,<br>ton poème.</h1>
+  <p class="sub">Un acrostiche écrit par moi, à la machine à écrire, envoyé chez toi par la poste.</p>
+  <ul class="facts"><li>XX €</li><li>livraison comprise</li><li>envoi sous X jours</li></ul>
+
+  <form id="form" autocomplete="on">
+    <fieldset>
+      <legend><b>1</b>Le prénom</legend>
+      <div class="seg" role="group" aria-label="pour qui">
+        <button type="button" aria-pressed="true" data-who="moi">pour moi</button>
+        <button type="button" aria-pressed="false" data-who="offrir">pour offrir</button>
+      </div>
+      <input id="name" name="prenom" autocomplete="given-name" spellcheck="false" maxlength="30" required placeholder="écris ton prénom" aria-label="prénom">
+      <div class="preview"><div class="ac empty" id="ac"></div></div>
+    </fieldset>
+
+    <fieldset>
+      <legend><b>2</b>De quoi parlera le poème</legend>
+      <p class="help" id="qHelp">réponds à une question de mon jeu, en quelques mots.</p>
+      <div class="seg" role="group" aria-label="sujet">
+        <button type="button" aria-pressed="true" data-mode="q">une question</button>
+        <button type="button" aria-pressed="false" data-mode="t">mon thème</button>
+        <button type="button" aria-pressed="false" data-mode="i">improvise</button>
+      </div>
+      <div id="modeQ">
+        <div class="qcard" id="qcard"><p></p></div>
+        <button type="button" class="link" id="another">une autre question</button>
+        <label class="f"><span>ta réponse</span><textarea name="reponse"></textarea></label>
+      </div>
+      <div id="modeT" hidden>
+        <label class="f"><span>ton thème : un souvenir, une personne, un moment…</span><textarea name="theme"></textarea></label>
+      </div>
+      <div class="improv" id="modeI">je pars seulement du prénom.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend><b>3</b><span id="toLegend">Où je l'envoie</span></legend>
+      <label class="f"><span>prénom et nom</span><input name="nom" autocomplete="name" required></label>
+      <label class="f"><span>adresse</span><input name="adresse" autocomplete="address-line1" required></label>
+      <label class="f"><span>complément (facultatif)</span><input name="complement" autocomplete="address-line2"></label>
+      <div class="row2">
+        <label class="f"><span>code postal</span><input name="cp" autocomplete="postal-code" inputmode="numeric" required></label>
+        <label class="f"><span>ville</span><input name="ville" autocomplete="address-level2" required></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend><b>4</b>Ton email</legend>
+      <p class="help">pour te prévenir quand il part. rien d'autre.</p>
+      <input name="email" type="email" autocomplete="email" required>
+    </fieldset>
+
+    <div class="recap">
+      <dl>
+        <dt>poème <span id="rName">—</span></dt><dd>XX €</dd>
+        <dt>envoi par la poste</dt><dd>compris</dd>
+        <dt class="tot">total</dt><dd class="tot">XX €</dd>
+      </dl>
+      <button class="pay" type="submit">Payer XX €</button>
+      <p class="safe">paiement sécurisé · carte, Apple Pay, Google Pay</p>
+      <div class="done" id="done"></div>
+    </div>
+  </form>
+
+  <section class="faq">
+    <h2>Qui écrit ?</h2>
+    <p>Moi, Eternel. Je fais la même chose dans la rue, avec des inconnus. Le poème est tapé à la machine, pas généré.</p>
+    <h2>Ce que tu reçois</h2>
+    <p>Une feuille noire A5 avec ton acrostiche, la carte de ta question, dans une enveloppe noire fermée par un cachet de cire.</p>
+    <h2>Pour offrir</h2>
+    <p>Choisis « pour offrir » : j'envoie le poème directement à la personne.</p>
+  </section>
+</main>
+<footer>ETERNEL · SINGULIES · <a href="./confidentialite.html">ce que tu me confies</a></footer>
+
+<script type="module">
+  import '/src/basique/basique.css';
+  import { bindName, showQuestion, fakeSubmit, norm } from '/src/basique/basique.js';
+  const $ = (s) => document.querySelector(s);
+  const name = $('#name');
+  bindName(name, [$('#ac')]);
+  name.addEventListener('input', () => { $('#rName').textContent = norm(name.value).trim() || '—'; });
+
+  const seg = (sel, fn) => document.querySelectorAll(sel).forEach((b) => b.addEventListener('click', () => {
+    b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    fn(b);
+  }));
+  let gift = false;
+  seg('[data-who]', (b) => {
+    gift = b.dataset.who === 'offrir';
+    name.placeholder = gift ? 'écris son prénom' : 'écris ton prénom';
+    $('#toLegend').textContent = gift ? 'À qui je l\'envoie' : 'Où je l\'envoie';
+    $('#qHelp').textContent = gift ? 'réponds en pensant à elle ou à lui, en quelques mots.' : 'réponds à une question de mon jeu, en quelques mots.';
+  });
+  seg('[data-mode]', (b) => {
+    const m = b.dataset.mode;
+    $('#modeQ').hidden = m !== 'q'; $('#modeT').hidden = m !== 't';
+    $('#modeI').style.display = m === 'i' ? 'block' : 'none';
+  });
+  showQuestion($('#qcard'));
+  $('#another').onclick = () => showQuestion($('#qcard'));
+  fakeSubmit($('#form'), () => {
+    $('#done').textContent = `merci. le poème ${norm(name.value).trim()} est noté. (essai : ici, le paiement — rien n'a été envoyé)`;
+    $('#done').classList.add('on');
+  });
+</script>
+</body>
+</html>

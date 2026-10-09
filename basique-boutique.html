@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f3efe7">
+<title>Un poème avec ton prénom — ETERNEL</title>
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+<style>
+  :root { --bg: #f3efe7; --ink: #1c1b19; --soft: #6d675d; --line: #d9d2c4; --btn: #111; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 16px/1.6 'SG Garamond', Georgia, serif; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  .bar { background: #111; color: #e9e4da; text-align: center; font: 12px/34px 'SG Machine', monospace; white-space: nowrap; overflow: hidden; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); max-width: 1100px; margin: 0 auto; }
+  .logo { font: 500 17px/1 'SG Garamond', serif; letter-spacing: .45em; text-decoration: none; padding-left: .45em; }
+  nav { display: flex; gap: 18px; font-size: 15px; }
+  nav a { text-decoration: none; color: var(--soft); }
+  nav a[aria-current] { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+
+  .product { display: grid; gap: 28px; }
+  @media (min-width: 860px) { .product { grid-template-columns: 1.1fr 1fr; gap: 56px; align-items: start; } .gallery { position: sticky; top: 20px; } }
+  .stage { background: #0a0a0a; border-radius: 4px; overflow: hidden; display: grid; place-items: center; aspect-ratio: 1; padding: 6%; }
+  .stage > * { width: 100%; display: none; }
+  .stage > .on { display: block; }
+  .stage .sheet { width: auto; height: 100%; }
+  .stage img { width: 100%; }
+  .thumbs { display: flex; gap: 10px; margin-top: 10px; }
+  .thumbs button { flex: 1; aspect-ratio: 1; border: 1px solid var(--line); background: #0a0a0a center / 80% no-repeat; border-radius: 4px; cursor: pointer; padding: 0; }
+  .thumbs button[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  .kicker { font: 12px/1 'SG Machine', monospace; color: var(--soft); letter-spacing: .08em; margin: 4px 0 10px; }
+  h1 { font: 500 clamp(30px, 6vw, 44px)/1.1 'SG Garamond', serif; margin: 0 0 10px; }
+  .price { font-size: 22px; margin: 0 0 6px; }
+  .note { color: var(--soft); font-size: 15px; margin: 0 0 22px; }
+  .lead { font-size: 18px; margin: 0 0 24px; }
+
+  .who { display: flex; gap: 8px; margin: 0 0 16px; }
+  .who label { flex: 1; }
+  .who input { position: absolute; opacity: 0; }
+  .who span { display: block; text-align: center; padding: 11px 8px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; font-size: 16px; }
+  .who input:checked + span { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+  .who input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .field { display: block; margin: 0 0 14px; }
+  .field > span { display: block; font-size: 14px; color: var(--soft); margin-bottom: 5px; }
+  .field input, .field textarea { width: 100%; font: 17px/1.4 'SG Machine', monospace; padding: 12px 14px; border: 1px solid #c9c1b1; border-radius: 4px; background: #fbf9f4; color: var(--ink); }
+  .field textarea { min-height: 96px; resize: vertical; }
+  .field input:focus, .field textarea:focus { outline: 2px solid var(--ink); outline-offset: 0; border-color: transparent; }
+  .row2 { display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; }
+  .btn { display: block; width: 100%; padding: 16px; border: 0; border-radius: 4px; background: var(--btn); color: #f3efe7; font: 500 17px/1 'SG Garamond', serif; letter-spacing: .06em; cursor: pointer; }
+  .btn:active { transform: translateY(1px); }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
+  .trust { list-style: none; padding: 0; margin: 16px 0 0; font-size: 15px; color: var(--soft); }
+  .trust li::before { content: '— '; }
+
+  details { border-top: 1px solid var(--line); padding: 14px 0; }
+  details:last-of-type { border-bottom: 1px solid var(--line); }
+  summary { cursor: pointer; font-size: 18px; list-style: none; display: flex; justify-content: space-between; }
+  summary::after { content: '+'; color: var(--soft); }
+  details[open] summary::after { content: '–'; }
+  details p, details ol, details ul { margin: 10px 0 0; color: #3b3832; }
+  .steps { margin: 28px 0; }
+
+  #checkout { margin-top: 56px; padding-top: 32px; border-top: 1px solid var(--ink); display: none; }
+  #checkout.on { display: block; }
+  #checkout h2 { font: 500 28px/1.2 'SG Garamond', serif; margin: 0 0 6px; }
+  .grid2 { display: grid; gap: 32px; }
+  @media (min-width: 860px) { .grid2 { grid-template-columns: 1fr 1fr; gap: 56px; } }
+  h3 { font: 12px/1 'SG Machine', monospace; letter-spacing: .1em; color: var(--soft); margin: 26px 0 12px; text-transform: uppercase; }
+  .qactions { display: flex; gap: 8px; margin: 10px 0 14px; }
+  .qactions button { flex: 1; padding: 10px; font: 15px/1.2 'SG Garamond', serif; background: transparent; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; color: var(--ink); }
+  .total { display: flex; justify-content: space-between; font-size: 18px; border-top: 1px solid var(--line); padding: 14px 0; margin-top: 10px; }
+  .done { display: none; background: #111; color: #e9e4da; padding: 22px; border-radius: 4px; margin-top: 16px; font: 15px/1.7 'SG Machine', monospace; }
+  .done.on { display: block; }
+  .gift-only { display: none; }
+  body.gift .gift-only { display: block; }
+  footer { border-top: 1px solid var(--line); padding: 24px 16px; text-align: center; color: var(--soft); font-size: 14px; }
+  .reviews { margin-top: 56px; padding: 28px 20px; border: 1px dashed #b9b09e; border-radius: 4px; text-align: center; color: var(--soft); }
+</style>
+</head>
+<body>
+<div class="bar">tapé à la machine · envoyé par la poste</div>
+<header>
+  <a class="logo" href="#">ETERNEL</a>
+  <nav><a href="#" aria-current="page">poèmes</a><a href="#jeu">le jeu</a><a id="livres" href="#">livres</a></nav>
+</header>
+
+<main>
+  <section class="product">
+    <div class="gallery">
+      <div class="stage" id="stage">
+        <div class="sheet on" data-k="0"><div class="ac empty" id="ac1"></div><div class="hint">écris ton prénom →</div></div>
+        <img data-k="1" src="./simple/enveloppe-dos.jpg" alt="l'enveloppe noire, fermée par un cachet de cire">
+        <div class="qcard" data-k="2" id="qcard1"><p></p></div>
+      </div>
+      <div class="thumbs" role="group" aria-label="photos">
+        <button aria-pressed="true" data-k="0" style="background-image:url(./simple/feuille.jpg);background-size:auto 86%" aria-label="la feuille"></button>
+        <button aria-pressed="false" data-k="1" style="background-image:url(./simple/enveloppe-dos.jpg)" aria-label="l'enveloppe"></button>
+        <button aria-pressed="false" data-k="2" style="background-image:url(./simple/vierge.jpg)" aria-label="la carte question"></button>
+      </div>
+    </div>
+
+    <div>
+      <p class="kicker">POÈME À LA MACHINE · PAR LA POSTE</p>
+      <h1>Un poème avec ton prénom</h1>
+      <p class="price">XX €</p>
+      <p class="note">livraison en France comprise · expédié sous X jours</p>
+      <p class="lead">Chaque lettre de ton prénom ouvre un vers. Je l'écris pour toi à la machine à écrire, sur une feuille noire, et je te l'envoie dans une enveloppe scellée à la cire.</p>
+
+      <div class="who" role="radiogroup" aria-label="pour qui">
+        <label><input type="radio" name="who" value="moi" checked><span>pour moi</span></label>
+        <label><input type="radio" name="who" value="offrir"><span>pour offrir</span></label>
+      </div>
+      <label class="field"><span id="nameLabel">ton prénom</span>
+        <input id="name" autocomplete="given-name" autocapitalize="characters" spellcheck="false" maxlength="30" placeholder="ex. Léa">
+      </label>
+      <button class="btn" id="order">Commander · XX €</button>
+      <ul class="trust">
+        <li>écrit par moi, jamais par une IA</li>
+        <li>paiement sécurisé</li>
+        <li>une question à toi seulement</li>
+      </ul>
+
+      <div class="steps">
+        <details open><summary>Comment ça marche</summary>
+          <ol>
+            <li>Tu me donnes ton prénom (ou celui de la personne à qui tu l'offres).</li>
+            <li>Tu réponds à une question tirée de mon jeu de cartes, ou tu me donnes un thème.</li>
+            <li>J'écris le poème à la machine et je te l'envoie par la poste.</li>
+          </ol>
+        </details>
+        <details><summary>Ce que tu reçois</summary>
+          <ul>
+            <li>une feuille A5 noire, ton acrostiche tapé à la machine</li>
+            <li>la carte de ta question, ta réponse au dos</li>
+            <li>une enveloppe noire, cachet de cire</li>
+          </ul>
+        </details>
+        <details><summary>Qui écrit ?</summary>
+          <p>Moi, Eternel. Dans la rue, je demande leur prénom à des inconnus et je leur écris un poème sur le moment. Tu m'as peut-être vu sur <a id="insta" href="#">Instagram</a>.</p>
+        </details>
+        <details><summary>Je peux l'offrir ?</summary>
+          <p>Oui : choisis « pour offrir », je l'envoie directement à la personne, avec un mot de toi si tu veux.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section id="checkout">
+    <h2>Ta commande</h2>
+    <p class="note">trois choses, et je m'occupe du reste.</p>
+    <form id="form" class="grid2" autocomplete="on">
+      <div>
+        <h3>1 · une question pour le poème</h3>
+        <div class="qcard" id="qcard2"><p></p></div>
+        <div class="qactions"><button type="button" id="another">une autre question</button><button type="button" id="theme">je choisis mon thème</button></div>
+        <label class="field"><span id="answerLabel">ta réponse</span><textarea name="reponse" id="answer" placeholder="quelques mots suffisent"></textarea></label>
+        <div class="gift-only">
+          <label class="field"><span>un mot de toi à glisser dans l'enveloppe (facultatif)</span><textarea name="mot"></textarea></label>
+        </div>
+      </div>
+      <div>
+        <h3>2 · <span id="toLabel">où je l'envoie</span></h3>
+        <label class="field"><span>prénom et nom</span><input name="nom" autocomplete="name" required></label>
+        <label class="field"><span>adresse</span><input name="adresse" autocomplete="address-line1" required></label>
+        <label class="field"><span>complément (facultatif)</span><input name="complement" autocomplete="address-line2"></label>
+        <div class="row2">
+          <label class="field"><span>code postal</span><input name="cp" autocomplete="postal-code" inputmode="numeric" required></label>
+          <label class="field"><span>ville</span><input name="ville" autocomplete="address-level2" required></label>
+        </div>
+        <h3>3 · ton email</h3>
+        <label class="field"><span>pour te dire quand il part</span><input name="email" type="email" autocomplete="email" required></label>
+        <div class="total"><span>total</span><span>XX €</span></div>
+        <button class="btn" type="submit">Payer XX €</button>
+        <div class="done" id="done"></div>
+      </div>
+    </form>
+  </section>
+
+  <section class="reviews">
+    <p>ici : les messages de ceux qui l'ont reçu (vrais avis, à ajouter au fil des envois)</p>
+  </section>
+</main>
+<footer>ETERNEL · SINGULIES · <a href="./confidentialite.html">confidentialité</a></footer>
+
+<script type="module">
+  import '/src/basique/basique.css';
+  import { bindName, showQuestion, fakeSubmit, norm, AMAZON, INSTAGRAM } from '/src/basique/basique.js';
+  const $ = (s) => document.querySelector(s);
+  $('#livres').href = AMAZON; $('#insta').href = INSTAGRAM;
+
+  // galerie
+  const thumbs = [...document.querySelectorAll('.thumbs button')];
+  const show = (k) => {
+    document.querySelectorAll('#stage > *').forEach((el) => el.classList.toggle('on', el.dataset.k == k));
+    thumbs.forEach((b) => b.setAttribute('aria-pressed', b.dataset.k == k));
+  };
+  thumbs.forEach((b) => b.addEventListener('click', () => show(b.dataset.k)));
+
+  // prénom → acrostiche sur la feuille
+  const name = $('#name');
+  bindName(name, [$('#ac1')]);
+  name.addEventListener('focus', () => show(0));
+
+  // pour moi / pour offrir
+  document.querySelectorAll('input[name=who]').forEach((r) => r.addEventListener('change', () => {
+    const gift = r.value === 'offrir' && r.checked;
+    document.body.classList.toggle('gift', gift);
+    $('#nameLabel').textContent = gift ? 'son prénom' : 'ton prénom';
+    $('#toLabel').textContent = gift ? 'à qui je l\'envoie' : 'où je l\'envoie';
+    $('#answerLabel').textContent = themeMode ? 'le thème' : (gift ? 'ta réponse, en pensant à elle ou à lui' : 'ta réponse');
+  }));
+
+  // questions
+  showQuestion($('#qcard1'));
+  let q = showQuestion($('#qcard2'));
+  let themeMode = false;
+  $('#another').onclick = () => { themeMode = false; q = showQuestion($('#qcard2')); $('#answerLabel').textContent = 'ta réponse'; };
+  $('#theme').onclick = () => {
+    themeMode = true;
+    $('#qcard2 p').textContent = 'le thème de ton poème';
+    $('#answerLabel').textContent = 'le thème';
+    $('#answer').focus();
+  };
+
+  // commander → la commande
+  $('#order').onclick = () => {
+    if (!norm(name.value).trim()) { name.focus(); name.reportValidity?.(); name.placeholder = 'écris d\'abord un prénom'; return; }
+    $('#checkout').classList.add('on');
+    $('#checkout').scrollIntoView({ behavior: 'smooth' });
+  };
+  fakeSubmit($('#form'), (d) => {
+    const n = norm(name.value).trim();
+    $('#done').textContent = `merci. le poème ${n} est noté. (ici : le paiement, à brancher — rien n'a été envoyé)`;
+    $('#done').classList.add('on');
+  });
+</script>
+</body>
+</html>
