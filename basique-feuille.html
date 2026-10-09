@@ -26,7 +26,7 @@
   .top { text-align: center; padding: 14px 0 10px; }
   .brand { font: 500 15px/1 'SG Garamond', serif; letter-spacing: .45em; padding-left: .45em; }
   .who-is { font-size: 13px; color: var(--soft); margin-top: 4px; }
-  .media { height: min(30svh, 240px); border-radius: 4px; background: #000 url(./simple/enveloppe-dos.jpg) center / cover; }
+  .media { height: min(30svh, 240px); border-radius: 4px; background: #121110; }
   h1 { font: 500 clamp(27px, 7.4vw, 34px)/1.15 'SG Garamond', serif; margin: 18px 0 14px; }
   .ask { display: block; font-size: 17px; color: var(--soft); margin-bottom: 6px; }
   .name { width: 100%; font: 22px/1 'SG Machine', monospace; letter-spacing: .12em; text-transform: uppercase; padding: 14px; border: 1px solid #3b3833; border-radius: 4px; background: var(--field); color: var(--ink); }
@@ -35,14 +35,17 @@
   .price { margin: 10px 0 0; font-size: 16px; }
   .price b { font-weight: 500; }
 
-  /* la colonne : chaque lettre ouvre une ligne vide */
-  .col { --lh: 34px; margin: 22px 0 0; color: var(--ink); }
-  .col .ac-row b { color: #dcd7cd; }
-  .col .ac-row i { border-color: #4a4640; }
-  .col-note { font: 15px/1.5 'SG Machine', monospace; color: var(--soft); margin: 14px 0 0; transition: opacity .5s; }
-  .col.empty + .col-note { display: none; }
+  /* le prénom se tape sur la feuille elle-même (à la machine : ce qui est sur l'objet est en Courier) */
+  #home .sheet { margin: 18px 0 0; }
+  #home .sheet .ac-row { animation: frappe .22s both ease-out; }
+  #home .sheet .ac-row b { font: 700 calc(var(--lh) * .82)/1 'SG Machine', 'Courier New', monospace; width: 1.15em; color: #d9d9d9; text-shadow: 0 0 .6px rgba(255,255,255,.5); }
+  #home .sheet .ac-row i { border-bottom: 1px dotted rgba(255,255,255,.16); }
+  #home .sheet .hint { top: 70cqw; }
+  @keyframes frappe { from { opacity: 0; transform: translateY(-.1em) scale(1.08); filter: blur(.7px); } }
+  .col-note { font: 15px/1.5 'SG Machine', monospace; color: var(--soft); margin: 14px 0 0; text-align: center; }
+  .sheet:has(.ac.empty) + .col-note { visibility: hidden; }
 
-  .photo { margin: 26px 0 0; aspect-ratio: 727 / 1040; max-height: 70svh; margin-inline: auto; background: #000 url(./simple/feuille.jpg) center / 110% 105.8%; border-radius: 2px; }
+  .photo { margin: 26px 0 0; aspect-ratio: 1000 / 760; background: #000 url(./simple/enveloppe-dos.jpg) center / cover; border-radius: 2px; }
 
   .choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 26px 0 0; }
   .btn { display: block; width: 100%; padding: 16px 10px; border: 1px solid var(--ink); border-radius: 4px; background: var(--ink); color: var(--bg); font: 500 18px/1 'SG Garamond', serif; cursor: pointer; text-align: center; text-decoration: none; }
@@ -122,16 +125,16 @@
       <div class="brand">ETERNEL</div>
       <div class="who-is">le poète des vidéos</div>
     </div>
-    <div class="media todo" data-todo="à remplacer : 6 s de tes mains qui tapent (vidéo muette, en boucle) — idéalement ton visage et ta voix"></div>
+    <div class="media todo" data-todo="à remplacer : une vidéo de 6 s, sans son, en boucle : toi à la machine, tes mains sur les touches (ton visage dans le cadre si tu veux te montrer)"></div>
     <h1>je t'écris un poème à la machine.</h1>
     <label class="ask" for="name">écris un prénom.</label>
     <input class="name" id="name" autocomplete="given-name" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done" maxlength="30" placeholder="léa">
     <p class="price"><b class="prix">64 €</b>, port compris · posté le <span class="envoi">24 octobre</span></p>
 
-    <div class="ac col empty" id="col" aria-live="polite"></div>
+    <div class="sheet"><div class="ac empty" id="col" aria-live="polite"></div><div class="hint">ton prénom s'écrit ici.</div></div>
     <p class="col-note">ces lignes n'existent pas encore.<br>je les tape pour toi.</p>
 
-    <div class="photo todo" data-todo="à remplacer : la photo d'une vraie feuille finie (et l'enveloppe, le cachet)"></div>
+    <div class="photo todo" data-todo="à remplacer : la photo d'un vrai poème envoyé (la feuille tapée, l'enveloppe, le cachet)"></div>
 
     <div class="choice">
       <button class="btn" data-go="moi">pour moi</button>
@@ -227,10 +230,10 @@
   // le prénom tel qu'on l'a tapé, pour les phrases (Clémence, pas CLEMENCE)
   const said = (v) => { v = v.trim().replace(/\s+/g, ' '); return v.charAt(0).toUpperCase() + v.slice(1).toLowerCase(); };
   name.addEventListener('input', () => acrostic($('#col'), name.value));
-  // téléphone : le champ remonte en haut pour que la colonne se voie au-dessus du clavier
+  // téléphone : le champ remonte tout en haut pour que la feuille se voie au-dessus du clavier
   name.addEventListener('focus', () => {
     if (innerWidth > 700) return;
-    setTimeout(() => scrollTo({ top: name.getBoundingClientRect().top + scrollY - 70, behavior: 'smooth' }), 250);
+    setTimeout(() => scrollTo({ top: name.getBoundingClientRect().top + scrollY - 12, behavior: 'smooth' }), 250);
   });
   name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); name.blur(); } });
 
