@@ -16,7 +16,7 @@ await page.waitForTimeout(6500);
 await page.evaluate(() => window.__sg.portal.choose('jeu'));
 const shots = [];
 const t0 = Date.now();
-for (const ms of [600, 1150, 1300, 1550, 1900, 2400, 3200]) { await page.waitForTimeout(Math.max(0, ms - (Date.now() - t0))); const f = `aller-${ms}.png`; await page.screenshot({ path: 'captures/jeu-relais/' + f }); shots.push(f); }
+for (const ms of [300, 600, 900, 1150, 1300, 1600, 2400]) { await page.waitForTimeout(Math.max(0, ms - (Date.now() - t0))); const f = `aller-${ms}.png`; await page.screenshot({ path: 'captures/jeu-relais/' + f }); shots.push(f); }
 await page.waitForTimeout(5000);
 const share = await page.evaluate(() => { const b = document.querySelector('#jeu .jeu-share'); return b && { on: b.classList.contains('on'), top: b.style.top }; });
 await page.click('#jeu .jeu-back');

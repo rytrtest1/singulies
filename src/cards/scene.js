@@ -61,7 +61,7 @@ const bare = ch => ch.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 //   carte réponse (curseur seul, sans invitation) pour répondre à une question qu'on nous a partagée — setJeuWrite(false)
 //   la retire (elle se fond), et c'est le jeu seul : des questions, sans réponse à donner
 // firstQ : la question tirée en premier (lien partagé, ou venue du jeu) ; noIntro : le paquet est déjà là (relais)
-export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true, jeu = false, jeuWrite = false, firstQ = null, noIntro = false, firstBack = null } = {}) {
+export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true, jeu = false, jeuWrite = false, firstQ = null, noIntro = false, firstBack = null, placedV = null } = {}) {
   const card = await createCardRenderer(gl, base);
   const nameR = await createNameRelief(gl, card.paperTex);
   await loadTypeFont(base);
@@ -213,7 +213,13 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function makeQuestion(t) {
     if (next >= QUESTIONS.length) return null;
     const id = order[next++];
-    const v = stack.pop(); stack.unshift(variant());
+    let v = stack.pop(); stack.unshift(variant());
+    // placedV (le jeu, venu du portail) : la première question est déjà posée — c'est la carte du portail, retournée
+    // pendant que le paquet montait (même papier, même encre) ; aucun tirage
+    if (placedV) {
+      v = { ...v, ...placedV }; placedV = null; preQ = null;
+      return { ...inkQuestion(id, v), anim: null, t0: t, dur: 0, from: centerPose(v), landedAt: t - 1 };
+    }
     const Q = preQ && preQ.id === id ? preQ : inkQuestion(id, v);
     preQ = null;
     // firstBack (le jeu, venu du portail) : la première carte tirée porte au dos « SINGULIES / le jeu », comme la

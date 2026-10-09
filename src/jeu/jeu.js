@@ -8,7 +8,7 @@
 // respire (on y répond) ; PARTAGER n'apparaît qu'une fois quelque chose écrit, et partage la réponse avec la question ;
 // une fois partagée (ou la question passée), la carte réponse se fond : le jeu seul, poser une question à son tour.
 import { createCardScene } from '../cards/scene.js';
-import { JEU_LINK, ITEMS } from '../portal/items.js';
+import { JEU_LINK } from '../portal/items.js';
 import QUESTIONS from '../cards/questions.json';
 import { dpr3d } from '../app/perf.js';
 export { JEU_LINK };
@@ -63,9 +63,9 @@ export async function mountJeu(opts = {}) {
 
   let current = null, visible = true, started = false, kbPx = 0, firstAt = null, shareReady = false;
   const scene = await createCardScene(gl, { base, jeu: true, jeuWrite: answering, autoWrite: false, firstQ: opts.firstQ ?? null, noIntro: !!opts.noIntro,
-    firstBack: opts.hold ? ITEMS.find(x => x.id === 'jeu') : null, on: {
+    placedV: opts.placedV || null, on: {
     draw: d => { current = d.id; const q = QUESTIONS.find(x => x.id === d.id)?.q;
-      if (firstAt == null) firstAt = now() + 1.5 + 1.2 + 0.045 * (q || '').length;   // posée, puis le temps de la lire : PARTAGER
+      if (firstAt == null) firstAt = now() + (opts.placedV ? 1.2 : 1.5) + 1.2 + 0.045 * (q || '').length;   // posée, puis le temps de la lire : PARTAGER
       if (q) say(q); ev(d.id, 'tiree'); },
     discard: d => { ev(d.id, 'passee'); if (answering) stopAnswering(); },
   } });
@@ -102,18 +102,21 @@ export async function mountJeu(opts = {}) {
   // venu du portail (hold) : la page se pose d'un coup sur le paquet du portail (aucun fondu), et la carte du dessus
   // se retourne aussitôt sur la première question
   function reveal() {
-    // (la carte est tirée à l'image suivante, puis la page apparaît : les deux dans la même image)
-    if (opts.hold) { root.style.transition = 'none'; scene.drawAt(now()); requestAnimationFrame(() => root.classList.add('on')); }
+    // venu du portail : la question y est déjà, à la place exacte de la carte du portail ; relais très court
+    if (opts.hold) { root.style.transition = 'opacity .22s linear'; requestAnimationFrame(() => root.classList.add('on')); }
     else requestAnimationFrame(() => root.classList.add('on'));
     setTimeout(() => { backEl.classList.add('on'); buyEl.classList.add('on'); }, opts.hold ? 300 : 1200);
   }
   start();
-  if (opts.hold) scene.drawAt(1e9);
+  if (opts.hold) scene.drawAt(opts.placedV ? now() : 1e9);
   else reveal();
 
   // ---- gestes : comme les questions du poème ----
   let down = null;
   canvas.addEventListener('pointerdown', e => {
+    // toucher : pas d'événements souris simulés derrière (leur « mousedown » retirait le focus du champ de la réponse :
+    // le clavier ne s'ouvrait pas, on ne pouvait pas écrire)
+    if (e.pointerType !== 'mouse') e.preventDefault();
     down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, on: scene.hitAt(e.clientX, e.clientY) };
     scene.setPress(down.on); if (e.pointerType !== 'mouse') scene.setHover(down.on);
   });
@@ -150,6 +153,8 @@ export async function mountJeu(opts = {}) {
   ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); ta.blur(); } });
   ta.addEventListener('focus', () => { if (answering && !scene.state().writing) scene.startWriting(); });
   ta.addEventListener('blur', () => scene.stopWriting());
+  // iPhone : le focus repris au lâcher du doigt tant qu'on écrit (comme la scène des cartes)
+  addEventListener('touchend', () => { if (visible && answering && scene.state().writing && document.activeElement !== ta) ta.focus({ preventScroll: true }); }, { passive: true });
   // ordinateur : une touche de lettre donne la frappe à la carte réponse
   addEventListener('keydown', e => {
     if (!visible || !answering || document.activeElement === ta || e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -196,5 +201,6 @@ export async function mountJeu(opts = {}) {
   backEl.addEventListener('click', leave);
   addEventListener('keydown', function esc(e) { if (!document.body.contains(root)) { removeEventListener('keydown', esc); return; } if (visible && e.key === 'Escape') leave(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelAnimationFrame(raf); raf = 0; } else if (visible && !raf) { last = 0; raf = requestAnimationFrame(frame); } });
+  window.__jeu = { scene, ta, now };          // essais
   return { root, leave, reveal, scene, now };
 }

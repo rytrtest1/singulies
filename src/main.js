@@ -698,7 +698,8 @@ function toPortal() {
 // question partagée (jeu?q=…) : elle est tirée en premier, on y répond (jeu.js)
 let jeuShared = false;
 let jeuQ = P.get('q') != null && /^\d+$/.test(P.get('q')) ? +P.get('q') : null;
-function openJeu(fromPortal = false) {
+// first (venu du portail) : { id, v } — la question retournée sur la carte du dessus du portail, et son papier
+function openJeu(fromPortal = false, first = null) {
   showPath('jeu');
   const t0 = performance.now();
   // retour : le portail, resté dessous (jamais le champ de prénoms), se rembobine pendant que la page s'efface
@@ -708,7 +709,7 @@ function openJeu(fromPortal = false) {
   const shared = PAGE === 'jeu' && jeuQ != null && !jeuShared; jeuShared = true;
   const simple = () => simpleModule().then(m => m.mountSimpleJeu({ onBack: backToPortal }));
   import('./jeu/jeu.js').then(({ mountJeu }) => SIMPLE === 'all' ? null : mountJeu({ base: './', reduced: CFG.reduced, onBack: backToPortal,
-    hold: fromPortal, noIntro: fromPortal, firstQ: shared ? jeuQ : null, answer: shared }))
+    hold: fromPortal, noIntro: fromPortal, firstQ: shared ? jeuQ : first ? first.id : null, placedV: first ? first.v : null, answer: shared }))
     .then(j => j || simple())                                    // sans WebGL2 : le jeu en version simple
     .catch(e => { console.warn('jeu', e); return simple(); })
     .then(j => {
@@ -728,7 +729,7 @@ function mountPortalPage() {
   const go = new Promise(res => { portalGo = res; });
   const ready = new Promise(res => {
     import('./portal/portal.js')
-      .then(({ mountPortal }) => SIMPLE === 'all' ? null : mountPortal({ base: './', reduced: CFG.reduced, onReady: res, onPoem: enterFromPortal, onJeu: () => openJeu(true) }))
+      .then(({ mountPortal }) => SIMPLE === 'all' ? null : mountPortal({ base: './', reduced: CFG.reduced, onReady: res, onPoem: enterFromPortal, onJeu: f => openJeu(true, f) }))
       .catch(e => { console.warn('portail', e); why('portail : ' + (e && e.message || e)); document.getElementById('portal')?.remove(); return null; })
       // sans WebGL2 (ou le portail en échec) : le portail en version simple — mêmes cartes, mêmes gestes
       .then(p => p || (why('portail : version simple'), window.dispatchEvent(new CustomEvent('singulies:simple', { detail: { where: 'portail' } })), simpleModule().then(m => m.mountSimplePortal({ onReady: res, onPoem: enterFromPortal, onJeu: () => openJeu(false) }))))
