@@ -249,5 +249,5 @@ Test sans consigne : 5 personnes sur mobile. Comprennent-elles qu'il faut écrir
 - Question partagée : le champ est posé sur la carte réponse et reçoit le toucher (comme les questions du poème).
 - Invitations des cartes réponse / blanche **centrées**, curseur devant.
 - Feuille : la face où la réponse est tapée reste **lisse, sans logo** ; le logo en relief de l'autre côté (bascule quand la carte est vue par la tranche, `uLogoK`). Essai : `tools/two-face-shot.mjs`.
-- Tampon : secousse allégée, encre plus proche de l'écriture tapée.
+- **Plus de coup de tampon** (Maxence 09/10) : POSTER → la vue recule, l'enveloppe se retourne aussitôt, le cachet ; `STAMPED` (envelope.js) pour le remettre. Version simple aussi.
 - **Mode test `?test=1`** (et `?adresse=0`) : avant TERMINER, « combien serais-tu prêt à payer pour l'original du poème écrit à la main ? » et « d'autres retours ? » ; réponses dans `contact_html` de la demande (pas dans le récapitulatif de la personne). Essai : `tools/beta-check.mjs` ; retours à chaque étape : `tools/back-check.mjs`.

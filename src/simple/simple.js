@@ -9,7 +9,7 @@
 import QUESTIONS from '../cards/questions.json';
 import { NAMES } from '../field/names.js';
 import { ITEMS, LINKS, JEU_LINK } from '../portal/items.js';
-import { FIELDS, ADDR, SENDER, ENV, STAMP, fieldsReady, fieldsOut } from '../sheet/envelope.js';
+import { FIELDS, ADDR, SENDER, ENV, STAMP, STAMPED, fieldsReady, fieldsOut } from '../sheet/envelope.js';
 import { handName } from '../text/accents.js';
 
 const Q = new URLSearchParams(location.search);
@@ -721,7 +721,7 @@ export function mountSimpleFlow(opts) {
     poster.classList.remove('on');
     if (!NOADDR) try { localStorage.setItem('singulies.draft', JSON.stringify(detail)); } catch { /* */ }
     // le coup de tampon, puis l'enveloppe entière : elle se retourne (le cachet), bascule sur sa tranche et part
-    R.later(() => { if (NOADDR) return; stamp.style.transform = `rotate(${(Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 25)}deg) scale(1.12)`; stamp.style.opacity = '0.9'; R.later(() => { stamp.style.transform = stamp.style.transform.replace('scale(1.12)', 'scale(1)'); }, 120); }, REDUCED ? 0 : 450);
+    R.later(() => { if (NOADDR || !STAMPED) return; stamp.style.transform = `rotate(${(Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 25)}deg) scale(1.12)`; stamp.style.opacity = '0.9'; R.later(() => { stamp.style.transform = stamp.style.transform.replace('scale(1.12)', 'scale(1)'); }, 120); }, REDUCED ? 0 : 450);
     R.later(() => {
       envBox.style.transition = REDUCED ? '' : 'transform 1.1s cubic-bezier(.3,.6,.2,1)';
       layoutEnv();                                         // la vue recule : l'enveloppe entière

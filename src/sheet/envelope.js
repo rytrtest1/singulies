@@ -68,8 +68,8 @@ export function senderCount(ev) {
 export const STAMP = { x: 31, y: 27, r: 12.5, logo: 13.5 };   // tampon : centre (mm, depuis le coin haut-droit), rayon, logo
 export const PO = chain([
   ['cam', 1.1],              // la vue recule jusqu'à l'enveloppe entière
-  ['pam', 0.6, 0.15],        // puis le coup de tampon, d'un coup sec (09/10 : « pam ! », l'enveloppe entière à l'écran)
-  ['turn', 1.2, 0.35],       // elle se retourne : le dos, rabat ouvert
+  // (09/10, Maxence : plus de coup de tampon — on passe directement au cachet)
+  ['turn', 1.2, -0.45],      // elle se retourne (la vue finit de reculer) : le dos, rabat ouvert
   ['flap', 0.9, 0.1],        // le rabat se ferme
   ['seal', 1.5, -0.05],      // le cachet se fait sur la pointe (la vue s'en est approchée) : la cire est là, le sceau appuie, elle refroidit
   ['zoomOut', 1.0, 0.7],     // on le regarde un instant, puis la vue recule jusqu'à l'enveloppe entière (cadrage de la tranche)
@@ -77,7 +77,9 @@ export const PO = chain([
   ['away', 1.4, 0.05],       // la tranche seule : elle avance dans la fente (rétrécit jusqu'à MAIL_W px)
 ]);
 PO.zoomIn = [PO.flap[0] + 0.2, PO.flap[1] + 0.05];              // la vue s'approche du cachet pendant que le rabat se ferme
-PO.hit = PO.pam[0];                                            // l'instant du coup de tampon
+// sans tampon (STAMPED false) : à cet instant, l'enveloppe vue par la tranche, les noms des champs restés vides s'effacent
+export const STAMPED = false;
+PO.hit = (PO.turn[0] + PO.turn[1]) / 2;
 PO.end = PO.tip[1];                                            // la tranche est devenue le champ de l'email
 PO.fade = [PO.away[1] - 0.3, PO.away[1] + 0.7];                // puis l'enveloppe se fond, la ligne reste
 export const MAIL_W = 190;
@@ -205,7 +207,7 @@ export function fieldsInk(f, seed, active, stamp = null, senderN = Infinity, hin
     if (d.id === active) cursor = { x: p.x + v.length * TYPE.pitch - 0.35, y: p.y };
   });
   typeLines(cx, PX, SENDER.lines, SENDER.x, SENDER.y, SENDER.lead, seed + 53, 0.9, '#fff', senderN);
-  if (stamp) stampInk(cx, PX, stamp.mask, ENV.w - STAMP.x + stamp.dx, STAMP.y + stamp.dy, stamp.rot, stamp.seed);
+  if (stamp && !stamp.off) stampInk(cx, PX, stamp.mask, ENV.w - STAMP.x + stamp.dx, STAMP.y + stamp.dy, stamp.rot, stamp.seed);
   return { canvas: cv, cursor: cursor || { x: ADDR.x, y: ADDR.y } };
 }
 export function addressInk(text, seed, contact = '', zone = 'addr') {

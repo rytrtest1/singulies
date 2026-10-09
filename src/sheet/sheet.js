@@ -19,7 +19,7 @@ import { createRng } from '../field/rng.js';
 import { releaseCanvas } from '../app/compat.js';
 import { handName } from '../text/accents.js';
 import {
-  ENV, ENV_BACK_H, FLAP_H, ENV_Z, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, SEAL_PRESS0, envPieces, E, ADDR, SENDER, senderCount, PO, MAIL_W, FIELDS, emailOk, telOk,
+  ENV, ENV_BACK_H, FLAP_H, ENV_Z, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, SEAL_PRESS0, envPieces, E, ADDR, SENDER, senderCount, PO, STAMPED, MAIL_W, FIELDS, emailOk, telOk,
   fieldsReady, fieldsOut, contactOk, cleanContact, fieldPos, senderInk, fieldsInk, contactCardInk,
 } from './envelope.js';
 import { typeLines } from './typewriter.js';
@@ -354,7 +354,7 @@ export function createSheetScene(gl, opts) {
     if (direct && !inEnv) { const vis = 1 - kbPx / H, oy = oPose(direct.o).y; cyT = lerp(cyT, oy - (0.5 - (vis / 2 + 0.04)) * frames.B.Hw, kb); }
     camS.cx = lerp(0, cxT, ci); camS.cy = lerp(from.cam.cy, cyT, ci); camS.D = Math.exp(lerp(Math.log(from.cam.D), lD, ci));
     // le coup de tampon se sent jusque dans la vue : une secousse brève, amortie
-    const jph = pp - PO.hit, jolt = inEnv && !NOADDR && !reduced && jph > 0 && jph < 0.4 ? Math.exp(-jph * 13) * Math.sin(jph * 52) * 0.0035 : 0;   // (09/10 : allégée)
+    const jph = pp - PO.hit, jolt = STAMPED && inEnv && !NOADDR && !reduced && jph > 0 && jph < 0.4 ? Math.exp(-jph * 13) * Math.sin(jph * 52) * 0.0035 : 0;   // (09/10 : allégée)
     const cx = camS.cx, cy = camS.cy + jolt * camS.D + SEAL_SHAPE.camDy, D = camS.D * (1 + 0.5 * Math.abs(jolt)) * (window.__camZoom || SEAL_SHAPE.zoom), Hw = 2 * D * TF;   // zoom : essais (vue rapprochée)
     eye = [cx, cy - D * Math.sin(TILT), D * Math.cos(TILT)];
     vp = M4.mul(M4.perspective(FOV, W / H, D * 0.25, D * 3), M4.lookAt(eye, [cx, cy, 0], [0, 1, 0]));
@@ -392,7 +392,7 @@ export function createSheetScene(gl, opts) {
       // sa tranche inférieure (le haut part dans l'axe du regard), comme glissée dans une fente
       // le coup : l'enveloppe cède un peu sous le tampon
       // « pam ! » : le tampon frappe d'un coup sec, l'enveloppe s'enfonce et rebondit, amortie
-      const ph = pp - PO.hit, hb = ph > 0 && ph < 0.6 ? 0.6 * Math.exp(-ph * 9.5) * Math.cos(ph * 34) * mv : 0;   // (09/10 : allégé)
+      const ph = pp - PO.hit, hb = STAMPED && ph > 0 && ph < 0.6 ? 0.6 * Math.exp(-ph * 9.5) * Math.cos(ph * 34) * mv : 0;   // (09/10 : allégé)
       // la tranche seule visible : elle avance droit devant, dans l'axe du regard (la fente)
       const kAway = frames.P ? Math.min(0.95, MAIL_W / (ENV.w * H / frames.P.Hw)) : 0.6;
       const far = (frames.P ? frames.P.D : 600) * (1 / kAway - 1) * ease(span(PO.away, pp)) * mv;
@@ -722,7 +722,7 @@ export function createSheetScene(gl, opts) {
     preEnv = { key: JSON.stringify([f, field]), ink: card.makeInk(m.canvas, true), cursor: m.cursor };
     releaseCanvas(m.canvas);
   }
-  const newStamp = () => ({ mask: card.logoMask(), rot: (rnd() < 0.5 ? -1 : 1) * rnd.range(0.05, 0.5), dx: rnd.range(-2.5, 2.5), dy: rnd.range(-2, 2), seed: (rnd() * 1e9) >>> 0 });
+  const newStamp = () => !STAMPED ? { off: true } : ({ mask: card.logoMask(), rot: (rnd() < 0.5 ? -1 : 1) * rnd.range(0.05, 0.5), dx: rnd.range(-2.5, 2.5), dy: rnd.range(-2, 2), seed: (rnd() * 1e9) >>> 0 });
   let savedFields = { prenom: PRENOM }, savedContact = '';           // l'adresse et le contact restent si l'on revient en arrière
   const zoneOf = id => FIELDS.find(d => d.id === id)?.zone || 'addr';
   function closeEnv() {
