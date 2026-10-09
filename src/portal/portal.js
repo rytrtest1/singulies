@@ -113,15 +113,15 @@ export async function mountPortal(opts = {}) {
     warp: [rnd.range(0.05, 0.35), rnd.range(-0.2, 0.05), rnd.range(-0.12, 0.12)],
     jx: rnd.range(-0.5, 0.5), jy: rnd.range(-0.4, 0.4), jr: rnd.range(-0.012, 0.012),
   });
-  const inkOf = (s, v) => card.makeInk(makeInkMap(s, Math.floor(v.seed * 1000) + 7).canvas);
+  const inkOf = (s, v, lines = null) => card.makeInk(makeInkMap(s, Math.floor(v.seed * 1000) + 7, lines).canvas);
   let soonInk = null;
   const deck = Array.from({ length: DECK }, variant);
   const cards = ITEMS.map((it, i) => {
     const v = variant();
     // le jeu (09/10) : le dos du paquet (logo en relief, pas en creux), « SINGULIES / le jeu » tapé dessus
-    const c = { ...it, i, v, ink: it.lines ? null : inkOf(it.label, v), w: 0, press: 0, curlA: 0, ph: -1, anim: null };
+    const c = { ...it, i, v, ink: it.back ? null : inkOf(it.label, v, it.lines), w: 0, press: 0, curlA: 0, ph: -1, anim: null };
     c.labelInk = c.ink;
-    if (it.lines) c.backInk = card.makeInk(makeInkMap(it.label, Math.floor(v.seed * 1000) + 7, it.lines).canvas);
+    if (it.back) c.backInk = card.makeInk(makeInkMap(it.label, Math.floor(v.seed * 1000) + 7, it.lines, it.center).canvas);
     return c;
   });
   cards[JEU].w = 1;
@@ -134,7 +134,7 @@ export async function mountPortal(opts = {}) {
   const side0 = rnd() < 0.5 ? -1 : 1;
   // chaque carte tombe où elle tombe : biais et décalage libres (un côté plus souvent que l'autre, jamais une alternance)
   const lie = ITEMS.map((_, i) => {
-    if (i === JEU) return { dx: rnd.range(-0.04, 0.04), dy: 0, rz: rnd.range(-0.05, 0.05) };
+    if (i === JEU) return { dx: 0, dy: 0, rz: rnd.range(-0.012, 0.012) };   // le paquet trône, droit, au milieu (09/10)
     const sd = rnd() < 0.5 ? -1 : 1;
     return { dx: sd * rnd.range(0.0, 0.06), dy: rnd.range(-0.04, 0.04), rz: (rnd() < 0.7 ? -sd : sd) * rnd.range(0.015, 0.08) };
   });
@@ -158,14 +158,15 @@ export async function mountPortal(opts = {}) {
     // les cartes à la taille de celles de la scène des questions (08/10) ; pour tenir dans l'écran, dans l'ordre :
     // moins d'écart avec le paquet (GAPD), le paquet qui sort un peu par le bas (DS : part visible), un peu plus de
     // recouvrement (OV) ; en dernier recours seulement, des cartes plus petites
-    let h = W < H ? Math.min(W * 0.80 / asp, H * 0.27) : H * 0.27, GAPD = 0.34, DS = 0.5;   // (09/10 : le paquet à moitié visible, en bas)
-    OV = 0.16;
+    // (09/10, soir) le paquet entier, en bas, au milieu (il trône) ; les trois cartes plus serrées au-dessus
+    let h = W < H ? Math.min(W * 0.80 / asp, H * 0.27) : H * 0.27, GAPD = 0.3, DS = 1.04;
+    OV = portrait ? 0.26 : 0.16;
     const spanOf = () => 1 + 2 * (1 - OV) + 0.14;             // trois cartes qui se recouvrent + marge des biais
     const avail = bot - top;
     if (portrait) {
       const over = () => (spanOf() + GAPD + DS) * h - avail;
-      if (over() > 0) GAPD = Math.max(0.18, GAPD - over() / h);
-      if (over() > 0) OV = Math.min(0.3, OV + over() / h / 2);
+      if (over() > 0) GAPD = Math.max(0.16, GAPD - over() / h);
+      if (over() > 0) OV = Math.min(0.32, OV + over() / h / 2);
       if (over() > 0) h = avail / (spanOf() + GAPD + DS);
     } else {
       if (h * asp * spanOf() > W * 0.78) OV = Math.min(0.3, 1 - (W * 0.78 / (h * asp) - 1.14) / 2);
@@ -175,7 +176,7 @@ export async function mountPortal(opts = {}) {
     const w = h * asp, s = CARD.w / w;
     lay.s = s;
     lay.D = s * (H / 2) / Math.tan(FOV / 2);
-    const deckC = H - h * 0.04;                               // centre du paquet : sur le bord bas, à moitié visible
+    const deckC = bot - h * 0.52;                             // centre du paquet : entier, posé en bas
     const zoneB = deckC - h * (0.5 + GAPD);                   // bas de la zone des trois cartes
     const len = (portrait ? h : w) * (span - 0.14);
     const a0 = portrait ? top + (zoneB - top - len) / 2 : (W - len) / 2;
@@ -309,7 +310,9 @@ export async function mountPortal(opts = {}) {
     // (09/10) la carte touchée mène à la suite : on « entre » dans la carte du poème (et dans celle d'un lien) — elle
     // vient vers soi, de face, jusqu'à remplir l'écran, son papier noir devient le noir de la page suivante ; le jeu :
     // le paquet glisse au milieu et s'enfonce dans le fond, d'où sa page le fait revenir
-    const enter = kind => { leaving = { c, t0: t, kind, from: cards.map(k => poseOf(k, t)), M0: c.lastM, dEnd: fillDist(), target: null }; if (kind !== 'deck') root.classList.add('off', 'leaving'); root.inert = true; };
+    // (un lien sortant : le portail ne s'efface pas — dessous, il y a le champ, qui restait à l'écran pendant que la
+    // page du lien charge, et au retour)
+    const enter = (kind, fade = kind === 'into') => { leaving = { c, t0: t, kind, from: cards.map(k => poseOf(k, t)), M0: c.lastM, dEnd: fillDist(), target: null }; if (fade) root.classList.add('off', 'leaving'); root.inert = true; };
     if (c.id === 'poeme') {
       enter('into');
       opts.onPoem?.();                  // dans le geste : la page ouvre le clavier
@@ -317,7 +320,7 @@ export async function mountPortal(opts = {}) {
       return;
     }
     const url = LINKS[c.id];
-    if (url) { enter('into'); setTimeout(() => { location.href = url; }, reduced ? 0 : 1050); return; }
+    if (url) { enter('into', false); setTimeout(() => { location.href = url; }, reduced ? 0 : 1050); return; }
     // le jeu : sa page, dans le même monde (jeu/jeu.js) ; elle se fond par-dessus pendant que le paquet s'éloigne
     // (09/10) le paquet se hisse à la place principale pendant que le reste s'écarte ; la page du jeu prend le relais
     // sans coupure (elle se prépare, invisible, et vient se poser exactement sur lui)

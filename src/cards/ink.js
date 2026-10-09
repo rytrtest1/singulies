@@ -63,7 +63,7 @@ const CLOG = new Set('eaoêéèàâôœgqdbp'.split(''));
 // Carte d'encre : OffscreenCanvas (largeur CARD.w × INK_PXMM), lettres blanches sur noir.
 // lines : lignes imposées, telles quelles (09/10 : « SINGULIES » en capitales, puis « le jeu ») — sinon le texte en
 // minuscules, coupé automatiquement
-export function makeInkMap(question, seed = 1, lines0 = null) {
+export function makeInkMap(question, seed = 1, lines0 = null, center = false) {
   const rnd = createRng(seed), g = () => {           // gaussienne approchée
     let s = 0; for (let i = 0; i < 4; i++) s += rnd(); return (s - 2) / 0.58;
   };
@@ -91,7 +91,7 @@ export function makeInkMap(question, seed = 1, lines0 = null) {
     const drift = g() * 0.04;                           // la ligne monte ou descend un peu
     [...line].forEach((ch, ci) => {
       if (ch === ' ' || ch === ' ') return;
-      const x = margin + ci * TYPE.pitch + g() * 0.06;
+      const x = margin + (center ? (longest - line.length) / 2 : 0) * TYPE.pitch + ci * TYPE.pitch + g() * 0.06;
       const y = base + drift * ci / Math.max(1, line.length) + g() * 0.09;
       const press = Math.min(1, Math.max(0.5, 0.82 + g() * 0.14));
       const rot = g() * 0.5 * Math.PI / 180;

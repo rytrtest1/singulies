@@ -216,7 +216,7 @@ export function mountSimplePortal(opts = {}) {
   const cards = ITEMS.map((it, i) => {
     const c = makeCard(stage, url('simple/portail-' + it.id + '.jpg'), url('simple/bientot.jpg'));
     const b = el('button', 'sp-btn', root); b.type = 'button'; b.textContent = it.label; b.setAttribute('aria-label', it.label);
-    return { ...it, i, c, b, r: (Math.random() - 0.5) * 3, busy: false };
+    return { ...it, i, c, b, r: it.id === 'jeu' ? 0 : (Math.random() - 0.5) * 3, busy: false };   // le paquet trône, droit
   });
   let placed = false, gone = false;
   function layout() {
@@ -226,8 +226,9 @@ export function mountSimplePortal(opts = {}) {
     const top = H * 0.07 + fsT * 1.6, avail = H - top - H * 0.04;
     let cw, pos;
     if (portrait) {
-      cw = Math.min(W * 0.96, avail / (3 * 0.555 + 0.611));
-      pos = cards.map((c, k) => ({ x: W / 2 + (k % 2 ? 1 : -1) * cw * 0.02, y: top + cw * 0.3 + k * cw * 0.555 }));
+      // (09/10, soir) les trois cartes plus serrées ; le paquet entier, en bas, au milieu
+      cw = Math.min(W * 0.96, avail / (2 * 0.47 + 0.611 + 0.2 + 0.611));
+      pos = cards.map((c, k) => k === 3 ? { x: W / 2, y: top + avail - cw * 0.31 } : { x: W / 2 + (k % 2 ? 1 : -1) * cw * 0.02, y: top + cw * 0.3 + k * cw * 0.47 });
     } else {
       cw = Math.min(W * 0.42, (avail / 2) / 0.62);
       pos = cards.map((c, k) => ({ x: W / 2 + (k % 2 ? 0.5 : -0.5) * cw * 0.93, y: top + cw * 0.31 + Math.floor(k / 2) * cw * 0.6 }));

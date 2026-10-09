@@ -29,6 +29,9 @@ const simpleModule = () => import('./simple/simple.js');
 // chacune a sa vignette. L'adresse suit ce qu'on regarde (on partage donc ce qu'on voit).
 const PAGE = document.documentElement.dataset.page || '';
 const showPath = p => { try { history.replaceState(history.state, '', new URL(p, document.baseURI)); } catch { /* */ } };
+// retour depuis un lien sortant (mes livres → Amazon) : le navigateur rend la page telle qu'on l'a quittée (cache
+// avant/arrière : portail « entré » dans la carte = écran noir) ; on relance l'accueil, depuis le début (09/10)
+addEventListener('pageshow', e => { if (e.persisted) location.replace(new URL('./', document.baseURI).href); });
 const CFG = {
   caseMode: P.get('case') === 'lower' ? 'lower' : 'upper',
   grain: P.get('grain') === '0' ? 0 : P.get('grain') === '1' ? 2 : 1,   // 0 noir pur, 1 fond uni (défaut), 2 grain
@@ -692,16 +695,18 @@ function toPortal() {
 }
 // « le jeu » : sa page par-dessus le portail (qui s'arrête une fois couvert) ; retour = le portail, qui redistribue
 // le jeu : sa page (le portail y hisse son paquet, la page se pose exactement dessus) ; retour = le portail
-// « une réponse, un poème » : le parcours du poème, avec cette question en premier (jeuQ)
+// question partagée (jeu?q=…) : elle est tirée en premier, on y répond (jeu.js)
+let jeuShared = false;
 let jeuQ = P.get('q') != null && /^\d+$/.test(P.get('q')) ? +P.get('q') : null;
 function openJeu(fromPortal = false) {
   showPath('jeu');
   const t0 = performance.now();
   const backToPortal = () => { showPath('./'); portal?.show(); };
-  const toPoem = id => { jeuQ = id; showPath('poeme'); portal?.hide(); enterFromPortal(); };
+  // question partagée (lien jeu?q=…) : à la première ouverture seulement, on y répond
+  const shared = PAGE === 'jeu' && jeuQ != null && !jeuShared; jeuShared = true;
   const simple = () => simpleModule().then(m => m.mountSimpleJeu({ onBack: backToPortal }));
-  import('./jeu/jeu.js').then(({ mountJeu }) => SIMPLE === 'all' ? null : mountJeu({ base: './', reduced: CFG.reduced, onBack: backToPortal, onPoem: toPoem,
-    hold: fromPortal, noIntro: fromPortal, firstQ: PAGE === 'jeu' ? jeuQ : null }))
+  import('./jeu/jeu.js').then(({ mountJeu }) => SIMPLE === 'all' ? null : mountJeu({ base: './', reduced: CFG.reduced, onBack: backToPortal,
+    hold: fromPortal, noIntro: fromPortal, firstQ: shared ? jeuQ : null, answer: shared }))
     .then(j => j || simple())                                    // sans WebGL2 : le jeu en version simple
     .catch(e => { console.warn('jeu', e); return simple(); })
     .then(j => {

@@ -57,10 +57,11 @@ const bare = ch => ch.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 // feuille (sheet/sheet.js) la reprend, avec le prénom, la caméra et la lampe (snapshot)
 // autoWrite : la carte réponse arrivée, le curseur prend la frappe (ordinateur) ; téléphone : non — le clavier ne
 // s'ouvre qu'en touchant la carte (08/10 : sur Android il s'ouvrait seul et cachait la carte blanche)
-// jeu (09/10) : la page du jeu — mêmes questions, mêmes gestes, sans prénom ni écriture ; la carte sous la question
-//   porte « une réponse, un poème » (la toucher : emit('poem', { id })) ; pas de carte blanche
+// jeu (09/10) : la page du jeu — mêmes questions, mêmes gestes, sans prénom ; pas de carte blanche ; jeuWrite : la
+//   carte réponse (curseur seul, sans invitation) pour répondre à une question qu'on nous a partagée — setJeuWrite(false)
+//   la retire (elle se fond), et c'est le jeu seul : des questions, sans réponse à donner
 // firstQ : la question tirée en premier (lien partagé, ou venue du jeu) ; noIntro : le paquet est déjà là (relais)
-export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true, jeu = false, firstQ = null, noIntro = false } = {}) {
+export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true, jeu = false, jeuWrite = false, firstQ = null, noIntro = false } = {}) {
   const card = await createCardRenderer(gl, base);
   const nameR = await createNameRelief(gl, card.paperTex);
   await loadTypeFont(base);
@@ -72,7 +73,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
   if (firstQ != null && order.includes(+firstQ)) { order.splice(order.indexOf(+firstQ), 1); order.unshift(+firstQ); }
   if (jeu) autoWrite = false;
-  const JEU_LABEL = 'une réponse, un poème';
+  let jw = jeu && jeuWrite, ansOut = 0;            // jeu : la carte réponse (question partagée) ; son effacement
   const variant = () => ({
     seed: rnd() * 100,
     paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0],
@@ -277,9 +278,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const sd = Math.floor(c.v.seed * 1000) + 7;
     const mg = c === answer && question ? question.margin : undefined;    // aligné sur la question
     // invitation en grisé tant que rien n'est écrit : la réponse fait le thème du poème ; la carte blanche : son thème
-    const hint = c === blank ? HINT_BLANK : HINT_ANSWER;
-    const m = jeu && c === answer ? makeStripInk(JEU_LABEL, sd, mg, null)
-      : c.place === 'peek' ? makeStripInk(c.text, sd, mg, hint) : makeAnswerInk(c.text, sd, LINES, writing ? null : c.first, mg, hint);
+    const hint = jeu ? null : c === blank ? HINT_BLANK : HINT_ANSWER;
+    const m = c.place === 'peek' ? makeStripInk(c.text, sd, mg, hint) : makeAnswerInk(c.text, sd, LINES, writing ? null : c.first, mg, hint);
     if (c.ink) card.freeInk(c.ink);
     c.ink = card.makeInk(m.canvas, !!m.hinted); releaseCanvas(m.canvas); c.inkRG = !!m.hinted; c.cursorMM = m.cursor; c.count = m.count;
   }
@@ -299,7 +299,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   }
   function startWriting() {
     const answer = act();
-    if (!answer || ended || jeu) return false;
+    if (!answer || ended || (jeu && !jw)) return false;
     writing = true;
     if (question && answer.place === 'below') moveAnswer(lastT, 'peek');     // retour dans la bande sous la question
     renderAnswer(); emit('write', {}); return true;
@@ -429,7 +429,10 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       if (first && !ended && mode === 'q' && autoWrite) startWriting();   // la carte réponse vient d'apparaître : curseur, clavier
     }
     // la question est posée et il n'y a pas encore de carte réponse : elle sort du paquet
-    if (question && !question.anim && !answer && !ended) { answer = makeAnswer(t); renderAnswer(answer); }
+    if (question && !question.anim && !answer && !ended && (!jeu || jw)) { answer = makeAnswer(t); renderAnswer(answer); }
+    // jeu : la carte réponse retirée se fond, puis s'en va
+    ansOut += ((jeu && !jw ? 1 : 0) - ansOut) * Math.min(1, dt * 2.5);
+    if (answer && jeu && !jw && ansOut > 0.995) { if (answer.ink) card.freeInk(answer.ink); answer = null; }
     leaving = leaving.filter(c => { if (t - c.t0 < c.dur) return true; if (c.ink) card.freeInk(c.ink); return false; });
     stepLight(dt);
     kb += ((writing && kbPx > 40 ? 1 : 0) - kb) * Math.min(1, dt * 4);
@@ -556,7 +559,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
     if (answer && fadeQ > 0.01) {
       const cur = mode === 'q' && !busy(answer, t) && (writing || !answer.text) && !ended ? cursorAt(answer.cursorMM, t) : {};
-      card.draw(vp, eye, P, { model: (snap.a = model(Ga, anp)), lod: 'fine', ink: answer.ink, shade: mode === 'free' ? dimQ : dimA, fade: fadeQ, occ: answer.place === 'peek' && !ended ? occQ : null, ...answer.v, ...cur, inkRG: !!answer.inkRG });
+      card.draw(vp, eye, P, { model: (snap.a = model(Ga, anp)), lod: 'fine', ink: answer.ink, shade: mode === 'free' ? dimQ : dimA, fade: fadeQ * (1 - ansOut), occ: answer.place === 'peek' && !ended ? occQ : null, ...answer.v, ...cur, inkRG: !!answer.inkRG });
     }
     if (blank && blank.out < 0.999 && fadeB > 0.01) {
       // « carte blanche » tapé au recto tant qu'elle attend ; pendant son tour, l'encre change quand le recto est caché
@@ -611,7 +614,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (!vp) return null;
     if (mode === 'free' || (backT >= 0 && lastT - backT < 0.8)) return mode === 'free' && blank && inside(screenQuad(poseOf(blank, lastT)), x, y) ? 'blank' : null;
     if (question && inside(screenQuad(poseOf(question, lastT)), x, y)) return 'question';
-    if (answer && inside(screenQuad(poseOf(answer, lastT)), x, y)) return 'answer';
+    if (answer && ansOut < 0.5 && inside(screenQuad(poseOf(answer, lastT)), x, y)) return 'answer';
     if (blank && blank.out < 0.5 && inside(screenQuad(poseOf(blank, lastT)), x, y)) return 'blank';
     const n = visibleStack();
     if (n && inside(screenQuad(deckPose(n - 1, stack[STACK - 1])), x, y)) return 'deck';
@@ -659,7 +662,6 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
     if (h === 'blank') return chooseBlank(t) ? { type: 'write' } : { type: null };
     if (h === 'question' && nearCorner(x, y)) return discard(t, 1) ? { type: 'discard' } : { type: null };
-    if (h === 'answer' && jeu) { if (question && !question.anim) { emit('poem', { id: question.id }); return { type: 'poem' }; } return { type: null }; }
     if (h === 'answer') return startWriting() ? { type: 'write' } : { type: null };
     if (h === 'deck' && question) return discard(t, -1) ? { type: 'discard' } : { type: null };
     return { type: null };
@@ -722,9 +724,10 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   }
   function setTilt(x, y) { tilt.x = Math.max(-1, Math.min(1, x)); tilt.y = Math.max(-1, Math.min(1, y)); }
   function setKeyboard(px) { kbPx = px; }
+  function setJeuWrite(on) { jw = jeu && !!on; if (!jw) writing = false; }
   function setBreath(x, y) { breath.x = x; breath.y = y; }
   return {
-    frame, tap, drag, release, give, pass, back, start, prepare, reopen, snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer,
+    frame, tap, drag, release, give, pass, back, start, prepare, reopen, snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer, setJeuWrite,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
     state: () => ({ freeFor: mode === 'free' ? lastT - freeT : 0, hasPrev: hasPrev(), idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),

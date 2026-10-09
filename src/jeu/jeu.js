@@ -1,10 +1,12 @@
 // « le jeu » (09/10, v2) : la page du paquet SINGULIES, dans le même monde et avec les mêmes gestes que les questions
 // du poème (la scène des cartes, en mode jeu) : le paquet tire une question ; glisser à gauche = la suivante, à
-// droite = la précédente (elle revient du bord), toucher le paquet ou le coin corné = une autre. Sous la question,
-// comme la carte réponse, « une réponse, un poème » : la toucher = le parcours du poème, avec cette question.
+// droite = la précédente (elle revient du bord), toucher le paquet ou le coin corné = une autre.
 // PARTAGER (sous la carte) : la poser à quelqu'un — le partage du téléphone (messages, Instagram…), avec la question et
 // un lien qui l'ouvre directement (jeu?q=…) ; sur ordinateur, le lien est copié. COMMANDER (en bas, toujours là) : sa
 // page d'achat (JEU_LINK ; « bientôt » en attendant). Retour (flèche, Échap) : le portail.
+// (09/10, soir) Question qu'on nous a partagée (lien jeu?q=…) : sous elle, la carte réponse, un curseur seul qui
+// respire (on y répond) ; PARTAGER n'apparaît qu'une fois quelque chose écrit, et partage la réponse avec la question ;
+// une fois partagée (ou la question passée), la carte réponse se fond : le jeu seul, poser une question à son tour.
 import { createCardScene } from '../cards/scene.js';
 import { JEU_LINK } from '../portal/items.js';
 import QUESTIONS from '../cards/questions.json';
@@ -27,10 +29,13 @@ const CSS = `
 #jeu .jeu-back.on { opacity: .44; pointer-events: auto; }
 #jeu .jeu-back.on:hover { opacity: .6; }
 #jeu .jeu-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+#jeu .jeu-ta { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; margin: 0;
+  font-size: 16px; resize: none; background: transparent; color: transparent; caret-color: transparent; outline: none;
+  overflow: hidden; -webkit-tap-highlight-color: transparent; pointer-events: none; }
 `;
 const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M14.5 6 L8.5 12 L14.5 18" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>';
 
-// opts : { base, reduced, onBack(), onPoem(id) (une réponse, un poème), firstQ (question tirée en premier),
+// opts : { base, reduced, onBack(), firstQ (question tirée en premier ; avec answer : question partagée, on y répond),
 //          hold (la page reste invisible jusqu'à reveal() : le portail y amène son paquet), noIntro }
 export async function mountJeu(opts = {}) {
   const { base = './', reduced = false } = opts;
@@ -45,17 +50,20 @@ export async function mountJeu(opts = {}) {
   const backEl = el('button', 'jeu-back', BACK_SVG); backEl.type = 'button'; backEl.setAttribute('aria-label', 'Retour');
   const shareEl = el('button', 'jeu-sign', 'PARTAGER'); shareEl.type = 'button'; shareEl.setAttribute('aria-label', 'Partager cette question, pour la poser à quelqu’un');
   const buyEl = el('button', 'jeu-sign', 'COMMANDER'); buyEl.type = 'button'; buyEl.setAttribute('aria-label', 'Commander le jeu SINGULIES');
-  const poemBtn = el('button', 'jeu-sr', 'une réponse, un poème'); poemBtn.type = 'button';
+  // question partagée : on y répond (le champ natif reçoit la frappe, la carte affiche)
+  let answering = opts.firstQ != null && !!opts.answer;
+  const ta = el('textarea', 'jeu-ta');
+  Object.assign(ta, { autocomplete: 'off', spellcheck: false }); ta.setAttribute('autocorrect', 'off'); ta.setAttribute('enterkeyhint', 'done');
+  ta.setAttribute('aria-label', 'Ta réponse'); ta.disabled = !answering;
   const nextBtn = el('button', 'jeu-sr', 'une autre question'); nextBtn.type = 'button';
   const sr = el('div', 'jeu-sr'); sr.setAttribute('aria-live', 'polite');
   const say = t => { sr.textContent = ''; setTimeout(() => { sr.textContent = t; }, 60); };
   const ev = (id, action) => window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id, action } }));
 
-  let current = null, visible = true, started = false;
-  const scene = await createCardScene(gl, { base, jeu: true, autoWrite: false, firstQ: opts.firstQ ?? null, noIntro: !!opts.noIntro, on: {
+  let current = null, visible = true, started = false, kbPx = 0;
+  const scene = await createCardScene(gl, { base, jeu: true, jeuWrite: answering, autoWrite: false, firstQ: opts.firstQ ?? null, noIntro: !!opts.noIntro, on: {
     draw: d => { current = d.id; const q = QUESTIONS.find(x => x.id === d.id)?.q; if (q) say(q); ev(d.id, 'tiree'); },
-    discard: d => ev(d.id, 'passee'),
-    poem: d => goPoem(d.id),
+    discard: d => { ev(d.id, 'passee'); if (answering) stopAnswering(); },
   } });
   scene.setName('');
 
@@ -70,9 +78,11 @@ export async function mountJeu(opts = {}) {
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     scene.frame(t, dt, W, H);
-    // PARTAGER sous la carte « une réponse, un poème » ; COMMANDER en bas, toujours là
-    const r = scene.activeRect();
-    if (r && current != null) { shareEl.style.top = Math.min(r.bottom + 10, H - 104) + 'px'; shareEl.classList.add('on'); } else shareEl.classList.remove('on');
+    // PARTAGER sous la carte (question partagée : sous la réponse, une fois quelque chose écrit) ; COMMANDER en bas
+    const st = scene.state(), said = answering && !!(st.active && st.active.text);
+    const r = answering ? scene.activeRect() : scene.cardRect();
+    if (r && current != null && (!answering || said)) { shareEl.style.top = Math.min(r.bottom + 10, H - 104 - kbPx) + 'px'; shareEl.classList.add('on'); } else shareEl.classList.remove('on');
+    if (answering && r) Object.assign(ta.style, { left: r.left + 'px', top: r.top + 'px', width: Math.max(1, r.right - r.left) + 'px', height: Math.max(1, r.bottom - r.top) + 'px' });
     buyEl.style.top = (H - Math.max(58, H * 0.075)) + 'px';
     const br = reduced ? { x: 0, y: 0 } : { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
     scene.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
@@ -113,37 +123,57 @@ export async function mountJeu(opts = {}) {
     const f = down; down = null;
     const dx = e.clientX - f.x, dtm = Math.max(1, performance.now() - f.t);
     if (f.moved) { scene.release(dx, dx / dtm, now()); return; }
-    scene.tap(e.clientX, e.clientY, now());
+    const res = scene.tap(e.clientX, e.clientY, now());
+    if (res.type === 'write') { ta.value = scene.state().active?.text || ''; ta.focus({ preventScroll: true }); }
+    else if (res.type && document.activeElement === ta) ta.blur();
   });
+
+  // ---- répondre à la question partagée ----
+  ta.addEventListener('input', () => {
+    if (/[\r\n]/.test(ta.value)) { ta.value = ta.value.replace(/[\r\n]+/g, ' ').replace(/ +$/, ''); scene.setText(ta.value); ta.blur(); return; }
+    scene.setText(ta.value);
+  });
+  ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); ta.blur(); } });
+  ta.addEventListener('focus', () => { if (answering && !scene.state().writing) scene.startWriting(); });
+  ta.addEventListener('blur', () => scene.stopWriting());
+  // ordinateur : une touche de lettre donne la frappe à la carte réponse
+  addEventListener('keydown', e => {
+    if (!visible || !answering || document.activeElement === ta || e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (scene.startWriting()) { ta.value = scene.state().active?.text || ''; ta.focus({ preventScroll: true }); }
+  });
+  // clavier du téléphone : la carte remonte dans la partie visible
+  const vv = window.visualViewport;
+  const onVV = () => { kbPx = vv ? Math.max(0, innerHeight - vv.height) : 0; scene.setKeyboard(kbPx); };
+  vv?.addEventListener('resize', onVV);
+  function stopAnswering() {
+    answering = false; ta.blur(); ta.disabled = true; scene.setJeuWrite(false); scene.setKeyboard(0);
+  }
   nextBtn.addEventListener('click', () => scene.tap(...(r => r ? [(r.left + r.right) / 2, (r.top + r.bottom) / 2] : [0, 0])(scene.cardRect()), now()));
-  poemBtn.addEventListener('click', () => { if (current != null) goPoem(current); });
 
   // ---- partager une question : la poser à quelqu'un qu'on connaît ----
+  // question partagée, une réponse écrite : on partage la réponse avec la question ; ensuite, le jeu seul
   async function share() {
     if (current == null) return;
     const id = current, q = (QUESTIONS.find(x => x.id === id)?.q || '').toLowerCase();
+    const said = answering ? (scene.state().active?.text || '').trim() : '';
+    if (answering && !said) return;
     const link = new URL('jeu?q=' + id, document.baseURI).href;
-    const text = '« ' + q + ' »\nune question de SINGULIES, le jeu d’Eternel';
-    ev(id, 'partagee');
-    try { if (navigator.share) { await navigator.share({ title: 'SINGULIES', text, url: link }); return; } }
+    const text = '« ' + q + ' »\n' + (said ? '— ' + said + '\n\n' : '') + 'une question de SINGULIES, le jeu d’Eternel';
+    ev(id, said ? 'repondue' : 'partagee');
+    ta.blur();
+    const done = () => { if (answering) stopAnswering(); };
+    try { if (navigator.share) { await navigator.share({ title: 'SINGULIES', text, url: link }); done(); return; } }
     catch (e) { if (e && e.name === 'AbortError') return; }
     try { await navigator.clipboard.writeText(text + '\n' + link); flash(shareEl, 'LIEN COPIÉ'); } catch { flash(shareEl, link); }
+    done();
   }
   function flash(b, txt) { const t = b.textContent; b.textContent = txt; setTimeout(() => { b.textContent = t; }, 1800); }
   shareEl.addEventListener('click', share);
   buyEl.addEventListener('click', () => { if (JEU_LINK) { location.href = JEU_LINK; return; } flash(buyEl, 'BIENTÔT'); });
 
-  // ---- une réponse, un poème : le parcours du poème, avec cette question ----
-  function goPoem(id) {
-    if (!opts.onPoem) return;
-    visible = false; cancelAnimationFrame(raf); raf = 0;
-    root.classList.remove('fast'); root.classList.remove('on');
-    setTimeout(() => { root.remove(); try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* */ } }, 950);
-    opts.onPoem(id);
-  }
   function leave() {
     if (!visible) return;
-    visible = false; root.classList.remove('fast'); root.classList.remove('on');
+    visible = false; ta.blur(); vv?.removeEventListener('resize', onVV); root.classList.remove('fast'); root.classList.remove('on');
     setTimeout(() => { cancelAnimationFrame(raf); raf = 0; root.remove(); try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* */ } opts.onBack?.(); }, 900);
   }
   backEl.addEventListener('click', leave);
