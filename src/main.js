@@ -10,6 +10,7 @@ import { createRenderer } from './render/renderer.js';
 import { layoutName } from './name/layout.js';
 import { loadState, saveValidated, clearStored, clearValidated } from './app/storage.js';
 import { installSend, settled } from './app/send.js';
+import { installCount } from './app/count.js';
 import { createField, MODES } from './field/field.js';
 import { createRng } from './field/rng.js';
 import { createLight } from './field/light.js';
@@ -275,6 +276,7 @@ function enterBlack(restored) {
 // la suite en version simple (cartes, feuille, enveloppe, email) ; si même elle échoue : la porte Instagram
 function startSimple() {
   names2d?.stop(); names2d = null;
+  window.dispatchEvent(new CustomEvent('singulies:simple', { detail: { where: 'suite' } }));
   fallbackEl.style.display = 'none'; backEl.classList.remove('on');
   simpleModule().then(m => m.mountSimpleFlow({ name: S.validatedName.toUpperCase(), onDone: backToStart, onExit: exitCards }))
     .catch(e => { console.error(e); why('version simple : ' + (e && e.message)); noCards(); });
@@ -685,7 +687,7 @@ function mountPortalPage() {
       .then(({ mountPortal }) => SIMPLE === 'all' ? null : mountPortal({ base: './', reduced: CFG.reduced, onReady: res, onPoem: enterFromPortal, onJeu: openJeu }))
       .catch(e => { console.warn('portail', e); why('portail : ' + (e && e.message || e)); document.getElementById('portal')?.remove(); return null; })
       // sans WebGL2 (ou le portail en échec) : le portail en version simple — mêmes cartes, mêmes gestes
-      .then(p => p || (why('portail : version simple'), simpleModule().then(m => m.mountSimplePortal({ onReady: res, onPoem: enterFromPortal, onJeu: openJeu }))))
+      .then(p => p || (why('portail : version simple'), window.dispatchEvent(new CustomEvent('singulies:simple', { detail: { where: 'portail' } })), simpleModule().then(m => m.mountSimplePortal({ onReady: res, onPoem: enterFromPortal, onJeu: openJeu }))))
       .then(p => { portal = p; })
       .catch(e => { console.warn('portail simple', e); S.portal = false; portalGo(); res(); });
   });
@@ -725,6 +727,7 @@ async function boot() {
     fallbackEl.style.display = 'block';
     renderFallback();
     simpleModule().then(m => { if (S.phase === 'input') names2d = m.startNames2D(canvas, () => bridge.shownText); }).catch(e => console.warn('champ simple', e));
+    window.dispatchEvent(new CustomEvent('singulies:simple', { detail: { where: 'champ' } }));
   } else {
     atlas = buildAtlas('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', `"${FONT_FAMILY}", serif`, 500);
     metrics = { adv: (ch) => atlas.glyphs[ch]?.adv ?? 0.6, capHeight: atlas.capHeight };
@@ -755,5 +758,6 @@ const stats = { drawCalls: 0, gpuMB: 0, letters: 0, warmupMs: 0 };
 window.__sg = { stats, model, S, CFG, get portal() { return portal; }, get atlas() { return atlas; }, get field() { return field; }, get voice() { return voice; }, validate, submitName, startTransition, goBack, get bridge() { return bridge; } };
 
 fpsMeter();      // ?fps=1 : images par seconde (essais de fluidité)
+installCount(PAGE);   // des totaux anonymes (inactif tant que COUNTER = null)
 installSend();   // la demande part par email quand l'enveloppe est postée (ou « en direct »)
 boot();

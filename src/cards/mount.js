@@ -322,7 +322,8 @@ export async function mountCards(opts) {
   function focusAnswer() { if (document.activeElement !== answer) answer.focus({ preventScroll: true }); }
   const setValue = (s) => { if (answer.value !== s) { answer.value = s; try { answer.setSelectionRange(s.length, s.length); } catch { /* */ } } };
   const scene = await createCardScene(gl, { base, seed, look, toSheet, autoWrite: !coarse, on: { end: finish, write: focusAnswer, text: (d) => setValue(d.text),
-    draw: d => { const q = QUESTIONS.find(x => x.id === d.id)?.q; if (q) { labelAnswer(q); say(q); } },
+    draw: d => { const q = QUESTIONS.find(x => x.id === d.id)?.q; if (q) { labelAnswer(q); say(q); } window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id: d.id, action: 'tiree' } })); },
+    discard: d => window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id: d.id, action: 'passee' } })),
     blank: () => { labelAnswer('carte blanche : le thème de ton poème'); say('carte blanche. écris le thème de ton poème.'); } } });
   scene.setName(name);
 

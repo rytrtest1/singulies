@@ -409,9 +409,11 @@ export function mountSimpleFlow(opts) {
     ta.value = answers[id] || '';
     const text = QUESTIONS.find(x => x.id === id)?.q || '';
     ta.setAttribute('aria-label', text); R.say(text);
+    window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id, action: 'tiree' } }));
     curl.classList.remove('on');
   }
   function leave(o, dir) {
+    if (dir < 0 && stageName === 'cards') window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id: o.id, action: 'passee' } }));
     move(o.c, { ...o.c.pose, x: o.c.pose.x + dir * size.W * 1.1, y: o.c.pose.y - 10, r: dir * 14 }, { dur: 650, easing: 'cubic-bezier(.5,0,.7,.4)' }).then(() => o.c.remove());
   }
   function nextQ() {
@@ -799,6 +801,7 @@ export function mountSimpleFlow(opts) {
 // ===================================================================================================================
 // le jeu : le paquet tire une question pour toi ; toucher ou glisser = une autre ; « commander » (sa page, plus tard)
 export function mountSimpleJeu(opts = {}) {
+  window.dispatchEvent(new CustomEvent('singulies:simple', { detail: { where: 'jeu' } }));
   const R = makeRoot('sp-jeu');
   const { root, stage, size } = R;
   const back = el('button', 'sp-back on', root, BACK_SVG); back.type = 'button'; back.setAttribute('aria-label', 'Retour');

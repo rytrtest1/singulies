@@ -84,7 +84,7 @@ La voix du site, telle que je la lis (pour juger toute phrase future) : **tutoie
 
 ---
 
-## Décisions de Maxence (revue cas par cas, 08–09/10) — ordre de code proposé
+## Décisions de Maxence (revue cas par cas, 08–09/10) — **codées le 09/10** (sauf « plus tard / hors code »)
 
 **Déjà fait pendant la revue** : cas 1 (carte « ton prénom ton poème, / par la poste »), cas 17 (relief sculpté seulement de profil ; iPhone X ≥ 30 i/s ; essais `?fps=1`, `?dpr=`, `?relief=0`, `?maille=`).
 
