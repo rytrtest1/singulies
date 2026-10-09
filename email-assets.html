@@ -98,9 +98,9 @@
   const grab = (type = 'image/jpeg') => { gl.finish(); return canvas.toDataURL(type, 0.88); };
   const CW = 900, CH = 550, CF = 0.86;                       // cartes : même cadrage que les images de l'email (720 × 440)
   // une carte : face 'recto' (logo en creux, encre) ou 'dos' (logo gaufré) ; text : tapé dessus ; noLogo
-  function cardImg({ face = 'recto', text = '', noLogo = false, seed = 1 } = {}) {
+  function cardImg({ face = 'recto', text = '', noLogo = false, seed = 1, lines = null, center = false } = {}) {
     const { vp, eye, P } = view(CW, CH, CARD.w, CF);
-    const ink = text ? card.makeInk(makeInkMap(text, seed).canvas) : null;
+    const ink = text ? card.makeInk(makeInkMap(text, seed, lines, center).canvas) : null;   // coupures et centrage du portail
     const v = { seed: seed % 97, paperXf: [0.6, -0.4, 0, 0], warp: [0.18, -0.08, 0.04], logoOff: [0, 0], noLogo };
     if (face === 'recto') card.draw(vp, eye, P, { model: M4.model(0, Math.PI, 0.004), lod: 'fine', ink, ...v });
     else card.draw(vp, eye, P, { model: M4.model(0, 0, -0.004), lod: 'fine', inkBack: ink, ...v });
@@ -117,28 +117,31 @@
   function envFrontImg() {
     card.addShape('env', { ...EV.ENV, fine: null });
     const { vp, eye, P } = view(1000, 760, EV.ENV.w, 0.9);
-    card.draw(vp, eye, { ...P, inkAlb: 0.75, inkPaper: 4, inkVar: 0.3 }, { model: M4.model(0, Math.PI, 0), lod: 'env', ...envBase });
+    card.draw(vp, eye, { ...P, inkAlb: 0.75, inkPaper: 4, inkVar: 0.3 }, { model: M4.model(0, Math.PI, 0), lod: 'env', ...envBase, ...EV.envPieces(1, 0).front });
     return grab();
   }
-  // le dos, rabat fermé, cachet de cire argenté sur la pointe
+  // le dos, rabat fermé, le cachet sur la pointe — comme dans le parcours (09/10 : forme, cire, bombé, ombre des rabats)
   function envBackImg() {
-    const E = EV;
+    const E = EV, EP = E.envPieces(1, 1);
+    let sd = 11; const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+    const SD = E.sealDraw(rnd), SH = E.SEAL_SHAPE0, Fm = E.sealForm(1, E.SEAL_LOOK0, SH);
     card.addShape('env', { ...E.ENV, fine: null });
     card.addShape('envBack', { ...E.ENV, h: E.ENV_BACK_H, fine: null });
     card.addShape('flap', { ...E.ENV, h: E.FLAP_H, fine: null });
     card.addShape('botFlap', { ...E.ENV, fine: null });
-    card.addShape('seal', { w: E.SEAL_D, h: E.SEAL_D, r: E.SEAL_D / 2, t: 0.2, fine: [E.SEAL_D / 2 + 1, E.SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: E.SEAL_WOB });
+    const sealLod = card.addShape('seal-img', { w: E.SEAL_D, h: E.SEAL_D, r: E.SEAL_D / 2, t: 0.2, fine: [E.SEAL_D / 2 + 1, E.SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: E.SEAL_WOB, wobPhase: SD.wobPhase, alwaysFine: true });
     const { vp, eye, P } = view(1000, 760, E.ENV.w, 0.9);
     const T = (x, y, z) => M4.model(0, 0, 0, x, y, z), Me = M4.model(0, 0, 0);
-    card.draw(vp, eye, P, { model: Me, lod: 'env', ...envBase });
-    card.draw(vp, eye, P, { model: M4.mul(Me, T(0, -(E.ENV.h - E.ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...envBase, seed: 31 });
-    card.draw(vp, eye, P, { model: M4.mul(Me, T(0, 0, 1.74)), lod: 'botFlap', ...envBase, seed: 37, clip: [1, -E.ENV.h / 2, E.ENV.h * 0.58, E.ENV.w / 2] });
+    card.draw(vp, eye, P, { model: Me, lod: 'env', ...envBase, ...EP.front });
+    card.draw(vp, eye, P, { model: M4.mul(Me, T(0, -(E.ENV.h - E.ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...envBase, seed: 31, ...EP.back });
+    card.draw(vp, eye, P, { model: M4.mul(Me, T(0, 0, 1.74)), lod: 'botFlap', ...envBase, seed: 37, clip: [1, -E.ENV.h / 2, E.ENV.h * 0.58, E.ENV.w / 2], ...EP.bot });
     const Mf = M4.mul(Me, M4.mul(M4.mul(T(0, E.ENV.h / 2, 1.9), M4.model(Math.PI, 0, 0)), T(0, E.FLAP_H / 2, 0)));
-    card.draw(vp, eye, P, { model: Mf, lod: 'flap', ...envBase, seed: 43, clip: [1, -E.FLAP_H / 2, E.FLAP_H, E.ENV.w / 2] });
-    const SEAL_LOOK = { albedo: 0.1, rough: 0.34, spec: 6, sheen: 0.2, glint: 0.7, grain: 0.35, fiber: 0, envSpec: 2.6, h: 0.42, b: 0.5, foot: 0.5, footW: 0.12, crease: 0.2, edge: 0, diffRough: 0.35 };
-    const Ms = M4.mul(Mf, T(0, E.FLAP_H / 2 - 7, -0.19));
-    card.draw(vp, eye, { ...P, ...SEAL_LOOK }, { model: Ms, lod: 'seal', seed: 7, paperXf: [0, 0, 0, 0], paperLo: 0.15, logoOff: [0, 0],
-      logoScale: [E.SEAL_K, -E.SEAL_K], warp: [0, 0, 0], seal: [1, E.SEAL_IN, E.SEAL_D / 2, E.SEAL_WOB] });
+    card.draw(vp, eye, P, { model: Mf, lod: 'flap', ...envBase, seed: 43, clip: [1, -E.FLAP_H / 2, E.FLAP_H, E.ENV.w / 2], ...EP.flap });
+    const Ms = M4.mul(Mf, T(0, E.FLAP_H / 2 - 7, -0.19 - EP.sealDz));
+    card.draw(vp, eye, { ...P, ...Fm.look }, { model: Ms, lod: sealLod, seed: 7, paperXf: [0, 0, 0, 0], paperLo: SH.marbre, logoOff: [SD.offX, SD.offY],
+      logoScale: [E.SEAL_K, -E.SEAL_K], warp: [0, 0, 0], seal: [1, E.SEAL_IN, E.SEAL_D / 2, E.SEAL_WOB], form: 1,
+      sealP: [SH.hd, SH.hc, SH.crest, Fm.ring], sealQ: [Fm.pits, Fm.cavWall, SH.cavEdge, SH.aoW], sealV4: [SD.wobPhase, SD.crest, SD.tilt, Fm.peau],
+      sealR: [SH.film, SH.sss, SD.offX, SD.offY], blend: true });
     return grab();
   }
   async function simple() {
@@ -147,7 +150,7 @@
     out.push(['vierge.jpg', cardImg({ face: 'recto', noLogo: true, seed: 5 })]);
     out.push(['bientot.jpg', cardImg({ face: 'dos', text: 'bientôt', seed: 77 })]);
     const { ITEMS } = await import('./src/portal/items.js');
-    for (const it of ITEMS) out.push(['portail-' + it.id + '.jpg', cardImg({ face: 'recto', text: it.label, seed: 100 + it.id.length * 7 })]);
+    for (const it of ITEMS) out.push(['portail-' + it.id + '.jpg', cardImg({ face: it.back ? 'dos' : 'recto', text: it.label, lines: it.lines, center: it.center, seed: 100 + it.id.length * 7 })]);
     out.push(['commander.jpg', cardImg({ face: 'recto', text: 'commander', seed: 5 })]);
     out.push(['feuille.jpg', sheetImg()]);
     out.push(['enveloppe.jpg', envFrontImg()]);

@@ -142,10 +142,14 @@ export function stampInk(cx, PX, mask, x, y, rot, seed) {
   };
   g.translate(S / 2, S / 2); shape();
   const A = g.getImageData(0, 0, S, S).data;                     // la forme nette
-  // la forme adoucie : pour savoir où l'on est au bord d'un trait, où au milieu d'un plein
-  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, S); g.filter = `blur(${(0.35 * PX).toFixed(1)}px)`;
-  g.translate(S / 2, S / 2); shape(); g.filter = 'none';
-  const B = g.getImageData(0, 0, S, S).data;
+  // la forme adoucie : pour savoir où l'on est au bord d'un trait, où au milieu d'un plein (flou fait à la main :
+  // ctx.filter n'existe pas sur Safari avant iOS 18)
+  const B = new Float32Array(S * S), tmp = new Float32Array(S * S), R = Math.max(1, Math.round(0.35 * PX));
+  for (let k = 0; k < S * S; k++) B[k] = A[k * 4 + 3] / 255;
+  for (let pass = 0; pass < 2; pass++) {
+    for (let yy = 0; yy < S; yy++) { let acc = 0; for (let xx = -R; xx < S + R; xx++) { if (xx + R < S && xx + R >= 0) acc += B[yy * S + xx + R]; if (xx - R - 1 >= 0 && xx - R - 1 < S) acc -= B[yy * S + xx - R - 1]; if (xx >= 0 && xx < S) tmp[yy * S + xx] = acc / (2 * R + 1); } }
+    for (let xx = 0; xx < S; xx++) { let acc = 0; for (let yy = -R; yy < S + R; yy++) { if (yy + R < S && yy + R >= 0) acc += tmp[(yy + R) * S + xx]; if (yy - R - 1 >= 0 && yy - R - 1 < S) acc -= tmp[(yy - R - 1) * S + xx]; if (yy >= 0 && yy < S) B[yy * S + xx] = acc / (2 * R + 1); } }
+  }
   // bruit doux (valeurs sur une grille, interpolées) ; étiré pour les fibres
   const grid = (n) => { const a = new Float32Array((n + 1) * (n + 1)); for (let k = 0; k < a.length; k++) a[k] = r(); return a; };
   const noise = (G, n, u, v) => { u = Math.max(0, Math.min(n - 1e-3, u)); v = Math.max(0, Math.min(n - 1e-3, v));
@@ -158,7 +162,7 @@ export function stampInk(cx, PX, mask, x, y, rot, seed) {
   for (let yy = 0; yy < S; yy++) for (let xx = 0; xx < S; xx++) {
     const k = (yy * S + xx) * 4, a = A[k + 3] / 255;
     if (a < 0.01) continue;
-    const b = B[k + 3] / 255, u = xx / S, v = yy / S;
+    const b = B[k >> 2], u = xx / S, v = yy / S;
     // bord des traits : là où la forme nette dépasse la forme adoucie (l'encre y est plus dense)
     const edge = Math.max(0, Math.min(1, (a - b) * 3 + (1 - b) * 0.6));
     // appui : un dégradé franc d'un côté à l'autre, ondulé
@@ -168,11 +172,12 @@ export function stampInk(cx, PX, mask, x, y, rot, seed) {
     const fu2 = (u * fc + v * fs) * nF * 0.35, fv2 = (-u * fs + v * fc) * nF;
     const fib = noise(GF, nF, ((fu2 % nF) + nF) % nF, ((fv2 % nF) + nF) % nF);
     const mott = noise(GM, nM, u * nM, v * nM);
-    let ink = a * (0.68 + 0.32 * edge) * (0.78 + 0.22 * mott) * (0.55 + 0.45 * press);
-    // moins d'appui : l'encre ne prend plus que sur les sommets des fibres
-    const thr = (1 - press) * 0.85 - edge * 0.15;
-    ink *= Math.max(0, Math.min(1, (fib - thr) * 5 + 0.55));
-    const val = Math.max(0, Math.min(1, ink)) * 0.82;
+    // (09/10 : plus proche de l'encre tapée — trait plein et net, appui qui varie doucement ; les fibres ne mordent
+    // que là où le tampon a vraiment moins appuyé)
+    let ink = a * (0.84 + 0.16 * edge) * (0.88 + 0.12 * mott) * (0.64 + 0.36 * press);
+    const thr = (1 - press) * 0.5 - edge * 0.15;
+    ink *= Math.max(0, Math.min(1, (fib - thr) * 4 + 0.8));
+    const val = Math.max(0, Math.min(1, ink)) * 0.95;
     O[k] = O[k + 1] = O[k + 2] = 255; O[k + 3] = Math.round(val * 255);
   }
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, S); g.putImageData(out, 0, 0);
@@ -249,16 +254,18 @@ export function sealForm(u, look, shape) {
 
 // l'enveloppe pleine (09/10) : un léger bombé (la feuille et la carte dedans ; bulge 0 → 1) et l'ombre fine sous le bord
 // des rabats (closed : le rabat du haut fermé, 0 → 1) — ce que chaque pièce reçoit (cardRenderer : uPillow, uTriA/B)
-export const ENV_BULGE = 1.2, FLAP_SH = 0.38;
+export const ENV_BULGE = 1.2, FLAP_SH = 0.38, FOLD_W = 2.5;
 export function envPieces(bulge, closed) {
   const A = ENV_BULGE * bulge, c2 = closed * closed;
   const flapTri = [FLAP_SH * c2, ENV.h / 2, ENV.h / 2 - FLAP_H, ENV.w / 2], botTri = [FLAP_SH, -ENV.h / 2, -ENV.h / 2 + ENV.h * 0.58, ENV.w / 2];
   const sy = ENV.h / 2 - FLAP_H + 7, wSeal = 1 - (sy / (ENV.h / 2)) ** 2;
   return {
     front: { pillow: [A, 0, 1, -1] },
-    back: { pillow: [A, -(ENV.h - ENV_BACK_H) / 2, 1, 1], triA: flapTri, triB: botTri },
-    bot: { pillow: [A, 0, 1, 1], triA: flapTri },
-    flap: { pillow: [A * c2, ENV.h / 2 - FLAP_H / 2, -1, -1] },
+    // les bords : le dos (à 1,6–1,9 mm de la face) s'y referme en pli arrondi sur les 2,5 derniers mm (côtés, bas ; le rabat
+    // fermé, en haut) — sans cela on voyait deux feuilles plates séparées par une fente
+    back: { pillow: [A, -(ENV.h - ENV_BACK_H) / 2, 1, 1], triA: flapTri, triB: botTri, foldZ: [1.4, FOLD_W] },
+    bot: { pillow: [A, 0, 1, 1], triA: flapTri, foldZ: [1.54, FOLD_W] },
+    flap: { pillow: [A * c2, ENV.h / 2 - FLAP_H / 2, -1, -1], foldZ: [1.7 * c2, FOLD_W] },
     sealDz: A * c2 * wSeal,                                      // le cachet monte avec le rabat bombé
   };
 }

@@ -156,6 +156,8 @@ uniform vec3 uWarp;          // gondolage (mm) : courbure en x, en y, torsion
 // enveloppe (09/10) : bombé (mm au centre, centre de la pièce dans l'enveloppe en y, sens de y, sens de z) — la feuille et la
 // carte dedans gonflent les deux faces ; nul sur les bords (toutes les pièces suivent la même courbe)
 uniform vec4 uPillow;
+// le dos se referme sur la face au bord de l'enveloppe (pli arrondi) : (de combien en mm, sur quelle largeur en mm)
+uniform vec2 uFoldZ;
 uniform vec3 uCurl;          // coin corné : sens du coin (x, y : ±1, repère de la carte), soulèvement (mm, signé)
 uniform sampler2D uLogo;
 uniform float uLogoSq, uLogoRange, uH, uB, uFoot, uFootW, uNoLogo;
@@ -201,6 +203,14 @@ void main() {
   int f = int(aFace + 0.5);
   if (uSeal.x > 0.5 && f == 1) {
     float e = 0.12, h0 = sealH(aPos.xy);
+  if (uFoldZ.x > 0.0) {
+    // distance au bord de l'enveloppe ; le dos plonge vers la face en quart de rond sur les derniers millimètres
+    float ex = aPos.x, ey = uPillow.y + uPillow.z * aPos.y, dx = 114.5 - abs(ex), dy = 81.0 - abs(ey);
+    bool onX = dx < dy; float d = max(0.0, min(dx, dy)), t = clamp(d / uFoldZ.y, 0.0, 1.0), sz = uPillow.w;
+    z -= sz * uFoldZ.x * (1.0 - t) * (1.0 - t);
+    float g = sz * uFoldZ.x * 2.0 * (1.0 - t) / uFoldZ.y * step(d, uFoldZ.y);   // d(z)/d(d), d décroît vers le bord
+    if (onX) dzx -= g * sign(ex); else dzy -= g * sign(ey) * uPillow.z;
+  }
     z -= h0;
     dzx -= (sealH(aPos.xy + vec2(e, 0.0)) - sealH(aPos.xy - vec2(e, 0.0))) / (2.0 * e);
     dzy -= (sealH(aPos.xy + vec2(0.0, e)) - sealH(aPos.xy - vec2(0.0, e))) / (2.0 * e);
@@ -696,7 +706,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uNoLogo, card.noLogo ? 1 : 0);
     gl.uniform4fv(u.uSeal, card.seal || [0, 0, 1, 0]);
     gl.uniform4fv(u.uAO, card.ao || [0, 0, 0, 0]);
-    gl.uniform4fv(u.uPillow, card.pillow || [0, 0, 1, 1]); gl.uniform4fv(u.uTriA, card.triA || [0, 0, 0, 0]); gl.uniform4fv(u.uTriB, card.triB || [0, 0, 0, 0]);
+    gl.uniform4fv(u.uPillow, card.pillow || [0, 0, 1, 1]); gl.uniform2fv(u.uFoldZ, card.foldZ || [0, 1]); gl.uniform4fv(u.uTriA, card.triA || [0, 0, 0, 0]); gl.uniform4fv(u.uTriB, card.triB || [0, 0, 0, 0]);
     gl.uniform4fv(u.uSealP, card.sealP || [0.55, 1.5, 0.42, 0.08]); gl.uniform4fv(u.uSealQ, card.sealQ || [1, 0.5, 0.45, 0.9]);
     gl.uniform4fv(u.uPaperXf, card.paperXf || [0, 0, 0, 0]);
     gl.uniform3fv(u.uWarp, card.warp || [0, 0, 0]);

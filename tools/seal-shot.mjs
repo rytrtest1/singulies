@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { PNG } from 'pngjs';
 
 const TAG = process.argv[2] || 'x', Q = process.argv[3] || '';
-const PORT = 5195, SPEED = 1.45;
+const PORT = +(process.env.PORT || 5195), SPEED = 1.45;
 const server = await createServer({ server: { port: PORT, strictPort: true, host: 'localhost' }, logLevel: 'error' });
 await server.listen();
 const browser = await chromium.launch({ headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });

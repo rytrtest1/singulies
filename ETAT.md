@@ -318,4 +318,5 @@ Voir « Point de reprise » en tête de fichier.
 - Chiffres (Chromium, GPU Intel, 390×844) : cachet médiane ≈ 58, max ≈ 120–130 ; champ de l'email en fin d'envoi identique au pixel près à avant (`tools/env-shot.mjs`).
 - Non vérifié : iPhone / Safari, coût du maillage fin du cachet sur téléphone ancien (≈ 135² mailles × 2 faces, un seul objet).
 - Fait ensuite : tampon refait (encre au bord des traits, appui inégal, fibres, doublé) ; enveloppe pleine (bombé 1,2 mm, ombre sous le bord des rabats) ; pose du cachet à partir de la pression.
-- Reste : images de la version simple (`enveloppe.jpg`, `enveloppe-dos.jpg`, `tampon.png` montrent l'ancien rendu → `tools/simple-assets.mjs`) ; épaisseur visible des bords de l'enveloppe ; coulure de cire (référence) ; vérification iPhone.
+- Fait ensuite : bords de l'enveloppe en plis arrondis ; images de la version simple régénérées (enveloppe, dos, tampon, cartes du portail avec leurs coupures) ; tampon sans `ctx.filter` (absent de Safari < 18).
+- Reste : coulure de cire (non demandée) ; vérification iPhone.
