@@ -125,7 +125,7 @@ export async function mountJeu(opts = {}) {
     taken = true; going = false; visible = true; firstAt = null; shareReady = false;
     for (const b of [backEl, buyEl, shareEl]) b.style.transition = '';
     root.style.transition = 'none'; root.classList.add('on');
-    scene.relayIn(d.x, d.y, d.w, now());
+    scene.relayIn(d.x, d.y, d.w, now(), () => opts.portal?.()?.lightNow?.(), d.v || null);
     last = 0; if (!raf) raf = requestAnimationFrame(frame);
     requestAnimationFrame(() => opts.portal?.()?.giveDeck?.());          // le portail cesse de le dessiner
     setTimeout(() => { if (!going) { backEl.classList.add('on'); buyEl.classList.add('on'); } }, 1500);
@@ -220,10 +220,11 @@ export async function mountJeu(opts = {}) {
       going = true; ta.blur();
       for (const b of [backEl, buyEl, shareEl]) { b.style.transition = 'opacity .25s'; b.classList.remove('on'); }
       const d = opts.portal?.()?.deckScreen?.() || { x: innerWidth / 2, y: innerHeight * 0.75, w: 0 };
+      const lightFn = () => opts.portal?.()?.lightNow?.();
       scene.relayOut(d.x, d.y, d.w, now(), () => {
         opts.onReturned?.();
         requestAnimationFrame(() => requestAnimationFrame(() => { visible = false; root.classList.remove('on'); cancelAnimationFrame(raf); raf = 0; gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }));
-      });
+      }, lightFn, d.v || null);
       opts.onBack?.();
       return;
     }

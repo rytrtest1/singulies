@@ -248,7 +248,7 @@ export async function mountPortal(opts = {}) {
   for (const c of cards) { c.bph = rnd() * 6.28; c.bf = rnd.range(0.8, 1.25); }
 
   // ---- états ----
-  let deckGone = false, deckM = null, paused = false, startT = 0, leaving = null, visible = true, raf = 0, last = 0, vp = null, eye = null, lastGesture = -99;
+  let deckGone = false, deckM = null, lastLight = null, paused = false, startT = 0, leaving = null, visible = true, raf = 0, last = 0, vp = null, eye = null, lastGesture = -99;
   let hoverIdx = -1, pressIdx = -1, focusIdx = JEU, snap = false;
   const dealAt = c => startT + DEAL_AT + RANK[c.i] * DEAL_GAP;
   const landed = (c, t) => reduced ? t - startT > 0.3 : t >= dealAt(c) + DEAL_T;
@@ -464,6 +464,7 @@ export async function mountPortal(opts = {}) {
     // posées : la table entière s'incline (souris / téléphone) ; chaque carte respire à peine, à son rythme (ce qui
     // les distingue), sans jamais toucher celle qui la recouvre
     const Gtable = M4.model(crx * 0.35 * live, cry * 0.35 * live, 0);
+    lastLight = { lightPos, light, rx: crx * 0.35 * live, ry: cry * 0.35 * live };   // (la page du jeu en part : lightNow)
     const group = (px, py, ph, wt, f = 1) => {
       const sw = 0.012, tt = t * f;
       const rx = sw * (0.6 * Math.sin(tt * 0.61 + ph) + 0.4 * Math.sin(tt * 1.37 + 2.1 * ph)) * live;
@@ -579,7 +580,16 @@ export async function mountPortal(opts = {}) {
     deckScreen() {
       if (!vp || !deckM) return null;
       const m = M4.mul(vp, deckM), w = m[15], c = [(m[12] / w * 0.5 + 0.5) * lay.W, (0.5 - m[13] / w * 0.5) * lay.H];
-      return { x: c[0], y: c[1], w: CARD.w / lay.s };
+      // v : le papier de la carte du dessus (la page du jeu dessine la même carte), son biais à l'écran
+      const jv = cards[JEU].v;
+      return { x: c[0], y: c[1], w: CARD.w / lay.s, v: { ...jv, jx: 0, jy: 0, jr: lay.slot[JEU].rz + jv.jr } };
+    },
+    // la lumière et l'inclinaison de l'accueil, rapportées à la carte du dessus : la page du jeu part exactement
+    // d'elles et glisse vers les siennes pendant la montée (sinon : un sursaut d'éclairage au relais)
+    lightNow() {
+      if (!lastLight || !deckM) return null;
+      const c = [deckM[12], deckM[13], deckM[14]], l = lastLight.lightPos;
+      return { rel: [l[0] - c[0], l[1] - c[1], l[2] - c[2]], light: lastLight.light, rx: lastLight.rx, ry: lastLight.ry };
     },
     giveDeck() { deckGone = true; },
     takeDeck() { deckGone = false; if (visible && !paused) start(); },
