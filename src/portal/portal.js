@@ -151,6 +151,7 @@ export async function mountPortal(opts = {}) {
   // jeu » lisible. Tout tient dans l'écran (biais compris), cartes à la taille de la scène des cartes ou moins
   function layout(W, H) {
     lay.W = W; lay.H = H;
+    for (const c of cards) c.pre = null;
     const asp = CARD.w / CARD.h, portrait = W < H * 1.1;
     // ETERNEL : capitales centrées à 11 % du haut, hauteur de capitale du prénom de la scène des cartes ; les cartes dessous
     const sigCap = Math.min(52, Math.max(26, 0.052 * H)) * 0.66;
@@ -165,8 +166,10 @@ export async function mountPortal(opts = {}) {
     const avail = bot - top;
     if (portrait) {
       const over = () => (spanOf() + GAPD + DS) * h - avail;
-      if (over() > 0) GAPD = Math.max(0.16, GAPD - over() / h);
-      if (over() > 0) OV = Math.min(0.32, OV + over() / h / 2);
+      // pendant la donne, la carte du bas se pose d'abord à côté de la précédente (OV + 4 mm plus bas) : l'écart avec
+      // le paquet doit l'accueillir, sinon elle frôle le paquet
+      GAPD = OV + 0.14;
+      if (over() > 0) GAPD = Math.max(OV + 0.12, GAPD - over() / h);
       if (over() > 0) h = avail / (spanOf() + GAPD + DS);
     } else {
       if (h * asp * spanOf() > W * 0.78) OV = Math.min(0.3, 1 - (W * 0.78 / (h * asp) - 1.14) / 2);
@@ -261,7 +264,7 @@ export async function mountPortal(opts = {}) {
   function poseOf(c, t) {
     const rest = restPose(c);
     if (leaving) {
-      const u = clamp01((t - leaving.t0) / LEAVE_T), a = leaving.from[c.i];
+      const u = clamp01((leaveT(t) - leaving.t0) / LEAVE_T), a = leaving.from[c.i];
       if (c !== leaving.c || reduced) return a;
       // on la prend : elle se soulève vers soi, s'incline à peine, et se fond (aucun tour)
       const e = ease(u), sw = Math.sin(Math.PI * Math.min(1, u * 1.4));
@@ -274,14 +277,19 @@ export async function mountPortal(opts = {}) {
       const u = td / DEAL_T, a = onDeckPose(c);
       // sous la précédente : posée juste à côté (hors de son bord), puis glissée dessous, à plat
       if (c.i > 0 && c.i < JEU) {
-        const pre = { ...rest, ...(lay.W < lay.H * 1.1 ? { y: rest.y - (OV * CARD.h + 4) } : { x: rest.x + OV * CARD.w + 4 }) };
+        // (09/10) la place exacte qui la dégage des cartes posées et du paquet, biais compris (calculée une fois)
+        const o = c.pre || (c.pre = slideFor(c)), pre = { ...rest, x: rest.x + o.x, y: rest.y + o.y };
         const S = 0.78;
         if (u >= S) return lerpPose(pre, rest, ease((u - S) / (1 - S)));
         const p = lerpPose(a, pre, sstep(0.08, 0.95, u / S));
         p.ry = 0;
         return turn(p, u / S, 1);
       }
-      if (c.i === JEU) return lerpPose(a, rest, sstep(0.08, 0.95, u));   // le dos du paquet reste le dos
+      if (c.i === JEU) {                // le dos du paquet reste le dos ; elle se soulève d'abord (sans frotter le paquet)
+        const p = lerpPose(a, rest, sstep(0.08, 0.95, u));
+        p.z = lerp(a.z, rest.z, sstep(0, 0.3, u)) + 3 * Math.sin(Math.PI * u);
+        return p;
+      }
       const p = lerpPose(a, rest, sstep(0.08, 0.95, u));
       p.ry = 0;
       return turn(p, u, 1);
@@ -316,7 +324,7 @@ export async function mountPortal(opts = {}) {
     if (c.id === 'poeme') {
       enter('into');
       opts.onPoem?.();                  // dans le geste : la page ouvre le clavier
-      setTimeout(() => { if (leaving) { visible = false; stop(); } }, (LEAVE_T + 0.2) * 1000);
+      setTimeout(() => { if (leaving && !leaving.rev) { visible = false; stop(); } }, (LEAVE_T + 0.2) * 1000);
       return;
     }
     const url = LINKS[c.id];
@@ -460,7 +468,8 @@ export async function mountPortal(opts = {}) {
     };
     // arrivée : fondu depuis le fond + petite montée (le paquet de la scène des cartes) ; départ : recul et fondu
     const intro = reduced ? sstep(0, 0.8, t - startT) : ease(clamp01((t - startT) / INTRO_T));
-    const lu = leaving ? clamp01((t - leaving.t0) / LEAVE_T) : 0;
+    if (leaving && leaving.rev && leaveT(t) <= leaving.t0) { leaving = null; root.inert = false; }   // rembobinée : à sa place
+    const lu = leaving ? clamp01((leaveT(t) - leaving.t0) / LEAVE_T) : 0;
     const away = leaving ? ease(clamp01(lu / 0.75)) : 0;
     const recede = G => M4.mul(M4.model(0, 0, 0, 0, 6 * away, -140 * away), G);
     const Gin = M4.mul(M4.model(0, 0, 0, 0, 0, -30 * (1 - intro)), Gtable);
@@ -551,6 +560,9 @@ export async function mountPortal(opts = {}) {
     snap = false;
     if (!api.readyFired) { api.readyFired = true; opts.onReady?.(); }
   }
+  // l'horloge du départ : elle remonte quand on revient (rembobinage) — la carte où l'on était entré ressort de
+  // l'écran et se repose à sa place (09/10)
+  function leaveT(t) { const r = leaving && leaving.rev; return r ? r.at - (t - r.t1) : t; }
   function start() { if (!raf && visible) { last = 0; raf = requestAnimationFrame(frame); } }
   function stop() { cancelAnimationFrame(raf); raf = 0; }
   document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else if (visible && !leaving) start(); });
@@ -566,6 +578,15 @@ export async function mountPortal(opts = {}) {
       leaving = null; visible = true; startT = now(); lastGesture = -99; hoverIdx = pressIdx = -1; focusIdx = JEU;
       for (const c of cards) { c.anim = null; c.curlA = 0; c.press = 0; c.w = c.i === JEU ? 1 : 0; }
       root.classList.remove('off', 'leaving'); root.inert = false; start();
+    },
+    // retour (depuis le champ, ou d'un lien sortant) : la carte dans laquelle on était entré se rembobine ; sinon
+    // (le jeu, la fin du parcours) le paquet redistribue
+    back() {
+      if (!leaving || leaving.kind !== 'into' || reduced) { api.show(); return; }
+      const t = now();
+      if (!leaving.rev) leaving.rev = { t1: t, at: Math.min(t, leaving.t0 + LEAVE_T) };
+      sig.style.opacity = ''; visible = true; lastGesture = t; hoverIdx = pressIdx = -1;
+      root.classList.remove('off', 'leaving'); start();
     },
     hide() { visible = false; root.classList.add('off'); root.inert = true; stop(); },
     // tests

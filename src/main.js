@@ -30,8 +30,8 @@ const simpleModule = () => import('./simple/simple.js');
 const PAGE = document.documentElement.dataset.page || '';
 const showPath = p => { try { history.replaceState(history.state, '', new URL(p, document.baseURI)); } catch { /* */ } };
 // retour depuis un lien sortant (mes livres → Amazon) : le navigateur rend la page telle qu'on l'a quittée (cache
-// avant/arrière : portail « entré » dans la carte = écran noir) ; on relance l'accueil, depuis le début (09/10)
-addEventListener('pageshow', e => { if (e.persisted) location.replace(new URL('./', document.baseURI).href); });
+// avant/arrière : portail « entré » dans la carte) ; la carte se rembobine jusqu'à sa place (09/10)
+addEventListener('pageshow', e => { if (e.persisted && S.portal) (portal?.back || portal?.show)?.(); });
 const CFG = {
   caseMode: P.get('case') === 'lower' ? 'lower' : 'upper',
   grain: P.get('grain') === '0' ? 0 : P.get('grain') === '1' ? 2 : 1,   // 0 noir pur, 1 fond uni (défaut), 2 grain
@@ -690,7 +690,7 @@ function enterFromPortal() {
 function toPortal() {
   S.portal = true; showPath('./');
   input.blur(); backEl.classList.remove('on');
-  portal.show();
+  (portal.back || portal.show)();
   setTimeout(() => { if (S.portal) { cancelAnimationFrame(rafId); rafId = 0; } }, 1000);
 }
 // « le jeu » : sa page par-dessus le portail (qui s'arrête une fois couvert) ; retour = le portail, qui redistribue
