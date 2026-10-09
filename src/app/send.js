@@ -129,8 +129,8 @@ export function send(detail) {
   if (seen(detail)) { console.warn('envoi : déjà partie'); return; }
   const p = params(detail), items = [{ tpl: EMAILJS.template, p }];
   // le récapitulatif à la personne, si elle a donné son email
-  // (sans les réponses du mode test : elles ne sont que pour Maxence)
-  if (EMAILJS.confirm && p.to_email) items.push({ tpl: EMAILJS.confirm, p: { ...p, contact_html: params({ ...detail, beta: null }).contact_html, mode: params({ ...detail, beta: null }).mode } });
+  // (mêmes paramètres que la demande : prénom, question, réponse, et en mode test le prix et les retours)
+  if (EMAILJS.confirm && p.to_email) items.push({ tpl: EMAILJS.confirm, p });
   save([...load(), ...items]);
   flush();
 }
