@@ -131,9 +131,15 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 
 ## Nuit du 07 au 08/10 (revue de l'audit GPT : `REVUE-AUDIT.md`, à valider par Maxence)
 - **Principe** : le site ne fabrique pas le poème — c'est Eternel qui l'écrit, à la machine. Ne jamais laisser croire qu'une machine / un programme compose (soupçon d'IA). Voix : tutoiement, minuscules, « je » = Eternel, concret (machine, enveloppe, chez toi), aucun mot de vente, aucun « quelque chose ».
-- **La toute fin** (`farewell` dans `mount.js`) : après le contact (ENVOYER / PASSER), ou « en direct » envoyé, ou l'essai `?adresse=0` : sur le noir, le prénom (Garamond 174), puis tapé à la machine *je l'écris à la machine, / puis il part chez toi.* (en direct : *je t'écris.* ; essai : *je l'écris à la machine.*) ; demande pas partie (pas de réseau) → ligne pâle *ton enveloppe attend le réseau, / elle partira dès qu'il reviendra.* Toucher / Entrée / Échap = passer ; puis l'écran principal. Essai : `scene-cartes.html?fin=poste|direct|test&prenom=…`, captures `tools/bye-shot.mjs`.
+- ~~La toute fin (phrase sur le noir)~~ : retirée (08/10, la fin est la tranche → l'email → COMMANDER → le portail).
 - **Sans WebGL2 / cartes en échec** : plus de noir sans issue — *ton téléphone n'arrive pas / à montrer la suite. / écris-moi ton prénom : @e.t.ernel* (`noCards` dans main.js).
 - **Aperçu du lien** : Open Graph + description dans index.html (adresses absolues github.io : à changer avec le nom de domaine), image `public/og.jpg` (`tools/og-image.mjs`) ; pages d'essai, `demande.html`, confidentialité en noindex.
+
+## Revue de l'audit, décisions de Maxence (09/10, détail : fin de `REVUE-AUDIT.md`)
+- **Noms** : ETERNEL = l'auteur (titre, onglet, vignette, expéditeur des emails) ; **SINGULIES = le jeu**, et le label : **toujours en capitales, sans accent** ; logo SS = la marque du label (au dos des cartes, cachet, en-tête de la feuille, icône, pied des emails, emballage) — **jamais un bouton ni un chargement**.
+- **Polices** : Courier (SG Machine) = **ce qui est imprimé sur un objet** (questions, réponses, adresse, email, intitulés des cartes, signature *- ETERNEL -*) ; EB Garamond = **ce qui flotte au-dessus des objets** (prénoms, ETERNEL, signes PASSER / POSTER / COMMANDER / PAYER).
+- **Grammaire de la commande : COMMANDER, puis PAYER.** Fin du poème : la tranche → l'email → **COMMANDER** (paiement à brancher). Jeu : carte *commander* → la page de l'objet (photos, mesures, prix ; plus tard) → PAYER.
+- Voix : tutoiement, minuscules, « je » = Eternel, concret ; jamais laisser croire qu'une machine écrit le poème.
 
 ## Scène 3 — la feuille (proposition de la nuit du 05 au 06/10, branche `nuit`, `src/sheet/sheet.js` — à valider par Maxence)
 - **Sans coupure** : même canvas, même caméra, même lampe que les cartes (snapshot). `?feuille=0` = l'ancienne fin (fondu au noir).

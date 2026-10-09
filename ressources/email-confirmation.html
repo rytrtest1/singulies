@@ -3,7 +3,7 @@
 <head>
 <!-- Modèle EmailJS « confirmation » (06/10) — envoyé à la personne (son email tapé sur l'enveloppe ou la carte
      « en direct »). À créer dans EmailJS comme un second modèle, en mode code, avec :
-       To Email : {{to_email}}     Reply To : ton adresse     Sujet conseillé : {{prenom}}, ta demande est partie
+       To Email : {{to_email}}     Reply To : ton adresse     Sujet conseillé : {{prenom}}  ·  From Name : ETERNEL
      puis mettre son identifiant dans EMAILJS.confirm (src/app/send.js). Mêmes paramètres que « nouvelle demande ».
      {{{…}}} (trois accolades) : HTML préparé par le site (src/app/send.js) :
        prenom_html : le prénom en images de lettres (EB Garamond, le gris du site) ;
@@ -40,7 +40,7 @@
 
     <!-- le mot (à réécrire à sa façon) -->
     <tr><td align="center" style="padding:0 18px 40px;font-family:'Courier Prime','Courier New',Courier,monospace;font-size:15px;line-height:26px;color:#cdcdcd;text-align:center;">
-      <div class="gmail-screen"><div class="gmail-diff">ta demande est bien partie.<br>voici ce que tu m'as confié.</div></div>
+      <div class="gmail-screen"><div class="gmail-diff">ton prénom m’est bien arrivé.<br>je l’écris à la machine,<br>puis il part chez toi.</div></div>
     </td></tr>
 
     <!-- la carte (la question tirée, ou la carte blanche) -->
@@ -61,13 +61,17 @@
 
     <!-- la demande, en vrai (le site) -->
     <tr><td align="center" style="padding:0;">
-      <a href="{{lien}}" style="display:inline-block;border:1px solid #333333;padding:15px 28px;font-family:Georgia,'Times New Roman',serif;font-size:11px;letter-spacing:5px;color:#e2e2e2;text-decoration:none;"><div class="gmail-screen"><div class="gmail-diff">REVOIR TA DEMANDE</div></div></a>
+      <a href="{{lien}}" style="display:inline-block;border:1px solid #333333;padding:15px 28px;font-family:Georgia,'Times New Roman',serif;font-size:11px;letter-spacing:5px;color:#e2e2e2;text-decoration:none;"><div class="gmail-screen"><div class="gmail-diff">REVOIR TA FEUILLE</div></div></a>
     </td></tr>
 
     <tr><td align="center" style="padding:36px 0 0;font-family:Georgia,serif;font-size:11px;letter-spacing:2px;color:#6e6e6e;">
       <div class="gmail-screen"><div class="gmail-diff">{{genre}} &nbsp;·&nbsp; {{mode}} &nbsp;·&nbsp; {{date}}</div></div>
     </td></tr>
-    <tr><td align="center" style="padding:16px 0 0;font-family:'Courier New',Courier,monospace;font-size:10px;letter-spacing:6px;color:#454545;">
+    <!-- le label (09/10) : le logo SS gaufré, puis SINGULIES, en petit, comme au dos d'un disque -->
+    <tr><td align="center" style="padding:30px 0 0;">
+      <img src="{{email_base}}sceau.png" width="44" height="44" alt="" style="display:block;border:0;width:44px;height:44px;margin:0 auto;">
+    </td></tr>
+    <tr><td align="center" style="padding:10px 0 0;font-family:'Courier New',Courier,monospace;font-size:10px;letter-spacing:6px;color:#454545;">
       <div class="gmail-screen"><div class="gmail-diff">SINGULIES</div></div>
     </td></tr>
 

@@ -102,8 +102,25 @@ async function doFlush() {
     try { await post(a[0]); save(load().slice(1)); } catch (e) { console.warn('envoi', e); break; }
   }
 }
+// une même demande ne part jamais deux fois (09/10 : double toucher, page rechargée au mauvais moment, brouillon
+// renvoyé alors qu'elle était partie) : on garde 24 h une empreinte de chaque demande partie — un nombre, aucune donnée
+const K_SENT = 'singulies.sent', DAY = 864e5;
+function print(d) {
+  const s = JSON.stringify([d.name, d.kind, d.id, d.text, d.address, d.email, d.mode, !!d.test]);
+  let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+function seen(d) {
+  const now = Date.now(), k = print(d);
+  let a = []; try { a = JSON.parse(localStorage.getItem(K_SENT) || '[]').filter(x => now - x[1] < DAY); } catch { /* */ }
+  if (a.some(x => x[0] === k)) return true;
+  a.push([k, now]);
+  try { localStorage.setItem(K_SENT, JSON.stringify(a.slice(-20))); } catch { /* */ }
+  return false;
+}
 export function send(detail) {
   if (OFF) return;
+  if (seen(detail)) { console.warn('envoi : déjà partie'); return; }
   const p = params(detail), items = [{ tpl: EMAILJS.template, p }];
   // le récapitulatif à la personne, si elle a donné son email
   if (EMAILJS.confirm && p.to_email) items.push({ tpl: EMAILJS.confirm, p });

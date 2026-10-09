@@ -15,8 +15,6 @@ const look = {}; for (const k in LOOK) if (P.has(k)) look[k] = +P.get(k);
 mountCards({ name: PRENOM, base: './', seed: P.has('seed') ? +P.get('seed') : undefined, look, canvas: document.getElementById('c'),
   shot: P.has('shot'), log: s => { log.textContent = s; } }).then(m => {
   window.__scene = m; m.ready = true;
-  // &fin=poste | direct | test : la toute fin seule, sur le noir (essais de l'écran final)
-  if (P.has('fin')) { m.farewell({ name: PRENOM, mode: P.get('fin') === 'direct' ? 'direct' : 'poste', test: P.get('fin') === 'test' }); return; }
   m.start();
   panel(m.scene);
   autoplay(m);

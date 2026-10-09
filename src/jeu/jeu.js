@@ -12,7 +12,7 @@ import QUESTIONS from '../cards/questions.json';
 import { dpr3d } from '../app/perf.js';
 
 export const JEU_LINK = null;                     // page d'achat du jeu (null = « bientôt »)
-const BUY = 'le commander';
+const BUY = 'commander';                      // (09/10 : « commander », puis la page de l'objet, puis PAYER)
 const FOV = 26 * Math.PI / 180, TILT = 0.22, TF = Math.tan(FOV / 2);
 const STACK = 12, PITCH = 0.15;
 const DRAW_T = 1.5, DISCARD_T = 0.6, FLIP_T = 1.3, HOLD = 2.2;
@@ -78,7 +78,7 @@ export async function mountJeu(opts = {}) {
   buy.ink = card.makeInk(makeInkMap(BUY, Math.floor(buy.v.seed * 1000) + 5).canvas);
   let soonInk = null;
 
-  // ---- disposition : le paquet (et la question posée dessus) au centre, « le commander » dessous ----
+  // ---- disposition : le paquet (et la question posée dessus) au centre, « commander » dessous ----
   const lay = { W: 1, H: 1, D: 300, Hw: 100, yDeck: 0, yBuy: -60 };
   function layout(W, H) {
     const portrait = W < H;
@@ -205,7 +205,7 @@ export async function mountJeu(opts = {}) {
     const lightPos = [ap.x + Math.cos(lamp.a) * D0 * Math.cos(el), ap.y + Math.sin(lamp.a) * D0 * Math.cos(el), D0 * Math.sin(el)];
     const P = { ...L, lightPos, light: L.light * k * k * Math.sin(el0) / Math.sin(el), spotI: 0 };
 
-    // le paquet (avec la question posée dessus) s'incline vers la souris / le téléphone ; « le commander » respire
+    // le paquet (avec la question posée dessus) s'incline vers la souris / le téléphone ; « commander » respire
     const intro = reduced ? sstep(0, 0.8, t - startT) : ease(clamp01((t - startT) / 1.4));
     const crx = -ts.y * L.cardTilt, cry = ts.x * L.cardTilt;
     const group = (py, ph, wt) => {
@@ -224,7 +224,7 @@ export async function mountJeu(opts = {}) {
     for (let i = 0; i < STACK; i++) card.draw(vp, eye, P, { model: model(Gq, deckPose(i, stack[i])), lod: i === STACK - 1 ? 'fine' : 'coarse', shade: 0.55 + 0.45 * (i + 1) / STACK, fade: intro, occ, ...stack[i] });
     for (const c of leaving) card.draw(vp, eye, P, { model: model(Gq, poseOf(c, t)), lod: 'fine', ink: c.ink, fade: intro, ...c.v });
     if (question) card.draw(vp, eye, P, { model: model(Gq, qp), lod: 'fine', ink: question.ink, fade: intro, ...question.v });
-    // « le commander » : apparaît après la première question ; sautille après la troisième (quand rien ne bouge)
+    // « commander » : apparaît après la première question ; sautille après la troisième (quand rien ne bouge)
     const bIn = shown >= 1 ? ease(clamp01((t - firstAt - 1.2) / 1.2)) : 0;
     let bp = buyPose(), dz = 0;
     if (buy.anim) {
@@ -254,7 +254,7 @@ export async function mountJeu(opts = {}) {
     return true;
   };
 
-  // ---- gestes : toucher le paquet = une autre ; glisser la question de côté = une autre ; « le commander » ----
+  // ---- gestes : toucher le paquet = une autre ; glisser la question de côté = une autre ; « commander » ----
   let down = null;
   canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, moved: false }; pressBuy = inside(quads.buy, e.clientX, e.clientY); });
   addEventListener('pointermove', e => {

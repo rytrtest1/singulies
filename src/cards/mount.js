@@ -3,7 +3,6 @@
 // la page d'essai scene-cartes.html. Rien n'est dessiné avant start().
 import { createCardScene } from './scene.js';
 import { createSheetScene, FIELDS, MAIL_W } from '../sheet/sheet.js';
-import { settled, pendingCount } from '../app/send.js';
 import { dpr3d } from '../app/perf.js';
 
 const CSS = `
@@ -61,13 +60,6 @@ const CSS = `
 .sc-ask input::placeholder { color: rgba(255,255,255,.28); }
 .sc-ask .sc-pass { position: static; margin-top: 22px; }
 .sc-ask .ask-skip { margin-top: 4px; }
-/* la toute fin (08/10) : sur le noir, le prénom, puis ce qui va se passer, tapé à la machine */
-.sc-ask .bye-name { font: 500 40px/1.25 'SG Garamond', Georgia, serif; letter-spacing: .45em; padding-left: .45em; color: rgb(174,174,174);
-  text-align: center; white-space: pre; opacity: 0; transition: opacity 1.6s; }
-.sc-ask .bye-name.on { opacity: 1; }
-.sc-ask .bye-q { margin-top: 34px; font: 15px/1.9 'SG Machine', 'Courier New', monospace; color: rgb(174,174,174); text-align: center;
-  white-space: pre; min-height: 3.8em; transition: opacity 1.2s; }
-.sc-ask .bye-net { color: rgba(255,255,255,.44); min-height: 0; margin-top: 18px; }
 .sc-veil { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 1.4s; pointer-events: none; z-index: 14; }
 `;
 
@@ -214,7 +206,7 @@ export async function mountCards(opts) {
     sheetAt = now(); api.sheet = sheet;
   }
   // ---- l'enveloppe envoyée a basculé sur sa tranche : la tranche devient le champ de l'email (08/10). L'invitation
-  // « ton email » en grisé, comme sur l'enveloppe ; TERMINER (ou Entrée) dès qu'il est valable — pas d'autre issue.
+  // « ton email » en grisé, comme sur l'enveloppe ; COMMANDER (ou Entrée) dès qu'il est valable — pas d'autre issue.
   // La demande est gardée (brouillon) dès l'envoi : si l'on ferme la page ici, elle part à la visite suivante, sans
   // email. Ensuite, directement le portail.
   const mailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
@@ -251,7 +243,7 @@ export async function mountCards(opts) {
       }
       shown = v;
     };
-    const go = el('div', 'sc-pass', 'TERMINER'); go.setAttribute('role', 'button'); go.tabIndex = 0;
+    const go = el('div', 'sc-pass', 'COMMANDER'); go.setAttribute('role', 'button'); go.tabIndex = 0;
     requestAnimationFrame(() => box.classList.add('on'));
     // ordinateur : le curseur y est tout de suite ; téléphone : toucher la ligne (le clavier ne s'ouvre qu'au toucher)
     if (matchMedia('(pointer: fine)').matches) setTimeout(() => inp.focus({ preventScroll: true }), 700);
@@ -277,7 +269,7 @@ export async function mountCards(opts) {
     mail = { box, inp, go, inner, draw };
     api.ask = { input: inp, send: finish };
   }
-  // le champ de l'email suit la tranche (à l'écran) ; TERMINER dessous (clavier ouvert : au-dessus du clavier)
+  // le champ de l'email suit la tranche (à l'écran) ; COMMANDER dessous (clavier ouvert : au-dessus du clavier)
   function placeMail() {
     const Ln = sheet && sheet.edgeLine(); if (!Ln) return;
     mail.draw();                                     // (remplissage automatique sans événement)
@@ -289,68 +281,6 @@ export async function mountCards(opts) {
     Object.assign(mail.box.style, { left: (cx - w / 2) + 'px', top: (y - h + 0.5) + 'px', width: w + 'px' });
     const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
     mail.go.style.top = Math.min(y + 18, kbTop - 50) + 'px';
-  }
-  // ---- la toute fin (08/10) : pas de « merci pour votre commande », pas de retour sec au portail. Sur le noir, le
-  // prénom (le fil de tout le parcours), puis, tapé à la machine, ce qui va vraiment se passer : c'est une personne
-  // qui écrit le poème, puis il part par la poste. Si la demande n'a pas pu partir (pas de réseau), on le dit, sans
-  // jargon. Toucher / Entrée / Échap : on passe. Ensuite l'écran principal (opts.onDone).
-  const BYE = { poste: 'je l’écris à la machine,\npuis il part chez toi.', direct: 'je t’écris.', test: 'je l’écris à la machine.' };
-  const NET = { poste: 'ton enveloppe attend le réseau,\nelle partira dès qu’il reviendra.', direct: 'ta carte attend le réseau,\nelle partira dès qu’il reviendra.' };
-  let byeOn = false;
-  function farewell(d, box) {
-    if (byeOn) return; byeOn = true;
-    answer.blur(); postEl.classList.remove('on'); backEl.classList.remove('on'); passEl.classList.remove('on');
-    if (!box) { box = el('div', 'sc-ask'); void box.offsetWidth; box.classList.add('on'); }
-    const kind = d.test ? 'test' : d.mode === 'direct' ? 'direct' : 'poste';
-    // le prénom, comme partout (EB Garamond, capitales espacées, gris 174) ; deux mots longs : deux lignes
-    const nm = document.createElement('div'); nm.className = 'bye-name';
-    const words = String(d.name || name || '').trim().split(/\s+/).filter(Boolean);
-    box.append(nm);
-    const fit = () => {
-      const maxW = Math.min(innerWidth - 32, 760);
-      let fs = Math.max(26, Math.min(44, innerWidth * 0.1));
-      nm.style.fontSize = fs + 'px'; nm.textContent = words.join(' ');
-      if (nm.scrollWidth > maxW && words.length > 1) nm.textContent = words.join('\n');
-      while (nm.scrollWidth > maxW && fs > 14) { fs *= 0.92; nm.style.fontSize = fs + 'px'; }
-    };
-    fit();
-    const q = document.createElement('div'); q.className = 'bye-q'; box.append(q);
-    const timers = [];
-    const later = (f, ms) => timers.push(setTimeout(f, ms));
-    const typeInto = (elq, text, then) => {
-      let k = 0;
-      const step = () => { if (ended) return; elq.textContent = text.slice(0, k++); if (k > text.length) { then?.(); return; } later(step, reduced ? 0 : (text[k - 2] === ',' || text[k - 2] === '\n' ? 260 : 45 + Math.random() * 70)); };
-      step();
-    };
-    let ended = false, canSkip = false;
-    const end = () => {
-      if (ended) return; ended = true;
-      timers.forEach(clearTimeout);
-      removeEventListener('keydown', onKey, true); box.removeEventListener('pointerdown', onTap);
-      box.style.transition = 'opacity 1.2s'; nm.style.opacity = '0'; q.style.opacity = '0';
-      for (const e of box.querySelectorAll('.bye-net')) e.style.opacity = '0';
-      setTimeout(() => opts.onDone?.(d), 1200);
-    };
-    const onTap = () => { if (canSkip) end(); };
-    const onKey = e => {          // (rien ne passe aux scènes dessous : Échap y serait un retour)
-      if (e.key !== 'Enter' && e.key !== 'Escape' && e.key !== ' ') return;
-      e.preventDefault(); e.stopPropagation(); if (canSkip) end();
-    };
-    box.addEventListener('pointerdown', onTap); addEventListener('keydown', onKey, true);
-    later(() => nm.classList.add('on'), 200);
-    later(() => { canSkip = true; typeInto(q, BYE[kind], () => {
-      // la demande est-elle partie ? (au plus 6 s d'attente, pendant que la phrase reste lue)
-      const hold = new Promise(r => later(r, 2600));
-      const sent = Promise.race([settled().catch(() => {}), new Promise(r => setTimeout(r, 6000))]);
-      Promise.all([hold, sent]).then(() => {
-        if (ended) return;
-        if (kind !== 'test' && pendingCount() > 0) {
-          const n2 = document.createElement('div'); n2.className = 'bye-q bye-net'; box.append(n2);
-          typeInto(n2, NET[kind], () => later(end, 3400));
-        } else end();
-      });
-    }); }, 1500);
-    api.bye = { end, text: () => box.innerText };
   }
   function closeSheet() {
     if (!sheet) return;
@@ -368,8 +298,7 @@ export async function mountCards(opts) {
   scene.setName(name);
 
   let started = false;
-  const api = { scene, canvas, gl, now, started: () => started, frames: 0, start, nameTargets: (W, H) => scene.nameTargets(name, W, H),
-    farewell };                                       // (essais : la fin seule, ?fin=…)
+  const api = { scene, canvas, gl, now, started: () => started, frames: 0, start, nameTargets: (W, H) => scene.nameTargets(name, W, H) };
 
   function start() {
     if (started) return; started = true;

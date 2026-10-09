@@ -1,7 +1,9 @@
 // Le lien de la demande (léger : l'envoi l'importe sans charger le moteur des cartes).
-// lien : base64url(JSON { n: prénom, k: genre, i: id question, t: texte, m: mode, a: [adresse], d: date (ms) })
+// lien : base64url(JSON { n: prénom, k: genre, i: id question, t: texte, m: mode, d: date (ms) })
+// (09/10 : plus d'adresse ni de contact dans le lien — ils sont déjà en clair dans l'email ; ce n'est pas du
+// chiffrement, et le lien pourra un jour être envoyé à la personne. Les anciens liens se lisent toujours.)
 export function encodeDemande(d) {
-  const j = JSON.stringify({ n: d.name || '', k: d.kind || '', i: d.id ?? null, t: d.text || '', m: d.mode || '', a: d.address || [], c: d.contact || '', d: d.time || Date.now() });
+  const j = JSON.stringify({ n: d.name || '', k: d.kind || '', i: d.id ?? null, t: d.text || '', m: d.mode || '', d: d.time || Date.now() });
   const b = btoa(unescape(encodeURIComponent(j)));
   return b.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
