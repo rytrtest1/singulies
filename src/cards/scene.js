@@ -61,7 +61,7 @@ const bare = ch => ch.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 //   carte réponse (curseur seul, sans invitation) pour répondre à une question qu'on nous a partagée — setJeuWrite(false)
 //   la retire (elle se fond), et c'est le jeu seul : des questions, sans réponse à donner
 // firstQ : la question tirée en premier (lien partagé, ou venue du jeu) ; noIntro : le paquet est déjà là (relais)
-export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true, jeu = false, jeuWrite = false, firstQ = null, noIntro = false, firstBack = null, placedV = null } = {}) {
+export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true, jeu = false, jeuWrite = false, firstQ = null, noIntro = false, firstBack = null } = {}) {
   const card = await createCardRenderer(gl, base);
   const nameR = await createNameRelief(gl, card.paperTex);
   await loadTypeFont(base);
@@ -170,6 +170,12 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       p.z += (CARD.w / 2 + 8) * (up - down) * 0.9; p.ry = Math.PI * sstep(0.2, 0.7, u); p.rx = -0.12 * (up - down);
       return p;
     }
+    if (c.anim === 'undraw') {                        // le retour au portail : le tirage à l'envers, jusqu'au paquet
+      const v = 1 - u, a = c.from, b = c.to, up = sstep(0, 0.35, v), down = sstep(0.6, 1, v), e = ease(v);
+      const p = lerpPose(a, b, e);
+      p.z += (CARD.w / 2 + 8) * (up - down) * 0.9; p.ry = Math.PI * sstep(0.2, 0.7, v); p.rx = -0.12 * (up - down);
+      return p;
+    }
     if (c.anim === 'return') {                        // une question déjà vue revient de son côté
       if (t < c.t0) return c.from;
       const a = c.from, b = restPose(c), e = ease(u), p = lerpPose(a, b, e);
@@ -210,22 +216,43 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     preA = { v, cursorMM: makeStripInk('', Math.floor(v.seed * 1000) + 7, preQ.margin).cursor, forId: preQ.id };
   }
   let firstBackUsed = false;
+  // relais avec le portail (09/10) : la page du jeu prend le paquet du portail là où il est (px, py : centre écran de
+  // sa carte du dessus ; scale : sa taille / la nôtre) et l'amène à sa place pendant que la carte du dessus se
+  // retourne sur la première question ('in') ; au retour, l'inverse ('out') : la question se retourne sur le paquet,
+  // qui redescend à la place du portail. Une seule scène dessine la carte du début à la fin : aucun fondu.
+  let relay = null;
+  const backInkOf = v => firstBack ? card.makeInk(makeInkMap(firstBack.label, Math.floor(v.seed * 1000) + 7, firstBack.lines, firstBack.center).canvas) : null;
+  function relayIn(px, py, scale, t) {
+    if (question) { card.freeInk(question.ink); if (question.backInk) card.freeInk(question.backInk); question = null; }   // (une visite précédente)
+    firstBackUsed = false;
+    relay = { dir: 'in', px, py, scale, t0: t, dur: DRAW_T, off: null }; pendingDraw = t;
+  }
+  function relayOut(px, py, scale, t, done) {
+    relay = { dir: 'out', px, py, scale, t0: t, dur: DRAW_T, off: null, done };
+    if (jw) setJeuWrite(false);
+    writing = false; dragging = false; dragX = 0; pendingDraw = -1;
+    if (question) {
+      if (!question.backInk) question.backInk = backInkOf(question.v);
+      question.to = poseOf(question, t); question.anim = 'undraw'; question.t0 = t; question.dur = DRAW_T;
+      question.from = deckPose(visibleStack(), question.v);
+    }
+  }
+  // part du relais (1 = à la place du portail, 0 = à la nôtre)
+  function relayK(t) {
+    if (!relay) return 0;
+    const u = clamp01((t - relay.t0) / relay.dur);
+    return relay.dir === 'in' ? 1 - ease(u) : ease(u);
+  }
   function makeQuestion(t) {
     if (next >= QUESTIONS.length) return null;
     const id = order[next++];
-    let v = stack.pop(); stack.unshift(variant());
-    // placedV (le jeu, venu du portail) : la première question est déjà posée — c'est la carte du portail, retournée
-    // pendant que le paquet montait (même papier, même encre) ; aucun tirage
-    if (placedV) {
-      v = { ...v, ...placedV }; placedV = null; preQ = null;
-      return { ...inkQuestion(id, v), anim: null, t0: t, dur: 0, from: centerPose(v), landedAt: t - 1 };
-    }
+    const v = stack.pop(); stack.unshift(variant());
     const Q = preQ && preQ.id === id ? preQ : inkQuestion(id, v);
     preQ = null;
     // firstBack (le jeu, venu du portail) : la première carte tirée porte au dos « SINGULIES / le jeu », comme la
     // carte du dessus du paquet du portail — c'est elle qui se retourne
     let backInk = null;
-    if (firstBack && !firstBackUsed) { firstBackUsed = true; backInk = card.makeInk(makeInkMap(firstBack.label, Math.floor(v.seed * 1000) + 7, firstBack.lines, firstBack.center).canvas); }
+    if (firstBack && !firstBackUsed) { firstBackUsed = true; backInk = backInkOf(v); }
     return { ...Q, backInk, anim: 'draw', t0: t, dur: DRAW_T, from: deckPose(STACK - 1, v), landedAt: t + DRAW_T };
   }
   // chaque question garde sa réponse (rien ne passe d'une carte à l'autre)
@@ -434,7 +461,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (bIn && blank.appearT == null) blank.appearT = t + 2.2;
     if (!bIn) blank.appearT = null;
     blank.out += ((bIn ? 0 : 1) - blank.out) * Math.min(1, dt * 1.8);
-    for (const c of [question, answer, blank]) if (c && c.anim && t - c.t0 >= c.dur) {
+    for (const c of [question, answer, blank]) if (c && c.anim && c.anim !== 'undraw' && t - c.t0 >= c.dur) {   // (le retour au portail : elle reste sur le paquet)
       const first = c === answer && c.anim === 'slide';
       c.anim = null;
       if (first && !ended && mode === 'q' && autoWrite) startWriting();   // la carte réponse vient d'apparaître : curseur, clavier
@@ -502,7 +529,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const light = L.light * k * k * Math.sin(el0) / Math.sin(el);
     const spotPos = [ap.x, ap.y + 0.35 * lay.Hw, lay.D * 0.55];
     const sd = [ap.x - spotPos[0], ap.y - spotPos[1], ap.z - spotPos[2]], sl = Math.hypot(...sd);
-    const P = { ...L, lightPos, light, spotPos, spotDir: sd.map(x => x / sl), spotI: L.spot * k * k * (sl / 300) ** 2,
+    const P = { ...L, lightPos, light, spotPos, spotDir: sd.map(x => x / sl), spotI: L.spot * k * k * (sl / 300) ** 2 * (1 - relayK(t)),   // (relais : pas de projecteur au portail)
       spotCosOut: Math.cos(Math.atan(0.62 * CARD.w / sl)), spotCosIn: Math.cos(Math.atan(0.4 * CARD.w / sl)) };
 
     // la carte en focus s'incline (souris / téléphone), l'autre respire et est baissée
@@ -521,7 +548,26 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const intro = ease(clamp01((t - startT) / 1.4));
     const qVis = mode === 'free' ? 1 - ease(clamp01((t - freeT) / 0.9)) : backT >= 0 ? ease(clamp01((t - backT - 0.2) / 0.9)) : 1;
     const Gq0 = group(0, lay.yDeck, 0, 0.0, ended ? 0 : wQ);
-    const Gq = M4.mul(M4.model(0, 0, 0, 0, 6 * (1 - qVis), -30 * (1 - intro) - 140 * (1 - qVis)), Gq0);
+    let Gq = M4.mul(M4.model(0, 0, 0, 0, 6 * (1 - qVis), -30 * (1 - intro) - 140 * (1 - qVis)), Gq0);
+    const rk = relayK(t);
+    if (relay) {
+      // décalage (monde) qui pose le haut de notre paquet exactement sur la carte du portail (résolu une fois)
+      if (!relay.off) {
+        const top = [0, lay.yDeck, STACK * PITCH], sW = lay.Ww / W;
+        let ox = 0, oy = 0;
+        for (let i = 0; i < 6; i++) {
+          const x = top[0] + ox, y = top[1] + oy, z = top[2];
+          const cx = vp[0] * x + vp[4] * y + vp[8] * z + vp[12], cyy = vp[1] * x + vp[5] * y + vp[9] * z + vp[13], cw = vp[3] * x + vp[7] * y + vp[11] * z + vp[15];
+          const sx = (cx / cw * 0.5 + 0.5) * W, sy = (0.5 - cyy / cw * 0.5) * H;
+          ox += (relay.px - sx) * sW; oy -= (relay.py - sy) * sW / Math.cos(TILT);
+        }
+        relay.off = [ox, oy];
+      }
+      const sc = 1 + (relay.scale - 1) * rk, cx0 = relay.off[0] * rk, cy0 = lay.yDeck + relay.off[1] * rk;
+      const S = new Float32Array([sc, 0, 0, 0, 0, sc, 0, 0, 0, 0, sc, 0, cx0 - sc * 0, cy0 - sc * lay.yDeck, 0, 1]);
+      Gq = M4.mul(S, Gq);
+      if (t - relay.t0 >= relay.dur) { const d = relay.done; relay = null; d && d(); }
+    }
     const Ga = !ended && answer && answer.place === 'below' && !answer.anim ? group(0, lay.yAns, 0, 2.3, wA) : Gq;
     const Gb = !ended && blank && blank.place === 'up' && !blank.anim ? group(0, lay.yDeck, 0, 2.3, wA) : group(0, bp ? bp.y : 0, 0, 4.1, 0);
     const endFade = ended && !(toSheet && ended.kind !== 'improvisation') ? 1 - sstep(0.15, 1, ease(clamp01((te - 0.9) / 1.6))) : 1;   // la carte se fond en descendant
@@ -739,7 +785,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function setJeuWrite(on) { jw = jeu && !!on; if (!jw) writing = false; }
   function setBreath(x, y) { breath.x = x; breath.y = y; }
   return {
-    frame, tap, drag, release, give, pass, back, start, prepare, reopen, snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer, setJeuWrite, drawAt,
+    frame, tap, drag, release, give, pass, back, start, prepare, reopen, snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer, setJeuWrite, drawAt, relayIn, relayOut, relaying: () => !!relay,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
     state: () => ({ freeFor: mode === 'free' ? lastT - freeT : 0, hasPrev: hasPrev(), idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),

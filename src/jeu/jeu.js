@@ -8,9 +8,10 @@
 // respire (on y répond) ; PARTAGER n'apparaît qu'une fois quelque chose écrit, et partage la réponse avec la question ;
 // une fois partagée (ou la question passée), la carte réponse se fond : le jeu seul, poser une question à son tour.
 import { createCardScene } from '../cards/scene.js';
-import { JEU_LINK } from '../portal/items.js';
+import { JEU_LINK, ITEMS } from '../portal/items.js';
 import QUESTIONS from '../cards/questions.json';
 import { dpr3d } from '../app/perf.js';
+import { CARD } from '../cards/cardRenderer.js';
 export { JEU_LINK };
 
 const CSS = `
@@ -46,7 +47,12 @@ export async function mountJeu(opts = {}) {
   const el = (tag, cls, html = '') => { const e = document.createElement(tag); e.className = cls; e.innerHTML = html; root.appendChild(e); return e; };
   root.appendChild(canvas);
   document.body.appendChild(root);
-  const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true });
+  // relais (09/10, venu du portail) : une couche transparente posée sur le portail, préparée d'avance ; au toucher du
+  // jeu, elle prend son paquet là où il est et l'amène à sa place pendant que la carte du dessus se retourne sur la
+  // question (une seule scène dessine la carte : aucun fondu) ; au retour, elle le lui rend
+  const RELAY = !!opts.relay;
+  if (RELAY) root.style.background = 'transparent';
+  const gl = canvas.getContext('webgl2', { antialias: true, alpha: RELAY, premultipliedAlpha: true, depth: true });
   if (!gl) { root.remove(); return null; }
   const backEl = el('button', 'jeu-back', BACK_SVG); backEl.type = 'button'; backEl.setAttribute('aria-label', 'Retour');
   const shareEl = el('button', 'jeu-sign jeu-share', 'PARTAGER'); shareEl.type = 'button'; shareEl.setAttribute('aria-label', 'Partager cette question, pour la poser à quelqu’un');
@@ -63,9 +69,9 @@ export async function mountJeu(opts = {}) {
 
   let current = null, visible = true, started = false, kbPx = 0, firstAt = null, shareReady = false;
   const scene = await createCardScene(gl, { base, jeu: true, jeuWrite: answering, autoWrite: false, firstQ: opts.firstQ ?? null, noIntro: !!opts.noIntro,
-    placedV: opts.placedV || null, on: {
+    firstBack: RELAY ? ITEMS.find(x => x.id === 'jeu') : null, on: {
     draw: d => { current = d.id; const q = QUESTIONS.find(x => x.id === d.id)?.q;
-      if (firstAt == null) firstAt = now() + (opts.placedV ? 1.2 : 1.5) + 1.2 + 0.045 * (q || '').length;   // posée, puis le temps de la lire : PARTAGER
+      if (firstAt == null) firstAt = now() + 1.5 + 1.2 + 0.045 * (q || '').length;   // posée, puis le temps de la lire : PARTAGER
       if (q) say(q); ev(d.id, 'tiree'); },
     discard: d => { ev(d.id, 'passee'); if (answering) stopAnswering(); },
   } });
@@ -80,7 +86,8 @@ export async function mountJeu(opts = {}) {
     const dpr = dpr3d(), W = canvas.clientWidth || innerWidth, H = canvas.clientHeight || innerHeight;
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
     gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    if (RELAY) gl.clearColor(0, 0, 0, 0); else gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     scene.frame(t, dt, W, H);
     // PARTAGER : sous la carte, à une place fixe (la place de repos de la question, jamais attaché à la carte qui
     // bouge, 09/10) ; il vient en fondu une fois la première question lue (question partagée : sous la réponse, une
@@ -90,7 +97,7 @@ export async function mountJeu(opts = {}) {
     if (firstAt != null && t - firstAt > 0) shareReady = true;
     const mk = scene.marks();
     if (mk) shareEl.style.top = Math.min((answering ? mk.peekBottom : mk.deckBottom) + 14, kbPx > 40 ? H - kbPx - 54 : buyTop - 48) + 'px';
-    shareEl.classList.toggle('on', answering ? said : shareReady);
+    shareEl.classList.toggle('on', !going && (answering ? said : shareReady));
     const r = answering ? scene.activeRect() : null;
     if (answering && r) Object.assign(ta.style, { left: r.left + 'px', top: r.top + 'px', width: Math.max(1, r.right - r.left) + 'px', height: Math.max(1, r.bottom - r.top) + 'px' });
     buyEl.style.top = buyTop + 'px';
@@ -108,8 +115,22 @@ export async function mountJeu(opts = {}) {
     setTimeout(() => { backEl.classList.add('on'); buyEl.classList.add('on'); }, opts.hold ? 300 : 1200);
   }
   start();
-  if (opts.hold) scene.drawAt(opts.placedV ? now() : 1e9);
-  else reveal();
+  if (opts.hold || RELAY) scene.drawAt(1e9);
+  if (!opts.hold && !RELAY) reveal();
+  // relais : deux images pour tout préparer (shaders, textures), puis rien ne tourne jusqu'au toucher
+  if (RELAY) requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => { if (!taken) { visible = false; cancelAnimationFrame(raf); raf = 0; } })));
+  let taken = false, going = false;
+  const sceneCardW = () => CARD.w * (scene.layout.W || innerWidth) / (scene.layout.Ww || 1);
+  function takeOver() {
+    const d = opts.portal?.()?.deckScreen?.() || { x: innerWidth / 2, y: innerHeight * 0.75, w: sceneCardW() };
+    taken = true; going = false; visible = true; firstAt = null; shareReady = false;
+    for (const b of [backEl, buyEl, shareEl]) b.style.transition = '';
+    root.style.transition = 'none'; root.classList.add('on');
+    scene.relayIn(d.x, d.y, d.w / sceneCardW(), now());
+    last = 0; if (!raf) raf = requestAnimationFrame(frame);
+    requestAnimationFrame(() => opts.portal?.()?.giveDeck?.());          // le portail cesse de le dessiner
+    setTimeout(() => { if (!going) { backEl.classList.add('on'); buyEl.classList.add('on'); } }, 1500);
+  }
 
   // ---- gestes : comme les questions du poème ----
   let down = null;
@@ -117,6 +138,7 @@ export async function mountJeu(opts = {}) {
     // toucher : pas d'événements souris simulés derrière (leur « mousedown » retirait le focus du champ de la réponse :
     // le clavier ne s'ouvrait pas, on ne pouvait pas écrire)
     if (e.pointerType !== 'mouse') e.preventDefault();
+    if (scene.relaying() || going) { down = null; return; }
     down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, on: scene.hitAt(e.clientX, e.clientY) };
     scene.setPress(down.on); if (e.pointerType !== 'mouse') scene.setHover(down.on);
   });
@@ -192,6 +214,20 @@ export async function mountJeu(opts = {}) {
 
   function leave() {
     if (!visible) return;
+    if (RELAY) {
+      if (going || scene.relaying()) return;
+      // le retour : la question se retourne sur le paquet, qui redescend à la place du portail ; le portail, dessous,
+      // rembobine le reste en même temps, puis reprend son paquet
+      going = true; ta.blur();
+      for (const b of [backEl, buyEl, shareEl]) { b.style.transition = 'opacity .25s'; b.classList.remove('on'); }
+      const d = opts.portal?.()?.deckScreen?.() || { x: innerWidth / 2, y: innerHeight * 0.75, w: sceneCardW() };
+      scene.relayOut(d.x, d.y, d.w / sceneCardW(), now(), () => {
+        opts.onReturned?.();
+        requestAnimationFrame(() => requestAnimationFrame(() => { visible = false; root.classList.remove('on'); }));
+      });
+      opts.onBack?.();
+      return;
+    }
     // le portail, dessous, se rembobine pendant que la page s'efface
     visible = false; ta.blur(); vv?.removeEventListener('resize', onVV);
     root.style.transition = 'opacity .55s ease'; root.classList.remove('on');
@@ -202,5 +238,5 @@ export async function mountJeu(opts = {}) {
   addEventListener('keydown', function esc(e) { if (!document.body.contains(root)) { removeEventListener('keydown', esc); return; } if (visible && e.key === 'Escape') leave(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelAnimationFrame(raf); raf = 0; } else if (visible && !raf) { last = 0; raf = requestAnimationFrame(frame); } });
   window.__jeu = { scene, ta, now };          // essais
-  return { root, leave, reveal, scene, now };
+  return { root, leave, reveal, scene, now, takeOver, get on() { return taken && !going; } };
 }
