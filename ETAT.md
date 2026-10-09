@@ -312,3 +312,9 @@ Voir « Point de reprise » en tête de fichier.
 - (6) compteur anonyme (src/app/count.js) : **inactif** tant que `COUNTER = null` (compte GoatCounter à créer par Maxence).
 - (7) TEST-5-PERSONNES.md.
 - Vérifié (Chromium, GPU Intel ou sans 3D) : captures/enveloppe, captures/simple(-pc), captures/simple-check, tools/pages-check.mjs, tools/sr-check.mjs ; unitaires 45/45. **Non vérifié** : iPhone / Android réels, Instagram, e2e.
+
+## 09/10 — cachet et enveloppe (session dédiée)
+- Fait : lampe de l'enveloppe à la mesure de l'objet (1,3 × cartes, direction fixe en haut à gauche) — le dos est à ≈ 17 (papier des cartes ≈ 12) au lieu d'un gris plat à 26 ; cachet refait d'après deux références (empreinte décentrée, paroi raide, double filet, logo en relief, bourrelet rond) ; cire à pigment argenté (metal 0,4, diffusion, peau procédurale, bord translucide) ; un tirage différent par visite (`sealDraw`) ; toujours en maillage fin (`alwaysFine` : le maillage léger en faisait une pâte lisse) ; pose animée à partir de la pression (`sealForm`, 1,5 s) ; gros plan sur le cachet pendant la pose puis recul avant la bascule ; banc `cachet.html` (curseurs, nouveau tirage, rejouer la pose) ; `?enveloppe` dans scene-cartes = l'envoi seul.
+- Chiffres (Chromium, GPU Intel, 390×844) : cachet médiane ≈ 58, max ≈ 120–130 ; champ de l'email en fin d'envoi identique au pixel près à avant (`tools/env-shot.mjs`).
+- Non vérifié : iPhone / Safari, coût du maillage fin du cachet sur téléphone ancien (≈ 135² mailles × 2 faces, un seul objet).
+- Reste : images de la version simple (`enveloppe-dos.jpg` montre l'ancien cachet → `tools/simple-assets.mjs`) ; tampon plus réaliste ; enveloppe (léger bombé, plis arrondis avec ombre, épaisseur des bords) ; coulure de cire (référence).
