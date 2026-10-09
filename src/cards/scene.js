@@ -124,7 +124,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // la question esquisse d'elle-même le geste « glisser de côté » (deux fois au plus, quand on ne tape pas) ; une fois
   // une question passée, plus d'esquisse vers la suivante (08/10) : une seule fois, celle vers la précédente, et un
   // bout de la carte précédente se montre au bord gauche (backHint : 0 → 1 → 0)
-  let backHintDone = false, backHint = 0, peekQ = null;
+  let backHintDone = false, backHint = 0, peekQ = null, dragPeek = 0, peekAt = null;
   function hintX(t) {
     backHint = 0;
     if (!question || question.anim || mode !== 'q' || ended || dragging) return 0;
@@ -228,10 +228,11 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // une carte déjà vue revient de son côté (s = −1 : de la gauche, +1 : de la droite)
   function bringBack(t, k, s) {
     const e = seq[k]; cur = k;
-    let Q;
-    if (peekQ && peekQ.id === e.id) { Q = peekQ; peekQ = null; } else Q = inkQuestion(e.id, e.v);
+    let Q, fromPeek = null;
+    if (peekQ && peekQ.id === e.id) { Q = peekQ; fromPeek = peekAt; peekQ = null; dragPeek = 0; } else Q = inkQuestion(e.id, e.v);
     const rest = centerPose(e.v);
-    question = { ...Q, anim: 'return', t0: t, dur: RETURN_T, from: { ...rest, x: rest.x + s * (lay.Ww / 2 + CARD.w * 1.2), y: rest.y - 8, rz: rest.rz + s * 0.3 }, landedAt: t + RETURN_T };
+    // (09/10) déjà entrevue au bord gauche : elle repart de là où on la voyait
+    question = { ...Q, anim: 'return', t0: t, dur: RETURN_T, from: fromPeek || { ...rest, x: rest.x + s * (lay.Ww / 2 + CARD.w * 1.2), y: rest.y - 8, rz: rest.rz + s * 0.3 }, landedAt: t + RETURN_T };
     showAnswerOf(question);
     emit('draw', { id: question.id });
   }
@@ -508,14 +509,18 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
     for (const c of leaving) card.draw(vp, eye, P, { model: model(Gq, poseOf(c, t)), lod: 'fine', ink: c.ink, shade: dimQ, fade: fadeQ, ...c.v });
     // l'esquisse « revenir » : un bout de la carte précédente se montre au bord gauche
-    if (discards > 0 && hasPrev() && !backHintDone && mode === 'q' && !ended && question && !question.anim && !peekQ
-      && t - Math.max(question.landedAt, lastKeyT) > L.cornerDelay - 1) { const e = seq[cur - 1]; peekQ = inkQuestion(e.id, e.v); }
-    if (peekQ && (backHintDone || ended || !question || seq[cur - 1]?.id !== peekQ.id) && backHint <= 0) { card.freeInk(peekQ.ink); peekQ = null; }
-    if (peekQ && backHint > 0.001 && fadeQ > 0.01) {
+    // la précédente, prête d'avance (son encre) dès qu'elle existe : l'esquisse « revenir », et (09/10) quand on
+    // glisse la question vers la droite, elle revient un peu du bord gauche, avec le doigt — on comprend ce qui va arriver
+    if (hasPrev() && mode === 'q' && !ended && question && !question.anim && !peekQ && t - question.landedAt > 0.8) { const e = seq[cur - 1]; peekQ = inkQuestion(e.id, e.v); }
+    { const want = dragging && dragX > 0 && hasPrev() ? clamp01(dragX / (0.22 * lay.Ww)) : 0; dragPeek += (want - dragPeek) * Math.min(1, dt * 12); }
+    if (peekQ && (ended || !question || seq[cur - 1]?.id !== peekQ.id) && backHint <= 0 && dragPeek < 0.001) { card.freeInk(peekQ.ink); peekQ = null; }
+    if (peekQ && (backHint > 0.001 || dragPeek > 0.001) && fadeQ > 0.01) {
       const rest = centerPose(peekQ.v), off = { ...rest, x: rest.x - (lay.Ww / 2 + CARD.w * 1.2), y: rest.y - 8, rz: rest.rz - 0.3 };
       const show = { ...rest, x: -lay.Ww / 2 + 13 - CARD.w / 2, y: rest.y - 3, rz: rest.rz - 0.08 };
-      card.draw(vp, eye, P, { model: model(Gq, lerpPose(off, show, backHint)), lod: 'fine', ink: peekQ.ink, shade: dimQ, fade: fadeQ, ...peekQ.v });
-    }
+      const k = Math.max(backHint, dragPeek), to = dragPeek > backHint ? { ...show, x: show.x + 16 * dragPeek, rz: show.rz + 0.04 * dragPeek, z: (show.z || 0) - 1.5 } : show;   // (sous la question : pas de chevauchement)
+      peekAt = lerpPose(off, to, k);
+      card.draw(vp, eye, P, { model: model(Gq, peekAt), lod: 'fine', ink: peekQ.ink, shade: dimQ, fade: fadeQ, ...peekQ.v });
+    } else peekAt = null;
     if (question && fadeQ > 0.01) {
       // coin supérieur droit légèrement corné (09/10) : tant qu'aucune question n'a été passée, seulement après les deux
       // esquisses « suivante » (hintX : à cornerDelay puis + 7 s, sans frappe entre-temps) ; une fois une question
