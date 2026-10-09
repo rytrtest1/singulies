@@ -11,7 +11,8 @@ import { createRng } from '../field/rng.js';
 import QUESTIONS from '../cards/questions.json';
 import { dpr3d } from '../app/perf.js';
 
-export const JEU_LINK = null;                     // page d'achat du jeu (null = « bientôt »)
+import { JEU_LINK } from '../portal/items.js';   // page d'achat du jeu (null = « bientôt ») — partagé avec la version simple
+export { JEU_LINK };
 const BUY = 'commander';                      // (09/10 : « commander », puis la page de l'objet, puis PAYER)
 const FOV = 26 * Math.PI / 180, TILT = 0.22, TF = Math.tan(FOV / 2);
 const STACK = 12, PITCH = 0.15;

@@ -76,7 +76,92 @@
     return c.toDataURL('image/jpeg', 0.9);
   }
 
+  // ---- la version simple (09/10, sans WebGL chez le visiteur) : les objets du site rendus une fois, en images ----
+  // vue de face (sans inclinaison : les champs et les lettres posés par-dessus tombent juste), même lampe rasante.
+  // Chaque image : l'objet occupe `frac` de la largeur, centré ; le reste est le fond du site (6).
+  const { SHEET, LOGO_Y, LOGO_K } = await import('./src/sheet/sheet.js');
+  const EV = await import('./src/sheet/envelope.js');
+  function view(W, H, objW, frac) {
+    canvas.width = W; canvas.height = H;
+    const pxmm = W * frac / objW, Hw = H / pxmm, D = Hw / (2 * Math.tan(FOV / 2));
+    const eye = [0, -D * Math.sin(0.04), D * Math.cos(0.04)];
+    const vp = M4.mul(M4.perspective(FOV, W / H, D * 0.3, D * 3), M4.lookAt(eye, [0, 0, 0], [0, 1, 0]));
+    const k = Hw / 235, kf = objW > 120 ? 2.2 : 1, R = L.lightR0 * Hw * kf, Z = L.lightZ * k * kf, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R);
+    const az = L.lightAz + 0.35, el = L.elBase;
+    const P = { ...L, lightPos: [Math.cos(az) * D0 * Math.cos(el), Math.sin(az) * D0 * Math.cos(el), D0 * Math.sin(el)],
+      light: L.light * k * k * kf * kf * Math.sin(el0) / Math.sin(el), spotI: 0 };
+    gl.viewport(0, 0, W, H);
+    gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    return { vp, eye, P, pxmm };
+  }
+  const grab = (type = 'image/jpeg') => { gl.finish(); return canvas.toDataURL(type, 0.88); };
+  const CW = 900, CH = 550, CF = 0.86;                       // cartes : même cadrage que les images de l'email (720 × 440)
+  // une carte : face 'recto' (logo en creux, encre) ou 'dos' (logo gaufré) ; text : tapé dessus ; noLogo
+  function cardImg({ face = 'recto', text = '', noLogo = false, seed = 1 } = {}) {
+    const { vp, eye, P } = view(CW, CH, CARD.w, CF);
+    const ink = text ? card.makeInk(makeInkMap(text, seed).canvas) : null;
+    const v = { seed: seed % 97, paperXf: [0.6, -0.4, 0, 0], warp: [0.18, -0.08, 0.04], logoOff: [0, 0], noLogo };
+    if (face === 'recto') card.draw(vp, eye, P, { model: M4.model(0, Math.PI, 0.004), lod: 'fine', ink, ...v });
+    else card.draw(vp, eye, P, { model: M4.model(0, 0, -0.004), lod: 'fine', inkBack: ink, ...v });
+    const url = grab(); if (ink) card.freeInk(ink); return url;
+  }
+  function sheetImg() {
+    card.addShape('sheet', { ...SHEET, fine: [10, 10, 0.25, 0, LOGO_Y] });
+    const { vp, eye, P } = view(800, 1100, SHEET.w, 0.92);
+    card.draw(vp, eye, P, { model: M4.model(0, 0, 0), lod: 'sheet', seed: 41, paperXf: [1.2, -0.6, 0, 0], warp: [0.45, -0.25, 0.05],
+      logoOff: [0, LOGO_Y], logoScale: [LOGO_K, LOGO_K], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35 });
+    return grab();
+  }
+  const envBase = { seed: 23, paperXf: [0.4, -0.3, 0, 0], warp: [0.1, -0.04, 0], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35, noLogo: true };
+  function envFrontImg() {
+    card.addShape('env', { ...EV.ENV, fine: null });
+    const { vp, eye, P } = view(1000, 760, EV.ENV.w, 0.9);
+    card.draw(vp, eye, { ...P, inkAlb: 0.75, inkPaper: 4, inkVar: 0.3 }, { model: M4.model(0, Math.PI, 0), lod: 'env', ...envBase });
+    return grab();
+  }
+  // le dos, rabat fermé, cachet de cire argenté sur la pointe
+  function envBackImg() {
+    const E = EV;
+    card.addShape('env', { ...E.ENV, fine: null });
+    card.addShape('envBack', { ...E.ENV, h: E.ENV_BACK_H, fine: null });
+    card.addShape('flap', { ...E.ENV, h: E.FLAP_H, fine: null });
+    card.addShape('botFlap', { ...E.ENV, fine: null });
+    card.addShape('seal', { w: E.SEAL_D, h: E.SEAL_D, r: E.SEAL_D / 2, t: 0.2, fine: [E.SEAL_D / 2 + 1, E.SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: E.SEAL_WOB });
+    const { vp, eye, P } = view(1000, 760, E.ENV.w, 0.9);
+    const T = (x, y, z) => M4.model(0, 0, 0, x, y, z), Me = M4.model(0, 0, 0);
+    card.draw(vp, eye, P, { model: Me, lod: 'env', ...envBase });
+    card.draw(vp, eye, P, { model: M4.mul(Me, T(0, -(E.ENV.h - E.ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...envBase, seed: 31 });
+    card.draw(vp, eye, P, { model: M4.mul(Me, T(0, 0, 1.74)), lod: 'botFlap', ...envBase, seed: 37, clip: [1, -E.ENV.h / 2, E.ENV.h * 0.58, E.ENV.w / 2] });
+    const Mf = M4.mul(Me, M4.mul(M4.mul(T(0, E.ENV.h / 2, 1.9), M4.model(Math.PI, 0, 0)), T(0, E.FLAP_H / 2, 0)));
+    card.draw(vp, eye, P, { model: Mf, lod: 'flap', ...envBase, seed: 43, clip: [1, -E.FLAP_H / 2, E.FLAP_H, E.ENV.w / 2] });
+    const SEAL_LOOK = { albedo: 0.1, rough: 0.34, spec: 6, sheen: 0.2, glint: 0.7, grain: 0.35, fiber: 0, envSpec: 2.6, h: 0.42, b: 0.5, foot: 0.5, footW: 0.12, crease: 0.2, edge: 0, diffRough: 0.35 };
+    const Ms = M4.mul(Mf, T(0, E.FLAP_H / 2 - 7, -0.19));
+    card.draw(vp, eye, { ...P, ...SEAL_LOOK }, { model: Ms, lod: 'seal', seed: 7, paperXf: [0, 0, 0, 0], paperLo: 0.15, logoOff: [0, 0],
+      logoScale: [E.SEAL_K, -E.SEAL_K], warp: [0, 0, 0], seal: [1, E.SEAL_IN, E.SEAL_D / 2, E.SEAL_WOB] });
+    return grab();
+  }
+  async function simple() {
+    const out = [];
+    out.push(['dos.jpg', cardImg({ face: 'dos', seed: 3 })]);
+    out.push(['vierge.jpg', cardImg({ face: 'recto', noLogo: true, seed: 5 })]);
+    out.push(['bientot.jpg', cardImg({ face: 'dos', text: 'bientôt', seed: 77 })]);
+    const { ITEMS } = await import('./src/portal/items.js');
+    for (const it of ITEMS) out.push(['portail-' + it.id + '.jpg', cardImg({ face: 'recto', text: it.label, seed: 100 + it.id.length * 7 })]);
+    out.push(['commander.jpg', cardImg({ face: 'recto', text: 'commander', seed: 5 })]);
+    out.push(['feuille.jpg', sheetImg()]);
+    out.push(['enveloppe.jpg', envFrontImg()]);
+    out.push(['enveloppe-dos.jpg', envBackImg()]);
+    // le coup de tampon blanc (fond transparent) : posé par-dessus l'enveloppe, incliné au hasard par la page
+    { const PX = 12, S = Math.ceil(2 * (EV.STAMP.r + 1.5) * PX), c = document.createElement('canvas'); c.width = c.height = S;
+      EV.stampInk(c.getContext('2d'), PX, card.logoMask(), S / 2 / PX, S / 2 / PX, 0, 12345);
+      out.push(['tampon.png', c.toDataURL('image/png')]); }
+    canvas.width = 720; canvas.height = 440;
+    return out;
+  }
+
   window.__assets = {
+    simple,
     og: ogShot,
     questions: QUESTIONS.map(q => q.id),
     card: id => cardShot(QUESTIONS.find(q => q.id === id).q, { seed: 1000 + id }),

@@ -16,14 +16,9 @@ import { LOOK } from '../cards/scene.js';
 import { createRng } from '../field/rng.js';
 import { dpr3d } from '../app/perf.js';
 
-// liens de sortie : null = lien d'attente (« bientôt »)
-export const LINKS = { lettre: null, livres: 'https://www.amazon.fr/dp/B0DS8RF83H', jeu: null };
-const ITEMS = [
-  { id: 'poeme', label: 'ton prénom ton poème, par la poste' },
-  { id: 'lettre', label: 'une lettre chez toi, chaque mois' },
-  { id: 'livres', label: 'mes livres' },
-  { id: 'jeu', label: 'le jeu' },
-];
+// les cartes et leurs liens (null = lien d'attente : « bientôt ») : items.js, partagé avec la version simple
+import { LINKS, ITEMS } from './items.js';
+export { LINKS };
 const JEU = 3;
 const SIG = 'ETERNEL';
 // mêmes valeurs que la scène des cartes

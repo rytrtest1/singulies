@@ -118,7 +118,7 @@ export function senderInk(seed, n) {
   return { canvas: cv, x: Math.round(S_BOX.x * PX), y: Math.round(S_BOX.y * PX) };
 }
 // un coup de tampon : encre blanche inégale (appui plus fort d'un côté, manques, grain du papier qui ne prend pas)
-function stampInk(cx, PX, mask, x, y, rot, seed) {
+export function stampInk(cx, PX, mask, x, y, rot, seed) {
   const r = createRng(seed >>> 0), S = Math.ceil(2 * (STAMP.r + 1.5) * PX), c = new OffscreenCanvas(S, S), g = c.getContext('2d');
   g.translate(S / 2, S / 2);
   g.strokeStyle = '#fff'; g.lineWidth = 0.55 * PX;

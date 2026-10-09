@@ -1,0 +1,46 @@
+// La version simple, de bout en bout, sans WebGL (navigateur sans 3D) : portail → prénom → cartes → feuille →
+// enveloppe → email → COMMANDER. node tools/simple-shot.mjs [pc] → captures/simple/*.png (aucun envoi : &envoi=0)
+import { createServer } from 'vite';
+import { chromium } from 'playwright';
+import { mkdirSync } from 'fs';
+const PORT = 5192, pc = process.argv[2] === 'pc';
+const server = await createServer({ server: { port: PORT, strictPort: true, host: 'localhost' }, logLevel: 'error' });
+await server.listen();
+const browser = await chromium.launch({ headless: true, args: ['--disable-3d-apis'] });
+const dir = 'captures/simple' + (pc ? '-pc' : '');
+mkdirSync(dir, { recursive: true });
+const ctx = await browser.newContext(pc ? { viewport: { width: 1280, height: 800 } } : { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+const page = await ctx.newPage();
+const errs = [];
+page.on('pageerror', e => errs.push(String(e)));
+page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
+const sleep = ms => page.waitForTimeout(ms);
+const shot = n => page.screenshot({ path: `${dir}/${n}.png` });
+await page.goto(`http://localhost:${PORT}/?envoi=0`);
+await page.evaluate(() => { window.__ev = []; for (const k of ['singulies:card-chosen', 'singulies:order', 'singulies:address']) addEventListener(k, e => window.__ev.push([k, e.detail])); });
+await sleep(3500); await shot('1-portail');
+await page.click('button[aria-label^="ton prénom ton poème"]');
+await sleep(2500); await shot('2-champ');
+await page.mouse.click(pc ? 640 : 195, pc ? 400 : 422);
+await page.keyboard.type('Clémence-Rose'); await sleep(800); await shot('3-prenom');
+await page.keyboard.press('Enter'); await sleep(300); await page.keyboard.press('Enter');
+await sleep(4500); await shot('4-cartes');
+await page.click('.sp-write'); await page.keyboard.type('le bord de mer en hiver'); await sleep(600); await shot('5-reponse');
+await page.keyboard.press('Enter');
+await sleep(2200); await shot('6-feuille-a');
+await sleep(4500); await shot('7-feuille-b');
+await page.waitForFunction(() => [...document.querySelectorAll('.sp-field')].some(f => f.style.display !== 'none' && f.offsetParent), null, { timeout: 30000 });
+await sleep(800); await shot('8-enveloppe');
+const fill = async (n, v) => { const f = await page.$(`.sp-field[name="${n}"]`); await f.click(); await f.type(v); };
+await fill('name', 'Clémence Martin'); await fill('address-line1', '3 rue Haute'); await fill('address-level2', 'Paris'); await fill('postal-code', '75011');
+await sleep(700); await shot('9-champs');
+await page.click('.sp-sign.on >> text=POSTER');
+for (const [n, ms] of [['10-tampon', 700], ['11-recul', 1100], ['12-dos', 1500], ['13-tranche', 1500]]) { await sleep(ms); await shot(n); }
+await sleep(1800); await shot('14-email-vide');
+await page.fill('.sp-mail input', 'clemence@exemple.fr'); await sleep(400); await shot('15-email');
+await page.click('.sp-sign.on >> text=COMMANDER');
+await sleep(1200);
+const ev = await page.evaluate(() => window.__ev.map(([k, d]) => [k, JSON.stringify(d).slice(0, 220)]));
+console.log(JSON.stringify(ev, null, 1));
+console.log('erreurs', errs);
+await browser.close(); await server.close();

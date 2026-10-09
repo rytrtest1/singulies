@@ -17,7 +17,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - `SINGULIÉS — mouvement.html` : prototype Canvas 2D (= « mon-rendu/singulies-mouvement.html »). Fixe comportement + look ; réécrire en WebGL2, ne pas copier. Ne jamais lire `plus-tard/`.
 
 ## Stack
-- Vite + JS sans framework, un canvas, **WebGL2 uniquement**. Pas de repli de rendu : sans WebGL2 → écran noir, saisie + validation fonctionnelles, pas d'animation.
+- Vite + JS sans framework, un canvas, **WebGL2**. **Version simple (09/10, `src/simple/simple.js`)** : tout le parcours sans WebGL (portail, champ de prénoms à plat, cartes, feuille, enveloppe, email, jeu), **activée seulement quand nécessaire, scène par scène** (pas de WebGL2, ou une scène 3D qui échoue ; si le vrai champ marche, on le garde) ; mêmes mots, même ordre, mêmes gestes ; objets = images rendues par le moteur (`tools/simple-assets.mjs` → `public/simple/`, cartes de l'email) ; mouvement en CSS. `?simple=1` (tout) / `?simple=suite` (vrai champ puis suite simple). Essais : `tools/simple-shot.mjs [pc]`, `tools/simple-check.mjs`. Toute évolution du parcours 3D doit être reportée dans la version simple.
 - Aucune dépendance sans gain mesuré (tiny-sdf ou EDT maison autorisé).
 - Police EB Garamond ou Cormorant Garamond en local + licence OFL. **Zéro appel réseau à l'exécution.**
 - Node local = 18.16 → Vite 5.x (Vite 6+ exige Node 20).

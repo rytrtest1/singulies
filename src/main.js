@@ -20,6 +20,10 @@ import { fpsMeter } from './app/perf.js';
 const transRng = createRng();
 
 const P = new URLSearchParams(location.search);
+// la version simple (09/10) : tout le parcours sans WebGL, quand il le faut (src/simple/simple.js) ;
+// ?simple=1 : tout en simple ; ?simple=suite : le vrai champ de prénoms, puis la suite en simple
+const SIMPLE = P.get('simple') === '1' ? 'all' : P.get('simple') === 'suite' ? 'suite' : null;
+const simpleModule = () => import('./simple/simple.js');
 const CFG = {
   caseMode: P.get('case') === 'lower' ? 'lower' : 'upper',
   grain: P.get('grain') === '0' ? 0 : P.get('grain') === '1' ? 2 : 1,   // 0 noir pur, 1 fond uni (défaut), 2 grain
@@ -201,6 +205,7 @@ function prefetchCards() {
 // textures et compilation des shaders (seul moment lourd) quand le prénom est seul et immobile : sans à-coup visible
 function loadCards(name) {
   if (cards) return;
+  if (SIMPLE) { cards = Promise.resolve(); cardsReady = 'failed'; why('cartes : version simple demandée'); return; }
   prefetchCards();
   cards = cardsModule.then(({ mountCards }) => mountCards({
     name, base: './', onExit: exitCards, hidden: true,
@@ -261,7 +266,14 @@ function enterBlack(restored) {
   S.phase = 'black'; S.phaseAt = S.t;
   backEl.classList.add('on');
   emitValidated(S.validatedName, restored);
-  if (cardsReady === 'failed' || !gl) noCards();     // (sans WebGL2 ici, les cartes ne s'afficheront pas non plus)
+  if (cardsReady === 'failed' || !gl) startSimple();   // (sans WebGL2 ici, les cartes ne s'afficheront pas non plus)
+}
+// la suite en version simple (cartes, feuille, enveloppe, email) ; si même elle échoue : la porte Instagram
+function startSimple() {
+  names2d?.stop(); names2d = null;
+  fallbackEl.style.display = 'none'; backEl.classList.remove('on');
+  simpleModule().then(m => m.mountSimpleFlow({ name: S.validatedName.toUpperCase(), onDone: backToStart, onExit: exitCards }))
+    .catch(e => { console.error(e); why('version simple : ' + (e && e.message)); noCards(); });
 }
 // pourquoi la suite ne s'affiche pas : ?diag=1 l'écrit en petit sous le message (téléphone, sans console)
 const whyList = [];
@@ -343,10 +355,16 @@ window.addEventListener('resize', measure);
 window.visualViewport?.addEventListener('resize', measure);
 
 // ---------- repli sans WebGL2 : noir, saisie et validation fonctionnelles ----------
-let gl = null, renderer = null, atlas = null, field = null;
+let gl = null, renderer = null, atlas = null, field = null, names2d = null;
 function renderFallback() {
   if (renderer) return;
   fallbackEl.textContent = S.phase === 'input' ? displayCase(bridge.shownText, CFG.caseMode) : '';
+  // sans WebGL2 aussi : un curseur qui respire tant que rien n'est tapé, et la zone du prénom qu'on touche (clavier,
+  // puis la suite) — sinon, sur téléphone, le clavier ne pouvait pas s'ouvrir
+  fallbackEl.classList.toggle('cur', S.phase === 'input' && !S.typed);
+  const r = fallbackEl.getBoundingClientRect(), cx = innerWidth / 2, cy = innerHeight / 2;
+  S.nameBox = r.width > 4 ? [Math.min(r.left, cx - 90) - 30, r.top - 40, Math.max(r.right, cx + 90) + 30, r.bottom + 40]
+    : [cx - Math.max(80, 0.2 * innerWidth), cy - 60, cx + Math.max(80, 0.2 * innerWidth), cy + 60];
 }
 
 // ---------- parallaxe : translation de caméra, ressort amorti (≈ 0,8 s de retard) ----------
@@ -460,7 +478,7 @@ function frame(ts) {
     if (T >= plan.tEnd) loadCards(S.validatedName.toUpperCase());   // tout est arrivé, le champ est éteint
     const restAt = plan.tEnd + (CFG.reduced ? 0.1 : REST);
     if (S.riseT == null && T >= restAt) {
-      if (cardsReady === 'failed') { S.trans = null; plan = null; validate(); }    // pas de cartes : fondu au noir
+      if (cardsReady === 'failed') { S.trans = null; plan = null; validate(); return; }   // pas de cartes : la version simple (image suivante)
       else if (cardsReady) { S.riseT = S.t; S.targets = cardsReady.nameTargets(S.w, S.h); }
     }
     const rise = CFG.reduced ? 0.9 : RISE;
@@ -643,18 +661,24 @@ function toPortal() {
 }
 // « le jeu » : sa page par-dessus le portail (qui s'arrête une fois couvert) ; retour = le portail, qui redistribue
 function openJeu() {
-  import('./jeu/jeu.js').then(({ mountJeu }) => mountJeu({ base: './', reduced: CFG.reduced, onBack: () => portal?.show() }))
+  const simple = () => simpleModule().then(m => m.mountSimpleJeu({ onBack: () => portal?.show() }));
+  import('./jeu/jeu.js').then(({ mountJeu }) => SIMPLE === 'all' ? null : mountJeu({ base: './', reduced: CFG.reduced, onBack: () => portal?.show() }))
+    .then(j => j || simple())                                    // sans WebGL2 : le jeu en version simple
+    .catch(e => { console.warn('jeu', e); return simple(); })
     .then(j => { if (j) setTimeout(() => portal?.hide(), 1000); })
-    .catch(e => console.warn('jeu', e));
+    .catch(e => console.warn('jeu simple', e));
 }
 function mountPortalPage() {
   S.portal = true;
   const go = new Promise(res => { portalGo = res; });
   const ready = new Promise(res => {
     import('./portal/portal.js')
-      .then(({ mountPortal }) => mountPortal({ base: './', reduced: CFG.reduced, onReady: res, onPoem: enterFromPortal, onJeu: openJeu }))
-      .then(p => { portal = p; if (!p) { why('portail : pas de WebGL2'); S.portal = false; portalGo(); res(); } })
-      .catch(e => { console.warn('portail', e); why('portail : ' + (e && e.message || e)); document.getElementById('portal')?.remove(); S.portal = false; portalGo(); res(); });
+      .then(({ mountPortal }) => SIMPLE === 'all' ? null : mountPortal({ base: './', reduced: CFG.reduced, onReady: res, onPoem: enterFromPortal, onJeu: openJeu }))
+      .catch(e => { console.warn('portail', e); why('portail : ' + (e && e.message || e)); document.getElementById('portal')?.remove(); return null; })
+      // sans WebGL2 (ou le portail en échec) : le portail en version simple — mêmes cartes, mêmes gestes
+      .then(p => p || (why('portail : version simple'), simpleModule().then(m => m.mountSimplePortal({ onReady: res, onPoem: enterFromPortal, onJeu: openJeu }))))
+      .then(p => { portal = p; })
+      .catch(e => { console.warn('portail simple', e); S.portal = false; portalGo(); res(); });
   });
   return { go, ready };
 }
@@ -685,10 +709,12 @@ async function boot() {
     document.fonts.add(await ff.load());
   } catch (e) { console.warn('police', e); }
 
-  gl = getGL(canvas);
+  gl = SIMPLE === 'all' ? null : getGL(canvas);
   if (!gl) {
+    // sans WebGL2 : le prénom en clair au centre, et les prénoms du champ dessinés à plat derrière (version simple)
     fallbackEl.style.display = 'block';
     renderFallback();
+    simpleModule().then(m => { if (S.phase === 'input') names2d = m.startNames2D(canvas, () => bridge.shownText); }).catch(e => console.warn('champ simple', e));
   } else {
     atlas = buildAtlas('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', `"${FONT_FAMILY}", serif`, 500);
     metrics = { adv: (ch) => atlas.glyphs[ch]?.adv ?? 0.6, capHeight: atlas.capHeight };
