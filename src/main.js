@@ -348,7 +348,10 @@ input.addEventListener('blur', () => {
     blurGo = 0;
     if (document.hidden || !document.hasFocus() || document.activeElement === input || S.portal || S.phase !== 'input' || S.trans != null) return;
     if (bridge.composing) return;
-    startTransition();
+    // (09/10) jamais avant que la dernière lettre du champ se soit allumée : sinon trop rapide
+    const go = () => { if (S.portal || S.phase !== 'input' || S.trans != null || document.activeElement === input) return;
+      if (renderer && S.t < light.litAt()) { blurGo = setTimeout(go, 150); return; } blurGo = 0; startTransition(); };
+    go();
   }, 1000);
 });
 
