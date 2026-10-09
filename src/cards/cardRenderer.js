@@ -108,16 +108,16 @@ float sealH(vec2 p) {
   float r = length(p), a = atan(p.y, p.x);
   float Re = uSeal.z * (1.0 + uSeal.w * sealWob(a));
   float Ri = uSeal.y, Rc = mix(Ri, Re, 0.42);                 // bord de l'empreinte, crête du bourrelet
-  float hd = 1.05, hc = 2.9 * (1.0 + 0.04 * sin(4.0 * a + 1.1) + 0.02 * sin(9.0 * a + 0.3));
+  float hd = 0.55, hc = 1.5 * (1.0 + 0.04 * sin(4.0 * a + 1.1) + 0.02 * sin(9.0 * a + 0.3));
   float h;
   if (r < Rc) h = hd + (hc - hd) * smoothstep(Ri - 0.5, Rc, r);
   else { float u = clamp((r - Rc) / max(0.5, Re - Rc), 0.0, 1.0); h = hc * sqrt(1.0 - u * u); }
   // le cercle gravé du sceau laisse un fin anneau en relief au bord de l'empreinte
-  float ring = 0.13 * exp(-pow((r - (Ri - 0.9)) / 0.2, 2.0));
+  float ring = 0.08 * exp(-pow((r - (Ri - 0.9)) / 0.2, 2.0));
   // la cire n'est pas lisse : fines ondulations et quelques petites piqûres sur le bourrelet
   float rim = smoothstep(Ri, Rc, r) * step(r, Re);
-  float pits = rim * (0.025 * sin(a * 31.0 + r * 4.1) * sin(a * 19.0 - r * 6.7)
-    - 0.05 * pow(max(0.0, sin(a * 13.0 + r * 2.3) * sin(a * 8.0 - r * 3.9)), 12.0));
+  float pits = rim * (0.015 * sin(a * 31.0 + r * 4.1) * sin(a * 19.0 - r * 6.7)
+    - 0.03 * pow(max(0.0, sin(a * 13.0 + r * 2.3) * sin(a * 8.0 - r * 3.9)), 12.0));
   return h + ring + pits;
 }
 `;
@@ -490,7 +490,7 @@ void main() {
       vec2 Lp = vec2(dot(L, T), dot(L, Bv)); float lp = length(Lp);
       vec2 c = uAO.xy - (lp > 1e-3 ? Lp / lp : vec2(0.0)) * 1.4 * lp / max(dot(L, Ng), 0.2);
       float dd = max(0.0, length(p - c) - uAO.z);
-      float ao = 1.0 - uAO.w * exp(-dd / 1.8);
+      float ao = 1.0 - uAO.w * exp(-dd / 0.9);
       sh *= ao; amb *= mix(1.0, ao, 0.8);
     }
     // projecteur : éclaire la carte active (l'encre surtout, le papier reste sombre), cône à bord doux
@@ -506,6 +506,7 @@ void main() {
     spec *= 1.0 + 2.5 * rim;
     col = vec3((alb * irr * diff + irr * NL * sh * (spec + sheen + glint) + amb) * crease);
   }
+  if (uSeal.x > 0.5 && vFace == 0) col *= 0.12;           // cachet : sa face cachée (contre le papier) ne se voit qu'au bord, dans l'ombre
   col *= uExposure * uShade;
   // courbe « photo » : pied qui écrase les noirs (papier presque noir), hautes lumières intactes
   col = max(col - uToe, 0.0) / (1.0 - uToe);

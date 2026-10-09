@@ -94,11 +94,12 @@ export function createSheetScene(gl, opts) {
   const envV = { front: pv(), back: pv(), flap: { ...pv(), noLogo: true, warp: [0, 0, 0] } };
   // matière du cachet : métal argenté (diffus faible, reflet serré, la pièce s'y reflète), logo frappé profond ;
   // face 1 vers l'extérieur (rabat fermé, retourné) : logo en creux, remis à l'endroit (échelle y négative) ; bombé
-  const sealV = { seed: rnd() * 100, paperXf: [0, 0, 0, 0], paperLo: 0.15, logoOff: [0, 0], logoScale: [SEAL_K, -SEAL_K], warp: [0, 0, 0],
+  const sealV = { seed: rnd() * 100, paperXf: [0, 0, 0, 0], paperLo: 0.7,   // la cire : grain et marbrure (photo du papier, 09/10)
+    logoOff: [0, 0], logoScale: [SEAL_K, -SEAL_K], warp: [0, 0, 0],
     seal: [1, SEAL_IN, SEAL_D / 2, SEAL_WOB] };
   // cire argentée (référence du 09/10) : argent satiné, clair, presque mat — reflet large et doux, fines paillettes ;
   // logo en relief arrondi
-  const SEAL_LOOK = { albedo: 0.5, env: 0.16, rough: 0.4, spec: 12, sheen: 0.3, glint: 0.35, grain: 0.2, fiber: 0, envSpec: 2.2, h: 0.32, b: 0.32, foot: 0.35, footW: 0.12, crease: 0.12, edge: 0, diffRough: 0.4 };
+  const SEAL_LOOK = { albedo: 0.3, env: 0.18, rough: 0.45, spec: 9, sheen: 0.25, glint: 0.5, grain: 1.1, fiber: 0.035, envSpec: 1.8, h: 0.24, b: 0.28, foot: 0.35, footW: 0.12, crease: 0.12, edge: 0, diffRough: 0.5 };
   const botV = { ...pv(), noLogo: true, warp: [0, 0, 0] };
 
   const sheetV = {
@@ -524,7 +525,7 @@ export function createSheetScene(gl, opts) {
     gl.enable(gl.DEPTH_TEST);
     if (Menv && envFade > 0.004) {
       // le cachet posé : son ombre de contact sur ce qu'il recouvre (rabat, dos, rabat du bas ; repère de chacun)
-      const uSe0 = P_LOGO ? span(PO.seal, pp) : 0, aoK = 0.7 * sstep(0.6, 1, uSe0), sy = ENV.h / 2 - FLAP_H + 7;
+      const uSe0 = P_LOGO ? span(PO.seal, pp) : 0, aoK = 0.25 * sstep(0.6, 1, uSe0), sy = ENV.h / 2 - FLAP_H + 7;
       const aoOf = y => aoK > 0 ? [0, y, SEAL_D / 2, aoK] : null;
       card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy + (ENV.h - ENV_BACK_H) / 2) });
       card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', fade: envFade, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2], ao: aoOf(sy) });
