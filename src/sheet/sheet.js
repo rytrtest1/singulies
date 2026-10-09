@@ -99,7 +99,7 @@ export function createSheetScene(gl, opts) {
     seal: [1, SEAL_IN, SEAL_D / 2, SEAL_WOB] };
   // cire argentée (référence du 09/10) : argent satiné, clair, presque mat — reflet large et doux, fines paillettes ;
   // logo en relief arrondi
-  const SEAL_LOOK = { metal: 1, albedo: 0.1, env: 0.092, rough: 0.36, spec: 4, sheen: 0, glint: 1.2, grain: 1.2, fiber: 0.02, envSpec: 1.6, h: 0.18, b: 0.35, foot: 0.4, footW: 0.12, crease: 0.3, edge: 0, diffRough: 0.3 };
+  const SEAL_LOOK = { metal: 1, albedo: 0.045, env: 0.028, rough: 0.36, spec: 1.5, sheen: 0, glint: 1.2, grain: 1.2, fiber: 0.02, envSpec: 1.6, h: 0.18, b: 0.35, foot: 0.4, footW: 0.12, crease: 0.3, edge: 0, diffRough: 0.3 };
   // forme du cachet et ce qui l'entoure (réglables : scene-cartes.html?cachet&reponse=…, panneau « cachet »)
   const SEAL_SHAPE = { hd: 0.5, hc: 1.2, crest: 0.5, ring: 0.06, pits: 0.9, cavWall: 0.7, cavEdge: 0.5, ao: 0.18, aoW: 0.8, marbre: 0.8, envAz: +(new URLSearchParams(location.search).get('lampeAz') ?? -0.8),   // en haut à gauche : le relief se lit bombé (09/10)
     lamp: ENV_LAMP, zoom: 1, camDy: 0, rotX: 0, rotY: 0, lampAz: NaN, lampEl: NaN };
