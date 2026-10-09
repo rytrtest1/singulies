@@ -243,3 +243,11 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 
 ## Fin de phase
 Test sans consigne : 5 personnes sur mobile. Comprennent-elles qu'il faut écrire ? Si non, on en reparle avant d'ajouter quoi que ce soit.
+
+## Retours du 09/10 (fin de matinée)
+- Retour du jeu : le paquet reste à la place du portail jusqu'à ce que la couche soit vidée (plus de carte droite qui clignote). Tirage : le paquet est d'abord un cran plus bas (la carte tirée et la nouvelle carte du dessus se confondaient une image). Essai : `tools/frame-diff.mjs`.
+- Question partagée : le champ est posé sur la carte réponse et reçoit le toucher (comme les questions du poème).
+- Invitations des cartes réponse / blanche **centrées**, curseur devant.
+- Feuille : la face où la réponse est tapée reste **lisse, sans logo** ; le logo en relief de l'autre côté (bascule quand la carte est vue par la tranche, `uLogoK`). Essai : `tools/two-face-shot.mjs`.
+- Tampon : secousse allégée, encre plus proche de l'écriture tapée.
+- **Mode test `?test=1`** (et `?adresse=0`) : avant TERMINER, « combien serais-tu prêt à payer pour l'original du poème écrit à la main ? » et « d'autres retours ? » ; réponses dans `contact_html` de la demande (pas dans le récapitulatif de la personne). Essai : `tools/beta-check.mjs` ; retours à chaque étape : `tools/back-check.mjs`.

@@ -161,6 +161,9 @@ uniform vec2 uFoldZ;
 uniform vec3 uCurl;          // coin corné : sens du coin (x, y : ±1, repère de la carte), soulèvement (mm, signé)
 uniform sampler2D uLogo;
 uniform float uLogoSq, uLogoRange, uH, uB, uFoot, uFootW, uNoLogo;
+// carte à deux faces de la feuille (09/10) : 0 = gaufrage réel (bosse au dos, creux au recto) ; 1 = dos lisse (la
+// réponse y est tapée, sans logo) et logo en relief au recto ; entre les deux pendant le retournement (vue par la tranche)
+uniform float uLogoK;
 uniform vec2 uLogoOff, uLogoScale;
 // cachet de cire (08/10) : (actif, rayon de l'empreinte du sceau, rayon de la cire, ondulation du bord) — la face 1 bombe
 // vers l'extérieur : empreinte plate, bourrelet de cire chassée autour, puis la cire retombe en ménisque jusqu'au bord
@@ -200,9 +203,6 @@ void main() {
       z += A * a2 * b2; dzx += A * (-2.0 * pu / 114.5) * b2; dzy += A * a2 * (-2.0 * pv / 81.0) * uPillow.z;
     }
   }
-  int f = int(aFace + 0.5);
-  if (uSeal.x > 0.5 && f == 1) {
-    float e = 0.12, h0 = sealH(aPos.xy);
   if (uFoldZ.x > 0.0) {
     // distance au bord de l'enveloppe ; le dos plonge vers la face en quart de rond sur les derniers millimètres
     float ex = aPos.x, ey = uPillow.y + uPillow.z * aPos.y, dx = 114.5 - abs(ex), dy = 81.0 - abs(ey);
@@ -211,13 +211,17 @@ void main() {
     float g = sz * uFoldZ.x * 2.0 * (1.0 - t) / uFoldZ.y * step(d, uFoldZ.y);   // d(z)/d(d), d décroît vers le bord
     if (onX) dzx -= g * sign(ex); else dzy -= g * sign(ey) * uPillow.z;
   }
+  int f = int(aFace + 0.5);
+  if (uSeal.x > 0.5 && f == 1) {
+    float e = 0.12, h0 = sealH(aPos.xy);
     z -= h0;
     dzx -= (sealH(aPos.xy + vec2(e, 0.0)) - sealH(aPos.xy - vec2(e, 0.0))) / (2.0 * e);
     dzy -= (sealH(aPos.xy + vec2(0.0, e)) - sealH(aPos.xy - vec2(0.0, e))) / (2.0 * e);
   }
   // la feuille entière est poussée vers le dos : bosse au dos, creux au recto (même déplacement)
   float g = f == 2 ? 0.0 : gaufrage(aPos.xy);
-  if (uSeal.x > 0.5 && f == 1) g = -g;                        // cachet : le logo sort de la cire (sceau gravé)
+  if (uSeal.x > 0.5 && f == 1) g = -g;
+  else if (uLogoK > 0.0 && f != 2) g *= f == 0 ? 1.0 - uLogoK : 1.0 - 2.0 * uLogoK;                        // cachet : le logo sort de la cire (sceau gravé)
   vec3 p = aPos + vec3(0.0, 0.0, z + g);
   vec3 T = normalize(vec3(1.0, 0.0, dzx)), B = normalize(vec3(0.0, 1.0, dzy));
   vec3 Nu = normalize(cross(T, B));
@@ -244,7 +248,7 @@ uniform float uRadius;       // rayon des coins (mm)
 uniform float uPaperTile;    // > 0 : grande feuille — la partie centrale de la photo, répétée en miroir (taille d'un motif, mm)
 uniform float uPaperLo;      // part des nuages du papier (1 = carte ; la feuille, plus lisse, moins)
 uniform vec4 uClip;          // rabat d'enveloppe : (actif, base y, hauteur, demi-largeur) — triangle, pointe en haut
-uniform float uLogoSq, uLogoRange, uNoLogo;
+uniform float uLogoSq, uLogoRange, uNoLogo, uLogoK;
 uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
 uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
 uniform vec3 uLightPos, uEye, uRoomUp;
@@ -271,7 +275,7 @@ out vec4 o;
 const float PI = 3.14159265;
 
 float logoD(vec2 p) {        // distance signée au contour (mm), < 0 dans le logo
-  if (uNoLogo > 0.5) return uLogoRange;   // feuille sans logo
+  if (uNoLogo > 0.5 || (uLogoK > 0.999 && vFace == 0)) return uLogoRange;   // feuille sans logo (ou dos lisse)
   vec2 uv = (p - uLogoOff) / (uLogoSq * uLogoScale) + 0.5; uv.y = 1.0 - uv.y;
   float k = min(abs(uLogoScale.x), abs(uLogoScale.y));
   // (09/10 : hors de la texture, même échelle que dedans — sinon un saut de distance dessinait un carré autour du logo)
@@ -422,6 +426,7 @@ void main() {
     col = vec3(alb * (irr * NL * occShadow(L, dist) + uEnv * env(Ng, L)) + irr * NL * specE);
   } else {
     float s = vFace == 0 || uSeal.x > 0.5 ? 1.0 : -1.0;      // cachet : logo en relief
+    if (uLogoK > 0.0 && uSeal.x < 0.5) s = vFace == 0 ? 1.0 - uLogoK : 2.0 * uLogoK - 1.0;
     // relief du logo (dos : bosse, recto : creux) ; le pied est élargi à l'empreinte du pixel
     float fw = fwidth(logoD(vMM));
     gFootW = max(uFootW, fw * 1.2);
@@ -458,7 +463,7 @@ void main() {
       float shape = smoothstep(thr - cw, thr + cw, c);
       // opacité : l'encre se dépose plus à un endroit qu'à un autre dans une même lettre (variation douce,
       // ≈ 0,5–1 mm), selon la pression de la frappe (c) et le creux du logo
-      float hollow = prof(logoD(p));
+      float hollow = prof(logoD(p)) * (vFace == 0 ? 1.0 - uLogoK : 1.0);
       float var = 0.55 * vnoise(p * 1.6 + 3.0) + 0.45 * vnoise(p * 3.7 + 29.0);
       float op = clamp((0.45 + 0.6 * c) * mix(1.0, 0.35 + 0.95 * var, uInkVar) * (1.0 - 0.25 * hollow), 0.0, 1.0);
       // la texture du papier passe à travers l'encre : fibres plus blanches, creux moins couverts
@@ -704,6 +709,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform2fv(u.uLogoOff, card.logoOff || [0, 0]);
     gl.uniform2fv(u.uLogoScale, card.logoScale || [1, 1]);
     gl.uniform1f(u.uNoLogo, card.noLogo ? 1 : 0);
+    gl.uniform1f(u.uLogoK, card.logoK || 0);
     gl.uniform4fv(u.uSeal, card.seal || [0, 0, 1, 0]);
     gl.uniform4fv(u.uAO, card.ao || [0, 0, 0, 0]);
     gl.uniform4fv(u.uPillow, card.pillow || [0, 0, 1, 1]); gl.uniform2fv(u.uFoldZ, card.foldZ || [0, 1]); gl.uniform4fv(u.uTriA, card.triA || [0, 0, 0, 0]); gl.uniform4fv(u.uTriB, card.triB || [0, 0, 0, 0]);

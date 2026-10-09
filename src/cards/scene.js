@@ -590,7 +590,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
         P.lightPos = P.lightPos.map((v, i) => lerp(v, c[i] + pl.rel[i] * sc, rkL));
         P.light = lerp(P.light, pl.light, rkL);
       }
-      if (t - relay.t0 >= relay.dur) { const d = relay.done; relay = null; d && d(); }
+      // retour fini : le paquet reste à la place du portail (relay gardé, figé) jusqu'à ce que la couche soit vidée —
+      // sinon, pendant les images qui suivent, il revenait à notre place (une carte droite au niveau de la première)
+      if (t - relay.t0 >= relay.dur && !relay.fin) { const d = relay.done; if (relay.dir === 'out') relay.fin = true; else relay = null; d && d(); }
     }
     const Ga = !ended && answer && answer.place === 'below' && !answer.anim ? group(0, lay.yAns, 0, 2.3, wA) : Gq;
     const Gb = !ended && blank && blank.place === 'up' && !blank.anim ? group(0, lay.yDeck, 0, 2.3, wA) : group(0, bp ? bp.y : 0, 0, 4.1, 0);
@@ -607,10 +609,16 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const occQ = question && mode === 'q' && qVis > 0.99 ? { x: qp.x, y: qp.y, z: qp.z, rz: qp.rz } : null;
     // paquet (d'un bloc avec la question posée dessus)
     const n = fadeD > 0.01 ? visibleStack() : 0;
+    // tirage : la carte tirée part de la place du dessus, et le paquet (une carte de moins dessus, une de plus
+    // dessous) a d'abord sa nouvelle carte du dessus à cette même hauteur — les deux se confondaient une image
+    // (croix d'ombre). Il est donc d'abord un cran plus bas, et remonte pendant que la carte est en l'air.
+    const drawU = question && question.anim === 'draw' ? clamp01((t - question.t0) / question.dur) : 1;
+    const drop = 1 - sstep(0.2, 0.5, drawU);
     for (let i = 0; i < n; i++) {
       const v = stack[STACK - n + i], p = deckPose(i, v);
+      p.z -= drop * PITCH;
       if (i === n - 1 && !ended && !reduced) p.z += lift('deck');
-      card.draw(vp, eye, P, { model: model(Gq, p), lod: i === n - 1 ? 'fine' : 'coarse', shade: (0.55 + 0.45 * (i + 1) / n) * dimQ, fade: fadeD, occ: ended ? null : occQ, ...v });
+      card.draw(vp, eye, P, { model: model(Gq, p), lod: i === n - 1 && drop < 0.5 ? 'fine' : 'coarse', shade: (0.55 + 0.45 * (i + 1) / n) * dimQ, fade: fadeD, occ: ended ? null : occQ, ...v });
     }
     for (const c of leaving) card.draw(vp, eye, P, { model: model(Gq, poseOf(c, t)), lod: 'fine', ink: c.ink, shade: dimQ, fade: fadeQ, ...c.v });
     // l'esquisse « revenir » : un bout de la carte précédente se montre au bord gauche
@@ -809,7 +817,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function setJeuWrite(on) { jw = jeu && !!on; if (!jw) writing = false; }
   function setBreath(x, y) { breath.x = x; breath.y = y; }
   return {
-    frame, tap, drag, release, give, pass, back, start, prepare, reopen, snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer, setJeuWrite, drawAt, relayIn, relayOut, relaying: () => !!relay,
+    frame, tap, drag, release, give, pass, back, start, prepare, reopen, snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer, setJeuWrite, drawAt, relayIn, relayOut, relaying: () => !!relay && !relay.fin,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
     state: () => ({ freeFor: mode === 'free' ? lastT - freeT : 0, hasPrev: hasPrev(), idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),

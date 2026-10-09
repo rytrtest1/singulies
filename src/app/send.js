@@ -45,6 +45,12 @@ function contactLinks(c) {
     return '<a href="tel:' + esc(t.replace(/[^\d+]/g, '')) + '" style="' + LINK + '">' + esc(t) + '</a>';
   }).join(' &nbsp;·&nbsp; ');
 }
+// mode test : les réponses des testeurs (prix de l'original, retours), dans le même bloc que le contact
+function betaHtml(b) {
+  if (!b || (!b.prix && !b.retours)) return '';
+  const row = (k, v) => '<div style="padding:0 0 10px;"><span style="color:#8a8a8a;">' + k + '</span><br>' + (v ? esc(v) : '—') + '</div>';
+  return '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;">' + row('prix de l’original', b.prix) + row('retours', b.retours) + '</div>';
+}
 export function params(d) {
   const q = d.kind === 'reponse' ? (QUESTIONS.find(x => x.id === d.id)?.q || '') : '';
   const name = (d.name || '').toUpperCase().replace(/[^A-Z ]/g, '');
@@ -61,11 +67,11 @@ export function params(d) {
     question: q.toLowerCase(),
     reponse: d.kind === 'reponse' ? d.text || '' : '',
     theme: d.kind === 'theme' ? d.text || '' : '',
-    mode: (d.mode === 'direct' ? 'en direct' : 'par la poste') + (d.test ? ' (essai, sans adresse)' : ''),
+    mode: (d.mode === 'direct' ? 'en direct' : 'par la poste') + (d.test ? ' (essai, sans adresse)' : d.beta ? ' (test)' : ''),
     adresse_html: (d.address || []).map(l => quiet(esc(l))).join('<br>'),
     adresse: (d.address || []).join('\n'),
     contact: d.contact || '',
-    contact_html: d.contact ? '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;">' + contactLinks(d.contact) + '</div>' : '',
+    contact_html: (d.contact ? '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;">' + contactLinks(d.contact) + '</div>' : '') + betaHtml(d.beta),
     date: new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }),
     // la demande, rendue par le site (feuille, carte, enveloppe) : tout est dans le lien, après « # »
     lien: new URL('./demande.html', document.baseURI).href + '#' + encodeDemande(d),
@@ -106,7 +112,7 @@ async function doFlush() {
 // renvoyé alors qu'elle était partie) : on garde 24 h une empreinte de chaque demande partie — un nombre, aucune donnée
 const K_SENT = 'singulies.sent', DAY = 864e5;
 function print(d) {
-  const s = JSON.stringify([d.name, d.kind, d.id, d.text, d.address, d.email, d.mode, !!d.test]);
+  const s = JSON.stringify([d.name, d.kind, d.id, d.text, d.address, d.email, d.mode, !!d.test, d.beta || null]);
   let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
   return h.toString(36);
 }
@@ -123,7 +129,8 @@ export function send(detail) {
   if (seen(detail)) { console.warn('envoi : déjà partie'); return; }
   const p = params(detail), items = [{ tpl: EMAILJS.template, p }];
   // le récapitulatif à la personne, si elle a donné son email
-  if (EMAILJS.confirm && p.to_email) items.push({ tpl: EMAILJS.confirm, p });
+  // (sans les réponses du mode test : elles ne sont que pour Maxence)
+  if (EMAILJS.confirm && p.to_email) items.push({ tpl: EMAILJS.confirm, p: { ...p, contact_html: params({ ...detail, beta: null }).contact_html, mode: params({ ...detail, beta: null }).mode } });
   save([...load(), ...items]);
   flush();
 }

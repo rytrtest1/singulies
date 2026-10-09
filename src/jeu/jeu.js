@@ -32,7 +32,10 @@ const CSS = `
 #jeu .jeu-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 #jeu .jeu-ta { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; margin: 0;
   font-size: 16px; resize: none; background: transparent; color: transparent; caret-color: transparent; outline: none;
-  overflow: hidden; -webkit-tap-highlight-color: transparent; pointer-events: none; }
+  overflow: hidden; -webkit-tap-highlight-color: transparent; -webkit-user-select: text; pointer-events: none; }
+/* question partagée : le champ est posé sur la carte réponse et reçoit le toucher lui-même (iPhone n'ouvre le
+   clavier que sur un toucher direct du champ — comme les questions du poème) */
+#jeu .jeu-ta.live { pointer-events: auto; }
 `;
 const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M14.5 6 L8.5 12 L14.5 18" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>';
 
@@ -98,6 +101,8 @@ export async function mountJeu(opts = {}) {
     if (mk) shareEl.style.top = Math.min((answering ? mk.peekBottom : mk.deckBottom) + 14, kbPx > 40 ? H - kbPx - 54 : buyTop - 48) + 'px';
     shareEl.classList.toggle('on', !going && (answering ? said : shareReady));
     const r = answering ? scene.activeRect() : null;
+    ta.classList.toggle('live', !!(answering && r && !going));
+    if (!(answering && r)) Object.assign(ta.style, { width: '1px', height: '1px' });
     if (answering && r) Object.assign(ta.style, { left: r.left + 'px', top: r.top + 'px', width: Math.max(1, r.right - r.left) + 'px', height: Math.max(1, r.bottom - r.top) + 'px' });
     buyEl.style.top = buyTop + 'px';
     const br = reduced ? { x: 0, y: 0 } : { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };

@@ -227,7 +227,7 @@ export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null, margin
   const last = lines.length - 1 - first;
   const cursor = { x: margin + lines[lines.length - 1].length * TYPE.pitch - 0.35, y: y0 + Math.max(0, last) * lead };
   const hinted = !!(hint && !text);
-  if (hinted) hintLine(cx, PX, hint, margin, y0, CARD.w - margin - 6);
+  if (hinted) cursor.x = hintLine(cx, PX, hint, margin, y0, CARD.w - 2 * Math.min(margin, 9)) - 0.35;
   return { canvas: cv, lines, cursor, hidden: first, count: lines.length, hinted };
 }
 
@@ -293,9 +293,11 @@ const XH = 0.42 * TYPE.size * TYPE.yScale;
 export const STRIP = 2 * TYPE.lead - XH, STRIP_BASE = CARD.h - STRIP + TYPE.lead;
 export const answerMax = margin => Math.max(8, Math.min(TYPE.maxChars, Math.floor((CARD.w - margin - 8.5) / TYPE.pitch)));
 // invitation en grisé (tant que rien n'est écrit) : frappée en rouge seul — la carte d'encre RG la rend pâle ;
-// plus petite si elle ne tient pas dans la largeur
+// plus petite si elle ne tient pas dans la largeur ; centrée sur la carte (09/10), le curseur devant elle.
+// Rend le x (mm) de sa première lettre.
 function hintLine(cx, PX, text, x, base, maxW) {
   const k = Math.min(1, maxW / (text.length * TYPE.pitch)), fontPx = TYPE.size * PX * k;
+  x = (CARD.w - (text.length - 0.4) * TYPE.pitch * k) / 2;
   const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
   const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;
   const r = createRng(4242);
@@ -309,6 +311,7 @@ function hintLine(cx, PX, text, x, base, maxW) {
     cx.drawImage(glyph, (x + ci * TYPE.pitch * k) * PX - ox, (base + (r() - 0.5) * 0.12) * PX - oyB);
   });
   cx.restore();
+  return x;
 }
 export function makeStripInk(text, seed = 1, margin = ANSWER_MARGIN, hint = null) {
   const PX = INK_PXMM, W = Math.round(CARD.w * PX), H = Math.round(CARD.h * PX);
@@ -346,6 +349,6 @@ export function makeStripInk(text, seed = 1, margin = ANSWER_MARGIN, hint = null
     idx += line.length + 1;
   }
   const hinted = !!(hint && !text);
-  if (hinted) hintLine(cx, PX, hint, margin, STRIP_BASE, CARD.w - margin - 6);
-  return { canvas: cv, cursor: { x: margin + lines[n - 1].length * TYPE.pitch - 0.35, y: STRIP_BASE }, count: n, hinted };
+  const hx = hinted ? hintLine(cx, PX, hint, margin, STRIP_BASE, CARD.w - 2 * Math.min(margin, 9)) : null;
+  return { canvas: cv, cursor: { x: hinted ? hx - 0.35 : margin + lines[n - 1].length * TYPE.pitch - 0.35, y: STRIP_BASE }, count: n, hinted };
 }

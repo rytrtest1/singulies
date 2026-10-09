@@ -2,7 +2,7 @@
 // retour) et gestes (toucher, glisser, relire, inclinaison). Utilisée par l'accueil (après la transition) et par
 // la page d'essai scene-cartes.html. Rien n'est dessiné avant start().
 import { createCardScene } from './scene.js';
-import { createSheetScene, FIELDS, MAIL_W } from '../sheet/sheet.js';
+import { createSheetScene, FIELDS, MAIL_W, NOADDR } from '../sheet/sheet.js';
 import { dpr3d } from '../app/perf.js';
 import QUESTIONS from './questions.json';
 
@@ -64,6 +64,7 @@ const CSS = `
 .sc-ask input::placeholder { color: rgba(255,255,255,.28); }
 .sc-ask .sc-pass { position: static; margin-top: 22px; }
 .sc-ask .ask-skip { margin-top: 4px; }
+.sc-ask .ask-q + input + .ask-q { margin-top: 44px; }
 /* lecteur d'écran : ce que la 3D montre, dit à voix haute (invisible) */
 .sc-sr { position: fixed; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .sc-veil { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 1.4s; pointer-events: none; z-index: 14; }
@@ -73,6 +74,7 @@ const CSS = `
 //          sheet? (défaut : oui ; ?feuille=0 → l'ancienne fin, fondu au noir), onOrder?(detail) }
 export async function mountCards(opts) {
   const { name, base = './', seed, look = {}, onEnd, onExit, log = () => {} } = opts;
+  const TEST = new URLSearchParams(location.search).get('test') === '1' || NOADDR;
   const toSheet = opts.sheet ?? new URLSearchParams(location.search).get('feuille') !== '0';
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // téléphone : le clavier ne s'ouvre jamais tout seul dans la scène des cartes (08/10, Android), et se ferme quand une carte est balayée
@@ -210,12 +212,15 @@ export async function mountCards(opts) {
         address: d => {
           log('adresse : ' + d.address.join(' / '));
           if (d.mode === 'poste' && !d.test) { askMail(d); return; }             // « en direct » : le contact est déjà sur la carte
-          if (d.test) {                                                     // essai sans adresse : la demande part telle quelle
-            try { if (typeof window.onAddress === 'function') window.onAddress(d); } catch (e) { console.error(e); }
-            window.dispatchEvent(new CustomEvent('singulies:address', { detail: d }));
-          }
-          // plus d'écran de fin (08/10) : directement le portail
-          opts.onAddress?.(d); setTimeout(() => opts.onDone?.(d), 300);
+          const end = d => {
+            if (d.test) {                                                   // essai sans adresse : la demande part telle quelle
+              try { if (typeof window.onAddress === 'function') window.onAddress(d); } catch (e) { console.error(e); }
+              window.dispatchEvent(new CustomEvent('singulies:address', { detail: d }));
+            }
+            // plus d'écran de fin (08/10) : directement le portail
+            opts.onAddress?.(d); setTimeout(() => opts.onDone?.(d), 300);
+          };
+          if (TEST) askBeta(d, end); else end(d);
         } } });
     scene.hideName(true);
     sheetAt = now(); api.sheet = sheet;
@@ -285,10 +290,14 @@ export async function mountCards(opts) {
       const c = inp.value.trim(), out = { ...d, contact: c, email: c, tel: '' };
       try { localStorage.removeItem('singulies.draft'); } catch { /* */ }
       inp.blur(); go.classList.remove('on'); box.classList.remove('on');
+      if (TEST) { askBeta(out, send); return; }
+      send(out);
+    };
+    const send = out => {
       try { if (typeof window.onAddress === 'function') window.onAddress(out); } catch (e) { console.error(e); }
       window.dispatchEvent(new CustomEvent('singulies:address', { detail: out }));
       opts.onAddress?.(out);
-      log('email : ' + c);
+      log('email : ' + out.contact);
       setTimeout(() => { opts.onDone?.(out); }, 900);
     };
     go.addEventListener('pointerdown', e => e.preventDefault());       // le clavier ne se ferme pas sous le doigt
@@ -298,6 +307,40 @@ export async function mountCards(opts) {
     mail = { box, inp, go, inner, draw };
     say('l’enveloppe est partie. ton email, puis COMMANDER.');
     api.ask = { input: inp, send: finish };
+  }
+  // ---- mode test (?test=1, et l'essai sans adresse ?adresse=0) : avant TERMINER, deux questions pour les testeurs ;
+  // les réponses partent avec la demande (beta → contact_html, send.js). Rien d'obligatoire. ----
+  function askBeta(d, then) {
+    answer.blur(); postEl.classList.remove('on'); backEl.classList.remove('on');
+    const box = el('div', 'sc-ask');
+    const mk = (q, ph, label) => {
+      const t = document.createElement('div'); t.className = 'ask-q'; t.textContent = q;
+      const i = document.createElement('input');
+      Object.assign(i, { type: 'text', spellcheck: false, autocomplete: 'off', placeholder: ph });
+      i.setAttribute('autocorrect', 'off'); i.setAttribute('autocapitalize', 'none'); i.setAttribute('aria-label', label);
+      box.append(t, i); return i;
+    };
+    const prix = mk('combien serais-tu prêt à payer\npour l’original du poème\nécrit à la main ?', '', 'Prix');
+    const retours = mk('d’autres retours ?', '', 'Retours');
+    prix.setAttribute('enterkeyhint', 'next'); retours.setAttribute('enterkeyhint', 'done');
+    const go = document.createElement('div'); go.className = 'sc-pass on'; go.textContent = 'TERMINER'; go.setAttribute('role', 'button'); go.tabIndex = 0;
+    box.appendChild(go);
+    requestAnimationFrame(() => requestAnimationFrame(() => box.classList.add('on')));
+    if (matchMedia('(pointer: fine)').matches) setTimeout(() => prix.focus({ preventScroll: true }), 900);
+    let done = false;
+    const finish = () => {
+      if (done) return; done = true;
+      prix.blur(); retours.blur();
+      log('test : ' + prix.value + ' / ' + retours.value);
+      then({ ...d, beta: { prix: prix.value.trim(), retours: retours.value.trim() } });
+    };
+    prix.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); retours.focus({ preventScroll: true }); } });
+    retours.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); finish(); } });
+    go.addEventListener('pointerdown', e => e.preventDefault());
+    go.addEventListener('click', finish);
+    go.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); finish(); } });
+    say('deux questions avant de terminer : combien serais-tu prêt à payer pour l’original du poème écrit à la main ? d’autres retours ?');
+    api.beta = { prix, retours, send: finish };
   }
   // le champ de l'email suit la tranche (à l'écran) ; COMMANDER dessous (clavier ouvert : au-dessus du clavier)
   function placeMail() {

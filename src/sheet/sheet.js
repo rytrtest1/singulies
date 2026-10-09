@@ -354,7 +354,7 @@ export function createSheetScene(gl, opts) {
     if (direct && !inEnv) { const vis = 1 - kbPx / H, oy = oPose(direct.o).y; cyT = lerp(cyT, oy - (0.5 - (vis / 2 + 0.04)) * frames.B.Hw, kb); }
     camS.cx = lerp(0, cxT, ci); camS.cy = lerp(from.cam.cy, cyT, ci); camS.D = Math.exp(lerp(Math.log(from.cam.D), lD, ci));
     // le coup de tampon se sent jusque dans la vue : une secousse brève, amortie
-    const jph = pp - PO.hit, jolt = inEnv && !NOADDR && !reduced && jph > 0 && jph < 0.45 ? Math.exp(-jph * 11) * Math.sin(jph * 52) * 0.006 : 0;
+    const jph = pp - PO.hit, jolt = inEnv && !NOADDR && !reduced && jph > 0 && jph < 0.4 ? Math.exp(-jph * 13) * Math.sin(jph * 52) * 0.0035 : 0;   // (09/10 : allégée)
     const cx = camS.cx, cy = camS.cy + jolt * camS.D + SEAL_SHAPE.camDy, D = camS.D * (1 + 0.5 * Math.abs(jolt)) * (window.__camZoom || SEAL_SHAPE.zoom), Hw = 2 * D * TF;   // zoom : essais (vue rapprochée)
     eye = [cx, cy - D * Math.sin(TILT), D * Math.cos(TILT)];
     vp = M4.mul(M4.perspective(FOV, W / H, D * 0.25, D * 3), M4.lookAt(eye, [cx, cy, 0], [0, 1, 0]));
@@ -392,7 +392,7 @@ export function createSheetScene(gl, opts) {
       // sa tranche inférieure (le haut part dans l'axe du regard), comme glissée dans une fente
       // le coup : l'enveloppe cède un peu sous le tampon
       // « pam ! » : le tampon frappe d'un coup sec, l'enveloppe s'enfonce et rebondit, amortie
-      const ph = pp - PO.hit, hb = ph > 0 && ph < 0.7 ? Math.exp(-ph * 8) * Math.cos(ph * 34) * mv : 0;
+      const ph = pp - PO.hit, hb = ph > 0 && ph < 0.6 ? 0.6 * Math.exp(-ph * 9.5) * Math.cos(ph * 34) * mv : 0;   // (09/10 : allégé)
       // la tranche seule visible : elle avance droit devant, dans l'axe du regard (la fente)
       const kAway = frames.P ? Math.min(0.95, MAIL_W / (ENV.w * H / frames.P.Hw)) : 0.6;
       const far = (frames.P ? frames.P.D : 600) * (1 / kAway - 1) * ease(span(PO.away, pp)) * mv;
@@ -436,6 +436,9 @@ export function createSheetScene(gl, opts) {
       // M0 contient déjà le demi-tour de la question (ry = π) : on l'en retire, on interpole, on le remet
       const unflip = M4.mul(C.M0, M4.model(0, -Math.PI, 0));
       Mc = M4.mul(blendM(unflip, target2, e, [0, 0, lift]), M4.model(-0.12 * sw, phi, 0));
+      // réponse (09/10) : la face où elle est tapée reste lisse, comme quand on l'écrivait ; le logo, en relief, de
+      // l'autre côté — la bascule se fait quand la carte est vue par la tranche, au milieu de son premier retournement
+      if (C.ownBack) C.logoK = reduced ? (u > 0.5 ? 1 : 0) : sstep(0.42, 0.58, sstep(0.22, 0.78, u));
       // ombre de la carte sur la feuille
       // (09/10 : l'ombre suit la carte exactement, même soulevée ou inclinée — elle disparaissait d'un coup quand la
       // carte partait vers l'enveloppe ou se retournait)
@@ -463,7 +466,7 @@ export function createSheetScene(gl, opts) {
       card.draw(vp, eye, P, { model: lerpM(C.A0, under, ease(u)), lod: 'fine', ink: null, fade: 1 - sstep(0.15, 1, u), shade: 1, ...C.av });
     }
     if (C && !hideInside) {
-      card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink: C.front, inkBack: C.back, fade: 1, shade: dimS, ...C.v, ...(uC > 0 ? { warp: C.v.warp.map(x => x * (1 - uC)) } : {}) });
+      card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink: C.front, inkBack: C.back, fade: 1, shade: dimS, ...C.v, logoK: C.logoK || 0, ...(uC > 0 ? { warp: C.v.warp.map(x => x * (1 - uC)) } : {}) });
       quads.C = inEnv ? null : screenQuad(Mc);
     } else quads.C = null;
     // ---- la commande ----
