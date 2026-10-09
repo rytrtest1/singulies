@@ -3,7 +3,7 @@
 // l'image = tourner l'enveloppe ; la ligne des valeurs changées se recopie (et se passe dans l'adresse : ?s.albedo=…).
 import { createCardRenderer, M4, CARD } from '../cards/cardRenderer.js';
 import { LOOK } from '../cards/scene.js';
-import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm } from './envelope.js';
+import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, SEAL_PRESS0 } from './envelope.js';
 
 const FOV = 26 * Math.PI / 180, TILT = 0.22, TF = Math.tan(FOV / 2), CAM_AZ = -Math.PI / 2;
 const P = new URLSearchParams(location.search);
@@ -71,7 +71,7 @@ function frame() {
   const Mf = M4.mul(Menv, M4.mul(M4.mul(T(0, ENV.h / 2, 1.9), M4.model(Math.PI, 0, 0)), T(0, FLAP_H / 2, 0)));
   card.draw(vp, eye, Pl, { model: Mf, lod: 'flap', fade: 1, shade: 1, ...flapV, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: ao(FLAP_H / 2 - 7), sealQ });
   const Ms = M4.mul(Mf, T(0, FLAP_H / 2 - 7, -0.19));
-  if (poseT0 >= 0) { shape.form = Math.min(1, (performance.now() - poseT0) / 2300); if (shape.form >= 1) poseT0 = -1; if (window.__syncForm) window.__syncForm(); }
+  if (poseT0 >= 0) { shape.form = Math.min(1, SEAL_PRESS0 + (1 - SEAL_PRESS0) * (performance.now() - poseT0) / 1500); if (shape.form >= 1) poseT0 = -1; if (window.__syncForm) window.__syncForm(); }
   const Fm = sealForm(shape.form, look, shape);
   card.draw(vp, eye, { ...Pl, ...Fm.look }, { model: Ms, lod: sealLod, fade: 1, shade: 1, ...sealV, paperLo: shape.marbre, sealV4: [SD.wobPhase, SD.crest, SD.tilt, Fm.peau], form: Fm.form,
     sealP: [shape.hd, shape.hc, shape.crest, Fm.ring], sealQ: [Fm.pits, Fm.cavWall, shape.cavEdge, shape.aoW], sealR: [shape.film, shape.sss, shape.offX, shape.offY], logoOff: [shape.offX, shape.offY], blend: true });

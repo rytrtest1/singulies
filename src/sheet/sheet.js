@@ -19,7 +19,7 @@ import { createRng } from '../field/rng.js';
 import { releaseCanvas } from '../app/compat.js';
 import { handName } from '../text/accents.js';
 import {
-  ENV, ENV_BACK_H, FLAP_H, ENV_Z, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, E, ADDR, SENDER, senderCount, PO, MAIL_W, FIELDS, emailOk, telOk,
+  ENV, ENV_BACK_H, FLAP_H, ENV_Z, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, SEAL_PRESS0, E, ADDR, SENDER, senderCount, PO, MAIL_W, FIELDS, emailOk, telOk,
   fieldsReady, fieldsOut, contactOk, cleanContact, fieldPos, senderInk, fieldsInk, contactCardInk,
 } from './envelope.js';
 import { typeLines } from './typewriter.js';
@@ -554,9 +554,9 @@ export function createSheetScene(gl, opts) {
       const uSe = span(PO.seal, pp);
       if (P_LOGO && uSe > 0) {
         // la pose : la cire coule, le sceau (invisible) appuie, elle refroidit (sealForm) ; mouvement réduit : le cachet fini
-        const Fm = sealForm(reduced ? 1 : uSe, SEAL_LOOK, SEAL_SHAPE);
+        const Fm = sealForm(reduced ? 1 : SEAL_PRESS0 + (1 - SEAL_PRESS0) * uSe, SEAL_LOOK, SEAL_SHAPE);
         const Ms = M4.mul(Mf, T(0, FLAP_H / 2 - 7, -0.19));
-        card.draw(vp, eye, { ...P, ...Fm.look }, { model: Ms, lod: sealLod, fade: envFade * sstep(0, reduced ? 0.35 : 0.06, uSe), shade: 1, ...sealV, paperLo: SEAL_SHAPE.marbre, ...pq,
+        card.draw(vp, eye, { ...P, ...Fm.look }, { model: Ms, lod: sealLod, fade: envFade * sstep(0, reduced ? 0.35 : 0.1, uSe), shade: 1, ...sealV, paperLo: SEAL_SHAPE.marbre, ...pq,
           sealP: [SEAL_SHAPE.hd, SEAL_SHAPE.hc, SEAL_SHAPE.crest, Fm.ring], sealQ: [Fm.pits, Fm.cavWall, SEAL_SHAPE.cavEdge, SEAL_SHAPE.aoW], form: Fm.form,
           sealV4: [SD.wobPhase, SD.crest, SD.tilt, Fm.peau], sealR: [SEAL_SHAPE.film, SEAL_SHAPE.sss, SEAL_SHAPE.offX, SEAL_SHAPE.offY], logoOff: [SEAL_SHAPE.offX, SEAL_SHAPE.offY], blend: true });
       }

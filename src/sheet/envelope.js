@@ -71,7 +71,7 @@ export const PO = chain([
   ['pam', 0.6, 0.15],        // puis le coup de tampon, d'un coup sec (09/10 : « pam ! », l'enveloppe entière à l'écran)
   ['turn', 1.2, 0.35],       // elle se retourne : le dos, rabat ouvert
   ['flap', 0.9, 0.1],        // le rabat se ferme
-  ['seal', 2.3, -0.05],      // le cachet se fait sur la pointe (la vue s'en est approchée) : la cire coule, le sceau appuie, elle refroidit
+  ['seal', 1.5, -0.05],      // le cachet se fait sur la pointe (la vue s'en est approchée) : la cire est là, le sceau appuie, elle refroidit
   ['zoomOut', 1.0, 0.7],     // on le regarde un instant, puis la vue recule jusqu'à l'enveloppe entière (cadrage de la tranche)
   ['tip', 1.2, 0.05],        // elle bascule jusqu'à ne plus montrer que sa tranche
   ['away', 1.4, 0.05],       // la tranche seule : elle avance dans la fente (rétrécit jusqu'à MAIL_W px)
@@ -210,6 +210,9 @@ export function sealDraw(rnd, coule = SEAL_SHAPE0.coule) {
 
 // la pose du cachet (u : 0 → 1, sur PO.seal) : la cire liquide brille (lisse, reflet net), puis refroidit et prend son
 // aspect satiné ; l'empreinte (logo, double filet) et la peau n'apparaissent qu'avec la pression
+// sur l'enveloppe, la pose commence à la pression (Maxence 09/10 : la flaque qui coule avant n'est pas réaliste) :
+// u (0 → 1 sur PO.seal) → forme 0,42 → 1
+export const SEAL_PRESS0 = 0.42;
 export function sealForm(u, look, shape) {
   const ss = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const press = ss(0.5, 0.8, u), cool = ss(0.55, 1, u);
