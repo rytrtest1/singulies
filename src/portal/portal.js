@@ -174,7 +174,9 @@ export async function mountPortal(opts = {}) {
       // seulement alors des cartes un peu plus petites — jamais le paquet coupé par le bas
       GAPD = 0.14;
       if (over() > 0) OV = Math.min(0.34, OV + over() / h / 2);
-      if (over() > 0) GAPD = Math.max(0.06, GAPD - over() / h);
+      // (écart minimal : les coins des deux cartes inclinées, plus 2 mm — sinon « mes livres » touchait le paquet)
+      const gapMin = (CARD.w / 2 * (Math.abs(Math.sin(lie[JEU - 1].rz)) + Math.abs(Math.sin(lie[JEU].rz))) + 2.5) / CARD.h + Math.max(0, lie[JEU - 1].dy);   // (dy > 0 : posée plus bas, vers le paquet)
+      if (over() > 0) GAPD = Math.max(gapMin, GAPD - over() / h);
       if (over() > 0) h = avail / (spanOf() + GAPD + DS);
     } else {
       if (h * asp * spanOf() > W * 0.78) OV = Math.min(0.3, 1 - (W * 0.78 / (h * asp) - 1.14) / 2);
