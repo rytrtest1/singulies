@@ -102,7 +102,7 @@ export function createSheetScene(gl, opts) {
   const SEAL_LOOK = { albedo: 0.28, env: 0, rough: 0.08, spec: 0.5, sheen: 0, glint: 4, grain: 2.4, fiber: 0.018, envSpec: 6, h: 0.24, b: 0.39, foot: 0.41, footW: 0.12, crease: 0.52, edge: 0, diffRough: 0 };   // réglé par Maxence (09/10, ?cachet)
   // forme du cachet et ce qui l'entoure (réglables : scene-cartes.html?cachet&reponse=…, panneau « cachet »)
   const SEAL_SHAPE = { hd: 0.1, hc: 0.3, crest: 0.59, ring: 0.12, pits: 4, cavWall: 1, cavEdge: 0.16, ao: 0, aoW: 0.1, marbre: 1.9,
-    lamp: ENV_LAMP, zoom: 1, camDy: 0, lampAz: NaN, lampEl: NaN };
+    lamp: ENV_LAMP, zoom: 1, camDy: 0, rotX: 0, rotY: 0, lampAz: NaN, lampEl: NaN };
   const sealPQ = () => ({ sealP: [SEAL_SHAPE.hd, SEAL_SHAPE.hc, SEAL_SHAPE.crest, SEAL_SHAPE.ring], sealQ: [SEAL_SHAPE.pits, SEAL_SHAPE.cavWall, SEAL_SHAPE.cavEdge, SEAL_SHAPE.aoW] });
   const botV = { ...pv(), noLogo: true, warp: [0, 0, 0] };
 
@@ -390,6 +390,8 @@ export function createSheetScene(gl, opts) {
       Menv = M4.mul(T(EC.x + dir[0] * far, EC.y - 110 * (1 - uI) + 14 * Math.sin(Math.PI * uTurn) + dir[1] * far,
         EC.z - 50 * (1 - uI) + 70 * Math.sin(Math.PI * uFlip) * mv + 55 * Math.sin(Math.PI * uTurn) - 5 * hb + dir[2] * far),
         M4.mul(G, M4.mul(M4.model(-(Math.PI / 2 - TILT) * uTip, 0, 0), M4.model(0, Math.PI * (uFlip + uTurn), 0))));
+      // réglages (?cachet) : l'enveloppe tournée à la main, autour du cachet
+      if (SEAL_SHAPE.rotX || SEAL_SHAPE.rotY) { const py = ENV.h / 2 - FLAP_H + 7; Menv = M4.mul(Menv, M4.mul(T(0, py, 0), M4.mul(M4.model(SEAL_SHAPE.rotX, SEAL_SHAPE.rotY, 0), T(0, -py, 0)))); }
       lastMenv = Menv;
     }
     const envFade = inEnv ? uI * (1 - sstep(PO.fade[0], PO.fade[1], pp)) : 0;

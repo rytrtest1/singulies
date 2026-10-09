@@ -156,6 +156,8 @@ async function sealBench(m) {
   redraw();
   const R = [
     ['shape', 'zoom', 0.1, 1, 0.01, 'vue : rapprochée ↔ enveloppe entière'],
+    ['shape', 'rotY', -1.4, 1.4, 0.01, "enveloppe : tourner (glisser sur l'image)"],
+    ['shape', 'rotX', -1.4, 1.4, 0.01, 'enveloppe : basculer'],
     ['shape', 'lampAz', -1.9, 1.9, 0.01, 'lampe : direction (0 = derrière le cachet)'],
     ['shape', 'lampEl', 0.25, 1.4, 0.01, 'lampe : hauteur (rad)'],
     ['shape', 'lamp', 0.6, 2.5, 0.05, 'lampe : distance (× cartes)'],
@@ -190,19 +192,36 @@ async function sealBench(m) {
   const box = document.createElement('div');
   box.style.cssText = 'max-height:44vh;overflow:auto;background:rgba(0,0,0,.85);padding:8px;border-radius:8px';
   const out = document.createElement('div'); out.style.cssText = 'margin:4px 0 8px;color:#ddd;user-select:all;word-break:break-all';
-  const show = () => { out.textContent = R.filter(([g, k]) => G[g][k] !== init[g + k] && k !== 'zoom').map(([g, k]) => 's.' + k + '=' + G[g][k]).join('&') || '(rien de changé)'; };
+  const show = () => { out.textContent = R.filter(([g, k]) => G[g][k] !== init[g + k] && !['zoom', 'rotX', 'rotY'].includes(k)).map(([g, k]) => 's.' + k + '=' + G[g][k]).join('&') || '(rien de changé)'; };
   box.appendChild(out);
+  const inputs = {};
   for (const [g, k, a, b, st, label] of R) {
     const l = document.createElement('label'); l.style.cssText = 'display:grid;grid-template-columns:44% 1fr 46px;gap:6px;align-items:center;margin:3px 0';
     l.innerHTML = `<span>${label}</span><input type=range min=${a} max=${b} step=${st} value=${G[g][k]}><span>${G[g][k]}</span>`;
     const inp = l.children[1], v = l.children[2];
     inp.oninput = () => { G[g][k] = +inp.value; v.textContent = inp.value; show(); redraw(); };
+    inputs[k] = [inp, v];
     box.appendChild(l);
   }
+  // glisser sur l'image (souris ou doigt) = tourner l'enveloppe autour du cachet ; la scène ne reçoit rien
+  const sync = () => { for (const k of ['rotX', 'rotY']) { const [inp, v] = inputs[k]; inp.value = T.shape[k]; v.textContent = T.shape[k].toFixed(2); } redraw(); };
+  let drag = null;
+  const clampR = x => Math.max(-1.4, Math.min(1.4, x));
+  const mine = e => !wrap.contains(e.target);
+  addEventListener('pointerdown', e => { if (!mine(e)) return; e.stopImmediatePropagation(); e.preventDefault(); drag = { x: e.clientX, y: e.clientY, rx: T.shape.rotX, ry: T.shape.rotY }; }, true);
+  addEventListener('pointermove', e => { if (!drag) return; e.stopImmediatePropagation();
+    T.shape.rotY = +clampR(drag.ry + (e.clientX - drag.x) * 0.008).toFixed(3); T.shape.rotX = +clampR(drag.rx + (e.clientY - drag.y) * 0.008).toFixed(3); sync(); }, true);
+  addEventListener('pointerup', e => { if (drag) { drag = null; e.stopImmediatePropagation(); } }, true);
+  addEventListener('pointercancel', () => { drag = null; }, true);
+  for (const ev of ['touchstart', 'touchmove', 'touchend', 'click', 'wheel']) addEventListener(ev, e => { if (mine(e)) { e.stopImmediatePropagation(); if (ev === 'touchmove') e.preventDefault(); } }, { capture: true, passive: false });
+  document.body.style.touchAction = 'none';
+  const reset = document.createElement('button');
+  reset.textContent = 'remettre droite'; reset.style.cssText = 'background:#222;color:#bbb;border:0;border-radius:6px;padding:6px 10px;font:12px system-ui;margin:0 0 6px 6px';
+  reset.onclick = () => { T.shape.rotX = T.shape.rotY = 0; sync(); };
   const btn = document.createElement('button');
   btn.textContent = 'cachet'; btn.style.cssText = 'background:#222;color:#bbb;border:0;border-radius:6px;padding:6px 10px;font:12px system-ui;margin-bottom:6px';
   btn.onclick = () => { box.style.display = box.style.display === 'none' ? 'block' : 'none'; };
-  wrap.append(btn, box);
+  wrap.append(btn, reset, box);
   for (const ev of ['pointerdown', 'touchstart', 'wheel', 'keydown']) wrap.addEventListener(ev, e => e.stopPropagation());
   show(); document.body.appendChild(wrap);
 }
