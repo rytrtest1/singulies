@@ -329,8 +329,27 @@ document.addEventListener('click', (e) => {
   // acrostiche) : prénom écrit → aller à la suite ; vide → écrire (le clavier sort)
   const inZone = b && e.clientX > b[0] && e.clientX < b[2] && e.clientY > b[1] && e.clientY < b[3];
   if (!inZone) return;
+  // le clavier vient de se fermer et la suite allait partir : retoucher le prénom = le corriger (le clavier revient)
+  if (blurGo) { clearTimeout(blurGo); blurGo = 0; if (!wheel) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); } return; }
   if (finalName(model.text) && !bridge.composing) { startTransition(); return; }
   if (!wheel && document.activeElement !== input) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); }
+});
+
+// le clavier se ferme (« OK » de l'iPhone, Entrée, toucher ailleurs, prénom proposé par le clavier) avec un prénom
+// écrit : la suite part (09/10, Maxence) — sauf si l'on retouche le prénom dans la seconde, pour le corriger.
+// Pas quand on quitte l'onglet ou l'application, ni pour la flèche retour.
+let blurGo = 0, backDown = 0;
+backEl.addEventListener('pointerdown', () => { backDown = performance.now(); }, true);
+input.addEventListener('focus', () => { if (blurGo) { clearTimeout(blurGo); blurGo = 0; } });
+input.addEventListener('blur', () => {
+  if (S.portal || S.phase !== 'input' || S.trans != null || wheel || !finalName(model.text) || performance.now() - backDown < 600) return;
+  clearTimeout(blurGo);
+  blurGo = setTimeout(() => {
+    blurGo = 0;
+    if (document.hidden || !document.hasFocus() || document.activeElement === input || S.portal || S.phase !== 'input' || S.trans != null) return;
+    if (bridge.composing) return;
+    startTransition();
+  }, 1000);
 });
 
 // bascule mélange → profondeur → horizontal : Tab ou double-clic (progressive)

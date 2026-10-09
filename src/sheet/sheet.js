@@ -126,7 +126,8 @@ export function createSheetScene(gl, opts) {
   // ---- l'acrostiche : une ligne par caractère du prénom (une espace = une ligne blanche, entre deux strophes) ----
   const name = from.name || '';
   // l'invitation du destinataire : le prénom du poème, accentué (« Léa nom ») — on l'écrit, rien n'est pré-rempli
-  const HINTS = name.trim() ? { nom: (handName(name) + ' nom').slice(0, 34) } : {};
+  // le prénom du destinataire : déjà écrit, celui du poème, accentué (on peut le changer) — 09/10
+  const PRENOM = handName(name).slice(0, 15), HINTS = {};
   const chars = [...name];
   nameR.letters(chars);
   const nLines = chars.length;
@@ -336,7 +337,9 @@ export function createSheetScene(gl, opts) {
     // « en direct », clavier ouvert : la carte au milieu de la partie visible
     if (direct && !inEnv) { const vis = 1 - kbPx / H, oy = oPose(direct.o).y; cyT = lerp(cyT, oy - (0.5 - (vis / 2 + 0.04)) * frames.B.Hw, kb); }
     camS.cx = lerp(0, cxT, ci); camS.cy = lerp(from.cam.cy, cyT, ci); camS.D = Math.exp(lerp(Math.log(from.cam.D), lD, ci));
-    const cx = camS.cx, cy = camS.cy, D = camS.D, Hw = 2 * D * TF;
+    // le coup de tampon se sent jusque dans la vue : une secousse brève, amortie
+    const jph = pp - PO.hit, jolt = inEnv && !NOADDR && !reduced && jph > 0 && jph < 0.45 ? Math.exp(-jph * 11) * Math.sin(jph * 52) * 0.006 : 0;
+    const cx = camS.cx, cy = camS.cy + jolt * camS.D, D = camS.D * (1 + 0.5 * Math.abs(jolt)), Hw = 2 * D * TF;
     eye = [cx, cy - D * Math.sin(TILT), D * Math.cos(TILT)];
     vp = M4.mul(M4.perspective(FOV, W / H, D * 0.25, D * 3), M4.lookAt(eye, [cx, cy, 0], [0, 1, 0]));
 
@@ -369,13 +372,14 @@ export function createSheetScene(gl, opts) {
       // envoyée : elle se retourne (le cachet), puis bascule autour de son axe horizontal jusqu'à ne plus montrer que
       // sa tranche inférieure (le haut part dans l'axe du regard), comme glissée dans une fente
       // le coup : l'enveloppe cède un peu sous le tampon
-      const hb = sstep(PO.hit - 0.12, PO.hit, pp) * (1 - sstep(PO.hit, PO.hit + 0.35, pp)) * mv;
+      // « pam ! » : le tampon frappe d'un coup sec, l'enveloppe s'enfonce et rebondit, amortie
+      const ph = pp - PO.hit, hb = ph > 0 && ph < 0.7 ? Math.exp(-ph * 8) * Math.cos(ph * 34) * mv : 0;
       // la tranche seule visible : elle avance droit devant, dans l'axe du regard (la fente)
       const kAway = frames.P ? Math.min(0.95, MAIL_W / (ENV.w * H / frames.P.Hw)) : 0.6;
       const far = (frames.P ? frames.P.D : 600) * (1 / kAway - 1) * ease(span(PO.away, pp)) * mv;
       const dir = (v => { const l = Math.hypot(...v) || 1; return v.map(x => x / l); })([EC.x - eye[0], EC.y - eye[1], EC.z - eye[2]]);
       Menv = M4.mul(T(EC.x + dir[0] * far, EC.y - 110 * (1 - uI) + 14 * Math.sin(Math.PI * uTurn) + dir[1] * far,
-        EC.z - 50 * (1 - uI) + 70 * Math.sin(Math.PI * uFlip) * mv + 55 * Math.sin(Math.PI * uTurn) - 3 * hb + dir[2] * far),
+        EC.z - 50 * (1 - uI) + 70 * Math.sin(Math.PI * uFlip) * mv + 55 * Math.sin(Math.PI * uTurn) - 5 * hb + dir[2] * far),
         M4.mul(G, M4.mul(M4.model(-(Math.PI / 2 - TILT) * uTip, 0, 0), M4.model(0, Math.PI * (uFlip + uTurn), 0))));
       lastMenv = Menv;
     }
@@ -412,7 +416,9 @@ export function createSheetScene(gl, opts) {
       const unflip = M4.mul(C.M0, M4.model(0, -Math.PI, 0));
       Mc = M4.mul(blendM(unflip, target2, e, [0, 0, lift]), M4.model(-0.12 * sw, phi, 0));
       // ombre de la carte sur la feuille
-      C.occ = u > 0.9 && C.flipT0 < 0 && !inEnv ? (p => ({ x: p[0], y: p[1], z: p[2], rz: C_POSE.rz }))(posOf(target2)) : null;
+      // (09/10 : l'ombre suit la carte exactement, même soulevée ou inclinée — elle disparaissait d'un coup quand la
+      // carte partait vers l'enveloppe ou se retournait)
+      C.occ = u > 0.9 && !hideInside ? { m: Mc } : null;
     }
     // ---- dessin : enveloppe (fond), feuille, carte, lettres, puis le dos de l'enveloppe et le rabat (devant) ----
     if (Menv && envFade > 0.004) {
@@ -685,7 +691,7 @@ export function createSheetScene(gl, opts) {
     releaseCanvas(m.canvas);
   }
   const newStamp = () => ({ mask: card.logoMask(), rot: (rnd() < 0.5 ? -1 : 1) * rnd.range(0.05, 0.5), dx: rnd.range(-2.5, 2.5), dy: rnd.range(-2, 2), seed: (rnd() * 1e9) >>> 0 });
-  let savedFields = {}, savedContact = '';           // l'adresse et le contact restent si l'on revient en arrière
+  let savedFields = { prenom: PRENOM }, savedContact = '';           // l'adresse et le contact restent si l'on revient en arrière
   const zoneOf = id => FIELDS.find(d => d.id === id)?.zone || 'addr';
   function closeEnv() {
     if (env?.ink) card.freeInk(env.ink);

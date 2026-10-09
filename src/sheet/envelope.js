@@ -63,14 +63,15 @@ export function senderCount(ev) {
 // se fond dans le noir. Horloge propre (s), réversible (le retour défait tout) jusqu'à ce que la tranche soit le champ.
 export const STAMP = { x: 31, y: 27, r: 12.5, logo: 16.5 };   // tampon : centre (mm, depuis le coin haut-droit), rayon, logo
 export const PO = chain([
-  ['cam', 1.1],              // la vue recule jusqu'à l'enveloppe entière (le coup de tampon tombe à PO.hit)
-  ['turn', 1.2, 0.5],        // elle se retourne : le dos, rabat ouvert
+  ['cam', 1.1],              // la vue recule jusqu'à l'enveloppe entière
+  ['pam', 0.6, 0.15],        // puis le coup de tampon, d'un coup sec (09/10 : « pam ! », l'enveloppe entière à l'écran)
+  ['turn', 1.2, 0.35],       // elle se retourne : le dos, rabat ouvert
   ['flap', 0.9, 0.1],        // le rabat se ferme
   ['seal', 0.6, -0.05],      // le cachet de cire tombe et s'écrase sur sa pointe
   ['tip', 1.2, 0.25],        // elle bascule jusqu'à ne plus montrer que sa tranche
   ['away', 1.4, 0.05],       // la tranche seule : elle avance dans la fente (rétrécit jusqu'à MAIL_W px)
 ]);
-PO.hit = 0.75;                                                 // le coup de tampon (pendant le recul de la vue)
+PO.hit = PO.pam[0];                                            // l'instant du coup de tampon
 PO.end = PO.tip[1];                                            // la tranche est devenue le champ de l'email
 PO.fade = [PO.away[1] - 0.3, PO.away[1] + 0.7];                // puis l'enveloppe se fond, la ligne reste
 export const MAIL_W = 190;
@@ -78,7 +79,10 @@ export const MAIL_W = 190;
 // tapée en léger tant qu'il est vide ; Entrée = le champ suivant. Destinataire en bas à droite, expéditeur (email,
 // téléphone : demandés après). POSTER dès que nom, adresse, code postal et ville sont là.
 export const FIELDS = [
-  { id: 'nom', hint: 'prénom nom', zone: 'addr', line: 0, chars: 34, req: true, ac: 'name', im: 'text', cap: 'words', label: 'Prénom et nom' },
+  // 09/10 : la ligne du destinataire en deux champs côte à côte — le prénom déjà écrit (celui du poème, accentué ;
+  // on peut le changer), et le nom à côté ; col : décalage sur la ligne (en frappes)
+  { id: 'prenom', hint: 'prénom', zone: 'addr', line: 0, col: 0, chars: 15, req: true, ac: 'given-name', im: 'text', cap: 'words', label: 'Prénom' },
+  { id: 'nom', hint: 'nom', zone: 'addr', line: 0, col: 16, chars: 14, req: true, ac: 'family-name', im: 'text', cap: 'words', label: 'Nom' },
   { id: 'rue', hint: 'adresse', zone: 'addr', line: 1, chars: 34, req: true, ac: 'address-line1', im: 'text', cap: 'words', label: 'Adresse' },
   { id: 'cplt', hint: 'complément', zone: 'addr', line: 2, chars: 34, ac: 'address-line2', im: 'text', cap: 'words', label: "Complément d'adresse (facultatif)" },
   // 08/10 : la ville d'abord, le code postal en dernier
@@ -92,7 +96,7 @@ export const telOk = v => (v || '').replace(/\D/g, '').length >= 8 && /^[\d\s+()
 export const fieldsReady = f => FIELDS.every(d => !d.req || (f[d.id] || '').trim());
 // ce qui part (email, lien, PDF) : les lignes de l'adresse et le moyen de joindre
 export const fieldsOut = f => ({
-  address: [f.nom, f.rue, f.cplt, [f.cp, f.ville].filter(x => (x || '').trim()).join(' ')].map(x => (x || '').trim()).filter(Boolean),
+  address: [[f.prenom, f.nom].map(x => (x || '').trim()).filter(Boolean).join(' '), f.rue, f.cplt, [f.cp, f.ville].filter(x => (x || '').trim()).join(' ')].map(x => (x || '').trim()).filter(Boolean),
   email: emailOk(f.email) ? f.email.trim() : '', tel: telOk(f.tel) ? f.tel.trim() : '',
   contact: [emailOk(f.email) ? f.email.trim() : '', telOk(f.tel) ? f.tel.trim() : ''].filter(Boolean).join(' · '),
 });
@@ -107,7 +111,7 @@ export const cleanContact = v => v.replace(/[\r\n\t]/g, '').replace(/\s{2,}/g, '
 // encre de l'enveloppe (face, 10 px/mm) : l'expéditeur (email ou numéro) en haut à gauche, l'adresse en bas à droite
 const ENV_PX = 10;
 // l'enveloppe à remplir : chaque champ sur sa ligne, son invitation en léger tant qu'il est vide ; curseur au champ actif
-export const fieldPos = d => d.zone === 'addr' ? { x: ADDR.x, y: ADDR.y + d.line * ADDR.lead } : { x: CONTACT.x, y: CONTACT.y + d.line * ADDR.lead };
+export const fieldPos = d => d.zone === 'addr' ? { x: ADDR.x + (d.col || 0) * TYPE.pitch, y: ADDR.y + d.line * ADDR.lead } : { x: CONTACT.x, y: CONTACT.y + d.line * ADDR.lead };
 // l'expéditeur seul, dans sa zone (pour le taper lettre à lettre sans refaire toute l'encre de l'enveloppe)
 const S_BOX = { x: SENDER.x - 3, y: SENDER.y - 6, w: 12 * TYPE.pitch + 8, h: 2 * SENDER.lead + 10 };
 export function senderInk(seed, n) {

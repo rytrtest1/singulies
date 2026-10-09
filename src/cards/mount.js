@@ -108,9 +108,12 @@ export async function mountCards(opts) {
   const useEl = e => { if (answer === e) return; if (!isField(answer)) { answer.style.width = '1px'; answer.style.height = '1px'; } answer = e; };
   const both = (ev, fn, o) => { for (const e of inputs) e.addEventListener(ev, fn, o); };
   // tous les champs → l'enveloppe (frappe, remplissage automatique, avec ou sans événement) ; valeurs nettoyées en retour
-  let lastVals = '';
+  let lastVals = '', envSynced = false;
   function syncFields() {
     if (!sheet) return;
+    // l'enveloppe arrive avec des champs déjà écrits (le prénom du destinataire, une adresse gardée) : on les
+    // donne d'abord aux vrais champs, sinon leur valeur vide effacerait l'enveloppe (09/10)
+    if (!envSynced) { const st = sheet.state().env; if (!st) return; for (const d of FIELDS) fieldEls[d.id].value = st.fields[d.id] || ''; envSynced = true; }
     const vals = Object.fromEntries(FIELDS.map(d => [d.id, fieldEls[d.id].value]));
     const key = JSON.stringify(vals);
     if (key === lastVals) return;
@@ -361,7 +364,7 @@ export async function mountCards(opts) {
           if (ar) Object.assign(answer.style, { left: ar.left + 'px', top: ar.top + 'px', width: (ar.right - ar.left) + 'px', height: (ar.bottom - ar.top) + 'px' });
           else { answer.style.width = '1px'; answer.style.height = '1px'; }
         }
-        if (es) syncFields();                     // remplissage automatique sans événement (Safari)
+        if (es) syncFields(); else envSynced = false;   // remplissage automatique sans événement (Safari)
         giveEl.classList.remove('on');
         postEl.classList.toggle('on', !!(es && es.canPost && ar));
         if (es && postEl.textContent !== es.sign) postEl.textContent = es.sign;

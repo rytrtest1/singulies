@@ -355,7 +355,7 @@ export function mountSimpleFlow(opts) {
   const ta = el('textarea', 'sp-write', root);
   Object.assign(ta, { spellcheck: false, rows: 3 });
   ta.setAttribute('autocapitalize', 'none'); ta.setAttribute('autocomplete', 'off'); ta.setAttribute('autocorrect', 'off');
-  ta.setAttribute('enterkeyhint', 'done'); ta.placeholder = 'ta réponse est le thème du poème';
+  ta.setAttribute('enterkeyhint', 'done'); ta.placeholder = 'ta réponse est le thème';
   const deckBtn = el('button', 'sp-btn', root); deckBtn.type = 'button'; deckBtn.textContent = 'une autre question'; deckBtn.setAttribute('aria-label', 'une autre question');
   const prevBtn = el('button', 'sp-btn', root); prevBtn.type = 'button'; prevBtn.textContent = 'la question précédente'; prevBtn.setAttribute('aria-label', 'la question précédente');
   const blankBtn = el('button', 'sp-btn', root); blankBtn.type = 'button'; blankBtn.textContent = 'carte blanche'; blankBtn.setAttribute('aria-label', 'carte blanche : écrire le thème de ton poème');
@@ -449,7 +449,7 @@ export function mountSimpleFlow(opts) {
     if (mode !== 'free') return;
     answers.blank = ta.value; mode = 'q'; pass.classList.remove('on');
     for (const d of [...deck, ansCard, ...(q ? [q.c] : [])]) d.style.opacity = 1;
-    ta.placeholder = 'ta réponse est le thème du poème';
+    ta.placeholder = 'ta réponse est le thème';
     if (q) { ta.value = answers[q.id] || ''; ta.setAttribute('aria-label', QUESTIONS.find(x => x.id === q.id)?.q || 'Réponse'); }
     blank.style.zIndex = '';
     layoutCards();
@@ -621,7 +621,7 @@ export function mountSimpleFlow(opts) {
   const stamp = el('img', '', face); stamp.src = url('simple/tampon.png'); stamp.alt = '';
   Object.assign(stamp.style, { position: 'absolute', opacity: '0', pointerEvents: 'none', transition: 'opacity .25s, transform .25s', mixBlendMode: 'screen' });
   const form = el('form', '', root); form.setAttribute('autocomplete', 'on'); form.setAttribute('aria-label', 'Adresse'); form.addEventListener('submit', e => e.preventDefault());
-  const hints = { nom: (handName(name) + ' nom').slice(0, 34) };
+  const hints = {}, prefill = { prenom: handName(name).slice(0, 15) };   // le prénom du destinataire, déjà écrit
   const inputs = {}, unders = {}, typed = {};
   for (const d of FIELDS) {
     const u = el('div', 'sp-under', face); u.textContent = '_'.repeat(Math.min(d.chars, 30)); unders[d.id] = u;
@@ -629,6 +629,7 @@ export function mountSimpleFlow(opts) {
     Object.assign(f, { type: 'text', spellcheck: false, name: d.ac, placeholder: hints[d.id] || d.hint });
     f.setAttribute('autocomplete', d.ac); f.setAttribute('inputmode', d.im); f.setAttribute('autocapitalize', d.cap); f.setAttribute('autocorrect', 'off');
     f.setAttribute('aria-label', d.label); f.setAttribute('enterkeyhint', d === FIELDS[FIELDS.length - 1] ? 'done' : 'next'); f.maxLength = d.chars;
+    if (prefill[d.id]) f.value = prefill[d.id];
     f.style.display = 'none'; inputs[d.id] = f;
   }
   const poster = el('button', 'sp-sign', root, 'POSTER'); poster.type = 'button';
@@ -657,7 +658,7 @@ export function mountSimpleFlow(opts) {
     // les champs : chacun sur sa ligne (police ≥ 16 px : l'iPhone ne zoome pas), souligné à la machine
     const fsF = Math.max(16, fs), lsF = PITCH * g.s - fsF * 0.6;
     FIELDS.forEach(d => {
-      const p = at(ADDR.x, ADDR.y + d.line * ADDR.lead), u = unders[d.id], f = inputs[d.id];
+      const p = at(ADDR.x + (d.col || 0) * PITCH, ADDR.y + d.line * ADDR.lead), u = unders[d.id], f = inputs[d.id];
       Object.assign(u.style, { left: p.x + 'px', top: (p.y - fs * 0.62) + 'px', fontSize: fs + 'px', letterSpacing: ls + 'px' });
       if (typed[d.id]) Object.assign(typed[d.id].style, { left: p.x + 'px', top: (p.y - fs * 0.97) + 'px', fontSize: fs + 'px', letterSpacing: ls + 'px' });
       Object.assign(f.style, { left: (bx + p.x) + 'px', top: (by + p.y - fsF * 1.05) + 'px', width: (d.chars * PITCH * g.s + 8) + 'px', height: (fsF * 1.3) + 'px', fontSize: fsF + 'px', letterSpacing: Math.max(-1.5, lsF) + 'px' });

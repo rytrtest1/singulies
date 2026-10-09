@@ -32,7 +32,7 @@ await sleep(4500); await shot('7-feuille-b');
 await page.waitForFunction(() => [...document.querySelectorAll('.sp-field')].some(f => f.style.display !== 'none' && f.offsetParent), null, { timeout: 30000 });
 await sleep(800); await shot('8-enveloppe');
 const fill = async (n, v) => { const f = await page.$(`.sp-field[name="${n}"]`); await f.click(); await f.type(v); };
-await fill('name', 'Clémence Martin'); await fill('address-line1', '3 rue Haute'); await fill('address-level2', 'Paris'); await fill('postal-code', '75011');
+await fill('family-name', 'Martin'); await fill('address-line1', '3 rue Haute'); await fill('address-level2', 'Paris'); await fill('postal-code', '75011');
 await sleep(700); await shot('9-champs');
 await page.click('.sp-sign.on >> text=POSTER');
 for (const [n, ms] of [['10-tampon', 700], ['11-recul', 1100], ['12-dos', 1500], ['13-tranche', 1500]]) { await sleep(ms); await shot(n); }

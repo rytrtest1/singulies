@@ -35,7 +35,7 @@ const out = await page.evaluate(() => {
   const res = [];
   sh.startWriting(); m.advance(0.3);
   res.push(sh.state().env.field);
-  for (const v of ['Léa Martin', '3 rue Haute', '', 'Paris', '75011']) {
+  for (const v of ['Martin', '3 rue Haute', '', 'Paris', '75011']) {
     const a = el(); a.value = v; a.dispatchEvent(new Event('input'));
     a.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); m.advance(0.3);
     res.push(sh.state().env.field + ':' + sh.state().env.canPost);
@@ -49,7 +49,7 @@ console.log(JSON.stringify(out));
 // RECEVOIR PAR LA POSTE : le coup de tampon, le retournement, la bascule sur la tranche, puis la tranche = champ de l'email
 await page.evaluate(() => { [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER').click(); });
 let pt = 0;
-for (const p of [0.9, 2.2, 3.3, 4.0, 4.5, 5.2, 6.2, 7.6]) {
+for (const p of [1.0, 1.3, 1.36, 1.5, 3.0, 4.4, 5.0, 8.6]) {
   await page.evaluate(d => window.__scene.advance(d), p - pt); pt = p;
   await page.screenshot({ path: `${dir}/post-${p.toFixed(1)}.png` });
 }
