@@ -161,6 +161,7 @@ async function sealBench(m) {
     ['shape', 'lampAz', -1.9, 1.9, 0.01, 'lampe : direction (0 = derrière le cachet)'],
     ['shape', 'lampEl', 0.25, 1.4, 0.01, 'lampe : hauteur (rad)'],
     ['shape', 'lamp', 0.6, 2.5, 0.05, 'lampe : distance (× cartes)'],
+    ['look', 'metal', 0, 1, 0.01, 'cire : métal (0 = papier, 1 = argent)'],
     ['look', 'albedo', 0.02, 1, 0.01, 'cire : clarté'],
     ['look', 'env', 0, 0.6, 0.01, 'cire : lumière de la pièce'],
     ['look', 'spec', 0, 40, 0.5, 'cire : reflet de la lampe'],

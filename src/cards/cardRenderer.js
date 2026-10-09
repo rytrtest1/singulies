@@ -212,6 +212,7 @@ uniform vec3 uSpotPos, uSpotDir; uniform float uSpot, uSpotCosOut, uSpotCosIn;
 uniform float uLight, uLightR, uEnv, uAlbedo, uExposure;
 uniform float uH, uB, uCrease, uFiber, uFoot, uFootW, uParallax, uShadow;
 uniform float uRough, uSpec, uSheen, uGlint, uEdge, uGrain, uDiffRough, uEnvSpec, uToe;
+uniform float uMetal;        // 0 = papier (reflet de 4 %), 1 = métal (le cachet argenté : reflet fort, peu de diffus)
 uniform vec4 uPaperXf;       // décalage (mm) + rotation du papier, propre à chaque carte
 uniform float uSeed;
 uniform float uFade;        // 1 = carte présente, 0 = fondue dans le fond (6/255), jamais un rectangle noir
@@ -471,7 +472,8 @@ void main() {
     float NL = max(dot(n, L), 0.0), NV = max(dot(n, V), 1e-3);
     vec3 H = normalize(L + V); float NH = max(dot(n, H), 0.0), VH = max(dot(V, H), 0.0);
     float a = clamp(uRough * uRough + tanL * 0.5, 0.02, 1.0);       // lampe étendue → lobe élargi
-    float F = 0.04 + 0.96 * pow(1.0 - VH, 5.0);
+    float F0 = mix(0.04, 0.8, uMetal);
+    float F = F0 + (1.0 - F0) * pow(1.0 - VH, 5.0);
     float spec = uSpec * (1.0 - 0.6 * ink) * D_GGX(NH, a) * V_Smith(NL, NV, a) * F;
     float sheen = uSheen * D_Charlie(NH, 0.45) * V_Neubelt(NL, NV);
     // fibres : chaque texel clair est une fibre à facette propre, qui s'allume sous un angle précis
@@ -480,7 +482,7 @@ void main() {
     vec3 ng = normalize(n + (T * hr.x + Bv * hr.y) * 0.9);
     float glint = uGlint * smoothstep(1.06, 1.35, R0) * pow(max(dot(ng, H), 0.0), 220.0) * clamp(1.6 - fwidth(cellf.x), 0.0, 1.0);
     float diff = orenNayar(n, L, V, uDiffRough) * sh;
-    float Fv = 0.04 + 0.96 * pow(1.0 - NV, 5.0);
+    float Fv = F0 + (1.0 - F0) * pow(1.0 - NV, 5.0);
     vec3 Rv = reflect(-V, n);
     float amb = uEnv * (alb * env(n, L) + uEnvSpec * wax * Fv * env(Rv, L));
     spec *= wax; amb *= cav; diff *= mix(1.0, cav, 0.5);
@@ -635,7 +637,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uOccExact, oc && oc.m ? 1 : 0);
     if (oc && oc.m) gl.uniformMatrix4fv(u.uOccInv, false, rigidInv(oc.m));
     gl.uniform3fv(u.uRoomUp, params.roomUp || [0, 0, 1]);
-    for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'Parallax', 'EnvSpec', 'Toe', 'InkAlb', 'InkPress', 'InkWear', 'InkThr', 'InkVar', 'InkPaper', 'InkOrg']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)]);
+    for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'Parallax', 'EnvSpec', 'Toe', 'Metal', 'InkAlb', 'InkPress', 'InkWear', 'InkThr', 'InkVar', 'InkPaper', 'InkOrg']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)] ?? 0);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, paperTex); gl.uniform1i(u.uPaper, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, logoTex); gl.uniform1i(u.uLogo, 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, card.ink || null); gl.uniform1i(u.uInk, 2);

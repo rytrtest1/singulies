@@ -2,7 +2,7 @@
 // node tools/seal-shot.mjs [suffixe] [requête] → captures/cachet/*.png + luminances (papier de l'enveloppe, cachet)
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
-import { mkdirSync, writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { PNG } from 'pngjs';
 
 const TAG = process.argv[2] || 'x', Q = process.argv[3] || '';
@@ -64,7 +64,19 @@ crop(S, 196, 446, 30, `${dir}/zoom-${TAG}.png`);
 // vue rapprochée : la caméra s'approche (essais seulement), même lampe
 await page.evaluate(() => { window.__camZoom = 0.22; window.__scene.advance(1 / 30); });
 await page.screenshot({ path: `${dir}/proche-${TAG}.png`, clip: { x: 45, y: 420, width: 300, height: 300 } });
-await page.evaluate(() => { window.__camZoom = 1; });
+// de biais : l'enveloppe tournée autour du cachet (sans faire avancer le temps)
+for (const [k, rx, ry] of [['biais1', -0.55, 0.5], ['biais2', 0.45, -0.7]]) {
+  await page.evaluate(([rx, ry]) => { const sh = window.__scene.sheet.sealTune.shape; sh.rotX = rx; sh.rotY = ry; window.__scene.step(0, 0); }, [rx, ry]);
+  await page.screenshot({ path: `${dir}/${k}-${TAG}.png`, clip: { x: 45, y: 420, width: 300, height: 300 } });
+}
+await page.evaluate(() => { const sh = window.__scene.sheet.sealTune.shape; sh.rotX = sh.rotY = 0; window.__camZoom = 1; window.__scene.step(0, 0); });
+{ // planche : de près, deux biais, taille réelle
+  const im = n => PNG.sync.read(readFileSync(`${dir}/${n}-${TAG}.png`));
+  const parts = [im('proche'), im('biais1'), im('biais2')], H = parts[0].height, W = parts[0].width;
+  const o = new PNG({ width: W * 3 + 20, height: H });
+  parts.forEach((pp, n) => { for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4, j = (y * o.width + x + n * (W + 10)) * 4; for (let c = 0; c < 4; c++) o.data[j + c] = pp.data[i + c]; } });
+  writeFileSync(`${dir}/planche-${TAG}.png`, PNG.sync.write(o));
+}
 console.log(JSON.stringify({
   fond: stats(S, 5, 800, 60, 840).med,
   face: stats(shots.face, 40, 300, 350, 500),
