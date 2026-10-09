@@ -62,7 +62,7 @@ function frame() {
   card.draw(vp, eye, Pl, { model: Mf, lod: 'flap', fade: 1, shade: 1, ...flapV, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: ao(FLAP_H / 2 - 7), sealQ });
   const Ms = M4.mul(Mf, T(0, FLAP_H / 2 - 7, -0.19));
   card.draw(vp, eye, { ...Pl, ...look }, { model: Ms, lod: 'seal', fade: 1, shade: 1, ...sealV, paperLo: shape.marbre,
-    sealP: [shape.hd, shape.hc, shape.crest, shape.ring], sealQ });
+    sealP: [shape.hd, shape.hc, shape.crest, shape.ring], sealQ, sealR: [shape.film, shape.sss], blend: true });
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -77,6 +77,8 @@ const R = [
   ['shape', 'breath', 0, 1, 1, 'lampe qui respire (1) / figée (0)'],
   ['shape', 'envAz', -1.9, 1.9, 0.01, 'lampe : direction (0 = derrière, − = gauche)'],
   ['shape', 'lamp', 0.6, 2.5, 0.05, 'lampe : distance (enveloppe entière)'],
+  ['shape', 'film', 0, 2, 0.05, 'cire : bord translucide (épaisseur en mm sous laquelle on voit le papier)'],
+  ['shape', 'sss', 0, 1, 0.01, 'cire : diffusion de la lumière dans la cire (ombres douces)'],
   ['look', 'metal', 0, 1, 0.01, 'cire : métal (0 = papier, 1 = argent)'],
   ['look', 'albedo', 0, 0.3, 0.005, 'cire : clarté (diffus)'],
   ['look', 'env', 0, 0.3, 0.002, 'cire : lumière de la pièce (reflets)'],

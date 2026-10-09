@@ -208,6 +208,7 @@ uniform vec3 uLightPos, uEye, uRoomUp;
 uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc;
 // cachet (même uniforme que le maillage) ; ombre de contact d'un objet posé (centre xy mm, rayon, force)
 uniform vec4 uSeal, uAO, uSealP, uSealQ;
+uniform vec2 uSealR;          // cire : épaisseur (mm) sous laquelle elle devient translucide (le bord étalé laisse voir le papier), diffusion de la lumière dans la cire (0–1)
 ${SEAL_GLSL}
 uniform mat4 uOccInv; uniform float uOccExact;     // ombre exacte : repère de la carte qui fait de l'ombre (inclinée)
 // projecteur de mise en valeur (carte active) : cône doux
@@ -219,6 +220,7 @@ uniform float uMetal;        // 0 = papier (reflet de 4 %), 1 = métal (le cache
 uniform vec4 uPaperXf;       // décalage (mm) + rotation du papier, propre à chaque carte
 uniform float uSeed;
 uniform float uFade;        // 1 = carte présente, 0 = fondue dans le fond (6/255), jamais un rectangle noir
+uniform float uAlpha;       // opacité (le cachet, à la demande : il laisse transparaître l'enveloppe) ; 1 partout ailleurs
 uniform float uShade;       // occlusion (cartes sous d'autres dans la pile)
 out vec4 o;
 const float PI = 3.14159265;
@@ -485,6 +487,9 @@ void main() {
     vec3 ng = normalize(n + (T * hr.x + Bv * hr.y) * 0.9);
     float glint = uGlint * smoothstep(1.06, 1.35, R0) * pow(max(dot(ng, H), 0.0), 220.0) * clamp(1.6 - fwidth(cellf.x), 0.0, 1.0);
     float diff = orenNayar(n, L, V, uDiffRough) * sh;
+    // cire : la lumière y pénètre un peu et ressort plus loin — les flancs à l'ombre s'éclairent doucement, le passage
+    // lumière / ombre s'adoucit (diffusion sous la surface, approchée par un éclairage enveloppant)
+    if (uSeal.x > 0.5 && uSealR.y > 0.0) { float w = uSealR.y; diff = mix(diff, max(0.0, (dot(n, L) + w) / ((1.0 + w) * (1.0 + w))) * mix(sh, 1.0, 0.5 * w), w); }
     float Fv = F0 + (1.0 - F0) * pow(1.0 - NV, 5.0);
     vec3 Rv = reflect(-V, n);
     float amb = uEnv * (alb * env(n, L) + uEnvSpec * wax * Fv * env(Rv, L));
@@ -517,7 +522,14 @@ void main() {
   // courbe « photo » : pied qui écrase les noirs (papier presque noir), hautes lumières intactes
   col = max(col - uToe, 0.0) / (1.0 - uToe);
   col = pow(max(col, 0.0), vec3(1.0 / 2.2));
-  o = vec4(mix(vec3(6.0 / 255.0), col, uFade), 1.0);
+  // cire mince = translucide : là où la cire s'étale en film (bord, ménisque), on voit le papier au travers
+  float aw = uAlpha;
+  if (uSeal.x > 0.5 && vFace != 0 && uSealR.x > 0.0) {
+    // seulement au-delà de la crête (le film qui s'étale) : le fond de l'empreinte reste une couche de cire pleine
+    float rr = length(vMM), Rc = mix(uSeal.y, uSeal.z * (1.0 + uSeal.w * sealWob(atan(vMM.y, vMM.x))), uSealP.z);
+    aw *= mix(1.0, smoothstep(0.0, uSealR.x, sealH(vMM)), smoothstep(Rc, Rc + 0.4, rr));
+  }
+  o = vec4(mix(vec3(6.0 / 255.0), col, uFade), aw);
 }`;
 
 // inverse d'une transformation rigide (rotation + translation), colonnes (WebGL)
@@ -653,8 +665,12 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform4fv(u.uCursor, card.cursor || [0, 0, 0, 0]); gl.uniform1f(u.uCursorFace, card.cursorFace ?? -1);
     gl.uniform1f(u.uShadow, RELIEF ? 1 : 0);
     gl.uniform1f(u.uShade, card.shade ?? 1); gl.uniform1f(u.uFade, card.fade ?? 1);
+    const al = card.alpha ?? 1, bl = al < 1 || !!card.blend; gl.uniform1f(u.uAlpha, al);
+    gl.uniform2fv(u.uSealR, card.sealR || [0, 0]);
+    if (bl) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); }
     gl.bindVertexArray(m.vao);
     gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_INT, 0);
+    if (bl) gl.disable(gl.BLEND);
     gl.bindVertexArray(null);
   }
   // carte d'encre (canvas) → texture R8 avec mipmaps (rg : RG8, le vert porte l'encre pâle) ; à libérer avec freeInk

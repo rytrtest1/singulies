@@ -549,7 +549,7 @@ export function createSheetScene(gl, opts) {
       if (P_LOGO && uSe > 0) {
         const dropZ = reduced ? 0 : 14 * Math.pow(1 - ease(uSe), 2), sq = 1 + 0.06 * Math.sin(Math.PI * sstep(0.55, 1, uSe));
         const Ms = M4.mul(Mf, M4.mul(T(0, FLAP_H / 2 - 7, -(0.06 + 0.1 + 0.03 + dropZ)), new Float32Array([sq, 0, 0, 0, 0, sq, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])));
-        card.draw(vp, eye, { ...P, ...SEAL_LOOK }, { model: Ms, lod: 'seal', fade: envFade * sstep(0, 0.35, uSe), shade: 1, ...sealV, paperLo: SEAL_SHAPE.marbre, ...pq });
+        card.draw(vp, eye, { ...P, ...SEAL_LOOK }, { model: Ms, lod: 'seal', fade: envFade * sstep(0, 0.35, uSe), shade: 1, ...sealV, paperLo: SEAL_SHAPE.marbre, ...pq, sealR: [SEAL_SHAPE.film, SEAL_SHAPE.sss], blend: true });
       }
     }
     // « en direct » envoyé : l'événement, une fois la carte partie
