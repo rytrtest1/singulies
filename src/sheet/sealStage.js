@@ -3,7 +3,7 @@
 // l'image = tourner l'enveloppe ; la ligne des valeurs changées se recopie (et se passe dans l'adresse : ?s.albedo=…).
 import { createCardRenderer, M4, CARD } from '../cards/cardRenderer.js';
 import { LOOK } from '../cards/scene.js';
-import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw } from './envelope.js';
+import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm } from './envelope.js';
 
 const FOV = 26 * Math.PI / 180, TILT = 0.22, TF = Math.tan(FOV / 2), CAM_AZ = -Math.PI / 2;
 const P = new URLSearchParams(location.search);
@@ -13,7 +13,8 @@ const T = (x, y, z) => M4.model(0, 0, 0, x, y, z);
 const sstep = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
 
 const look = { ...SEAL_LOOK0 };
-const shape = { ...SEAL_SHAPE0, zoom: 0.35, rotX: 0, rotY: 0, breath: 1 };
+const shape = { ...SEAL_SHAPE0, zoom: 0.35, rotX: 0, rotY: 0, breath: 1, form: 1 };
+let poseT0 = -1;                                           // « rejouer la pose » : la cire coule, le sceau appuie, elle refroidit (2,3 s)
 for (const [k, v] of P) if (k.startsWith('s.')) { const n = k.slice(2); if (n in look) look[n] = +v; else if (n in shape) shape[n] = +v; }
 
 async function main() {
@@ -70,8 +71,10 @@ function frame() {
   const Mf = M4.mul(Menv, M4.mul(M4.mul(T(0, ENV.h / 2, 1.9), M4.model(Math.PI, 0, 0)), T(0, FLAP_H / 2, 0)));
   card.draw(vp, eye, Pl, { model: Mf, lod: 'flap', fade: 1, shade: 1, ...flapV, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: ao(FLAP_H / 2 - 7), sealQ });
   const Ms = M4.mul(Mf, T(0, FLAP_H / 2 - 7, -0.19));
-  card.draw(vp, eye, { ...Pl, ...look }, { model: Ms, lod: sealLod, fade: 1, shade: 1, ...sealV, paperLo: shape.marbre, sealV4: [SD.wobPhase, SD.crest, SD.tilt, shape.peau],
-    sealP: [shape.hd, shape.hc, shape.crest, shape.ring], sealQ, sealR: [shape.film, shape.sss, shape.offX, shape.offY], logoOff: [shape.offX, shape.offY], blend: true });
+  if (poseT0 >= 0) { shape.form = Math.min(1, (performance.now() - poseT0) / 2300); if (shape.form >= 1) poseT0 = -1; if (window.__syncForm) window.__syncForm(); }
+  const Fm = sealForm(shape.form, look, shape);
+  card.draw(vp, eye, { ...Pl, ...Fm.look }, { model: Ms, lod: sealLod, fade: 1, shade: 1, ...sealV, paperLo: shape.marbre, sealV4: [SD.wobPhase, SD.crest, SD.tilt, Fm.peau], form: Fm.form,
+    sealP: [shape.hd, shape.hc, shape.crest, Fm.ring], sealQ: [Fm.pits, Fm.cavWall, shape.cavEdge, shape.aoW], sealR: [shape.film, shape.sss, shape.offX, shape.offY], logoOff: [shape.offX, shape.offY], blend: true });
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -81,6 +84,7 @@ main();
 // ---- le panneau ----
 const R = [
   ['shape', 'zoom', 0.15, 1, 0.01, 'vue : cachet de près ↔ enveloppe entière'],
+  ['shape', 'form', 0, 1, 0.005, 'pose : coule → pression → refroidit (glisser)'],
   ['shape', 'rotY', -1.4, 1.4, 0.01, "tourner (ou glisser sur l'image)"],
   ['shape', 'rotX', -1.4, 1.4, 0.01, 'basculer'],
   ['shape', 'breath', 0, 1, 1, 'lampe qui respire (1) / figée (0)'],
@@ -116,7 +120,7 @@ const R = [
   ['shape', 'aoW', 0.1, 5, 0.05, 'ombre portée : largeur (mm)'],
 ];
 const G = { look, shape }, init = {}, inputs = {};
-const SKIP = ['zoom', 'rotX', 'rotY', 'breath', 'offX', 'offY'];
+const SKIP = ['zoom', 'rotX', 'rotY', 'breath', 'offX', 'offY', 'form'];
 for (const [g, k] of R) init[g + k] = (g === 'look' ? SEAL_LOOK0 : SEAL_SHAPE0)[k] ?? G[g][k];
 const panel = document.getElementById('panel'), out = document.getElementById('out');
 const show = () => { out.textContent = R.filter(([g, k]) => !SKIP.includes(k) && G[g][k] !== init[g + k]).map(([g, k]) => 's.' + k + '=' + G[g][k]).join('&') || '(rien de changé)'; };
@@ -130,6 +134,8 @@ for (const [g, k, a, b, st, label] of R) {
 }
 window.__syncOff = () => { for (const k of ['offX', 'offY']) if (inputs[k]) { inputs[k][0].value = shape[k]; inputs[k][1].textContent = shape[k]; } };
 document.getElementById('tirer').onclick = () => window.__tirage();
+document.getElementById('poser').onclick = () => { poseT0 = performance.now(); };
+window.__syncForm = () => { if (inputs.form) { inputs.form[0].value = shape.form; inputs.form[1].textContent = shape.form.toFixed(2); } };
 document.getElementById('reset').onclick = () => { shape.rotX = shape.rotY = 0; sync(); };
 document.getElementById('copy').onclick = async () => { try { await navigator.clipboard.writeText(out.textContent); document.getElementById('copy').textContent = 'copié'; setTimeout(() => { document.getElementById('copy').textContent = 'copier'; }, 1200); } catch (e) { /* sélectionner à la main */ } };
 const sync = () => { for (const k of ['rotX', 'rotY']) { const [inp, v] = inputs[k]; inp.value = shape[k]; v.textContent = (+shape[k]).toFixed(2); } };

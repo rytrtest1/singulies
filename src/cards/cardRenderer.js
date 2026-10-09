@@ -106,7 +106,7 @@ float sealWob(float a) { a += uSealV.x; return 0.5 * sin(5.0 * a + 0.7) + 0.22 *
 float sealRe(vec2 p) { return uSeal.z * (1.0 + uSeal.w * sealWob(atan(p.y, p.x))); }
 // position dans le bourrelet : 0 au bord de l'empreinte, 1 au bord de la cire (négatif dans l'empreinte)
 float sealT(vec2 p) { float d1 = length(p - uSealR.zw) - uSeal.y, d2 = sealRe(p) - length(p); return d1 / max(0.3, d1 + d2); }
-float sealH(vec2 p) {
+float sealH1(vec2 p) {
   // (09/10, d'après les références) : l'empreinte n'est pas au centre de la cire (uSealR.zw) — la cire a coulé
   // davantage d'un côté, où le bourrelet est large et haut ; de l'autre, le sceau touche presque le bord. Fond plat,
   // paroi raide (le bord du sceau), crête ronde, puis la cire retombe jusqu'au papier.
@@ -132,6 +132,18 @@ float sealH(vec2 p) {
   float lumps = 0.015 * sin(p.x * 1.3 + 0.7 * sin(p.y * 0.9)) * sin(p.y * 1.1 - 0.5) + 0.006 * sin(p.x * 3.1 - p.y * 2.3 + 1.0);
   return (h + lumps * (1.0 - rim)) * tilt + ring * step(t, 0.0) + pits * uSealQ.x;
 }
+// la pose (09/10) : uSealF.x 0 → 1 — la cire coule et s'étale en dôme liquide, puis le sceau (invisible) appuie : le
+// centre s'enfonce, la cire chassée part vers l'extérieur et monte en bourrelet ; 1 = le cachet fini
+float sealS() { float f = uSealF.x; return mix(mix(0.3, 0.8, smoothstep(0.0, 0.42, f)), 1.0, smoothstep(0.42, 0.8, f)); }
+float sealH(vec2 p) {
+  float f = uSealF.x;
+  if (f >= 1.0) return sealH1(p);
+  float sp = sealS(), pr = smoothstep(0.42, 0.8, f);
+  float q = length(p) / (sealRe(p) * sp);
+  if (q >= 1.0) return 0.0;
+  float dome = 1.7 * (0.8 + 0.2 * smoothstep(0.0, 0.42, f)) * sqrt(1.0 - q * q);
+  return mix(dome, sealH1(p / sp), pr);
+}
 `;
 
 const VS = /* glsl */`#version 300 es
@@ -148,6 +160,7 @@ uniform vec2 uLogoOff, uLogoScale;
 // cachet de cire (08/10) : (actif, rayon de l'empreinte du sceau, rayon de la cire, ondulation du bord) — la face 1 bombe
 // vers l'extérieur : empreinte plate, bourrelet de cire chassée autour, puis la cire retombe en ménisque jusqu'au bord
 uniform vec4 uSeal;
+uniform vec4 uSealF;          // cachet : pose (0 → 1)
 uniform vec4 uSealV;          // cachet, tirage : phase du bord, phase du bourrelet, sens de l'inclinaison, peau de la cire (mm)
 uniform vec4 uSealR;          // cire : (bord translucide, diffusion, décentrage de l'empreinte x, y)
 uniform vec4 uSealP, uSealQ;   // cachet, réglages : (creux de l'empreinte, bourrelet, crête, anneau), (piqûres, cavité paroi, cavité bord, largeur de l'ombre de contact)
@@ -219,7 +232,7 @@ uniform vec3 uLightPos, uEye, uRoomUp;
 uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc;
 // cachet (même uniforme que le maillage) ; ombre de contact d'un objet posé (centre xy mm, rayon, force)
 uniform vec4 uSeal, uAO, uSealP, uSealQ;
-uniform vec4 uSealV;
+uniform vec4 uSealV, uSealF;
 uniform vec4 uSealR;          // cire : épaisseur (mm) sous laquelle elle devient translucide (le bord étalé laisse voir le papier), diffusion de la lumière dans la cire (0–1), décentrage de l'empreinte (mm)
 ${SEAL_GLSL}
 uniform mat4 uOccInv; uniform float uOccExact;     // ombre exacte : repère de la carte qui fait de l'ombre (inclinée)
@@ -351,6 +364,7 @@ float occShadow(vec3 L, float dist) {
 
 float clipRim = 0.0;
 void main() {
+  if (uSeal.x > 0.5 && uSealF.x < 1.0 && length(vMM) > sealRe(vMM) * sealS()) discard;   // la cire n'a pas encore coulé jusque-là
   if (uClip.x > 0.5) {
     // triangle à pointe adoucie : bords droits, pointe arrondie (≈ 5 mm)
     float yy = vMM.y - uClip.y, ax = abs(vMM.x), k = uClip.w / uClip.z;
@@ -488,7 +502,7 @@ void main() {
     float wax = 1.0;
     float cav = 1.0;
     if (uSeal.x > 0.5) {
-      float k = prof(d); wax = 0.85 + 0.25 * k; alb *= 0.92 + 0.12 * k;
+      float k = prof(d) * clamp(uH / 0.15, 0.0, 1.0); wax = 0.85 + 0.25 * k; alb *= 0.92 + 0.12 * k;   // (pas de logo avant la pression)
       // cavité : la lumière de la pièce entre mal au pied de la paroi (disque ↔ bourrelet) et sous les lobes
       float r = length(p), Re = sealRe(p), ri = length(p - uSealR.zw);
       cav = (1.0 - uSealQ.y * exp(-pow((ri - (uSeal.y - 0.05)) / 0.45, 2.0))) * (1.0 - uSealQ.z * smoothstep(Re - 1.2, Re, r));
@@ -685,7 +699,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uShadow, RELIEF ? 1 : 0);
     gl.uniform1f(u.uShade, card.shade ?? 1); gl.uniform1f(u.uFade, card.fade ?? 1);
     const al = card.alpha ?? 1, bl = al < 1 || !!card.blend; gl.uniform1f(u.uAlpha, al);
-    gl.uniform4fv(u.uSealR, card.sealR || [0, 0, 0, 0]); gl.uniform4fv(u.uSealV, card.sealV4 || [0, 0, 0, 0]);
+    gl.uniform4fv(u.uSealR, card.sealR || [0, 0, 0, 0]); gl.uniform4fv(u.uSealV, card.sealV4 || [0, 0, 0, 0]); gl.uniform4f(u.uSealF, card.form ?? 1, 0, 0, 0);
     if (bl) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); }
     gl.bindVertexArray(m.vao);
     gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_INT, 0);
