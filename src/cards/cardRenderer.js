@@ -6,6 +6,7 @@
 // fibres qui scintillent ; tranche plus claire, bords un peu cassés, irréguliers.
 import '../app/compat.js';            // (Safari d'avant iOS 17 : de simples <canvas> à la place d'OffscreenCanvas)
 import { program } from '../gl/gl.js';
+import { LUM } from '../app/lum.js';
 import { RELIEF, MAILLE } from '../app/perf.js';
 
 export const CARD = { w: 87, h: 51.5, r: 3, t: 0.125, logoSq: 38.501, logoRange: 2 };
@@ -595,6 +596,9 @@ void main() {
   // courbe « photo » : pied qui écrase les noirs (papier presque noir), hautes lumières intactes
   col = max(col - uToe, 0.0) / (1.0 - uToe);
   col = pow(max(col, 0.0), vec3(1.0 / 2.2));
+  // ?lum (src/app/lum.js) : gain sur l'image finale, comme on monte la luminosité d'un écran — mêmes rapports
+  // lumière / ombre (l'éclairage cinématique reste), seul le noir du fond (6) ne bouge pas
+  col = vec3(6.0 / 255.0) + max(col - 6.0 / 255.0, 0.0) * ${LUM.gain.toFixed(3)};
   // cire mince = translucide : là où la cire s'étale en film (bord, ménisque), on voit le papier au travers
   float aw = uAlpha;
   if (uSeal.x > 0.5 && vFace != 0 && uSealR.x > 0.0) {

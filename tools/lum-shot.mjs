@@ -1,4 +1,5 @@
 // Les trois versions de luminosité (?lum=base|boost|lisible) côte à côte : portail, accueil (LEA), carte question.
+// (filtre = base + brightness(1.45) CSS sur la page : la référence du premier essai)
 // node tools/lum-shot.mjs → captures/lum/<mode>-<écran>.png + captures/lum/planche.png
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
@@ -9,21 +10,21 @@ const server = await createServer({ server: { port: PORT, strictPort: true, host
 await server.listen();
 mkdirSync('captures/lum', { recursive: true });
 const browser = await chromium.launch({ headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
-const MODES = ['base', 'boost', 'lisible'], SHOTS = ['portail', 'accueil', 'carte'];
+const MODES = ['base', 'filtre', 'boost'], SHOTS = ['portail', 'accueil', 'carte'];
 const base = `http://localhost:${PORT}`;
 for (const m of MODES) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   page.setDefaultTimeout(180000);
   page.on('pageerror', e => console.error(m, String(e)));
-  await page.goto(`${base}/?envoi=0&lum=${m}`); await page.waitForTimeout(9000);
-  await page.screenshot({ path: `captures/lum/${m}-portail.png` });
-  await page.goto(`${base}/?portail=0&envoi=0&lum=${m}`); await page.waitForTimeout(3000);
+  await page.goto(`${base}/?envoi=0&lum=${m === 'filtre' ? 'base' : m}`); await page.waitForTimeout(9000);
+  if (m === 'filtre') await page.addStyleTag({ content: 'html { filter: brightness(1.45); }' }); await page.screenshot({ path: `captures/lum/${m}-portail.png` });
+  await page.goto(`${base}/?portail=0&envoi=0&lum=${m === 'filtre' ? 'base' : m}`); await page.waitForTimeout(3000);
   await page.mouse.click(195, 422); await page.keyboard.type('LEA'); await page.waitForTimeout(3500);
-  await page.screenshot({ path: `captures/lum/${m}-accueil.png` });
-  await page.goto(`${base}/scene-cartes.html?prenom=LEA&seed=3&lum=${m}`);
+  if (m === 'filtre') await page.addStyleTag({ content: 'html { filter: brightness(1.45); }' }); await page.screenshot({ path: `captures/lum/${m}-accueil.png` });
+  await page.goto(`${base}/scene-cartes.html?prenom=LEA&seed=3&lum=${m === 'filtre' ? 'base' : m}`);
   await page.waitForFunction(() => { const s = window.__scene?.scene.state(); return s && s.writing && s.active && s.active.id != null; });
   await page.waitForTimeout(3000);
-  await page.screenshot({ path: `captures/lum/${m}-carte.png` });
+  if (m === 'filtre') await page.addStyleTag({ content: 'html { filter: brightness(1.45); }' }); await page.screenshot({ path: `captures/lum/${m}-carte.png` });
   await page.close();
 }
 // planche : colonnes = versions, lignes = écrans (moitié de taille)
