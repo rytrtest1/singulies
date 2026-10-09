@@ -61,7 +61,7 @@ function cardMesh(fine = true, seg = 12, dims = null) {
   const { w, h, r, t } = dims || CARD, v = [], idx = [];
   // bord ondulé (cachet de cire : la cire écrasée déborde inégalement) : rayon des coins × (1 + wob(angle))
   const wb = dims && dims.wobble || 0;
-  const wob = a => wb * (0.55 * Math.sin(3 * a + 0.7) + 0.3 * Math.sin(5 * a + 2.1) + 0.15 * Math.sin(9 * a + 4.2) + 0.08 * Math.sin(13 * a + 1.3));
+  const wob = a => wb * (0.5 * Math.sin(5 * a + 0.7) + 0.22 * Math.sin(3 * a + 2.1) + 0.2 * Math.sin(7 * a + 4.2) + 0.08 * Math.sin(13 * a + 1.3));
   const fit = (x, y) => {   // point de grille ramené dans le rectangle arrondi (coins projetés sur l'arc)
     const cx = w / 2 - r, cy = h / 2 - r, qx = Math.abs(x) - cx, qy = Math.abs(y) - cy;
     if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy), rr = r * (1 + wob(Math.atan2(y, x))); if (l > rr) return [Math.sign(x) * (cx + qx * rr / l), Math.sign(y) * (cy + qy * rr / l)]; }
@@ -99,6 +99,29 @@ function cardMesh(fine = true, seg = 12, dims = null) {
   return { verts: new Float32Array(v), indices: new Uint32Array(idx) };
 }
 
+// le cachet de cire : bord ondulé et profil (maillage et lumière)
+const SEAL_GLSL = /* glsl */`
+float sealWob(float a) { return 0.5 * sin(5.0 * a + 0.7) + 0.22 * sin(3.0 * a + 2.1) + 0.2 * sin(7.0 * a + 4.2) + 0.08 * sin(13.0 * a + 1.3); }   // = cardMesh
+float sealH(vec2 p) {
+  // (09/10, d'après la référence) : grand disque plat de l'empreinte, paroi qui monte jusqu'à un bourrelet bien rond,
+  // puis la cire retombe raide jusqu'au papier ; le bourrelet est plus large dans les lobes
+  float r = length(p), a = atan(p.y, p.x);
+  float Re = uSeal.z * (1.0 + uSeal.w * sealWob(a));
+  float Ri = uSeal.y, Rc = mix(Ri, Re, 0.42);                 // bord de l'empreinte, crête du bourrelet
+  float hd = 1.05, hc = 2.9 * (1.0 + 0.04 * sin(4.0 * a + 1.1) + 0.02 * sin(9.0 * a + 0.3));
+  float h;
+  if (r < Rc) h = hd + (hc - hd) * smoothstep(Ri - 0.5, Rc, r);
+  else { float u = clamp((r - Rc) / max(0.5, Re - Rc), 0.0, 1.0); h = hc * sqrt(1.0 - u * u); }
+  // le cercle gravé du sceau laisse un fin anneau en relief au bord de l'empreinte
+  float ring = 0.13 * exp(-pow((r - (Ri - 0.9)) / 0.2, 2.0));
+  // la cire n'est pas lisse : fines ondulations et quelques petites piqûres sur le bourrelet
+  float rim = smoothstep(Ri, Rc, r) * step(r, Re);
+  float pits = rim * (0.025 * sin(a * 31.0 + r * 4.1) * sin(a * 19.0 - r * 6.7)
+    - 0.05 * pow(max(0.0, sin(a * 13.0 + r * 2.3) * sin(a * 8.0 - r * 3.9)), 12.0));
+  return h + ring + pits;
+}
+`;
+
 const VS = /* glsl */`#version 300 es
 layout(location=0) in vec3 aPos;
 layout(location=1) in vec3 aNor;
@@ -113,19 +136,7 @@ uniform vec2 uLogoOff, uLogoScale;
 // cachet de cire (08/10) : (actif, rayon de l'empreinte du sceau, rayon de la cire, ondulation du bord) — la face 1 bombe
 // vers l'extérieur : empreinte plate, bourrelet de cire chassée autour, puis la cire retombe en ménisque jusqu'au bord
 uniform vec4 uSeal;
-float sealWob(float a) { return 0.55 * sin(3.0 * a + 0.7) + 0.3 * sin(5.0 * a + 2.1) + 0.15 * sin(9.0 * a + 4.2) + 0.08 * sin(13.0 * a + 1.3); }   // = cardMesh
-float sealH(vec2 p) {
-  float r = length(p), a = atan(p.y, p.x);
-  float Re = uSeal.z * (1.0 + uSeal.w * sealWob(a));
-  float Rk = uSeal.y + 0.8;                                   // crête du bourrelet
-  float t = clamp((Re - r) / max(0.5, Re - Rk), 0.0, 1.0);
-  float outer = 1.25 * (1.0 - (1.0 - t) * (1.0 - t));          // ménisque : raide au bord, arrondi
-  float base = mix(0.95, outer, smoothstep(Rk - 0.9, Rk, r));
-  float ridge = 0.38 * exp(-pow((r - Rk) / 0.7, 2.0)) * step(r, Re);
-  float ripple = 0.05 * sin(r * 2.3 + 2.0 * sin(a * 2.0)) * smoothstep(Rk, Re, r);   // la cire a coulé
-  return base + ridge + ripple;
-}
-out vec3 vWorld, vT, vB, vN; out vec2 vMM; flat out int vFace;
+${SEAL_GLSL}out vec3 vWorld, vT, vB, vN; out vec2 vMM; flat out int vFace;
 // même profil que le shader de surface, pied un peu adouci (le maillage a un pas de 0,2 mm)
 float gaufrage(vec2 p) {
   if (uNoLogo > 0.5) return 0.0;
@@ -158,6 +169,7 @@ void main() {
   }
   // la feuille entière est poussée vers le dos : bosse au dos, creux au recto (même déplacement)
   float g = f == 2 ? 0.0 : gaufrage(aPos.xy);
+  if (uSeal.x > 0.5 && f == 1) g = -g;                        // cachet : le logo sort de la cire (sceau gravé)
   vec3 p = aPos + vec3(0.0, 0.0, z + g);
   vec3 T = normalize(vec3(1.0, 0.0, dzx)), B = normalize(vec3(0.0, 1.0, dzy));
   vec3 Nu = normalize(cross(T, B));
@@ -190,6 +202,9 @@ uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
 uniform vec3 uLightPos, uEye, uRoomUp;
 // ombre portée par une autre carte (la carte retournée au-dessus du paquet) : rectangle à la hauteur uOccZ
 uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc;
+// cachet (même uniforme que le maillage) ; ombre de contact d'un objet posé (centre xy mm, rayon, force)
+uniform vec4 uSeal, uAO;
+${SEAL_GLSL}
 uniform mat4 uOccInv; uniform float uOccExact;     // ombre exacte : repère de la carte qui fait de l'ombre (inclinée)
 // projecteur de mise en valeur (carte active) : cône doux
 uniform vec3 uSpotPos, uSpotDir; uniform float uSpot, uSpotCosOut, uSpotCosIn;
@@ -206,8 +221,10 @@ const float PI = 3.14159265;
 float logoD(vec2 p) {        // distance signée au contour (mm), < 0 dans le logo
   if (uNoLogo > 0.5) return uLogoRange;   // feuille sans logo
   vec2 uv = (p - uLogoOff) / (uLogoSq * uLogoScale) + 0.5; uv.y = 1.0 - uv.y;
-  if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return uLogoRange;
-  return texture(uLogo, uv).r * min(abs(uLogoScale.x), abs(uLogoScale.y));
+  float k = min(abs(uLogoScale.x), abs(uLogoScale.y));
+  // (09/10 : hors de la texture, même échelle que dedans — sinon un saut de distance dessinait un carré autour du logo)
+  if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return uLogoRange * k;
+  return texture(uLogo, uv).r * k;
 }
 // profil du gaufrage : pied raide (pli du papier) puis épaule arrondie ; pied élargi à l'empreinte du pixel
 float gFootW = 0.08;
@@ -335,13 +352,13 @@ void main() {
   vec3 col;
   if (vFace == 2) {                                    // tranche : cœur du carton, plus clair, fibreux
     float n1 = noise1(atan(vMM.y, vMM.x) * 180.0);
-    float alb = uAlbedo * (1.6 + 0.5 * n1);
+    float alb = uAlbedo * (uSeal.x > 0.5 ? 0.25 : 1.6 + 0.5 * n1);   // cachet : sa tranche est le pied de la cire, dans l'ombre
     float NL = max(dot(Ng, L), 0.0);
     vec3 He = normalize(L + V);
-    float specE = uSpec * D_GGX(max(dot(Ng, He), 0.0), 0.35) * 0.25;
+    float specE = uSeal.x > 0.5 ? 0.0 : uSpec * D_GGX(max(dot(Ng, He), 0.0), 0.35) * 0.25;
     col = vec3(alb * (irr * NL * occShadow(L, dist) + uEnv * env(Ng, L)) + irr * NL * specE);
   } else {
-    float s = vFace == 0 ? 1.0 : -1.0;
+    float s = vFace == 0 || uSeal.x > 0.5 ? 1.0 : -1.0;      // cachet : logo en relief
     // relief du logo (dos : bosse, recto : creux) ; le pied est élargi à l'empreinte du pixel
     float fw = fwidth(logoD(vMM));
     gFootW = max(uFootW, fw * 1.2);
@@ -441,6 +458,15 @@ void main() {
     float crease = 1.0 - uCrease * exp(-pow(d / max(0.04, fw), 2.0));
     // matière
     float alb = mix(uAlbedo * R0 * (1.0 + 0.5 * rim + 1.6 * clipRim), uInkAlb * (0.9 + 0.2 * R0), ink);
+    // cachet : argent satiné, les reliefs du logo à peine plus vifs (frottés)
+    float wax = 1.0;
+    float cav = 1.0;
+    if (uSeal.x > 0.5) {
+      float k = prof(d); wax = 0.85 + 0.25 * k; alb *= 0.92 + 0.12 * k;
+      // cavité : la lumière de la pièce entre mal au pied de la paroi (disque ↔ bourrelet) et sous les lobes
+      float r = length(p), Re = uSeal.z * (1.0 + uSeal.w * sealWob(atan(p.y, p.x)));
+      cav = (1.0 - 0.5 * exp(-pow((r - (uSeal.y - 0.3)) / 1.1, 2.0))) * (1.0 - 0.45 * smoothstep(Re - 1.2, Re, r));
+    }
     float NL = max(dot(n, L), 0.0), NV = max(dot(n, V), 1e-3);
     vec3 H = normalize(L + V); float NH = max(dot(n, H), 0.0), VH = max(dot(V, H), 0.0);
     float a = clamp(uRough * uRough + tanL * 0.5, 0.02, 1.0);       // lampe étendue → lobe élargi
@@ -455,8 +481,18 @@ void main() {
     float diff = orenNayar(n, L, V, uDiffRough) * sh;
     float Fv = 0.04 + 0.96 * pow(1.0 - NV, 5.0);
     vec3 Rv = reflect(-V, n);
-    float amb = uEnv * (alb * env(n, L) + uEnvSpec * Fv * env(Rv, L));
+    float amb = uEnv * (alb * env(n, L) + uEnvSpec * wax * Fv * env(Rv, L));
+    spec *= wax; amb *= cav; diff *= mix(1.0, cav, 0.5);
     sh *= occShadow(L, dist);
+    // ombre de contact (le cachet sur le rabat) : le papier s'assombrit au pied de la cire, un peu plus du côté
+    // opposé à la lampe
+    if (uAO.w > 0.0) {
+      vec2 Lp = vec2(dot(L, T), dot(L, Bv)); float lp = length(Lp);
+      vec2 c = uAO.xy - (lp > 1e-3 ? Lp / lp : vec2(0.0)) * 1.4 * lp / max(dot(L, Ng), 0.2);
+      float dd = max(0.0, length(p - c) - uAO.z);
+      float ao = 1.0 - uAO.w * exp(-dd / 1.8);
+      sh *= ao; amb *= mix(1.0, ao, 0.8);
+    }
     // projecteur : éclaire la carte active (l'encre surtout, le papier reste sombre), cône à bord doux
     vec3 Ls = uSpotPos - vWorld; float ds = length(Ls); Ls /= ds;
     float cone = smoothstep(uSpotCosOut, uSpotCosIn, dot(-Ls, uSpotDir));
@@ -582,6 +618,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform2fv(u.uLogoScale, card.logoScale || [1, 1]);
     gl.uniform1f(u.uNoLogo, card.noLogo ? 1 : 0);
     gl.uniform4fv(u.uSeal, card.seal || [0, 0, 1, 0]);
+    gl.uniform4fv(u.uAO, card.ao || [0, 0, 0, 0]);
     gl.uniform4fv(u.uPaperXf, card.paperXf || [0, 0, 0, 0]);
     gl.uniform3fv(u.uWarp, card.warp || [0, 0, 0]);
     gl.uniform3fv(u.uCurl, card.curl || [0, 0, 0]);

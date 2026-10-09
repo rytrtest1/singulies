@@ -53,6 +53,7 @@ const ORDERS_ON = new URLSearchParams(location.search).get('commande') === '1' |
 // ?adresse=0 (essai avec des amis, 06/10) : pas de choix ni d'adresse — après l'acrostiche, l'enveloppe se fait
 // et part seule, la demande est envoyée (sans adresse ni contact), puis l'écran principal
 export const NOADDR = new URLSearchParams(location.search).get('adresse') === '0';
+const ENV_LAMP = +new URLSearchParams(location.search).get('lampeEnv') || 1.3;   // distance de la lampe sur l'enveloppe (× celle des cartes)
 
 const clamp01 = u => Math.min(1, Math.max(0, u));
 const sstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
@@ -95,8 +96,9 @@ export function createSheetScene(gl, opts) {
   // face 1 vers l'extérieur (rabat fermé, retourné) : logo en creux, remis à l'endroit (échelle y négative) ; bombé
   const sealV = { seed: rnd() * 100, paperXf: [0, 0, 0, 0], paperLo: 0.15, logoOff: [0, 0], logoScale: [SEAL_K, -SEAL_K], warp: [0, 0, 0],
     seal: [1, SEAL_IN, SEAL_D / 2, SEAL_WOB] };
-  // cire argentée : nacrée plutôt que miroir (reflet large et doux, paillettes de métal), empreinte nette
-  const SEAL_LOOK = { albedo: 0.1, rough: 0.34, spec: 6, sheen: 0.2, glint: 0.7, grain: 0.35, fiber: 0, envSpec: 2.6, h: 0.42, b: 0.5, foot: 0.5, footW: 0.12, crease: 0.2, edge: 0, diffRough: 0.35 };
+  // cire argentée (référence du 09/10) : argent satiné, clair, presque mat — reflet large et doux, fines paillettes ;
+  // logo en relief arrondi
+  const SEAL_LOOK = { albedo: 0.5, env: 0.16, rough: 0.4, spec: 12, sheen: 0.3, glint: 0.35, grain: 0.2, fiber: 0, envSpec: 2.2, h: 0.32, b: 0.32, foot: 0.35, footW: 0.12, crease: 0.12, edge: 0, diffRough: 0.4 };
   const botV = { ...pv(), noLogo: true, warp: [0, 0, 0] };
 
   const sheetV = {
@@ -339,7 +341,7 @@ export function createSheetScene(gl, opts) {
     camS.cx = lerp(0, cxT, ci); camS.cy = lerp(from.cam.cy, cyT, ci); camS.D = Math.exp(lerp(Math.log(from.cam.D), lD, ci));
     // le coup de tampon se sent jusque dans la vue : une secousse brève, amortie
     const jph = pp - PO.hit, jolt = inEnv && !NOADDR && !reduced && jph > 0 && jph < 0.45 ? Math.exp(-jph * 11) * Math.sin(jph * 52) * 0.006 : 0;
-    const cx = camS.cx, cy = camS.cy + jolt * camS.D, D = camS.D * (1 + 0.5 * Math.abs(jolt)), Hw = 2 * D * TF;
+    const cx = camS.cx, cy = camS.cy + jolt * camS.D, D = camS.D * (1 + 0.5 * Math.abs(jolt)) * (window.__camZoom || 1), Hw = 2 * D * TF;   // __camZoom : essais (vue rapprochée)
     eye = [cx, cy - D * Math.sin(TILT), D * Math.cos(TILT)];
     vp = M4.mul(M4.perspective(FOV, W / H, D * 0.25, D * 3), M4.lookAt(eye, [cx, cy, 0], [0, 1, 0]));
 
@@ -348,9 +350,10 @@ export function createSheetScene(gl, opts) {
     let fy = SY + lerp(0, oTop - CARD.h, s), fxT = lerp(0, O_X, s);
     if (inEnv) { fy = lerp(fy, EC.y + 20, uCam); fxT = lerp(fxT, 0, uCam); }
     { const w2 = 1.8; for (const [k, v, tg] of [['x', 'vx', fxT], ['y', 'vy', fy]]) { ap[v] += (w2 * w2 * (tg - ap[k]) - 2 * w2 * ap[v]) * dt; ap[k] += ap[v] * dt; } }
-    // grande surface (l'enveloppe) : lampe plus loin (même force reçue), sinon le côté opposé tombe dans le noir
-    const kf = inEnv ? lerp(1, 2.2, uCam) : 1, k = Hw / 235 * kf;
-    const R = L.lightR0 * Hw * kf, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R), el = lamp.e;
+    // l'enveloppe : la lampe est à la mesure de l'objet, pas de la vue (09/10 : elle reculait avec la caméra quand la
+    // vue montrait l'enveloppe entière — lumière plate, papier délavé, cachet sans relief) ; même force reçue
+    const k = inEnv ? lerp(Hw / 235, ENV_LAMP, uCam) : Hw / 235;
+    const R = L.lightR0 * 235 * k, Z = L.lightZ * k, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R), el = lamp.e;
     const lightPos = [ap.x + Math.cos(lamp.a) * D0 * Math.cos(el), ap.y + Math.sin(lamp.a) * D0 * Math.cos(el), D0 * Math.sin(el)];
     const light = L.light * k * k * Math.sin(el0) / Math.sin(el);
     const spotPos = [ap.x, ap.y + 0.35 * Hw, D * 0.55];
@@ -520,11 +523,14 @@ export function createSheetScene(gl, opts) {
     nameR.drawLetters(vp, eye, P, L, list, t);
     gl.enable(gl.DEPTH_TEST);
     if (Menv && envFade > 0.004) {
-      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', fade: envFade, shade: 1, ...envV.back });
-      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', fade: envFade, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2] });
+      // le cachet posé : son ombre de contact sur ce qu'il recouvre (rabat, dos, rabat du bas ; repère de chacun)
+      const uSe0 = P_LOGO ? span(PO.seal, pp) : 0, aoK = 0.7 * sstep(0.6, 1, uSe0), sy = ENV.h / 2 - FLAP_H + 7;
+      const aoOf = y => aoK > 0 ? [0, y, SEAL_D / 2, aoK] : null;
+      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy + (ENV.h - ENV_BACK_H) / 2) });
+      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', fade: envFade, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2], ao: aoOf(sy) });
       const th = Math.PI * uFlap, hz = 1.9 * uFlap;
       const Mf = M4.mul(Menv, M4.mul(M4.mul(T(0, ENV.h / 2, hz), M4.model(th, 0, 0)), T(0, FLAP_H / 2, 0)));
-      card.draw(vp, eye, P, { model: Mf, lod: 'flap', fade: envFade, shade: 1, ...envV.flap, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2] });
+      card.draw(vp, eye, P, { model: Mf, lod: 'flap', fade: envFade, shade: 1, ...envV.flap, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: aoOf(FLAP_H / 2 - 7) });
       // le cachet se pose À CHEVAL sur la pointe du rabat fermé (06/10 : il était trop haut), il descend, s'écrase un peu ;
       // 09/10 : après POSTER, une fois l'enveloppe retournée et le rabat fermé (le geste de la personne le scelle)
       const uSe = span(PO.seal, pp);
