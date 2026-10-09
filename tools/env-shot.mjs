@@ -1,4 +1,4 @@
-// Feuille (lignes à écrire) et enveloppe (pivot devant la poche, cachet de cire, champs, RECEVOIR PAR LA POSTE, timbre, boîte aux lettres).
+// Feuille (lignes à écrire, signature) et enveloppe (pivot devant la poche, rabat ouvert, champs, POSTER : tampon, retournement, rabat, cachet, boîte aux lettres).
 // node tools/env-shot.mjs → captures/enveloppe/*.png (téléphone, GPU, aucun envoi : &envoi=0)
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
@@ -26,7 +26,7 @@ for (const [k, tau] of [['lignes-a', tm.landAll - 1.2], ['lignes-b', tm.landAll 
 await page.evaluate(() => { window.__at(window.__scene.sheet.timing.CURSOR_AT + 0.5); window.__scene.sheet.showOrders(); });
 // temps de l'enveloppe (s, horloge de l'enveloppe) → secondes réelles
 let ev = 0;
-for (const e of [6.5, 7.6, 8.4, 9.2, 10.4, 11.2, 12.4]) {
+for (const e of [4.0, 5.6, 6.6, 8.0, 9.6, 10.4]) {
   await page.evaluate(d => window.__scene.advance(d), (e - ev) / SPEED); ev = e;
   await page.screenshot({ path: `${dir}/env-${e.toFixed(2)}.png` });
 }
@@ -49,7 +49,7 @@ console.log(JSON.stringify(out));
 // RECEVOIR PAR LA POSTE : le coup de tampon, le retournement, la bascule sur la tranche, puis la tranche = champ de l'email
 await page.evaluate(() => { [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER').click(); });
 let pt = 0;
-for (const p of [0.5, 1.0, 2.2, 3.2, 3.9, 4.6, 5.4, 6.2]) {
+for (const p of [0.9, 2.2, 3.3, 4.0, 4.5, 5.2, 6.2, 7.6]) {
   await page.evaluate(d => window.__scene.advance(d), p - pt); pt = p;
   await page.screenshot({ path: `${dir}/post-${p.toFixed(1)}.png` });
 }
@@ -58,6 +58,6 @@ await page.screenshot({ path: `${dir}/email-vide.png` });
 await page.evaluate(() => { const a = window.__scene.ask.input; a.value = 'lea.martin@exemple.fr'; a.dispatchEvent(new Event('input')); });
 await sleep(500);
 await page.screenshot({ path: `${dir}/email.png` });
-console.log(JSON.stringify({ ask: await page.evaluate(() => !!window.__scene.ask), terminer: await page.evaluate(() => [...document.querySelectorAll('.sc-pass')].some(e => e.textContent === 'TERMINER' && e.classList.contains('on'))) }));
+console.log(JSON.stringify({ ask: await page.evaluate(() => !!window.__scene.ask), commander: await page.evaluate(() => [...document.querySelectorAll('.sc-pass')].some(e => e.textContent === 'COMMANDER' && e.classList.contains('on'))) }));
 await page.close();
 await browser.close(); await server.close();

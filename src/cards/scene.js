@@ -513,9 +513,13 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       card.draw(vp, eye, P, { model: model(Gq, lerpPose(off, show, backHint)), lod: 'fine', ink: peekQ.ink, shade: dimQ, fade: fadeQ, ...peekQ.v });
     }
     if (question && fadeQ > 0.01) {
-      // coin supérieur droit légèrement corné après cornerDelay s
+      // coin supérieur droit légèrement corné (09/10) : tant qu'aucune question n'a été passée, seulement après les deux
+      // esquisses « suivante » (hintX : à cornerDelay puis + 7 s, sans frappe entre-temps) ; une fois une question
+      // passée, le geste est appris : le coin est là dès que la carte est posée. Une fois corné, il le reste.
       const idleFor = question.anim ? -1 : t - question.landedAt;
-      const on = idleFor > L.cornerDelay && !ended && mode === 'q' ? 1 : 0;
+      const quiet = question.anim ? -1 : t - Math.max(question.landedAt, lastKeyT);
+      if (!question.anim && (discards > 0 ? idleFor > 0.6 : quiet > L.cornerDelay + 9.2)) question.curlOn = true;
+      const on = question.curlOn && !ended && mode === 'q' ? 1 : 0;
       question.curlA = (question.curlA || 0) + (on - (question.curlA || 0)) * Math.min(1, dt * 1.5);
       const lift = -0.3 * question.curlA;                          // vers la caméra (carte retournée)
       card.draw(vp, eye, P, { model: (snap.q = model(Gq, qp)), lod: 'fine', ink: question.ink, shade: dimQ, fade: fadeQ, ...question.v, curl: [-1, 1, lift] });

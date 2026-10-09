@@ -44,6 +44,9 @@ const CSS = `
   background-color: transparent !important; transition: background-color 600000s 0s, color 600000s 0s; caret-color: rgba(255,255,255,.7); }
 .sc-mail input::selection { background: rgba(255,255,255,.18); }
 .sc-mail .sc-line { height: 1px; background: rgba(255,255,255,.3); }
+/* le prénom au-dessus du champ de l'email (09/10 : le fil de tout le parcours, jusqu'au bout) — comme partout */
+.sc-mail .sc-name { position: absolute; left: 50%; bottom: calc(100% + 30px); transform: translateX(-50%); white-space: pre; text-align: center;
+  font: 500 32px/1.25 'SG Garamond', Georgia, serif; letter-spacing: .45em; padding-left: .45em; color: rgb(174,174,174); pointer-events: none; }
 .sc-mail .sc-type { position: absolute; left: 0; right: 0; top: 0; padding: 0 0 5px; font: 16px/1.5 'SG Machine', 'Courier New', monospace;
   color: rgb(214,214,214); text-align: center; white-space: pre; pointer-events: none; overflow: visible; }
 .sc-mail .sc-type span { display: inline-block; }
@@ -225,6 +228,19 @@ export async function mountCards(opts) {
     const inner = document.createElement('span'); typed.appendChild(inner);
     field.append(inp, typed);
     box.append(field, line);
+    // le prénom, au-dessus de la ligne (capitale ≈ 5,5 % de la largeur, comme sur l'accueil en portrait ; deux mots
+    // trop larges : deux lignes, comme partout)
+    const nm = document.createElement('div'); nm.className = 'sc-name'; nm.setAttribute('aria-hidden', 'true');
+    box.appendChild(nm);
+    const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+    const fitName = () => {
+      const maxW = Math.min(innerWidth - 32, 720);
+      let fs = Math.max(22, Math.min(40, innerWidth * 0.055 / 0.65));
+      nm.style.fontSize = fs + 'px'; nm.textContent = words.join(' ');
+      if (nm.scrollWidth > maxW && words.length > 1) nm.textContent = words.join('\n');
+      while (nm.scrollWidth > maxW && fs > 14) { fs *= 0.92; nm.style.fontSize = fs + 'px'; }
+    };
+    fitName();
     // tapé à la machine : chaque caractère a son appui, son petit décalage, son inclinaison (tirés de son rang et de
     // sa lettre : un caractère ne bouge plus une fois tapé) ; le dernier frappé arrive d'un coup sec
     let shown = '';
