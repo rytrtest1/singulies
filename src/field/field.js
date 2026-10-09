@@ -3,6 +3,7 @@
 // et un mot ne meurt qu'en quittant l'écran. La répartition par
 // tranche (≈ 8/42/50 %) émerge de la géométrie du flux et reste stationnaire.
 // La projection des lettres se fait dans le shader ; ici on ne projette que les boîtes des mots.
+import { LUM } from '../app/lum.js';
 import { NAMES } from './names.js';
 import { viewOf, sigmaPx, psiOf } from './camera.js';
 import { displayCase } from '../text/normalize.js';
@@ -43,7 +44,7 @@ export const trackEm = (pxEm) => 0.08 + 0.06 * (1 - sm(14, 90, pxEm)); // ≈ 0,
 // le prénom central reste prioritaire) ; atténuation à la naissance, tout au fond
 export function grayOf(z) {
   const g = 0.11 + 0.286 * sm(3, 24, z);   // 06/10 : +10 %
-  return g * (1 - 0.6 * sm(28, 34, z));
+  return LUM.gray * g * (1 - 0.6 * sm(28, 34, z));
 }
 
 export const STRIDE = 24; // floats par lettre instanciée

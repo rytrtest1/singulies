@@ -1,4 +1,5 @@
 // SINGULIÉS — écran d'accueil. Amorçage, boucle, états (saisie → transition → scène des cartes).
+import './app/lum.js';
 import { NameModel } from './input/model.js';
 import { createBridge } from './input/bridge.js';
 import { createWheel } from './input/wheel.js';

@@ -250,6 +250,8 @@ Test sans consigne : 5 personnes sur mobile. Comprennent-elles qu'il faut écrir
 ## Lisibilité (09/10 soir, après le test à 5)
 - Texte des cartes **15 % plus grand** (`CTYPE`, `CARD_K` dans ink.js ; même interligne ; enveloppe et feuille gardent `TYPE`) ; **encre plus claire** (inkAlb 0,35 → 0,85 : encre ≈ 132, max 172, toujours sous le prénom 173) ; **signes** (flèches, PASSER, POSTER, PARTAGER, COMMANDER…) opacité 0,44 → 0,62 (survol 0,85), 12 → 14 px. Images simples, cartes de l'email et vignettes régénérées.
 
+- **Versions à comparer** (`src/app/lum.js`, `?lum=`) : `base` (défaut) ; `boost` = tout +45 % d'un bloc (filtre sur la page, le fond devient gris) ; `lisible` = texte seul plus clair, fond noir (prénom 0,8 ≈ 204, mots du champ ×1,4, encre des cartes 1,15 ≈ 151, enveloppe 1,05, ETERNEL 205, signes 0,8). Captures : `node tools/lum-shot.mjs` → captures/lum/planche.png.
+
 ## Retours du 09/10 (fin de matinée)
 - Retour du jeu : le paquet reste à la place du portail jusqu'à ce que la couche soit vidée (plus de carte droite qui clignote). Tirage : le paquet est d'abord un cran plus bas (la carte tirée et la nouvelle carte du dessus se confondaient une image). Essai : `tools/frame-diff.mjs`.
 - Question partagée : le champ est posé sur la carte réponse et reçoit le toucher (comme les questions du poème).

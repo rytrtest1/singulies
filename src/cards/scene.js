@@ -10,6 +10,7 @@
 // retour (page) = le paquet revient. Sur la carte blanche, PASSER (page) : la fin. Arrivées et départs : fondu
 // vers la couleur du fond, jamais vers le noir.
 // Lumière : manière 1 (orbite + hauteur) + la carte en focus s'incline vers la souris / le téléphone.
+import { LUM } from '../app/lum.js';
 import { createCardRenderer, M4, CARD } from './cardRenderer.js';
 import { loadTypeFont, makeInkMap, makeAnswerInk, makeStripInk, STRIP, TYPE, CTYPE } from './ink.js';
 import { releaseCanvas } from '../app/compat.js';
@@ -30,9 +31,9 @@ export const LOOK = {
   elBase: 0.6, elMin: 0.3, elMax: 0.73,   // hauteur de la lampe (rad) : 34° au repos, 17° très rasante ↔ 42° (hauteur d'origine)
   h: 0.19, b: 1.32, crease: 0, fiber: 0.06, foot: 0.76, footW: 0.165, parallax: 0,
   rough: 0.64, spec: 3.1, sheen: 0, glint: 0.35, edge: 3, grain: 1.25, diffRough: 0.65, envSpec: 0.32, toe: 0.0078,
-  nameFlat: 0.68,   // prénom à plat, même clarté que sur l'accueil (NAME_REST, 05/10) ; 0 → prénom en relief (nameAlb, nameRelief…)
+  nameFlat: LUM.name,   // prénom à plat, même clarté que sur l'accueil (NAME_REST, 05/10) ; 0 → prénom en relief (nameAlb, nameRelief…)
   nameAlb: 0.5, nameRelief: 0.05, nameBevel: 0.07, nameSpec: 0.4, nameGrain: 1.25, nameFiber: 0.06, nameGlint: 0.35,
-  inkAlb: 0.85, inkPress: 0.1, inkWear: 3, inkThr: 0.35, inkVar: 0.6, inkPaper: 11.5, inkOrg: 0,
+  inkAlb: LUM.ink, inkPress: 0.1, inkWear: 3, inkThr: 0.35, inkVar: 0.6, inkPaper: 11.5, inkOrg: 0,
   cornerDelay: 5,    // s avant que le coin se corne
 };
 const FOV = 26 * Math.PI / 180;

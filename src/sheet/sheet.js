@@ -13,6 +13,7 @@
 // Toucher la carte : elle se retourne (question ↔ réponse). Retour : le temps remonte (tout se défait dans l'ordre
 // inverse, les lettres remontent à leur place), puis la scène des cartes revient.
 // Tout ce qui arrive est une fonction du temps de la scène (τ) : le retour n'est que τ qui décroît.
+import { LUM } from '../app/lum.js';
 import { M4, CARD } from '../cards/cardRenderer.js';
 import { makeInkMap, makeAnswerInk, TYPE } from '../cards/ink.js';
 import { createRng } from '../field/rng.js';
@@ -450,7 +451,7 @@ export function createSheetScene(gl, opts) {
     if (Menv && envFade > 0.004) {
       const cur = writePhase && (env.writing || !env.f[env.field]) ? { cursor: [ENV.w / 2 - env.cursor.x, ENV.h / 2 - env.cursor.y - 0.8, TYPE.size * 0.92, (0.55 + 0.4 * Math.sin(t * 2.4)) * sstep(E.write, E.write + 0.8, ev)], cursorFace: 1 } : {};
       // l'encre de l'enveloppe : posée SUR le papier, bien lisible (06/10 : on la croyait sous la feuille) — lampe lointaine ici
-      card.draw(vp, eye, { ...P, inkAlb: 0.75, inkPaper: 4, inkVar: 0.3 }, { model: Menv, lod: 'env', ...EP.front, ink: env.ink, inkRG: true, fade: envFade, shade: 1, ...envV.front, ...cur });
+      card.draw(vp, eye, { ...P, inkAlb: LUM.envInk, inkPaper: 4, inkVar: 0.3 }, { model: Menv, lod: 'env', ...EP.front, ink: env.ink, inkRG: true, fade: envFade, shade: 1, ...envV.front, ...cur });
       quads.env = screenQuad(Menv, ENV.w, ENV.h);
     } else quads.env = null;
     // la signature : frappe par frappe (le retour la défait) ; la texture n'est créée qu'au moment de taper
