@@ -74,7 +74,8 @@ const CSS = `
 //          sheet? (défaut : oui ; ?feuille=0 → l'ancienne fin, fondu au noir), onOrder?(detail) }
 export async function mountCards(opts) {
   const { name, base = './', seed, look = {}, onEnd, onExit, log = () => {} } = opts;
-  const TEST = new URLSearchParams(location.search).get('test') !== '0' || NOADDR;   // (09/10 : par défaut pendant la phase de test ; ?test=0 pour l'enlever)
+  const PAID = document.documentElement.dataset.page === 'merci';   // (10/10) après le paiement : pas l'essai sans adresse
+  const TEST = new URLSearchParams(location.search).get('test') !== '0' || (NOADDR && !PAID);   // (09/10 : par défaut pendant la phase de test ; ?test=0 pour l'enlever)
   const toSheet = opts.sheet ?? new URLSearchParams(location.search).get('feuille') !== '0';
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // téléphone : le clavier ne s'ouvre jamais tout seul dans la scène des cartes (08/10, Android), et se ferme quand une carte est balayée

@@ -1,0 +1,75 @@
+/* Version alternative (10/10) : la feuille qui attend, par-dessus le champ de prénoms (src/alt/offre.js) */
+.of { position: fixed; inset: 0; z-index: 20; background: #060606; color: #d6d2ca; overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; touch-action: pan-y pinch-zoom; overscroll-behavior: contain;
+  font: 17px/1.55 'SG Garamond', Georgia, serif; -webkit-font-smoothing: antialiased;
+  opacity: 0; transition: opacity .9s ease; }
+.of.on { opacity: 1; }
+.of main { max-width: 460px; margin: 0 auto; padding: max(54px, calc(env(safe-area-inset-top) + 44px)) 16px calc(150px + env(safe-area-inset-bottom)); }
+.of [hidden] { display: none !important; }
+
+.of-back { position: fixed; z-index: 2; left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top));
+  width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0;
+  background: none; border: 0; color: #fff; opacity: .62; cursor: pointer; }
+.of-back:hover { opacity: .85; }
+
+/* la feuille : pas plus haute que la moitié de l'écran (le prix reste en vue) */
+.of-sheet { width: min(100%, calc(52svh * 727 / 1040)); margin: 0 auto; }
+.of-sheet.photo { background-size: cover; background-position: center; width: min(100%, 52svh * .75); }
+.of-sheet .ac-row b { font-family: 'SG Machine', 'Courier New', monospace; font-weight: 700; color: #e2e2e2; text-shadow: 0 0 .6px rgba(255,255,255,.5); }
+.of-sheet .ac-row { animation: of-frappe .2s both ease-out; }
+@keyframes of-frappe { from { opacity: 0; transform: translateY(-.08em) scale(1.06); filter: blur(.6px); } }
+.of-note { font: 14px/1.6 'SG Machine', 'Courier New', monospace; color: #9a958c; text-align: center; margin: 14px 0 0; }
+
+/* les vraies photos : on glisse de l'une à l'autre */
+.of-vrai { margin: 30px -16px 0; }
+.of-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; touch-action: pan-x pan-y pinch-zoom; }
+.of-track::-webkit-scrollbar { display: none; }
+.of-slide { flex: 0 0 100%; scroll-snap-align: center; margin: 0; padding: 0 16px; box-sizing: border-box; }
+.of-img { position: relative; aspect-ratio: 4 / 5; background: #0d0d0c; border-radius: 2px; overflow: hidden; }
+.of-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.of-img.todo { outline: 1px dashed #5b554b; outline-offset: -1px; }
+.of-img.todo::after { content: attr(data-todo); position: absolute; left: 12px; right: 12px; top: 50%; transform: translateY(-50%);
+  font: 12px/1.5 'SG Machine', monospace; color: #b7ae9f; text-align: center; }
+.of-slide figcaption { font-size: 15px; color: #9a958c; text-align: center; margin: 8px 0 0; }
+.of-dots { display: flex; justify-content: center; gap: 7px; margin: 10px 0 0; }
+.of-dots i { width: 5px; height: 5px; border-radius: 50%; background: #fff; opacity: .2; transition: opacity .3s; }
+.of-dots i.on { opacity: .7; }
+
+.of-what { list-style: none; padding: 0; margin: 30px 0 0; font-size: 16px; color: #c4bfb5; }
+.of-what li { padding: 11px 0; border-top: 1px solid #222120; }
+.of-what li:last-child { border-bottom: 1px solid #222120; }
+.of-after { margin: 22px 0 0; color: #c4bfb5; font-size: 16px; }
+.of-legal { margin: 18px 0 0; font-size: 13px; color: #77726a; }
+.of-gift { margin: 22px 0 0; font-size: 15px; color: #9a958c; }
+.of-link { background: none; border: 0; padding: 0; font: inherit; color: #d6d2ca; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: #5b554b; cursor: pointer; }
+.of-foot { margin: 34px 0 0; text-align: center; font-size: 14px; color: #6c675e; }
+.of-foot a { color: inherit; text-decoration: none; border-bottom: 1px solid #333; }
+
+/* la barre du prix : toujours en vue, après l'acrostiche */
+.of-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 26px max(16px, calc(50% - 214px)) calc(14px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, #060606 62%, rgba(6,6,6,0));
+  transform: translateY(110%); transition: transform .7s cubic-bezier(.2,.7,.3,1); }
+.of.bar-on .of-bar { transform: none; }
+.of-price { font-size: 15px; line-height: 1.35; color: #9a958c; }
+.of-price b { font-weight: 500; font-size: 21px; color: #ece8e0; }
+.of-price span { font-size: 14px; }
+.of-go { flex: none; padding: 15px 22px 14px; border: 0; border-radius: 3px; background: #ece8e0; color: #0a0a0a;
+  font: 500 16px/1 'SG Garamond', Georgia, serif; letter-spacing: .28em; padding-right: calc(22px - .28em); cursor: pointer; }
+.of-go:active { transform: translateY(1px); }
+
+/* merci.html : l'avant et l'après de la cérémonie */
+.mc { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px 16px; background: #060606; color: #d6d2ca; text-align: center; font: 17px/1.55 'SG Garamond', Georgia, serif;
+  opacity: 0; transition: opacity 1s ease; }
+.mc.on { opacity: 1; }
+.mc h1 { font: 500 clamp(26px, 7vw, 34px)/1.2 'SG Garamond', serif; letter-spacing: .3em; padding-left: .3em; margin: 0 0 6px; color: #f1ede6; }
+.mc p { margin: 0; max-width: 340px; color: #c4bfb5; }
+.mc .small { font-size: 14px; color: #8a857c; }
+.mc .ref { font: 13px/1.5 'SG Machine', monospace; color: #6c675e; margin-top: 10px; }
+.mc input { width: min(320px, 100%); box-sizing: border-box; font: 20px/1 'SG Machine', monospace; letter-spacing: .12em; text-transform: uppercase; text-align: center;
+  padding: 14px; border: 0; border-bottom: 1px solid #555; background: transparent; color: #eee; outline: none; }
+.mc .go { margin-top: 10px; padding: 14px 22px 13px; border: 0; border-radius: 3px; background: #ece8e0; color: #0a0a0a; font: 500 16px/1 'SG Garamond', serif; letter-spacing: .28em; cursor: pointer; }
+.mc a { color: #9a958c; }
+
+@media (prefers-reduced-motion: reduce) { .of, .of-bar, .mc { transition-duration: .01s; } .of-sheet .ac-row { animation: none; } }

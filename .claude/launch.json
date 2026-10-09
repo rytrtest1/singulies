@@ -1,6 +1,24 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "singulies", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5190 }
+    {
+      "name": "singulies",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 5190
+    },
+    {
+      "name": "singulies-alt",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5194"
+      ],
+      "port": 5194
+    }
   ]
 }

@@ -29,6 +29,10 @@ const simpleModule = () => import('./simple/simple.js');
 // les pages qu'on partage (09/10) : poeme.html (directement le champ), jeu.html (le jeu, par-dessus le portail) ;
 // chacune a sa vignette. L'adresse suit ce qu'on regarde (on partage donc ce qu'on voit).
 const PAGE = document.documentElement.dataset.page || '';
+// version alternative (10/10, alt.html) : pas de portail ; après le prénom, la feuille qui attend (prix, photos,
+// COMMANDER) au lieu des cartes ; la question vient après le paiement (merci.html)
+const ALT = PAGE === 'alt';
+const offerModule = () => import('./alt/offre.js');
 // (09/10 : les réglages de l'adresse — ?test=1, ?envoi=0… — restent ; sans eux, le mode test se perdait en entrant
 // dans le poème ; la question partagée q= ne suit que le jeu)
 const showPath = p => { try { const u = new URL(p, document.baseURI), k = new URLSearchParams(location.search); if (!/^jeu/.test(p)) k.delete('q'); u.search = k.toString(); history.replaceState(history.state, '', u); } catch { /* */ } };
@@ -49,7 +53,7 @@ const CFG = {
   voice: P.get('saisie') === 'voix',   // « dis ou écris ton prénom » (essai)
   // portail (05/10) : ETERNEL + les cartes du jeu (ton prénom ton poème, la lettre, les livres, le jeu) avant le
   // champ ; ?portail=0 → directement le champ (tests)
-  portal: P.get('portail') !== '0' && document.documentElement.dataset.page !== 'poeme',
+  portal: P.get('portail') !== '0' && !['poeme', 'alt'].includes(document.documentElement.dataset.page),
 };
 const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
@@ -274,6 +278,7 @@ function emitValidated(name, restored) {
 }
 
 function enterBlack(restored) {
+  if (ALT) { showOffer(); return; }
   S.phase = 'black'; S.phaseAt = S.t;
   backEl.classList.add('on');
   emitValidated(S.validatedName, restored);
@@ -303,7 +308,20 @@ function noCards() {
   setTimeout(() => d.classList.add('on'), 400);
 }
 
+// version alternative : la feuille qui attend se pose sur le prénom seul ; le champ s'arrête une fois couvert
+let offer = null;
+function showOffer() {
+  if (offer) return;
+  S.phase = 'offre'; S.phaseAt = S.t;
+  backEl.classList.remove('on'); input.blur(); input.readOnly = true;
+  emitValidated(S.validatedName, false);
+  offer = offerModule().then(m => m.mountOffer({ name: S.validatedName.toUpperCase(), onBack: exitCards }))
+    .then(o => o.shown.then(() => { cancelAnimationFrame(rafId); rafId = 0; canvas.style.visibility = 'hidden'; names2d?.stop(); names2d = null; fallbackEl.style.display = 'none'; }))
+    .catch(e => { console.error(e); why('offre : ' + (e && e.message)); noCards(); });
+}
+
 function goBack() {
+  if (S.phase === 'offre') return;
   if (S.phase === 'input' && portal && !S.portal && S.trans == null) { toPortal(); return; }
   // page « poème » ouverte directement (lien partagé) : le retour mène au portail
   if (S.phase === 'input' && !portal && PAGE === 'poeme' && S.trans == null) { location.href = new URL('./', document.baseURI).href; return; }
@@ -511,7 +529,8 @@ function frame(ts) {
       });
       window.__sg.plan = plan;
     }
-    if (T >= plan.tEnd) loadCards(S.validatedName.toUpperCase());   // tout est arrivé, le champ est éteint
+    if (ALT) { if (T >= plan.tEnd + (CFG.reduced ? 0.1 : REST * 0.6)) showOffer(); }
+    else if (T >= plan.tEnd) loadCards(S.validatedName.toUpperCase());   // tout est arrivé, le champ est éteint
     const restAt = plan.tEnd + (CFG.reduced ? 0.1 : REST);
     if (S.riseT == null && T >= restAt) {
       if (cardsReady === 'failed') { S.trans = null; plan = null; validate(); return; }   // pas de cartes : la version simple (image suivante)
@@ -767,6 +786,7 @@ async function boot() {
     await Promise.race([gate.ready.then(() => new Promise(r => setTimeout(r, 6400))), gate.go]);
   }
   // rechargement après la suite : directement la scène des cartes (le prénom à sa place, le paquet arrive)
+  if (S.phase === 'scene' && ALT) { canvas.style.visibility = 'hidden'; showOffer(); return; }
   if (S.phase === 'scene') {
     canvas.style.visibility = 'hidden'; input.readOnly = true;
     loadCards(S.validatedName.toUpperCase());
@@ -809,7 +829,7 @@ async function boot() {
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { cancelAnimationFrame(rafId); rafId = 0; }
-  else if (!rafId && S.phase !== 'scene' && !S.portal && booted && (!gl || !gl.isContextLost())) { last = 0; rafId = requestAnimationFrame(frame); }
+  else if (!rafId && S.phase !== 'scene' && S.phase !== 'offre' && !S.portal && booted && (!gl || !gl.isContextLost())) { last = 0; rafId = requestAnimationFrame(frame); }
 });
 
 // accès de test / mesure

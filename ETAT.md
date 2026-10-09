@@ -330,3 +330,12 @@ Voir « Point de reprise » en tête de fichier.
 - Cartes : texte ×1,15 (CTYPE), encre inkAlb 0,85 → mesuré (tools/luminance.mjs, SwiftShader 390×844) : encre p99,5 = 132 (avant ≈ 75–100), max 172, prénom 173, papier 16. Signes : 0,62 / survol 0,85, 14 px.
 - Régénérés : public/simple/*, public/email/q/*, vignettes og (dont q/). Portail 390×844 : intitulés lisibles, non recouverts. Unitaires 45/45, simple-check OK.
 - Non touché : gris du champ de prénoms, prénom, enveloppe.
+
+## 10/10 — version alternative « le prénom avant, la question après » (`alt.html`, `merci.html`)
+- Décision (débat + recherche du 10/10) : prénom avant le paiement (effet « je l'ai conçu moi-même », effet du prénom, Wonderbly), question après (question ouverte sur mobile = abandons, Luebker 2021 ; prix découvert tard = 1re cause d'abandon, Baymard ; Etsy : paiement d'abord, détails sur la page qui suit).
+- `alt.html` : le champ de prénoms sans portail + une ligne « écris ton prénom. je t'en fais un poème… » (s'efface au focus / à la 1re lettre) → recharge → **la feuille qui attend** (`src/alt/offre.js`) : acrostiche tapé sur la feuille, « ces lignes n'existent pas encore… », 3 vraies photos à glisser (`public/vrai/…`, cadres « à remplacer » en mode test, rien sinon), ce qu'on reçoit, barre fixe prix + date + COMMANDER, mention rétractation, cadeau, liens.
+- COMMANDER → Stripe (`STRIPE` dans `src/alt/config.js`, `client_reference_id` = prénom + code) ; vide = paiement simulé → `merci.html?simule=1`.
+- `merci.html` (`src/alt/merci.js`) : « LEA / merci. maintenant je tire une carte pour toi » → la scène des cartes (question, carte blanche, passer) → feuille → enveloppe qui part seule (NOADDR : l'adresse est chez Stripe) → « c'est noté. je tape ton poème le … » ; la demande part avec la commande (`setOrder` dans send.js : « payé, réf. … », session Stripe). Prénom perdu → redemandé. Rechargé à la fin → pas de 2e demande. Sans WebGL2 : version simple.
+- Compteur : `alt/offre`, `alt/commander`, `alt/paye`, `alt/fini`, `alt/retour`.
+- Vérifié (navigateur intégré 375×812) : parcours complet LEA (champ → feuille → COMMANDER → merci → réponse → enveloppe → fin), sans WebGL (`?simple=1`, CLEMENCE ROSE). Non vérifié : vrai iPhone, navigateur d'Instagram, Stripe réel.
+- À fournir : prix, date, lien Stripe, 3 photos (ou feuille vierge photographiée pour `FEUILLE_PHOTO`).

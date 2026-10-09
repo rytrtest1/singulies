@@ -53,7 +53,8 @@ const ENVELOPE = new URLSearchParams(location.search).get('enveloppe') !== '0'; 
 const ORDERS_ON = new URLSearchParams(location.search).get('commande') === '1' || !ENVELOPE;
 // ?adresse=0 (essai avec des amis, 06/10) : pas de choix ni d'adresse — après l'acrostiche, l'enveloppe se fait
 // et part seule, la demande est envoyée (sans adresse ni contact), puis l'écran principal
-export const NOADDR = new URLSearchParams(location.search).get('adresse') === '0';
+// (10/10) merci.html, après le paiement : l'adresse est chez Stripe — l'enveloppe se fait et part seule, comme l'essai
+export const NOADDR = new URLSearchParams(location.search).get('adresse') === '0' || globalThis.document?.documentElement?.dataset?.page === 'merci';
 const ENV_LAMP = +new URLSearchParams(location.search).get('lampeEnv') || SEAL_SHAPE0.lamp;   // distance de la lampe sur l'enveloppe (× celle des cartes)
 
 const clamp01 = u => Math.min(1, Math.max(0, u));
