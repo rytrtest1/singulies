@@ -1,6 +1,7 @@
 // Rendu WebGL2 : fond (charbon granuleux + vignette), champ de mots (lettres projetées, flou continu)
 // et prénom central (SDF net) + curseur. 3 draw calls.
 // Toutes les ressources sont recréables (perte de contexte) à partir des données CPU.
+import { LUM } from '../app/lum.js';
 import { program, atlasTexture, GLSL_COMMON } from '../gl/gl.js';
 import { ZF, KB, KB_FAR } from '../field/camera.js';
 import { STRIDE as FSTRIDE } from '../field/field.js';
@@ -163,7 +164,8 @@ void main() {
             + 0.5 * fbm(le * 4.5 - vec2(-0.05, 0.21) * u_time * fr + sd);
     Lc = v_L * clamp(0.55 + 1.4 * n, 0.15, 1.6);
   }
-  float lum = mix(min(1.0, v_gray * u_dim + Lc), v_nb, v_m);   // allumée : s'ajoute au gris éteint ; en route : devient le prénom
+  float lum = mix(min(1.0, (v_gray * u_dim + Lc) * ${LUM.gain.toFixed(3)}), v_nb, v_m);   // gain : ?lum (src/app/lum.js)
+  // (ligne d'origine : mix(min(1.0, v_gray * u_dim + Lc), v_nb, v_m))   // allumée : s'ajoute au gris éteint ; en route : devient le prénom
   o = vec4(vec3(a * lum), a);
 }`;
 

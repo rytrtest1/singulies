@@ -9,9 +9,9 @@ import { createRng } from '../field/rng.js';
 
 export const INK_PXMM = 24;
 export const TYPE = { pitch: 2.54, lead: 8.6, size: 2.54 / 0.6, xScale: 1.0, yScale: 1.1, maxChars: 24, weight: 0.035 };
-// texte des cartes 15 % plus grand que la frappe relevée (09/10, test : « on ne lit pas assez ») ; même interligne ;
+// texte des cartes : CARD_K × la frappe relevée (1,15 essayé le 09/10, retiré : la taille réelle est fidèle à la carte) ;
 // l'enveloppe et la feuille gardent TYPE
-export const CARD_K = 1.15;
+export const CARD_K = 1;
 export const CTYPE = { ...TYPE, pitch: TYPE.pitch * CARD_K, size: TYPE.size * CARD_K, weight: TYPE.weight * CARD_K };
 const FAMILY = 'SG Machine';
 

@@ -248,9 +248,9 @@ Test sans consigne : 5 personnes sur mobile. Comprennent-elles qu'il faut écrir
 - **Actif depuis le 09/10** : GoatCounter `rytrtest1` (`COUNTER` dans src/app/count.js) ; tableau de bord https://rytrtest1.goatcounter.com ; `?envoi=0` (essais) et « Ne pas suivre » = rien ne part.
 
 ## Lisibilité (09/10 soir, après le test à 5)
-- Texte des cartes **15 % plus grand** (`CTYPE`, `CARD_K` dans ink.js ; même interligne ; enveloppe et feuille gardent `TYPE`) ; **encre plus claire** (inkAlb 0,35 → 0,85 : encre ≈ 132, max 172, toujours sous le prénom 173) ; **signes** (flèches, PASSER, POSTER, PARTAGER, COMMANDER…) opacité 0,44 → 0,62 (survol 0,85), 12 → 14 px. Images simples, cartes de l'email et vignettes régénérées.
+- Texte des cartes : **taille d'origine** (fidèle à la vraie carte ; le +15 % essayé le 09/10 est retiré, `CARD_K` = 1). Encre plus claire (inkAlb 0,85) ; signes 0,62, 14 px.
 
-- **Versions à comparer** (`src/app/lum.js`, `?lum=`) : `base` (défaut) ; `boost` = tout +45 % d'un bloc (filtre sur la page, le fond devient gris) ; `lisible` = texte seul plus clair, fond noir (prénom 0,8 ≈ 204, mots du champ ×1,4, encre des cartes 1,15 ≈ 151, enveloppe 1,05, ETERNEL 205, signes 0,8). Captures : `node tools/lum-shot.mjs` → captures/lum/planche.png.
+- **Luminosité : « boost » par défaut** (Maxence 09/10, `src/app/lum.js`) : tout ce qui est éclairé ×1,45 — champ (gain dans le shader), prénom 0,986 (≈ 251), cartes (exposition 0,9 × 1,45 : papier ≈ 26, encre ≈ 145), ETERNEL, signes 0,9 — **fond noir inchangé (6)**, sans filtre CSS (coût de recopie de l'écran). `?lum=base` = l'ancien, `?lum=lisible` = texte seul plus clair. Planche : `node tools/lum-shot.mjs`. Remplace l'échelle « prénom 174 » ci-dessous.
 
 ## Retours du 09/10 (fin de matinée)
 - Retour du jeu : le paquet reste à la place du portail jusqu'à ce que la couche soit vidée (plus de carte droite qui clignote). Tirage : le paquet est d'abord un cran plus bas (la carte tirée et la nouvelle carte du dessus se confondaient une image). Essai : `tools/frame-diff.mjs`.

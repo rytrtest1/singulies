@@ -22,7 +22,7 @@ import { layoutName } from '../name/layout.js';
 export const LOOK = {
   // réglé par Maxence sur téléphone (04/10). Cartes noires ; lampe en orbite + hauteur (manière 1, 60 %) ; la
   // carte en focus s'incline vers la souris / le mouvement du téléphone, celle en attente respire et est baissée.
-  light: 0.111, lightR: 400, env: 0.28, albedo: 0.029, exposure: 0.9, lightAz: 0.67, lightR0: 1.0, lightZ: 210, tiltAmp: 1.45,
+  light: 0.111, lightR: 400, env: 0.28, albedo: 0.029, exposure: 0.9 * LUM.gain, lightAz: 0.67, lightR0: 1.0, lightZ: 210, tiltAmp: 1.45,
   lightMode: 1, elevAmp: 0.45, flashZ: 70, cardTilt: 0.2, lightVar: 0.6, sway: 0.11, unfocusDim: 0.25, spot: 0.06,
   // respiration de la lampe (05/10) : elle tourne lentement autour des cartes et monte/descend un peu, sans changer
   // de force — ombres, reliefs, creux et bords bougent même sans interaction (rad)
