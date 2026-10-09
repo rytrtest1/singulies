@@ -148,7 +148,7 @@ async function sealBench(m) {
   m.advance(4.9);
   for (const e of document.querySelectorAll('.sc-pass')) e.style.display = 'none';
   const T = sh.sealTune, L0 = T.lamp();
-  if (!Number.isFinite(T.shape.lampAz)) { T.shape.lampAz = +L0.az.toFixed(2); T.shape.lampEl = +L0.el.toFixed(2); }
+  if (!Number.isFinite(T.shape.lampAz)) { T.shape.lampAz = T.shape.envAz; T.shape.lampEl = +L0.el.toFixed(2); }
   T.shape.zoom = 0.3; T.shape.camDy = -55;   // le cachet en haut de l'écran, au-dessus du panneau
   const G = { look: T.look, shape: T.shape };
   for (const [k, v] of P) if (k.startsWith('s.')) { const n = k.slice(2); if (n in T.look) T.look[n] = +v; else if (n in T.shape) T.shape[n] = +v; }
@@ -199,7 +199,7 @@ async function sealBench(m) {
     const l = document.createElement('label'); l.style.cssText = 'display:grid;grid-template-columns:44% 1fr 46px;gap:6px;align-items:center;margin:3px 0';
     l.innerHTML = `<span>${label}</span><input type=range min=${a} max=${b} step=${st} value=${G[g][k]}><span>${G[g][k]}</span>`;
     const inp = l.children[1], v = l.children[2];
-    inp.oninput = () => { G[g][k] = +inp.value; v.textContent = inp.value; show(); redraw(); };
+    inp.oninput = () => { G[g][k] = +inp.value; if (k === 'lampAz') T.shape.envAz = +inp.value; v.textContent = inp.value; show(); redraw(); };
     inputs[k] = [inp, v];
     box.appendChild(l);
   }

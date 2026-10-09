@@ -53,7 +53,7 @@ const ORDERS_ON = new URLSearchParams(location.search).get('commande') === '1' |
 // ?adresse=0 (essai avec des amis, 06/10) : pas de choix ni d'adresse — après l'acrostiche, l'enveloppe se fait
 // et part seule, la demande est envoyée (sans adresse ni contact), puis l'écran principal
 export const NOADDR = new URLSearchParams(location.search).get('adresse') === '0';
-const ENV_LAMP = +new URLSearchParams(location.search).get('lampeEnv') || 0.9;   // distance de la lampe sur l'enveloppe (× celle des cartes)
+const ENV_LAMP = +new URLSearchParams(location.search).get('lampeEnv') || 1.65;   // distance de la lampe sur l'enveloppe (× celle des cartes)
 
 const clamp01 = u => Math.min(1, Math.max(0, u));
 const sstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
@@ -99,9 +99,9 @@ export function createSheetScene(gl, opts) {
     seal: [1, SEAL_IN, SEAL_D / 2, SEAL_WOB] };
   // cire argentée (référence du 09/10) : argent satiné, clair, presque mat — reflet large et doux, fines paillettes ;
   // logo en relief arrondi
-  const SEAL_LOOK = { albedo: 0.28, env: 0, rough: 0.08, spec: 0.5, sheen: 0, glint: 4, grain: 2.4, fiber: 0.018, envSpec: 6, h: 0.24, b: 0.39, foot: 0.41, footW: 0.12, crease: 0.52, edge: 0, diffRough: 0 };   // réglé par Maxence (09/10, ?cachet)
+  const SEAL_LOOK = { albedo: 0.28, env: 0, rough: 0.08, spec: 0.5, sheen: 0, glint: 4, grain: 2.4, fiber: 0.018, envSpec: 6, h: 0.11, b: 0.39, foot: 0.41, footW: 0.12, crease: 0.52, edge: 0, diffRough: 0 };   // réglé par Maxence (09/10, ?cachet)
   // forme du cachet et ce qui l'entoure (réglables : scene-cartes.html?cachet&reponse=…, panneau « cachet »)
-  const SEAL_SHAPE = { hd: 0.1, hc: 0.3, crest: 0.59, ring: 0.12, pits: 4, cavWall: 1, cavEdge: 0.16, ao: 0, aoW: 0.1, marbre: 1.9,
+  const SEAL_SHAPE = { hd: 0.5, hc: 1, crest: 0.59, ring: 0, pits: 1.7, cavWall: 1, cavEdge: 1, ao: 0, aoW: 0.1, marbre: 1.9, envAz: 0.82,
     lamp: ENV_LAMP, zoom: 1, camDy: 0, rotX: 0, rotY: 0, lampAz: NaN, lampEl: NaN };
   const sealPQ = () => ({ sealP: [SEAL_SHAPE.hd, SEAL_SHAPE.hc, SEAL_SHAPE.crest, SEAL_SHAPE.ring], sealQ: [SEAL_SHAPE.pits, SEAL_SHAPE.cavWall, SEAL_SHAPE.cavEdge, SEAL_SHAPE.aoW] });
   const botV = { ...pv(), noLogo: true, warp: [0, 0, 0] };
@@ -256,6 +256,7 @@ export function createSheetScene(gl, opts) {
 
   // ---- lumière (celle de la scène des cartes) ----
   const CAM_AZ = -Math.PI / 2, wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
+  let envW = 0;                                              // 0 → 1 : la vue est sur l'enveloppe
   function stepLight(dt, t) {
     const kk = Math.min(1, dt * 3); ts.x += (tilt.x - ts.x) * kk; ts.y += (tilt.y - ts.y) * kk;
     const backDir = CAM_AZ + Math.PI, lim = Math.PI - L.lampGap;
@@ -263,6 +264,8 @@ export function createSheetScene(gl, opts) {
     const bEl = Number.isFinite(L.breathFixEl) ? L.breathFixEl : L.breathEl * (0.7 * Math.sin(t * 0.27 + 2.1) + 0.3 * Math.sin(t * 0.61 + 0.4));
     let rel = wrapA(L.lightAz + bAz + 1.2 * L.tiltAmp * L.lightVar * ts.x - backDir);
     rel = lim * Math.tanh(rel / lim);
+    // l'enveloppe : la lampe vient de la direction réglée pour le cachet (Maxence 09/10), en respirant un peu autour
+    rel = lerp(rel, SEAL_SHAPE.envAz + 0.35 * bAz, envW);
     const mid = (L.elMin + L.elMax) / 2, half = (L.elMax - L.elMin) / 2;
     let e = L.elBase + bEl + ts.y * L.elevAmp * L.lightVar;
     e = mid + half * Math.tanh((e - mid) / half);
@@ -351,6 +354,7 @@ export function createSheetScene(gl, opts) {
     vp = M4.mul(M4.perspective(FOV, W / H, D * 0.25, D * 3), M4.lookAt(eye, [cx, cy, 0], [0, 1, 0]));
 
     // lumière : la lampe suit ce qu'on regarde (la feuille, la commande, l'enveloppe)
+    envW = uCam;
     stepLight(dt, t);
     if (Number.isFinite(SEAL_SHAPE.lampAz)) { lamp.a = CAM_AZ + Math.PI + SEAL_SHAPE.lampAz; lamp.e = SEAL_SHAPE.lampEl; lamp.va = lamp.ve = 0; }   // réglages : lampe tenue
     let fy = SY + lerp(0, oTop - CARD.h, s), fxT = lerp(0, O_X, s);

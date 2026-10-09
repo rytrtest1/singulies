@@ -158,7 +158,7 @@ Reprise de session : lire ce fichier + `ETAT.md`. Ne pas relire le prototype ni 
 - **Lien partagé = `q/<id>`** : une page par question (`public/q/<id>.html`, renvoi immédiat vers `jeu?q=<id>`) avec sa vignette (`og-<id>.jpg` : la carte retournée, la question lisible) ; `node tools/og-image.mjs q` les régénère (73). `scene.setJeuWrite`. Version simple du jeu : pas encore reportée.
 
 ## Cachet et enveloppe (09/10, réglés par Maxence)
-- **Lampe de l'enveloppe à la mesure de l'objet, pas de la vue** (elle reculait avec la caméra : lumière plate, papier délavé) : 0,9 × la distance des cartes (`ENV_LAMP`).
+- **Lampe de l'enveloppe à la mesure de l'objet, pas de la vue** (elle reculait avec la caméra : lumière plate, papier délavé) : 1,65 × la distance des cartes (`ENV_LAMP`) ; sur l'enveloppe, la lampe vient d'une direction fixe (0,82 rad depuis l'arrière, `envAz`) et respire un peu autour.
 - **Cachet d'après la référence** (photo d'un cachet argenté) : grand disque plat (empreinte ≈ 75 %), **logo en relief**, fin anneau, bourrelet rond à 5–6 lobes, **très plat** (bourrelet 0,3 mm, empreinte 0,1 mm : le relief vient de la lumière) ; argent (reflet de la pièce fort, presque pas de reflet de la lampe), grain et marbrure marqués, paillettes ; pas d'ombre portée. Valeurs : `SEAL_LOOK` / `SEAL_SHAPE` dans sheet.js.
 - **Réglages en direct** : `scene-cartes.html?cachet&envoi=0` (temps figé sur le cachet posé, curseurs, ligne `s.…` à recopier) ; captures : `node tools/seal-shot.mjs <nom>`.
 
