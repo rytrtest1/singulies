@@ -61,7 +61,8 @@ function cardMesh(fine = true, seg = 12, dims = null) {
   const { w, h, r, t } = dims || CARD, v = [], idx = [];
   // bord ondulé (cachet de cire : la cire écrasée déborde inégalement) : rayon des coins × (1 + wob(angle))
   const wb = dims && dims.wobble || 0;
-  const wob = a => wb * (0.5 * Math.sin(5 * a + 0.7) + 0.22 * Math.sin(3 * a + 2.1) + 0.2 * Math.sin(7 * a + 4.2) + 0.08 * Math.sin(13 * a + 1.3));
+  const wph = dims && dims.wobPhase || 0;
+  const wob = a => (a += wph, wb * (0.5 * Math.sin(5 * a + 0.7) + 0.22 * Math.sin(3 * a + 2.1) + 0.2 * Math.sin(7 * a + 4.2) + 0.08 * Math.sin(13 * a + 1.3)));
   const fit = (x, y) => {   // point de grille ramené dans le rectangle arrondi (coins projetés sur l'arc)
     const cx = w / 2 - r, cy = h / 2 - r, qx = Math.abs(x) - cx, qy = Math.abs(y) - cy;
     if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy), rr = r * (1 + wob(Math.atan2(y, x))); if (l > rr) return [Math.sign(x) * (cx + qx * rr / l), Math.sign(y) * (cy + qy * rr / l)]; }
@@ -101,7 +102,7 @@ function cardMesh(fine = true, seg = 12, dims = null) {
 
 // le cachet de cire : bord ondulé et profil (maillage et lumière)
 const SEAL_GLSL = /* glsl */`
-float sealWob(float a) { return 0.5 * sin(5.0 * a + 0.7) + 0.22 * sin(3.0 * a + 2.1) + 0.2 * sin(7.0 * a + 4.2) + 0.08 * sin(13.0 * a + 1.3); }   // = cardMesh
+float sealWob(float a) { a += uSealV.x; return 0.5 * sin(5.0 * a + 0.7) + 0.22 * sin(3.0 * a + 2.1) + 0.2 * sin(7.0 * a + 4.2) + 0.08 * sin(13.0 * a + 1.3); }   // = cardMesh
 float sealRe(vec2 p) { return uSeal.z * (1.0 + uSeal.w * sealWob(atan(p.y, p.x))); }
 // position dans le bourrelet : 0 au bord de l'empreinte, 1 au bord de la cire (négatif dans l'empreinte)
 float sealT(vec2 p) { float d1 = length(p - uSealR.zw) - uSeal.y, d2 = sealRe(p) - length(p); return d1 / max(0.3, d1 + d2); }
@@ -113,7 +114,7 @@ float sealH(vec2 p) {
   float ri = length(p - uSealR.zw), d1 = ri - uSeal.y, d2 = Re - r, w = max(0.3, d1 + d2), t = d1 / w;
   if (d2 <= 0.0) return 0.0;
   float hd = uSealP.x, cr = uSealP.z;
-  float hc = uSealP.y * (0.5 + 0.5 * smoothstep(1.2, 5.0, w)) * (1.0 + 0.06 * sin(4.0 * a + 1.1) + 0.03 * sin(9.0 * a + 0.3) + 0.015 * sin(15.0 * a + 2.0));
+  float hc = uSealP.y * (0.5 + 0.5 * smoothstep(1.2, 5.0, w)) * (1.0 + 0.06 * sin(4.0 * a + 1.1 + uSealV.y) + 0.03 * sin(9.0 * a + 0.3 + 2.0 * uSealV.y) + 0.015 * sin(15.0 * a + 2.0));
   float h;
   // la paroi : raide sur ≈ 0,4 mm (le bord du sceau enfoncé), puis la cire s'arrondit jusqu'à la crête
   // (continue à la crête : là où le bourrelet est mince, la paroi n'atteint pas toute sa hauteur — sinon une marche)
@@ -127,7 +128,7 @@ float sealH(vec2 p) {
   float pits = rim * (0.015 * sin(a * 31.0 + r * 4.1) * sin(a * 19.0 - r * 6.7)
     + 0.02 * sin(a * 47.0 + 3.0 * sin(a * 5.0)) * smoothstep(0.6, 1.0, t));
   // la cire pressée un peu de travers, de petites bosses dans l'empreinte
-  float tilt = 1.0 + 0.25 * dot(p, vec2(0.6, -0.8)) / uSeal.z;
+  float tilt = 1.0 + 0.2 * dot(p, vec2(cos(uSealV.z), sin(uSealV.z))) / uSeal.z;
   float lumps = 0.015 * sin(p.x * 1.3 + 0.7 * sin(p.y * 0.9)) * sin(p.y * 1.1 - 0.5) + 0.006 * sin(p.x * 3.1 - p.y * 2.3 + 1.0);
   return (h + lumps * (1.0 - rim)) * tilt + ring * step(t, 0.0) + pits * uSealQ.x;
 }
@@ -147,6 +148,7 @@ uniform vec2 uLogoOff, uLogoScale;
 // cachet de cire (08/10) : (actif, rayon de l'empreinte du sceau, rayon de la cire, ondulation du bord) — la face 1 bombe
 // vers l'extérieur : empreinte plate, bourrelet de cire chassée autour, puis la cire retombe en ménisque jusqu'au bord
 uniform vec4 uSeal;
+uniform vec4 uSealV;          // cachet, tirage : phase du bord, phase du bourrelet, sens de l'inclinaison, peau de la cire (mm)
 uniform vec4 uSealR;          // cire : (bord translucide, diffusion, décentrage de l'empreinte x, y)
 uniform vec4 uSealP, uSealQ;   // cachet, réglages : (creux de l'empreinte, bourrelet, crête, anneau), (piqûres, cavité paroi, cavité bord, largeur de l'ombre de contact)
 ${SEAL_GLSL}out vec3 vWorld, vT, vB, vN; out vec2 vMM; flat out int vFace;
@@ -217,6 +219,7 @@ uniform vec3 uLightPos, uEye, uRoomUp;
 uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc;
 // cachet (même uniforme que le maillage) ; ombre de contact d'un objet posé (centre xy mm, rayon, force)
 uniform vec4 uSeal, uAO, uSealP, uSealQ;
+uniform vec4 uSealV;
 uniform vec4 uSealR;          // cire : épaisseur (mm) sous laquelle elle devient translucide (le bord étalé laisse voir le papier), diffusion de la lumière dans la cire (0–1), décentrage de l'empreinte (mm)
 ${SEAL_GLSL}
 uniform mat4 uOccInv; uniform float uOccExact;     // ombre exacte : repère de la carte qui fait de l'ombre (inclinée)
@@ -448,6 +451,13 @@ void main() {
         ink = max(ink, (1.0 - smoothstep(-aaR, aaR, dd)) * (0.6 + 0.4 * h2) * uRuleA);
       }
     }
+    // cachet : la peau de la cire (fines ondulations « peau d'orange », ≈ 0,3–1 mm), pas des grumeaux
+    if (uSeal.x > 0.5 && uSealV.w > 0.0) {
+      float pe2 = 0.04;
+      #define PEAU(q) (0.55 * vnoise((q) * 3.2) + 0.3 * vnoise((q) * 7.5 + 11.0) + 0.15 * vnoise((q) * 1.1 + 5.0))
+      hx += uSealV.w * (PEAU(p + vec2(pe2, 0.0)) - PEAU(p - vec2(pe2, 0.0))) / (2.0 * pe2);
+      hy += uSealV.w * (PEAU(p + vec2(0.0, pe2)) - PEAU(p - vec2(0.0, pe2))) / (2.0 * pe2);
+    }
     // hauteur comptée le long de la normale sortante de la face (Ng) : n = Ng − hx T − hy B
     vec3 n = normalize(Ng - hx * T - hy * Bv);
     // bord : la coupe arrondit et casse le papier sur ~0,15 mm (plus aux coins), irrégulier
@@ -675,7 +685,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uShadow, RELIEF ? 1 : 0);
     gl.uniform1f(u.uShade, card.shade ?? 1); gl.uniform1f(u.uFade, card.fade ?? 1);
     const al = card.alpha ?? 1, bl = al < 1 || !!card.blend; gl.uniform1f(u.uAlpha, al);
-    gl.uniform4fv(u.uSealR, card.sealR || [0, 0, 0, 0]);
+    gl.uniform4fv(u.uSealR, card.sealR || [0, 0, 0, 0]); gl.uniform4fv(u.uSealV, card.sealV4 || [0, 0, 0, 0]);
     if (bl) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); }
     gl.bindVertexArray(m.vao);
     gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_INT, 0);

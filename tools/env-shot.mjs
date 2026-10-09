@@ -49,7 +49,7 @@ console.log(JSON.stringify(out));
 // RECEVOIR PAR LA POSTE : le coup de tampon, le retournement, la bascule sur la tranche, puis la tranche = champ de l'email
 await page.evaluate(() => { [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER').click(); });
 let pt = 0;
-for (const p of [1.0, 1.3, 1.36, 1.5, 3.0, 4.4, 5.0, 8.6]) {
+for (const p of [1.0, 1.3, 1.36, 1.5, 3.0, 4.4, 5.0, 8.6, 10.4]) {
   await page.evaluate(d => window.__scene.advance(d), p - pt); pt = p;
   await page.screenshot({ path: `${dir}/post-${p.toFixed(1)}.png` });
 }

@@ -3,7 +3,7 @@
 // l'image = tourner l'enveloppe ; la ligne des valeurs changées se recopie (et se passe dans l'adresse : ?s.albedo=…).
 import { createCardRenderer, M4, CARD } from '../cards/cardRenderer.js';
 import { LOOK } from '../cards/scene.js';
-import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0 } from './envelope.js';
+import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw } from './envelope.js';
 
 const FOV = 26 * Math.PI / 180, TILT = 0.22, TF = Math.tan(FOV / 2), CAM_AZ = -Math.PI / 2;
 const P = new URLSearchParams(location.search);
@@ -22,13 +22,22 @@ card.addShape('env', { ...ENV, fine: null });
 card.addShape('envBack', { ...ENV, h: ENV_BACK_H, fine: null });
 card.addShape('flap', { ...ENV, h: FLAP_H, fine: null });
 card.addShape('botFlap', { ...ENV, fine: null });
-card.addShape('seal', { w: SEAL_D, h: SEAL_D, r: SEAL_D / 2, t: 0.2, fine: [SEAL_D / 2 + 1, SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: SEAL_WOB, alwaysFine: true });
+
 let sd = 7;
 const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
 const pv = () => ({ seed: rnd() * 100, paperXf: [rnd() * 5 - 2.5, rnd() * 3 - 1.5, rnd() < 0.5 ? 0 : Math.PI, 0], warp: [0.05 + rnd() * 0.1, -rnd() * 0.08, 0], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35, noLogo: true });
 const front = pv(), back = pv(), flapV = { ...pv(), warp: [0, 0, 0] }, botV = { ...pv(), warp: [0, 0, 0] };
 const sealV = { seed: rnd() * 100, paperXf: [0, 0, 0, 0], logoOff: [0, 0], logoScale: [SEAL_K, -SEAL_K], warp: [0, 0, 0], seal: [1, SEAL_IN, SEAL_D / 2, SEAL_WOB] };
 
+let SD, sealLod;
+const tirage = () => {
+  SD = sealDraw(Math.random, shape.coule);
+  shape.offX = +SD.offX.toFixed(2); shape.offY = +SD.offY.toFixed(2);
+  sealLod = card.addShape('seal-' + SD.wobPhase.toFixed(4), { w: SEAL_D, h: SEAL_D, r: SEAL_D / 2, t: 0.2, fine: [SEAL_D / 2 + 1, SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: SEAL_WOB, wobPhase: SD.wobPhase, alwaysFine: true });
+  if (window.__syncOff) window.__syncOff();
+};
+tirage();
+window.__tirage = tirage;
 const SY = ENV.h / 2 - FLAP_H + 7;                         // le cachet, dans le repère de l'enveloppe
 const t0 = performance.now();
 function frame() {
@@ -61,7 +70,7 @@ function frame() {
   const Mf = M4.mul(Menv, M4.mul(M4.mul(T(0, ENV.h / 2, 1.9), M4.model(Math.PI, 0, 0)), T(0, FLAP_H / 2, 0)));
   card.draw(vp, eye, Pl, { model: Mf, lod: 'flap', fade: 1, shade: 1, ...flapV, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: ao(FLAP_H / 2 - 7), sealQ });
   const Ms = M4.mul(Mf, T(0, FLAP_H / 2 - 7, -0.19));
-  card.draw(vp, eye, { ...Pl, ...look }, { model: Ms, lod: 'seal', fade: 1, shade: 1, ...sealV, paperLo: shape.marbre,
+  card.draw(vp, eye, { ...Pl, ...look }, { model: Ms, lod: sealLod, fade: 1, shade: 1, ...sealV, paperLo: shape.marbre, sealV4: [SD.wobPhase, SD.crest, SD.tilt, shape.peau],
     sealP: [shape.hd, shape.hc, shape.crest, shape.ring], sealQ, sealR: [shape.film, shape.sss, shape.offX, shape.offY], logoOff: [shape.offX, shape.offY], blend: true });
   requestAnimationFrame(frame);
 }
@@ -85,11 +94,13 @@ const R = [
   ['look', 'spec', 0, 10, 0.1, 'cire : reflet de la lampe'],
   ['look', 'rough', 0.08, 1, 0.01, 'cire : rugosité (net ↔ diffus)'],
   ['look', 'envSpec', 0, 6, 0.05, 'cire : force des reflets de la pièce'],
+  ['shape', 'peau', 0, 0.08, 0.002, "cire : peau (fines ondulations)"],
   ['look', 'grain', 0, 4, 0.05, 'cire : grain'],
   ['look', 'fiber', 0, 0.15, 0.002, 'cire : relief du grain'],
   ['shape', 'marbre', 0, 2, 0.05, 'cire : marbrure'],
   ['look', 'glint', 0, 4, 0.05, 'cire : paillettes'],
   ['shape', 'hc', 0.2, 3, 0.05, 'forme : hauteur du bourrelet (mm)'],
+  ['shape', 'coule', 0, 3, 0.05, "forme : la cire coule d'un côté (tirage, mm)"],
   ['shape', 'offX', -3, 3, 0.05, "forme : empreinte décentrée (gauche ↔ droite)"],
   ['shape', 'offY', -3, 3, 0.05, "forme : empreinte décentrée (bas ↔ haut)"],
   ['shape', 'hd', 0, 2, 0.05, "forme : hauteur de l'empreinte (mm)"],
@@ -105,7 +116,7 @@ const R = [
   ['shape', 'aoW', 0.1, 5, 0.05, 'ombre portée : largeur (mm)'],
 ];
 const G = { look, shape }, init = {}, inputs = {};
-const SKIP = ['zoom', 'rotX', 'rotY', 'breath'];
+const SKIP = ['zoom', 'rotX', 'rotY', 'breath', 'offX', 'offY'];
 for (const [g, k] of R) init[g + k] = (g === 'look' ? SEAL_LOOK0 : SEAL_SHAPE0)[k] ?? G[g][k];
 const panel = document.getElementById('panel'), out = document.getElementById('out');
 const show = () => { out.textContent = R.filter(([g, k]) => !SKIP.includes(k) && G[g][k] !== init[g + k]).map(([g, k]) => 's.' + k + '=' + G[g][k]).join('&') || '(rien de changé)'; };
@@ -117,6 +128,8 @@ for (const [g, k, a, b, st, label] of R) {
   inputs[k] = [inp, v];
   panel.appendChild(l);
 }
+window.__syncOff = () => { for (const k of ['offX', 'offY']) if (inputs[k]) { inputs[k][0].value = shape[k]; inputs[k][1].textContent = shape[k]; } };
+document.getElementById('tirer').onclick = () => window.__tirage();
 document.getElementById('reset').onclick = () => { shape.rotX = shape.rotY = 0; sync(); };
 document.getElementById('copy').onclick = async () => { try { await navigator.clipboard.writeText(out.textContent); document.getElementById('copy').textContent = 'copié'; setTimeout(() => { document.getElementById('copy').textContent = 'copier'; }, 1200); } catch (e) { /* sélectionner à la main */ } };
 const sync = () => { for (const k of ['rotX', 'rotY']) { const [inp, v] = inputs[k]; inp.value = shape[k]; v.textContent = (+shape[k]).toFixed(2); } };

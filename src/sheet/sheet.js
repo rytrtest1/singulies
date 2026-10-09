@@ -19,7 +19,7 @@ import { createRng } from '../field/rng.js';
 import { releaseCanvas } from '../app/compat.js';
 import { handName } from '../text/accents.js';
 import {
-  ENV, ENV_BACK_H, FLAP_H, ENV_Z, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, E, ADDR, SENDER, senderCount, PO, MAIL_W, FIELDS, emailOk, telOk,
+  ENV, ENV_BACK_H, FLAP_H, ENV_Z, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, E, ADDR, SENDER, senderCount, PO, MAIL_W, FIELDS, emailOk, telOk,
   fieldsReady, fieldsOut, contactOk, cleanContact, fieldPos, senderInk, fieldsInk, contactCardInk,
 } from './envelope.js';
 import { typeLines } from './typewriter.js';
@@ -86,7 +86,8 @@ export function createSheetScene(gl, opts) {
   card.addShape('envBack', { ...ENV, h: ENV_BACK_H, fine: null });
   card.addShape('flap', { ...ENV, h: FLAP_H, fine: null });
   // le cachet de cire argenté (06/10) : un disque bombé, le logo frappé en creux
-  card.addShape('seal', { w: SEAL_D, h: SEAL_D, r: SEAL_D / 2, t: 0.2, fine: [SEAL_D / 2 + 1, SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: SEAL_WOB, alwaysFine: true });
+  const SD = sealDraw(rnd);                                  // ce cachet-ci (forme tirée une fois)
+  const sealLod = card.addShape('seal-' + SD.wobPhase.toFixed(3), { w: SEAL_D, h: SEAL_D, r: SEAL_D / 2, t: 0.2, fine: [SEAL_D / 2 + 1, SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: SEAL_WOB, wobPhase: SD.wobPhase, alwaysFine: true });
   // le rabat du bas, au dos : la poche d'une vraie enveloppe (ses bords en biais se voient, sous le rabat du haut)
   card.addShape('botFlap', { ...ENV, fine: null });
   const pv = () => ({ seed: rnd() * 100, paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0],
@@ -101,7 +102,7 @@ export function createSheetScene(gl, opts) {
   // logo en relief arrondi
   const SEAL_LOOK = { ...SEAL_LOOK0 };
   // forme du cachet et ce qui l'entoure (réglables : scene-cartes.html?cachet&reponse=…, panneau « cachet »)
-  const SEAL_SHAPE = { ...SEAL_SHAPE0, envAz: +(new URLSearchParams(location.search).get('lampeAz') ?? SEAL_SHAPE0.envAz),
+  const SEAL_SHAPE = { ...SEAL_SHAPE0, offX: SD.offX, offY: SD.offY, envAz: +(new URLSearchParams(location.search).get('lampeAz') ?? SEAL_SHAPE0.envAz),
     lamp: ENV_LAMP, zoom: 1, camDy: 0, rotX: 0, rotY: 0, lampAz: NaN, lampEl: NaN };
   const sealPQ = () => ({ sealP: [SEAL_SHAPE.hd, SEAL_SHAPE.hc, SEAL_SHAPE.crest, SEAL_SHAPE.ring], sealQ: [SEAL_SHAPE.pits, SEAL_SHAPE.cavWall, SEAL_SHAPE.cavEdge, SEAL_SHAPE.aoW] });
   const botV = { ...pv(), noLogo: true, warp: [0, 0, 0] };
@@ -343,6 +344,11 @@ export function createSheetScene(gl, opts) {
       // envoyée : la vue recule jusqu'à l'enveloppe entière (téléphone : on était tout près de l'adresse)
       const u3 = ease(span(PO.cam, pp)), fP = frames.P;
       cxT = lerp(cxT, fP.cx, u3); cyT = lerp(cyT, fP.cy, u3); lD = lerp(lD, Math.log(fP.D), u3);
+      // le cachet de près pendant qu'il se fait (Maxence 09/10) ; on revient au cadrage de l'enveloppe entière avant la
+      // bascule : la tranche y est calée sur le champ de l'email
+      const uz = (reduced ? 0 : 1) * ease(span(PO.zoomIn, pp)) * (1 - ease(span(PO.zoomOut, pp)));
+      if (uz > 0) { const sy = EC.y + ENV.h / 2 - FLAP_H + 7, zD = fP.D * Math.max(0.2, (SEAL_D * 2.4) / (2 * fP.D * TF * Math.min(1, W / H)));
+        cxT = lerp(cxT, EC.x, uz); cyT = lerp(cyT, sy, uz); lD = lerp(lD, Math.log(zD), uz); }
     }
     // « en direct », clavier ouvert : la carte au milieu de la partie visible
     if (direct && !inEnv) { const vis = 1 - kbPx / H, oy = oPose(direct.o).y; cyT = lerp(cyT, oy - (0.5 - (vis / 2 + 0.04)) * frames.B.Hw, kb); }
@@ -549,7 +555,7 @@ export function createSheetScene(gl, opts) {
       if (P_LOGO && uSe > 0) {
         const dropZ = reduced ? 0 : 14 * Math.pow(1 - ease(uSe), 2), sq = 1 + 0.06 * Math.sin(Math.PI * sstep(0.55, 1, uSe));
         const Ms = M4.mul(Mf, M4.mul(T(0, FLAP_H / 2 - 7, -(0.06 + 0.1 + 0.03 + dropZ)), new Float32Array([sq, 0, 0, 0, 0, sq, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])));
-        card.draw(vp, eye, { ...P, ...SEAL_LOOK }, { model: Ms, lod: 'seal', fade: envFade * sstep(0, 0.35, uSe), shade: 1, ...sealV, paperLo: SEAL_SHAPE.marbre, ...pq, sealR: [SEAL_SHAPE.film, SEAL_SHAPE.sss, SEAL_SHAPE.offX, SEAL_SHAPE.offY], logoOff: [SEAL_SHAPE.offX, SEAL_SHAPE.offY], blend: true });
+        card.draw(vp, eye, { ...P, ...SEAL_LOOK }, { model: Ms, lod: sealLod, fade: envFade * sstep(0, 0.35, uSe), shade: 1, ...sealV, paperLo: SEAL_SHAPE.marbre, ...pq, sealV4: [SD.wobPhase, SD.crest, SD.tilt, SEAL_SHAPE.peau], sealR: [SEAL_SHAPE.film, SEAL_SHAPE.sss, SEAL_SHAPE.offX, SEAL_SHAPE.offY], logoOff: [SEAL_SHAPE.offX, SEAL_SHAPE.offY], blend: true });
       }
     }
     // « en direct » envoyé : l'événement, une fois la carte partie

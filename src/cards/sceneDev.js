@@ -129,7 +129,7 @@ async function envPlay(m) {
   setTimeout(() => veil.remove(), 900);
   play(1.4, () => {
     poster();
-    play(5.0, () => {
+    play(5.4, () => {
       for (const e of document.querySelectorAll('.sc-pass')) e.style.display = 'none';
       const b = document.createElement('button');
       b.textContent = 'rejouer';

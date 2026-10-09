@@ -12,11 +12,11 @@ import { typeLines } from './typewriter.js';
 // s'écrase, puis elle bascule jusqu'à sa tranche (09/10 : le cachet vient du geste de la personne, plus avant).
 export const ENV = { w: 229, h: 162, r: 0.8, t: 0.12 };
 export const ENV_BACK_H = 155, FLAP_H = 78, ENV_Z = -3;
-export const SEAL_D = 27, SEAL_K = 0.35, SEAL_IN = 8.8, SEAL_WOB = 0.1;   // cachet : diamètre (mm), logo ≈ 15 mm dans l'empreinte (rayon 10,2 : ≈ 75 % du cachet, d'après la référence du 09/10), bord à 5–6 lobes
+export const SEAL_D = 27, SEAL_K = 0.35, SEAL_IN = 8.8, SEAL_WOB = 0.055;   // cachet : diamètre (mm), logo ≈ 15 mm dans l'empreinte (rayon 10,2 : ≈ 75 % du cachet, d'après la référence du 09/10), bord à 5–6 lobes
 // le cachet : matière (argent sombre, satiné, grainé) et forme (réglées le 09/10 ; banc : cachet.html)
-export const SEAL_LOOK0 = { lightR: 60, metal: 1, albedo: 0.03, env: 0.016, rough: 0.22, spec: 2.2, sheen: 0, glint: 1.4, grain: 1, fiber: 0.025, envSpec: 2.2, h: 0.22, b: 0.25, foot: 0.7, footW: 0.12, crease: 0.08, edge: 0, diffRough: 0.3 };   // lightR : le reflet d'une source plus petite que la grande lampe douce des cartes (sur le métal, sinon un voile)
+export const SEAL_LOOK0 = { lightR: 150, metal: 0.4, albedo: 0.085, env: 0.065, rough: 0.38, spec: 2.4, sheen: 0.15, glint: 0.7, grain: 0.8, fiber: 0.012, envSpec: 1.2, h: 0.2, b: 0.28, foot: 0.65, footW: 0.12, crease: 0.08, edge: 0, diffRough: 0.4 };   // cire à pigment argenté (pas un métal) ; lightR : reflet d'une source moyenne
 // envAz : direction de la lampe sur l'enveloppe (en haut à gauche : le relief se lit bombé) ; lamp : sa distance (× cartes)
-export const SEAL_SHAPE0 = { hd: 0.4, hc: 1.7, crest: 0.4, ring: 0.1, offX: -1.2, offY: -0.9, pits: 0.5, cavWall: 0.7, cavEdge: 0.15, ao: 0.1, aoW: 0.8, marbre: 1.4, envAz: -0.8, lamp: 1.3, film: 0.8, sss: 0.5 };   // film : épaisseur (mm) sous laquelle la cire est translucide ; sss : diffusion dans la cire
+export const SEAL_SHAPE0 = { hd: 0.35, hc: 1.1, crest: 0.45, ring: 0.09, offX: 0, offY: 0, coule: 0.7, peau: 0.02, pits: 0.5, cavWall: 0.7, cavEdge: 0.15, ao: 0.1, aoW: 0.8, marbre: 1.4, envAz: -0.8, lamp: 1.3, film: 0.8, sss: 0.65 };   // film : épaisseur (mm) sous laquelle la cire est translucide ; sss : diffusion dans la cire
 // (le dos monte presque jusqu'en haut — la poche : rien ne se voit à l'intérieur une fois fermée)
 
 // ---- LE TABLEAU DES DURÉES (s) -----------------------------------------------------------------------------------
@@ -71,10 +71,12 @@ export const PO = chain([
   ['pam', 0.6, 0.15],        // puis le coup de tampon, d'un coup sec (09/10 : « pam ! », l'enveloppe entière à l'écran)
   ['turn', 1.2, 0.35],       // elle se retourne : le dos, rabat ouvert
   ['flap', 0.9, 0.1],        // le rabat se ferme
-  ['seal', 0.6, -0.05],      // le cachet de cire tombe et s'écrase sur sa pointe
-  ['tip', 1.2, 0.25],        // elle bascule jusqu'à ne plus montrer que sa tranche
+  ['seal', 0.6, -0.05],      // le cachet de cire tombe et s'écrase sur sa pointe (la vue s'en est approchée)
+  ['zoomOut', 1.0, 0.7],     // on le regarde un instant, puis la vue recule jusqu'à l'enveloppe entière (cadrage de la tranche)
+  ['tip', 1.2, 0.05],        // elle bascule jusqu'à ne plus montrer que sa tranche
   ['away', 1.4, 0.05],       // la tranche seule : elle avance dans la fente (rétrécit jusqu'à MAIL_W px)
 ]);
+PO.zoomIn = [PO.flap[0] + 0.2, PO.flap[1] + 0.05];              // la vue s'approche du cachet pendant que le rabat se ferme
 PO.hit = PO.pam[0];                                            // l'instant du coup de tampon
 PO.end = PO.tip[1];                                            // la tranche est devenue le champ de l'email
 PO.fade = [PO.away[1] - 0.3, PO.away[1] + 0.7];                // puis l'enveloppe se fond, la ligne reste
@@ -197,4 +199,11 @@ export function contactCardInk(contact, seed) {
   const t = contact || CONTACT_HINT, x0 = (CARD.w - t.length * TYPE.pitch) / 2;
   typeLines(cx, PX, [t], x0, CARD.h / 2 + 1.2, 0, seed, contact ? 1 : 0.72);
   return { canvas: cv, cursor: { x: x0 + contact.length * TYPE.pitch - 0.35, y: CARD.h / 2 + 1.2 } };
+}
+
+// un cachet n'est jamais le même (09/10) : le bord, le côté où la cire a coulé (décentrage de l'empreinte, jusqu'à
+// « coule » mm), le bourrelet, le sens de l'inclinaison — tirés une fois ; le logo reste droit
+export function sealDraw(rnd, coule = SEAL_SHAPE0.coule) {
+  const a = rnd() * Math.PI * 2, m = coule * (0.45 + 0.55 * rnd());
+  return { wobPhase: rnd() * Math.PI * 2, crest: rnd() * Math.PI * 2, tilt: rnd() * Math.PI * 2, offX: m * Math.cos(a), offY: m * Math.sin(a) };
 }
