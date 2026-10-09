@@ -81,3 +81,44 @@ La voix du site, telle que je la lis (pour juger toute phrase future) : **tutoie
 3. Que veut dire « en direct » ?
 4. On lance la **reprise après interruption** (risque n° 2) ?
 5. Ton plan EmailJS et la restriction de domaine (risque n° 1) : fait ?
+
+---
+
+## Décisions de Maxence (revue cas par cas, 08–09/10) — ordre de code proposé
+
+**Déjà fait pendant la revue** : cas 1 (carte « ton prénom ton poème, / par la poste »), cas 17 (relief sculpté seulement de profil ; iPhone X ≥ 30 i/s ; essais `?fps=1`, `?dpr=`, `?relief=0`, `?maille=`).
+
+**1. Petits et sûrs**
+- 11 — ETERNEL = l'auteur (onglet, vignette, expéditeur des emails) ; SINGULIES = le jeu, toujours en capitales, sans accent ; logo SS = le label (au dos, en marque).
+- 6 — carte du jeu : *commander* ; écran de l'email : TERMINER → COMMANDER (le paiement viendra derrière).
+- 20 — lien de demande : prénom, question, réponse seulement (plus d'adresse ni de contact).
+- 21 — une même demande ne part jamais deux fois.
+- 14, 15 — règles dans CLAUDE.md : logo = label (au dos, jamais un bouton ni un chargement) ; Courier = ce qui est imprimé sur un objet, Garamond = ce qui flotte au-dessus (noms, gestes).
+- 8 — retirer `farewell` (la fin est celle de l'autre session).
+
+**2. Le parcours du poème**
+- 2a — le prénom au-dessus du champ de l'email, fixe jusqu'à la fin.
+- 2b — invitation du champ « prénom nom » : le prénom accentué + « nom » en gris clair (*Léa nom*), sans pré-remplir.
+- 3 — esquisse vers la gauche ×2 sur la première carte, puis le coin corné ; après un premier passage : plus jamais vers la gauche, une fois vers la droite (revenir), coin corné visible sans se soulever.
+- 4 — *- ETERNEL -* tapé à la machine en bas de la feuille, calé à gauche sur la colonne de l'acrostiche.
+- 16 + 5 — l'enveloppe dans son propre fichier, ses durées dans un seul tableau ; puis : adresse sur la face avant (rabat ouvert), le geste final = retournement, rabat, cachet qui s'écrase, départ (et le retour en arrière à l'envers).
+
+**3. Fluidité** — 17 (suite) : préparer l'encre et les cartes avant les mouvements (à-coups de 250 ms).
+
+**4. Accessibilité**
+- 19 — lecteur d'écran : le champ de réponse porte la question ; chaque carte annoncée ; acrostiche et champs d'adresse nommés.
+- 19 — **version simple de bout en bout** (portail, prénoms, cartes, feuille, enveloppe, email) : activée seulement si nécessaire, scène par scène (garder le vrai champ de prénoms si lui marche), mêmes mots / gestes / ordre, cartes rendues en images, mouvement en CSS ; `?simple=1`. **Plan détaillé à valider avant de coder.**
+
+**5. Partage** — 18 : une adresse et une vignette par page partageable (accueil : ETERNEL + logo SS en fond ; poème : la feuille noire, ETERNEL en colonne et les lignes ; lettre : l'enveloppe et son cachet ; jeu : le paquet 3D, SINGULIES au-dessus, *le jeu* au dos de la carte du dessus).
+
+**6. Mesure** — 23 : compteur anonyme sans cookie (étapes jour par jour ; par question tirée / passée / répondue ; par plateforme `?v=insta` / `?v=tiktok` ; par type de téléphone) + page de confidentialité. Outil à choisir avec Maxence (compte).
+
+**7. Document** — 24 : feuille de test d'une page (lien en message Instagram, 2 personnes qui connaissent la vidéo + 3 non, questions de fin : *qu'est-ce que tu vas recevoir ?*, *qui va écrire ton poème ?*).
+
+**Plus tard / hors code**
+- 10 — shooting (ta copine) ; la page de l'objet **après COMMANDER** (poème : la révélation) ; story à la une « l'objet ».
+- 6, 10 — page de vente du jeu après *commander* (photos, mesures, façons de jouer seul ou à plusieurs, l'histoire : *les questions que je pose aux inconnus dans la rue*), puis PAYER. Grammaire : COMMANDER, puis PAYER.
+- 9 — b : une photo de l'enveloppe le jour où elle part (ton geste) ; c : l'email récapitulatif (créer le modèle EmailJS).
+- 20 — chantier « table de travail » : écrire l'acrostiche dans la page du lien ; un lien partageable pour la personne, sans sa réponse par défaut ; vignette par poème avec le domaine.
+- Version pro (à confirmer) : réglages EmailJS (domaines, plan), serveur, domaine, ne pas quitter COMMANDER tant que la demande n'est pas partie (22), remise en ordre complète du code (16).
+- Écartés : 7 (rien au-dessus de l'enveloppe), 12 (rien sur la page 3D du jeu), 13 (QR « à ton tour »).
