@@ -801,53 +801,128 @@ export function mountSimpleFlow(opts) {
 }
 
 // ===================================================================================================================
-// le jeu : le paquet tire une question pour toi ; toucher ou glisser = une autre ; « commander » (sa page, plus tard)
+// le jeu (v2, comme src/jeu/jeu.js) : le paquet tire une question pour toi ; toucher le paquet ou glisser à gauche =
+// une autre, à droite = la précédente ; PARTAGER (sous la carte, à une place fixe, une fois le temps de lire la première
+// question) ; COMMANDER (en bas, toujours là). Question partagée (opts.firstQ + opts.answer, lien jeu?q=…) : sous elle,
+// la carte réponse, curseur seul ; PARTAGER une fois quelque chose écrit (question + réponse) ; ensuite le jeu seul.
 export function mountSimpleJeu(opts = {}) {
   window.dispatchEvent(new CustomEvent('singulies:simple', { detail: { where: 'jeu' } }));
   const R = makeRoot('sp-jeu');
   const { root, stage, size } = R;
+  const ev = (id, action) => window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id, action } }));
   const back = el('button', 'sp-back on', root, BACK_SVG); back.type = 'button'; back.setAttribute('aria-label', 'Retour');
   const deck = [0, 1, 2, 3].map(() => makeCard(stage, url('simple/dos.jpg')));
-  const buy = makeCard(stage, url('simple/commander.jpg'), url('simple/bientot.jpg'));
-  buy.style.opacity = '0';
+  const known = id => QUESTIONS.some(x => x.id === id);
+  let answering = opts.firstQ != null && !!opts.answer && known(opts.firstQ);
+  const ansCard = answering ? makeCard(stage, url('simple/vierge.jpg')) : null;
+  const ta = answering ? el('textarea', 'sp-write', root) : null;
+  if (ta) {
+    Object.assign(ta, { spellcheck: false, rows: 3 });
+    ta.setAttribute('autocapitalize', 'none'); ta.setAttribute('autocomplete', 'off'); ta.setAttribute('autocorrect', 'off');
+    ta.setAttribute('enterkeyhint', 'done');
+    ta.addEventListener('input', () => { ta.value = ta.value.replace(/\n/g, ' '); place(); });
+    ta.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ta.blur(); } });
+  }
   const deckBtn = el('button', 'sp-btn', root); deckBtn.type = 'button'; deckBtn.textContent = 'une autre question'; deckBtn.setAttribute('aria-label', 'une autre question');
-  const buyBtn = el('button', 'sp-btn', root); buyBtn.type = 'button'; buyBtn.textContent = 'commander'; buyBtn.setAttribute('aria-label', 'commander'); buyBtn.hidden = true;
-  const order = shuffle(QUESTIONS.map(q => q.id));
-  let k = 0, q = null, n = 0, L = null, busy = false;
+  const shareEl = el('button', 'sp-sign', root, 'PARTAGER'); shareEl.type = 'button'; shareEl.setAttribute('aria-label', 'Partager cette question, pour la poser à quelqu’un');
+  const buyEl = el('button', 'sp-sign', root, 'COMMANDER'); buyEl.type = 'button'; buyEl.setAttribute('aria-label', 'Commander le jeu SINGULIES');
+  shareEl.style.transition = 'opacity 1.4s, top .8s ease';
+  const order = shuffle(QUESTIONS.map(x => x.id).filter(id => id !== opts.firstQ));
+  if (opts.firstQ != null && known(opts.firstQ)) order.unshift(opts.firstQ);
+  const seq = [];
+  let k = 0, cur = -1, q = null, L = null, busy = false, shareReady = false;
   function layout() {
     const { W, H } = size;
     const cw = Math.min(W * 0.96, 560, (H * 0.36) / (IMG.card.h / IMG.card.w)), ch = cw * IMG.card.h / IMG.card.w;
-    L = { cw, ch, y: H * 0.38, by: H * 0.38 + ch * 0.95, vis: cw * IMG.card.f };
+    const vis = cw * IMG.card.f, visH = vis * 52 / 87;
+    const y = size.kb > 40 ? Math.max(visH * 0.6 + 52, H * 0.4 - (answering ? visH * 0.45 : 0)) : H * 0.38;
+    L = { cw, ch, y, ay: y + ch * 0.86, vis, visH };
     deck.forEach((d, i) => setPose(d, { x: W / 2 + (i - 1.5), y: L.y - (i - 1.5) * 1.6, w: cw, r: (i - 1.5) * 0.5, ry: 180 }));
-    if (q) setPose(q, { x: W / 2, y: L.y, w: cw, r: q.r });
-    setPose(buy, { x: W / 2, y: L.by, w: cw, r: 0.5, ry: buy.pose?.ry || 0 });
-    const box = (b, y) => Object.assign(b.style, { left: (W / 2 - L.vis / 2) + 'px', top: (y - L.vis * 0.3) + 'px', width: L.vis + 'px', height: (L.vis * 0.6) + 'px' });
-    box(deckBtn, L.y); box(buyBtn, L.by);
+    if (q && !q.anim) setPose(q.c, { x: W / 2, y: L.y, w: cw, r: q.r });
+    if (ansCard) setPose(ansCard, { x: W / 2, y: L.ay, w: cw, r: 0.4 });
+    if (ta) Object.assign(ta.style, { left: (W / 2 - vis * 0.4) + 'px', top: (L.ay - visH * 0.3) + 'px', width: (vis * 0.8) + 'px', height: (visH * 0.62) + 'px' });
+    Object.assign(deckBtn.style, { left: (W / 2 - vis / 2) + 'px', top: (L.y - visH / 2) + 'px', width: vis + 'px', height: visH + 'px' });
+    buyEl.style.top = (H - 60) + 'px';
+    buyEl.classList.toggle('on', size.kb < 40);
+    place();
+  }
+  // PARTAGER : sous la place de repos de la question (ou de la réponse), jamais attaché à la carte qui bouge
+  function place() {
+    if (!L) return;
+    const { H } = size;
+    const bottom = (answering ? L.ay : L.y) + L.visH / 2;
+    shareEl.style.top = Math.min(bottom + 14, size.kb > 40 ? H - 54 : H - 108) + 'px';
+    shareEl.classList.toggle('on', answering ? !!ta.value.trim() : shareReady);
   }
   R.onResize = layout; layout();
-  function another() {
-    if (busy) return; busy = true;
-    const old = q, id = order[k++ % order.length];
-    q = makeCard(stage, qImg(id)); q.r = (Math.random() - 0.5) * 1.2; q.style.zIndex = '4';
+  function draw(id, dir) {
+    busy = true;
+    const old = q;
+    const c = makeCard(stage, qImg(id)); c.style.zIndex = '4';
+    q = { id, c, r: (Math.random() - 0.5) * 1.2, anim: true };
     const home = { x: size.W / 2, y: L.y, w: L.cw, r: q.r, ry: 0 };
-    setPose(q, { ...home, ry: 180, r: 0 });
-    move(q, home, { dur: 1050, via: [{ ...home, x: home.x + L.cw * 0.12, y: home.y - L.ch * 0.25, ry: 90, z: 90, s: 1.06 }] }).then(() => { busy = false; });
-    if (old) move(old, { ...old.pose, x: old.pose.x - size.W * 1.1, r: -14 }, { dur: 650 }).then(() => old.remove());
-    R.say(QUESTIONS.find(x => x.id === id)?.q || '');
-    n++;
-    if (n === 1) R.later(() => { buy.style.opacity = '1'; buyBtn.hidden = false; }, 1500);
-    if (n >= 3 && !REDUCED) buy.style.animation = 'sp-bob 4.5s ease-in-out 1.5s infinite';
+    const done = () => { if (q && q.c === c) q.anim = false; busy = false; };
+    if (dir === 0) {
+      setPose(c, { ...home, ry: 180, r: 0 });
+      move(c, home, { dur: 1050, via: [{ ...home, x: home.x + L.cw * 0.12, y: home.y - L.ch * 0.25, ry: 90, z: 90, s: 1.06 }] }).then(done);
+    } else {
+      setPose(c, { ...home, x: home.x - dir * size.W, r: -dir * 12 });
+      move(c, home, { dur: 700 }).then(done);
+    }
+    const out = dir || -1;
+    if (old) move(old.c, { ...old.c.pose, x: old.c.pose.x + out * size.W * 1.1, r: out * 14 }, { dur: 650 }).then(() => old.c.remove());
+    const text = QUESTIONS.find(x => x.id === id)?.q || '';
+    R.say(text); if (ta) ta.setAttribute('aria-label', text);
+    ev(id, 'tiree');
+    if (seq.length === 1 && dir === 0) R.later(() => { shareReady = true; place(); }, (REDUCED ? 0 : 1500) + 1200 + 45 * text.length);
   }
-  gesture(deckBtn, { onEnd: ({ dx, dy }) => { if (dx < -40 || (Math.abs(dx) < 8 && Math.abs(dy) < 8)) another(); } });
-  deckBtn.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); another(); } });
-  buyBtn.addEventListener('click', () => {
-    if (JEU_LINK) { location.href = JEU_LINK; return; }
-    const p = buy.pose; buy.style.animation = '';
-    move(buy, { ...p, ry: 180 }, { dur: 900, via: [{ ...p, ry: 90, z: 60, s: 1.04 }] });
-    R.later(() => move(buy, { ...p, ry: 0 }, { dur: 900, via: [{ ...p, ry: 90, z: 60, s: 1.04 }] }), 3100);
+  function another() {
+    if (busy) return;
+    if (q) { if (answering) stopAnswering(); ev(q.id, 'passee'); }
+    if (cur < seq.length - 1) { cur++; draw(seq[cur], -1); return; }
+    seq.length = cur + 1; seq.push(order[k++ % order.length]); cur = seq.length - 1;
+    draw(seq[cur], 0);
+  }
+  function prev() { if (busy || cur <= 0) return; if (answering) stopAnswering(); cur--; draw(seq[cur], 1); }
+  // une fois partagée (ou la question passée), la carte réponse se fond : le jeu seul
+  function stopAnswering() {
+    answering = false; ta.blur(); ta.disabled = true;
+    ta.style.transition = ansCard.style.transition = 'opacity .9s'; ta.style.opacity = ansCard.style.opacity = '0';
+    R.later(() => { ta.remove(); ansCard.remove(); }, 1000);
+    shareReady = true; layout();
+  }
+  gesture(deckBtn, {
+    onMove: (dx) => { if (q && !q.anim) q.c.style.transform = tf({ ...q.c.pose, x: q.c.pose.x + dx, r: q.r + dx * 0.02 }); },
+    onEnd: ({ dx, dy }) => {
+      if (dx < -50) another(); else if (dx > 50 && cur > 0) prev();
+      else if (Math.abs(dx) < 8 && Math.abs(dy) < 8) another();
+      else if (q) setPose(q.c, q.c.pose);
+    },
   });
-  back.addEventListener('click', () => { root.classList.remove('on'); R.later(() => { R.remove(); opts.onBack?.(); }, 700); });
-  addEventListener('keydown', function esc(e) { if (e.key === 'Escape' && document.body.contains(root)) { removeEventListener('keydown', esc); back.click(); } });
+  deckBtn.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); another(); } });
+  function flash(b, txt) { const t = b.textContent; b.textContent = txt; R.later(() => { b.textContent = t; }, 1800); }
+  async function share() {
+    if (!q) return;
+    const id = q.id, qt = (QUESTIONS.find(x => x.id === id)?.q || '').toLowerCase();
+    const said = answering ? ta.value.trim() : '';
+    if (answering && !said) return;
+    const link = new URL('q/' + id, document.baseURI).href;      // sa page porte la vignette de la question
+    const text = '« ' + qt + ' »\n' + (said ? '— ' + said + '\n\n' : '') + 'une question de SINGULIES, le jeu d’Eternel';
+    ev(id, said ? 'repondue' : 'partagee');
+    ta?.blur();
+    const done = () => { if (answering) stopAnswering(); };
+    try { if (navigator.share) { await navigator.share({ title: 'SINGULIES', text, url: link }); done(); return; } }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(text + '\n' + link); flash(shareEl, 'LIEN COPIÉ'); } catch { flash(shareEl, link); }
+    done();
+  }
+  shareEl.addEventListener('click', share);
+  buyEl.addEventListener('click', () => { if (JEU_LINK) { location.href = JEU_LINK; return; } flash(buyEl, 'BIENTÔT'); });
+  back.addEventListener('click', () => { ta?.blur(); root.classList.remove('on'); R.later(() => { R.remove(); opts.onBack?.(); }, 700); });
+  addEventListener('keydown', function esc(e) {
+    if (!document.body.contains(root)) { removeEventListener('keydown', esc); return; }
+    if (e.key === 'Escape') { removeEventListener('keydown', esc); back.click(); }
+  });
   R.show();
   fonts().then(layout);
   R.later(another, REDUCED ? 0 : 900);

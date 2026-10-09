@@ -11,7 +11,8 @@ Sur **leur** téléphone, jamais le tien.
 ## Comment
 1. Envoie le lien **en message Instagram** (comme depuis ta bio) : `https://rytrtest1.github.io/singulies/?adresse=0&v=test`
    - `?adresse=0` : aucune adresse demandée, la demande part marquée « essai » ;
-   - `?v=test` : ces passages se comptent à part.
+   - `?v=test` : ces passages se comptent à part ;
+   - le mode test est actif par défaut : avant TERMINER, le site demande « combien serais-tu prêt à payer pour l'original du poème écrit à la main ? » et « d'autres retours ? » — les réponses arrivent dans la demande (email).
 2. Dis seulement : **« ouvre, et fais comme tu le sens. »**
 3. Regarde l'écran par-dessus son épaule, ou demande-lui de parler à voix haute (« dis ce que tu penses en faisant »).
 4. **N'aide pas.** Si elle te demande quoi faire, réponds : « qu'est-ce que tu ferais ? ». Note la question.
@@ -34,7 +35,7 @@ Sur **leur** téléphone, jamais le tien.
 3. « Quand est-ce que tu le recevras ? »
 4. « À quel moment tu as hésité ? »
 5. « Tu le referais pour quelqu'un d'autre ? Pour qui ? »
-6. (Quand il y aura un prix) « Combien tu paierais pour ça ? »
+6. (Le prix, le site l'a déjà demandé : compare sa réponse écrite à ce qu'elle dit à voix haute.)
 
 ## Le tableau (une ligne par personne)
 | | Vu la vidéo ? | Bloquée où (et combien de temps) | A écrit sa réponse ? | « Qu'est-ce que tu vas recevoir ? » | « Qui va écrire ? » | Hésitations |

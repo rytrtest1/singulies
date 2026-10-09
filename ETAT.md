@@ -320,3 +320,8 @@ Voir « Point de reprise » en tête de fichier.
 - Fait ensuite : tampon refait (encre au bord des traits, appui inégal, fibres, doublé) ; enveloppe pleine (bombé 1,2 mm, ombre sous le bord des rabats) ; pose du cachet à partir de la pression.
 - Fait ensuite : bords de l'enveloppe en plis arrondis ; images de la version simple régénérées (enveloppe, dos, tampon, cartes du portail avec leurs coupures) ; tampon sans `ctx.filter` (absent de Safari < 18).
 - Reste : coulure de cire (non demandée) ; vérification iPhone.
+
+## 09/10 (soir, fin) — version simple du jeu v2
+- `mountSimpleJeu` refait comme le jeu 3D : PARTAGER (place fixe, après le temps de lire), COMMANDER en bas (« BIENTÔT »), glisser à gauche / à droite, question partagée (`jeu?q=`) avec carte réponse, PARTAGER une fois écrit, puis le jeu seul. `main.js` lui passe `firstQ` / `answer`.
+- Vérifié (Chromium sans 3D, 390×844, `tools/simple-check.mjs`) : PARTAGER + COMMANDER affichés, retour au portail, question partagée (PARTAGER absent puis présent après « la mer »), aucune erreur. Unitaires OK.
+- Vignettes og régénérées : identiques (déjà à jour). TEST-5-PERSONNES.md : mention du mode test.

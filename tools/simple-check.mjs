@@ -27,16 +27,32 @@ const out = {};
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
   await page.goto(`http://localhost:${PORT}/?envoi=0`);
   await page.waitForTimeout(3500);
-  await page.click('button[aria-label="le jeu"]'); await page.waitForTimeout(2600);
+  await page.click('button[aria-label="SINGULIES, le jeu"]'); await page.waitForTimeout(2600);
   await page.click('.sp-jeu button[aria-label="une autre question"]'); await page.waitForTimeout(1800);
   await page.screenshot({ path: 'captures/simple-check/jeu.png' });
-  await page.click('.sp-jeu button[aria-label="commander"]'); await page.waitForTimeout(1200);
+  await page.waitForTimeout(3500);
+  out.jeuSigns = await page.evaluate(() => [...document.querySelectorAll('.sp-jeu .sp-sign.on')].map(b => b.textContent));
+  await page.click('.sp-jeu button[aria-label="Commander le jeu SINGULIES"]'); await page.waitForTimeout(400);
   await page.screenshot({ path: 'captures/simple-check/jeu-bientot.png' });
   await page.click('.sp-jeu .sp-back'); await page.waitForTimeout(1500);
   out.jeu = { back: await page.evaluate(() => !document.querySelector('.sp-jeu') && document.querySelector('.sp-portal').classList.contains('on')), errs };
   // le lien d'attente du portail (la lettre) : la carte se retourne
   await page.click('button[aria-label="une lettre chez toi, chaque mois"]'); await page.waitForTimeout(1000);
   await page.screenshot({ path: 'captures/simple-check/portail-bientot.png' });
+  await browser.close();
+}
+{ // 3. question partagée (jeu?q=…), version simple : la carte réponse, PARTAGER une fois écrit
+  const browser = await chromium.launch({ headless: true, args: ['--disable-3d-apis'] });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  const id = JSON.parse((await import('fs')).readFileSync('src/cards/questions.json', 'utf8'))[3].id;
+  await page.goto(`http://localhost:${PORT}/jeu.html?q=${id}&envoi=0`);
+  await page.waitForSelector('.sp-jeu textarea', { timeout: 20000 }); await page.waitForTimeout(2500);
+  const before = await page.evaluate(() => !!document.querySelector('.sp-jeu .sp-sign.on[aria-label^="Partager"]'));
+  await page.click('.sp-jeu textarea'); await page.keyboard.type('la mer'); await page.waitForTimeout(1600);
+  await page.screenshot({ path: 'captures/simple-check/jeu-partagee.png' });
+  const after = await page.evaluate(() => !!document.querySelector('.sp-jeu .sp-sign.on[aria-label^="Partager"]'));
+  out.partagee = { before, after, errs };
   await browser.close();
 }
 console.log(JSON.stringify(out));

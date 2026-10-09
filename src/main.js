@@ -729,7 +729,7 @@ function openJeu(fromPortal = false) {
 function openJeuPage() {
   // question partagée (lien jeu?q=…) : à la première ouverture seulement, on y répond
   const shared = PAGE === 'jeu' && jeuQ != null && !jeuShared; jeuShared = true;
-  const simple = () => simpleModule().then(m => m.mountSimpleJeu({ onBack: backToPortal }));
+  const simple = () => simpleModule().then(m => m.mountSimpleJeu({ onBack: backToPortal, firstQ: shared ? jeuQ : null, answer: shared }));
   import('./jeu/jeu.js').then(({ mountJeu }) => SIMPLE === 'all' ? null : mountJeu({ base: './', reduced: CFG.reduced, onBack: backToPortal,
     firstQ: shared ? jeuQ : null, answer: shared }))
     .then(j => j || simple())                                    // sans WebGL2 : le jeu en version simple
