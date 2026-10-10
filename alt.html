@@ -42,27 +42,6 @@
 <div id="back" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></div>
 <div id="next" role="button" aria-label="Continuer"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M5 12 H18 M12.5 6.5 L18 12 L12.5 17.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></div>
 <div id="live" class="sr" aria-live="polite"></div>
-<!-- version alternative (10/10) : une seule ligne d'explication sous le curseur ; le toucher ouvre le clavier ;
-     elle s'efface à la première lettre -->
-<div id="invite" role="button" tabindex="-1">écris ton prénom.<span>je t’en fais un poème, tapé à la machine, posté chez toi.</span></div>
-<style>
-  #invite { position: fixed; left: 16px; right: 16px; top: calc(50% + 46px); z-index: 4; text-align: center; cursor: text;
-    font: 500 17px/1.5 'SG Garamond', Georgia, serif; color: #fff; opacity: 0; transition: opacity 1.2s ease; text-shadow: 0 0 6px #000, 0 0 14px #000; }
-  #invite span { display: block; margin-top: 6px; font-size: 15px; opacity: .72; }
-  #invite.on { opacity: .62; }
-  #invite.off { opacity: 0 !important; pointer-events: none; transition-duration: .5s; }
-</style>
-<script>
-  (() => {
-    const v = document.getElementById('invite'), i = document.getElementById('in');
-    setTimeout(() => v.classList.add('on'), 3400);
-    const off = () => v.classList.add('off');
-    i.addEventListener('input', () => { if (i.value) off(); });
-    i.addEventListener('focus', off);
-    v.addEventListener('click', () => { i.readOnly = false; i.classList.remove('rest'); i.focus({ preventScroll: true }); });
-    addEventListener('singulies:name-validated', off);
-  })();
-</script>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

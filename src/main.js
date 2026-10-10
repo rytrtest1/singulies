@@ -59,6 +59,8 @@ const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
 const OPEN_FADE = 1.4;      // s de fondu d'entrée
 const LEAVE_FADE = 1.2;     // s de fondu au noir après validation (sans WebGL2)
+const HINT = P.get('indice') !== '0';   // (10/10) PRENOM en grisé si rien n'est écrit
+const HINT_AFTER = 3.0, HINT_ALPHA = 0.2;   // s après l'apparition du champ ; clarté (fraction)
 const SHOW_NEXT = P.get('fleche') === '1';   // flèche « suite » retirée pour l'instant (04/10) ; ?fleche=1 pour la revoir
 // passage automatique à la suite : dès que la dernière lettre allumée du champ a atteint sa clarté (prénom confirmé)
 const HANDOFF = 0.6;        // s de fondu enchaîné vers la scène des cartes (même prénom, même place)
@@ -374,7 +376,7 @@ input.addEventListener('blur', () => {
     if (bridge.composing) return;
     // (09/10) jamais avant que la dernière lettre du champ se soit allumée : sinon trop rapide
     const go = () => { if (S.portal || S.phase !== 'input' || S.trans != null || document.activeElement === input) return;
-      if (renderer && S.t < light.litAt()) { blurGo = setTimeout(go, 150); return; } blurGo = 0; startTransition(); };
+      if (renderer && S.t < light.flyAt()) { blurGo = setTimeout(go, 150); return; } blurGo = 0; startTransition(); };
     go();
   }, 1000);
 });
@@ -416,6 +418,7 @@ function renderFallback() {
   // sans WebGL2 aussi : un curseur qui respire tant que rien n'est tapé, et la zone du prénom qu'on touche (clavier,
   // puis la suite) — sinon, sur téléphone, le clavier ne pouvait pas s'ouvrir
   fallbackEl.classList.toggle('cur', S.phase === 'input' && !S.typed);
+  fallbackEl.dataset.hint = HINT && S.phase === 'input' && !S.typed && !bridge.shownText ? displayCase('PRENOM', CFG.caseMode) : '';
   const r = fallbackEl.getBoundingClientRect(), cx = innerWidth / 2, cy = innerHeight / 2;
   S.nameBox = r.width > 4 ? [Math.min(r.left, cx - 90) - 30, r.top - 40, Math.max(r.right, cx + 90) + 30, r.bottom + 40]
     : [cx - Math.max(80, 0.2 * innerWidth), cy - 60, cx + Math.max(80, 0.2 * innerWidth), cy + 60];
@@ -526,6 +529,7 @@ function frame(ts) {
           const nx = (x - cx) / (S.w / 2), ny = (y - cy) / (S.h / 2);
           return light.level(w.chars[i], w.lp[i], Math.min(1, Math.hypot(nx, ny) / Math.SQRT2), w.z, S.t, nx, ny);
         },
+        readyIn: (w, i, x, y) => light.readyIn(w.chars[i], w.lp[i], w.z, S.t, (x - cx) / (S.w / 2), (y - cy) / (S.h / 2)),
       });
       window.__sg.plan = plan;
     }
@@ -583,22 +587,37 @@ function frame(ts) {
   const canNext = S.phase === 'input' && S.confirmed && T < 0 && !!text.trim() && !wheel && !S.rev;   // pas pendant la frappe automatique
   nextEl.classList.toggle('on', SHOW_NEXT && canNext && S.t - S.confirmedAt > 1.2 && S.t > OPEN_DARK + 1.5);
   if (canNext) { nextEl.style.left = (cx - 22) + 'px'; nextEl.style.top = (L.bottom + Math.max(12, 0.8 * L.cap)) + 'px'; }
-  // dès que la dernière lettre du champ s'est allumée (08/10 : plus vite — on n'attend plus sa pleine clarté), et
+  // (10/10) pendant que l'onde avance : le fond allumé, les lettres encore à venir partiront une fois allumées ;
   // jamais moins de 2 s après le dernier geste (toucher, souris, molette, touche)
-  if (canNext && S.t >= Math.max(light.litAt(), S.confirmedAt + 0.5, S.actAt + 2)) startTransition();
+  if (canNext && S.t >= Math.max(light.flyAt(), S.confirmedAt + 0.5, S.actAt + 2)) startTransition();
   if (CFG.debug) {   // croix au point de fuite
     glyphs.push({ box: [cx - 12, vy - 0.5, cx + 12, vy + 0.5], uv: null, alpha: 0.6, pxEm: 1 });
     glyphs.push({ box: [cx - 0.5, vy - 12, cx + 0.5, vy + 12], uv: null, alpha: 0.6, pxEm: 1 });
   }
   if (wheel && S.phase === 'input') drawWheel(L, glyphs, nameFade);
   if (voice && S.phase === 'input') drawVoice(L, glyphs, nameFade, dt, text);
+  // indice (10/10) : rien d'écrit quelques secondes après l'apparition du champ → PRENOM en grisé, le curseur glisse
+  // devant ; il s'efface à la première lettre (?indice=0 : jamais)
+  if (S.hintT0 == null && S.phase === 'input' && !S.portal && nameFade > 0.99) S.hintT0 = S.t;
+  const hintA = HINT && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
+    ? smooth(S.hintT0 + HINT_AFTER, S.hintT0 + HINT_AFTER + 1.6, S.t) : 0;
+  let hintX = L.cursor.x;
+  if (hintA > 0) {
+    const H = layoutName(displayCase('PRENOM', CFG.caseMode), metrics, { w: S.w, h: S.h, cx, cy });
+    for (const g of H.glyphs) {
+      const gm = atlas.glyphs[g.ch]; if (!gm) continue;
+      glyphs.push({ box: [g.x + gm.x0 * g.fs, g.y + gm.y0 * g.fs, g.x + gm.x1 * g.fs, g.y + gm.y1 * g.fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: HINT_ALPHA * hintA * nameFade, pxEm: g.fs });
+    }
+    hintX = L.cursor.x + (H.lines[0].x0 - H.track * H.fs * 0.5 - L.cursor.x) * smooth(0, 1, hintA);
+    S.nameBox = [Math.min(S.nameBox[0], H.lines[0].x0 - 30), S.nameBox[1], Math.max(S.nameBox[2], H.lines[0].x1 + 30), S.nameBox[3]];
+  }
   const voiceHidesCursor = voice && !S.voiceTyped && (voice.state === 'idle' || voice.state === 'asking' || voice.state === 'listening');
   if (!wheel && !voiceHidesCursor && !S.typed && !S.confirmed && S.phase === 'input') {
     // respiration douce (pas de clignotement sec) : 0,2 → 0,9, période 1,6 s
     const ph = (S.t - OPEN_DARK) / 1.6 * Math.PI * 2;
     const blink = CFG.reduced ? 0.8 : 0.2 + 0.7 * Math.pow(0.5 + 0.5 * Math.cos(ph), 1.6);
     const cw = L.cursor.w;
-    glyphs.push({ box: [L.cursor.x - cw / 2, L.cursor.y0, L.cursor.x + cw / 2, L.cursor.y1], uv: null, alpha: blink * nameFade, pxEm: 1, taper: 0.22 });
+    glyphs.push({ box: [hintX - cw / 2, L.cursor.y0, hintX + cw / 2, L.cursor.y1], uv: null, alpha: blink * nameFade, pxEm: 1, taper: 0.22 });
   }
 
   // lumière : diff du prénom → ondes / extinctions ; le champ écoute (souffle + ralentissement)

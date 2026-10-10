@@ -8,7 +8,9 @@ const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const sm = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 const TAU = Math.PI * 2;
 export const LIGHT_FULL = 6.0;   // s : la lettre la plus proche du premier plan a fini de s'allumer
-export const LIGHT_LIT = 4.4;    // s : la dernière lettre (premier plan) commence à s'allumer — le vol des lettres part (08/10)
+export const LIGHT_LIT = 4.4;    // s : la dernière lettre (premier plan) commence à s'allumer
+// (10/10) le vol part pendant que l'onde avance : le fond est allumé, les lettres encore à venir partent une fois allumées
+export const LIGHT_FLY = 1.8;
 
 // paramètres propres d'une lettre
 export function letterParams(rng) {
@@ -103,8 +105,19 @@ export function createLight({ reduced = false } = {}) {
     return p * (rest * breath + pulse);
   }
 
+  // dans combien de temps (s, depuis t) cette lettre aura presque fini de s'allumer (≈ 85 % : 3/4 de sa montée) ;
+  // ≤ 0 : déjà allumée. Même retard que level() (front du fond vers l'avant, bord bruité, retard propre).
+  function readyIn(ch, lp, z, t, nx = 0, ny = 0) {
+    const C = ch.toUpperCase();
+    if (!counts[C] || reduced) return 0;
+    const zeta = clamp01(Math.log(z / 2.8) / Math.log(34 / 2.8));
+    const noise = 0.5 + 0.28 * Math.sin(2.3 * nx + 1.7 * ny + 0.6) + 0.22 * Math.sin(-1.9 * nx + 2.9 * ny + 2.1);
+    const delay = 0.1 + 3.4 * Math.pow(1 - zeta, 1.2) + 0.6 * noise + 2 * lp.d;
+    return added[C] + delay + lp.att * 4 * 1.5 * 0.75 - t;
+  }
   // instant où la dernière lettre allumée a atteint sa clarté (retard max + montée) : la suite peut commencer
   function fullAt() { let m = -Infinity; for (const C in counts) m = Math.max(m, added[C] ?? -Infinity); return m + LIGHT_FULL; }
   function litAt() { let m = -Infinity; for (const C in counts) m = Math.max(m, added[C] ?? -Infinity); return m + LIGHT_LIT; }
-  return { update, prime, level, fullAt, litAt, get active() { return Object.keys(counts).length > 0 || waves.length > 0; } };
+  function flyAt() { let m = -Infinity; for (const C in counts) m = Math.max(m, added[C] ?? -Infinity); return m + LIGHT_FLY; }
+  return { update, prime, level, readyIn, fullAt, litAt, flyAt, get active() { return Object.keys(counts).length > 0 || waves.length > 0; } };
 }

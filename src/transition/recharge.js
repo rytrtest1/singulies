@@ -29,9 +29,12 @@ const NAME_LIT = NAME_REST;       // clarté visée par une lettre qui rejoint l
 const DEP0 = 0.5, DEP_SPAN = 2.2; // départs étalés, du plus loin au plus proche
 const MAX_FLY = 140;               // toutes les lettres allumées à l'écran, du fond au premier plan
 
-// ctx : { words, letterScreen(w, i), level(w, i, x, y) → lumière, name: [{ ch, x, y, fs }], W, H, rng, mode }
+// ctx : { words, letterScreen(w, i), level(w, i, x, y) → lumière, readyIn?(w, i, x, y) → s avant d'être allumée,
+//        name: [{ ch, x, y, fs }], W, H, rng, mode }
+// (10/10) le vol part avant que l'onde ait atteint le premier plan : une lettre pas encore allumée reste à sa place,
+// continue de s'allumer, et ne part qu'une fois allumée — les premières volent pendant que les dernières s'allument
 export function planRecharge(ctx) {
-  const { words, letterScreen, level, name, W, H, rng, mode = 'lettres' } = ctx;
+  const { words, letterScreen, level, readyIn, name, W, H, rng, mode = 'lettres' } = ctx;
   const chars = new Set(name.map((g) => g.ch.toUpperCase()));
   let pool = [];
   for (const w of words) {
@@ -41,12 +44,12 @@ export function planRecharge(ctx) {
       if (!chars.has(C) || (w.occL && w.occL[i] > 0.85)) continue;
       const p = letterScreen(w, i);
       if (p.x < -p.fs || p.x > W + p.fs || p.y < -0.5 * p.fs || p.y > H + 1.5 * p.fs) continue;   // grandes lettres du premier plan à moitié dans l'écran comprises
-      const L = level(w, i, p.x, p.y);
-      if (L < 0.03) continue;                                   // pas (encore) allumée : elle s'éteint avec les grises
-      pool.push({ w, i, C, z: w.z, L, x: p.x, y: p.y });
+      const L = level(w, i, p.x, p.y), r = readyIn ? readyIn(w, i, p.x, p.y) : 0;
+      if (L < 0.03 && !(r > 0)) continue;                       // ni allumée ni sur le point de l'être : elle s'éteint avec les grises
+      pool.push({ w, i, C, z: w.z, L, r, x: p.x, y: p.y });
     }
   }
-  if (pool.length > MAX_FLY) pool = pool.sort((a, b) => b.L - a.L).slice(0, MAX_FLY);
+  if (pool.length > MAX_FLY) pool = pool.sort((a, b) => Math.max(b.L, b.r > 0 ? 0.3 : 0) - Math.max(a.L, a.r > 0 ? 0.3 : 0)).slice(0, MAX_FLY);
   // la lettre du prénom visée : parmi celles de même lettre, la plus proche à l'écran, en équilibrant
   const count = name.map(() => 0);
   for (const c of pool) {
@@ -63,8 +66,8 @@ export function planRecharge(ctx) {
   const n = pool.length;
   const flyers = pool.map((c, k) => ({
     w: c.w, i: c.i, j: c.j, L: c.L,
-    dep: DEP0 + DEP_SPAN * (n > 1 ? k / (n - 1) : 0) + (rng() - 0.5) * 0.3,
-    dur: 2.0 + 0.6 * rng(),
+    dep: Math.max(DEP0 + DEP_SPAN * (n > 1 ? k / (n - 1) : 0) + (rng() - 0.5) * 0.3, c.r > 0 ? c.r + 0.1 : 0),
+    dur: 1.75 + 0.5 * rng(),
     bow: (rng() < 0.5 ? -1 : 1) * (0.05 + 0.1 * rng()),
     s0: null,
   }));

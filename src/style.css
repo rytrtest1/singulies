@@ -49,6 +49,9 @@ body { -webkit-tap-highlight-color: transparent; }
 #nocards.on { opacity: 1; }
 #nocards a { color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, .22); }
 /* sans WebGL2 : le curseur du prénom (trait fin qui respire, comme sur l'accueil) tant que rien n'est tapé */
+/* (10/10) indice : PRENOM en grisé tant que rien n'est écrit */
+#fallback.cur::before { content: attr(data-hint); color: rgba(174, 174, 174, .22); animation: fb-hint 1.6s 5s both; }
+@keyframes fb-hint { from { opacity: 0; } }
 #fallback.cur::after { content: ''; display: inline-block; width: 1.5px; height: .78em; margin-left: -.2em; vertical-align: -0.02em;
   background: rgb(174, 174, 174); animation: fb-breathe 2.4s ease-in-out infinite; }
 @keyframes fb-breathe { 0%, 100% { opacity: .25; } 50% { opacity: .9; } }
