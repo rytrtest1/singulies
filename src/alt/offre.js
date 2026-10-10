@@ -343,7 +343,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     </main>
     <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
-      <div class="of-price"><b>${esc(PRIX)}</b> frais compris<br><span>posté ${esc(DELAI)}</span></div>
+      <div class="of-price"><b>${esc(PRIX)}</b> frais compris <i>·</i> <span>posté ${esc(DELAI)}</span></div>
       <button class="of-go" type="button">COMMANDER</button>
     </div>`;
   document.body.appendChild(root);
@@ -383,6 +383,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   // (10/10) une page qui semble finie : la feuille, sa légende, le bandeau ; si rien ne se passe, une petite flèche
   // invite à descendre vers les autres poèmes
   const down = root.querySelector('.of-down');
+  root.querySelector('.of-bar').appendChild(down);   // (10/10) tout en bas, sous le prix : elle invite à descendre, sans pointer COMMANDER
   setTimeout(() => { if (root.scrollTop < 30 && !root.classList.contains('paying') && !root.classList.contains('env')) down.classList.add('on'); }, over ? 5200 : 6000);
   down.addEventListener('click', () => { const ex = root.querySelector('.of-ex'); root.scrollTo({ top: root.scrollTop + ex.getBoundingClientRect().top - 40, behavior: 'smooth' }); });
   // en descendant, la feuille remonte avec la page (comme si on faisait défiler une vraie page)

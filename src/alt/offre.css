@@ -28,6 +28,7 @@
 .of.over { background: transparent; }
 .of.over main { padding-top: 0; }
 .of.over .of-hole { height: calc(100svh - 178px - env(safe-area-inset-bottom)); }   /* = SHEET_INSET (config.js) */
+.of.over .of-poem { min-height: 3.4em; }
 /* la légende colle à la feuille ; la suite commence sous le bandeau (le premier écran semble fini) */
 .of.over .of-poem { margin-top: -22px; }
 .of.over .of-rest { margin-top: 110px; }
@@ -208,3 +209,22 @@
 .of-for button { flex: 1; padding: 12px 6px; border: 1px solid #2c2a27; border-radius: 2px; background: none; color: #9a958c;
   font: 16px/1.2 'SG Garamond', Georgia, serif; cursor: pointer; }
 .of-for button.on { border-color: #ece8e0; color: #ece8e0; }
+
+/* (10/10) le bandeau, disposition centrée : COMMANDER flotte au milieu (signe du site : capitales Garamond, un filet fin
+   qui se trace dessous), le prix en une ligne discrète en dessous ; Apple Pay / Google Pay prend la place de COMMANDER */
+.of-bar { flex-direction: column; justify-content: flex-end; align-items: center; gap: 9px; text-align: center;
+  padding: 30px 16px calc(16px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 60%, rgba(6,6,6,0)); }
+.of-bar .of-price { order: 2; font-size: 12.5px; line-height: 1.3; color: #6a655d; letter-spacing: .03em; }
+.of-bar .of-price b { font-size: 13.5px; color: #a8a399; font-weight: 500; }
+.of-bar .of-price i { font-style: normal; padding: 0 .35em; color: #4a4742; }
+.of-bar .of-go { position: relative; border: 0; background: none; padding: 10px 2px 11px; padding-right: calc(2px - .45em); color: rgba(241, 237, 230, .92);
+  font: 500 16px/1 'SG Garamond', Georgia, serif; letter-spacing: .45em; }
+.of-bar .of-go::after { content: ''; position: absolute; left: 0; right: .45em; bottom: 2px; height: 1px; background: rgba(236, 232, 224, .38);
+  transform: scaleX(0); transform-origin: left; transition: transform .9s cubic-bezier(.2,.7,.3,1) .5s, background .3s; }
+.of.bar-on .of-bar .of-go::after { transform: scaleX(1); }
+.of-bar .of-go:hover, .of-bar .of-go:focus-visible { background: none; color: #fff; }
+.of-bar .of-go:hover::after, .of-bar .of-go:focus-visible::after { background: rgba(236, 232, 224, .75); }
+.of-bar .of-bar-r { align-items: center; }
+.of-bar.wallet .of-bar-wallet { width: 230px; }
+.of-bar .of-down { order: 3; width: 44px; height: 22px; margin: -4px 0 -6px; }
+.of-bar .of-down svg { width: 18px; height: 18px; }
