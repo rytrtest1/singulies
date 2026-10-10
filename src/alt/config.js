@@ -20,7 +20,7 @@ export const STRIPE = '';
 // ex. 'https://singulies-paiement.toncompte.workers.dev'. Les deux remplis → le panneau ; sinon le lien STRIPE ;
 // sinon le paiement simulé. ?paiement=faux : le panneau avec un faux formulaire (pour voir le geste).
 export const STRIPE_PK = '';
-export const PAIEMENT_URL = '';
+export const PAIEMENT_URL = 'https://singulies.rytrtest1.workers.dev';
 
 // Les vraies photos (dans public/vrai/). Une photo absente : un cadre « à remplacer » en mode test, rien sinon.
 // Format conseillé : 1080 × 1350 (4:5), lumière du jour, fond noir mat, sans flash.
