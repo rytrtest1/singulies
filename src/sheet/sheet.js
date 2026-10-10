@@ -171,11 +171,11 @@ export function createSheetScene(gl, opts) {
     return [baseOf(f.i) - 0.9, x0, u, k + 1];
   });
   // la signature (09/10, Maxence : « comme à la machine, c'est ce que je fais ») : - ETERNEL -, calée à gauche sur la
-  // colonne, en bas de la feuille (au-dessus de la carte, sous le poème), tapée frappe par frappe une fois les lignes
+  // colonne, juste sous la dernière ligne de l'acrostiche (10/10 : on signe le poème), tapée frappe par frappe une fois les lignes
   // tracées. Encre propre à la feuille (face lue = face 0 : inkBack), 8 px/mm, mise à jour par zone.
   const SIG = { text: '- ETERNEL -', px: 8, ch: 0.085 };
   SIG.x = COL_X;
-  SIG.y = Math.min(-SHEET.h / 2 + 21, baseOf(nLines - 1) - lead);
+  SIG.y = baseOf(nLines - 1) - Math.max(lead, 8.5);
   SIG.at = (flyers.length ? Math.max(...flyers.map(f => f.at + f.dur)) : FLY_AT) + 0.12 + 0.55 + 0.5;
   const sigCount = tu => reduced ? (tu > SIG.at ? SIG.text.length : 0) : Math.max(0, Math.min(SIG.text.length, Math.floor((tu - SIG.at) / SIG.ch) + 1));
   let sigTex = null, sigN = 0;

@@ -64,6 +64,7 @@ const CSS = `
 .sp-sign { position: absolute; left: 0; right: 0; text-align: center; font: 500 14px/44px 'SG Garamond', Georgia, serif; letter-spacing: .4em;
   padding: 0 0 0 .4em; margin: 0; border: 0; background: transparent; color: #fff; opacity: 0; transition: opacity 1.2s; pointer-events: none; cursor: pointer; }
 .sp-sign.on { opacity: .62; pointer-events: auto; }
+.sp-sign .sp-sub { display: block; margin-top: -10px; font-size: 13px; line-height: 1.2; letter-spacing: .04em; opacity: .55; }
 .sp-sign.on:hover { opacity: .85; }
 .sp-back { position: absolute; left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); width: 44px; height: 44px;
   display: flex; align-items: center; justify-content: center; color: #fff; opacity: 0; transition: opacity .8s; pointer-events: none;
@@ -347,7 +348,9 @@ export function mountSimpleFlow(opts) {
 
   // ---------------- 1. les cartes ----------------
   const order = shuffle(QUESTIONS.map(q => q.id));
-  let next = 0, seq = [], cur = -1, discards = 0, mode = 'q', backHintDone = false, passReady = false;
+  let next = 0, seq = [], cur = -1, discards = 0, mode = 'q', backHintDone = false, passReady = false, blankShownAt = 0;
+  // PASSER : sur la carte blanche prise (3 s), ou 3,5 s après que la carte blanche est apparue (10/10), réponse vide
+  const passOn = () => pass.classList.toggle('on', stageName === 'cards' && !ta.value.trim() && ((mode === 'free' && passReady) || (mode === 'q' && blankShownAt > 0 && performance.now() - blankShownAt > 3500)));
   const answers = {};
   const deck = [0, 1, 2].map(k => makeCard(stage, url('simple/dos.jpg')));
   let q = null;                                           // { id, c, curl }
@@ -360,7 +363,7 @@ export function mountSimpleFlow(opts) {
   const deckBtn = el('button', 'sp-btn', root); deckBtn.type = 'button'; deckBtn.textContent = 'une autre question'; deckBtn.setAttribute('aria-label', 'une autre question');
   const prevBtn = el('button', 'sp-btn', root); prevBtn.type = 'button'; prevBtn.textContent = 'la question précédente'; prevBtn.setAttribute('aria-label', 'la question précédente');
   const blankBtn = el('button', 'sp-btn', root); blankBtn.type = 'button'; blankBtn.textContent = 'carte blanche'; blankBtn.setAttribute('aria-label', 'carte blanche : écrire le thème de ton poème');
-  const pass = el('button', 'sp-sign', root, 'PASSER'); pass.type = 'button';
+  const pass = el('button', 'sp-sign', root, 'PASSER<span class="sp-sub">j’improvise</span>'); pass.type = 'button'; pass.setAttribute('aria-label', 'Passer : j’improvise sur ton prénom');
   const curl = el('div', 'sp-curl', root);
   let L = null;                                            // disposition des cartes
   function layoutCards() {
@@ -383,7 +386,7 @@ export function mountSimpleFlow(opts) {
     box(prevBtn, 22, qy, 44, 44);
     box(blankBtn, W / 2, H - L.visH * 0.25, L.vis, L.visH * 0.5);
     Object.assign(curl.style, { left: (W / 2 + L.vis / 2 - 22) + 'px', top: (qy - L.visH / 2) + 'px' });
-    pass.style.top = (mode === 'free' ? Math.min(qy + L.visH / 2 + 18, H - 52) : H - 60) + 'px';
+    pass.style.top = (mode === 'free' ? Math.min(qy + L.visH / 2 + 18, H - 52) : H - L.visH * 0.72 - 58) + 'px';
   }
   function placeBlank() {
     if (!L) return;
@@ -392,6 +395,7 @@ export function mountSimpleFlow(opts) {
     const shown = discards > 0;
     setPose(blank, { x: W / 2, y: shown ? H - L.visH * 0.22 : H + L.ch, w: L.cw, r: -0.6, ry: 0 });
     blankBtn.hidden = !shown;
+    if (shown && !blankShownAt) { blankShownAt = performance.now(); R.later(passOn, 3600); }
   }
   function draw(id, from = 'deck', dir = -1) {
     const old = q;
@@ -444,11 +448,11 @@ export function mountSimpleFlow(opts) {
     ta.setAttribute('aria-label', 'carte blanche : le thème de ton poème'); R.say('carte blanche. écris le thème de ton poème.');
     layoutCards();
     passReady = false;
-    R.later(() => { passReady = true; if (mode === 'free' && !ta.value.trim()) pass.classList.add('on'); }, 3000);
+    R.later(() => { passReady = true; passOn(); }, 3000);
   }
   function leaveBlank() {
     if (mode !== 'free') return;
-    answers.blank = ta.value; mode = 'q'; pass.classList.remove('on');
+    answers.blank = ta.value; mode = 'q'; passOn();
     for (const d of [...deck, ansCard, ...(q ? [q.c] : [])]) d.style.opacity = 1;
     ta.placeholder = 'ta réponse est le thème';
     if (q) { ta.value = answers[q.id] || ''; ta.setAttribute('aria-label', QUESTIONS.find(x => x.id === q.id)?.q || 'Réponse'); }
@@ -489,13 +493,13 @@ export function mountSimpleFlow(opts) {
   ta.addEventListener('input', () => {
     if (/[\r\n]/.test(ta.value)) { ta.value = ta.value.replace(/[\r\n]+/g, ' ').trimEnd(); give(); return; }
     const v = ta.value; if (v.length > prevVal.length) nm.light(v[v.length - 1]); prevVal = v;
-    pass.classList.toggle('on', mode === 'free' && !v.trim() && passReady);
+    passOn();
     touched();
   });
   ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); give(); } });
   let tapAt = 0; root.addEventListener('pointerdown', e => { if (e.target !== ta) tapAt = performance.now(); }, true);
   ta.addEventListener('blur', () => { if (TOUCH && ta.value.trim() && stageName === 'cards') setTimeout(() => { if (performance.now() - tapAt > 400 && document.activeElement !== ta) give(); }, 250); });
-  pass.addEventListener('click', () => { if (mode === 'free') choose({ kind: 'improvisation', text: '' }); });
+  pass.addEventListener('click', () => { if (pass.classList.contains('on')) choose({ kind: 'improvisation', text: '' }); });
   function give() {
     if (stageName !== 'cards') return;
     const text = ta.value.trim();
@@ -560,7 +564,7 @@ export function mountSimpleFlow(opts) {
     // l'acrostiche (même mise en page que la vraie feuille)
     const chars = [...name], n = chars.length, lead = n > 1 ? Math.min(10.5, 148 / (n - 1)) : 10.5, cap = Math.min(6.4, lead * 0.6), yc = sheetCard ? -6 : 0;
     S = { lines: chars.map((ch, k) => ch === ' ' ? null : { ch, k, cap, base: yc + ((n - 1) / 2 - k) * lead - cap / 2 }), lead };
-    S.sigY = Math.min(-SHEET.h / 2 + 21, (yc + ((n - 1) / 2 - (n - 1)) * lead - cap / 2) - lead);
+    S.sigY = (yc + ((n - 1) / 2 - (n - 1)) * lead - cap / 2) - Math.max(lead, 8.5);   // (10/10) juste sous le poème
     sheetLayer.style.opacity = '1';
     layoutSheet();
     if (sheetCard) { const from = sheetCard.pose, to = S.cardPose; move(sheetCard, to, { dur: 1500, via: [{ ...from, ...to, x: (from.x + to.x) / 2, y: (from.y + to.y) / 2, w: to.w, z: 70, s: 1.04 }] }).then(() => { if (S) S.cardPlaced = true; }); }

@@ -65,7 +65,7 @@ export function planRecharge(ctx) {
   pool.sort((a, b) => b.z - a.z);
   const n = pool.length;
   const flyers = pool.map((c, k) => ({
-    w: c.w, i: c.i, j: c.j, L: c.L,
+    w: c.w, i: c.i, j: c.j, L: c.L, C: c.C,
     dep: Math.max(DEP0 + DEP_SPAN * (n > 1 ? k / (n - 1) : 0) + (rng() - 0.5) * 0.3, c.r > 0 ? c.r + 0.1 : 0),
     dur: 1.75 + 0.5 * rng(),
     bow: (rng() < 0.5 ? -1 : 1) * (0.05 + 0.1 * rng()),
@@ -89,7 +89,7 @@ export function fieldLetter(plan, T, w, i, dn, buf, o) {
   const m = 1 - sm(t0, end, T);
   const s = plan.src.get(w);
   const f = s && s[i];
-  if (!f) { buf[o + 7] *= m; buf[o + 17] *= m; return; }
+  if (!f || f.dead) { buf[o + 7] *= m; buf[o + 17] *= m; return; }
   // une lettre qui va partir garde exactement sa clarté jusqu'à son départ (sinon : baisse puis remontée = flash) ;
   // on note sa clarté vivante, que sa copie en vol reprend au départ
   if (T < f.dep) { f.alive = buf[o + 7]; f.Llive = buf[o + 17]; return; }
@@ -108,7 +108,9 @@ export function rechargeFrame(plan, T, ctx) {
   const keep = name.map(() => 1);              // Π (1 − 0,45·arrivée)
   const light = plan.mode === 'lumiere';
   for (const fl of plan.flyers) {
-    if (T < fl.dep) continue;
+    if (T < fl.dep || fl.dead) continue;
+    // (10/10) départ parfois plusieurs secondes après le plan : le mot a pu quitter l'écran et renaître (autres lettres)
+    if (!fl.s0 && fl.w.chars[fl.i]?.toUpperCase() !== fl.C) { fl.dead = true; continue; }
     if (!fl.s0) { fl.s0 = world(fl.w, fl.i); fl.L0 = fl.Llive ?? fl.L; if (fl.alive != null) fl.s0.alpha = fl.alive; }
     // départ doux, arrivée franche : la lettre est absorbée par le prénom au lieu de tourner autour
     const s0 = fl.s0, u = clamp01((T - fl.dep) / fl.dur), ue = 1 - Math.cos(u * Math.PI / 2);
@@ -158,7 +160,8 @@ export function energyFrame(plan, T, ctx) {
   const keep = name.map(() => 1);
   const segs = [];
   for (const f of plan.flyers) {
-    if (T < f.dep) continue;
+    if (T < f.dep || f.dead) continue;
+    if (f.w.chars[f.i]?.toUpperCase() !== f.C) { f.dead = true; continue; }   // mot renaissant (voir rechargeFrame)
     const head = easeInOut(clamp01((T - f.dep) / f.dur));
     const tail = easeInOut(clamp01((T - f.dep - f.lag) / f.tdur));
     keep[f.j] *= 1 - 0.45 * sm(0.9, 1, head) * (0.3 + 0.7 * tail);

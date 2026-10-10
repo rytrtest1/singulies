@@ -3,6 +3,7 @@
 import '../basique/basique.css';
 import './offre.css';
 import { acrostic } from '../basique/basique.js';
+import { mountExemples } from './exemples.js';
 import { count } from '../app/count.js';
 import { PRIX, ENVOI, STRIPE, PHOTOS, FEUILLE_PHOTO, LIENS } from './config.js';
 
@@ -62,12 +63,15 @@ export function mountOffer({ name, onBack, over = false }) {
     <main>
       ${over ? '<div class="of-hole" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
       <p class="of-note">ces lignes n’existent pas encore.<br>je les tape pour toi, à la machine.</p>
+      <section class="of-ex" aria-label="D’autres poèmes"><h2 class="of-h">d’autres prénoms, d’autres poèmes</h2><div class="of-ex-host"></div>
+        <p class="of-ex-note">chacun avec la carte de sa question, glissée dans l’enveloppe.</p></section>
       <section class="of-vrai" aria-label="De vrais envois">
         <div class="of-track"></div>
         <div class="of-dots" aria-hidden="true"></div>
       </section>
       <ul class="of-what">
-        <li>une feuille A5 noire, ton prénom en colonne, chaque vers tapé à la machine.</li>
+        <li>l’original : tapé une seule fois, à la machine, pour toi. pas une impression, pas une copie.</li>
+        <li>une feuille A5 noire, ton prénom en colonne, signé de ma main à la machine.</li>
         <li>une carte du jeu glissée avec : ta question, ta réponse au dos.</li>
         <li>une enveloppe noire fermée à la cire, postée le ${esc(ENVOI)}.</li>
       </ul>
@@ -99,6 +103,7 @@ export function mountOffer({ name, onBack, over = false }) {
     im.src = new URL(FEUILLE_PHOTO.src, document.baseURI).href;
   }
 
+  mountExemples(root.querySelector('.of-ex-host'));
   // les photos
   const track = root.querySelector('.of-track'), dots = root.querySelector('.of-dots');
   for (const p of PHOTOS) track.appendChild(slide(p));

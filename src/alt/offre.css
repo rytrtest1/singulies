@@ -29,6 +29,22 @@
 .of.over .of-vrai, .of.over .of-what, .of.over .of-after, .of.over .of-legal, .of.over .of-gift, .of.over .of-foot { position: relative; }
 .of.over main > :not(.of-hole):not(.of-note) { background: #060606; box-shadow: 0 0 0 100vmax #060606; clip-path: inset(0 -100vmax); }
 .of.over .of-vrai { margin-top: 0; padding-top: 30px; }
+/* d'autres poèmes : en défilé façon story (milieu grand, voisins plus petits en fondu — exemples.js) */
+.of-ex { margin: 22px -16px 0; padding-top: 8px; }
+.of-h { font: 500 15px/1.4 'SG Garamond', Georgia, serif; color: #9a958c; text-align: center; margin: 0 0 12px; }
+.ex-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; touch-action: pan-x pan-y pinch-zoom;
+  padding: 6px 0; }
+.ex-track::-webkit-scrollbar { display: none; }
+.ex-slide { flex: 0 0 72%; scroll-snap-align: center; margin: 0; transform-origin: center; will-change: transform, opacity; }
+.ex-sheet { box-shadow: 0 6px 18px rgba(0,0,0,.55); }
+.ex-sheet .ex-poem { position: absolute; left: 13cqw; right: 7cqw; top: 25cqw; font: 3.2cqw/1.95 'SG Machine', 'Courier New', monospace; color: #d6d6d6; }
+.ex-l { white-space: nowrap; }
+.ex-l b { font: 500 5.2cqw/1 'SG Garamond', Georgia, serif; color: #e8e8e8; }
+.ex-l span { text-shadow: 0 0 .4px rgba(255,255,255,.4); }
+.ex-sig { margin-top: 3cqw; font-size: 2.9cqw; color: #bdbdbd; }
+.ex-card { position: absolute; left: 50%; bottom: 7cqw; width: 64cqw; aspect-ratio: 610 / 360; transform: translateX(-50%) rotate(-2deg);
+  background: #000 center / 118% 122% no-repeat; border-radius: 2.4cqw; box-shadow: 0 1.2cqw 3cqw rgba(0,0,0,.65); }
+.of-ex-note { font-size: 14px; color: #77726a; text-align: center; margin: 10px 16px 0; }
 /* les vraies photos : on glisse de l'une à l'autre */
 .of-vrai { margin: 30px -16px 0; }
 .of-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; touch-action: pan-x pan-y pinch-zoom; }
@@ -78,6 +94,8 @@
 .mc .ref { font: 13px/1.5 'SG Machine', monospace; color: #6c675e; margin-top: 10px; }
 .mc input { width: min(320px, 100%); box-sizing: border-box; font: 20px/1 'SG Machine', monospace; letter-spacing: .12em; text-transform: uppercase; text-align: center;
   padding: 14px; border: 0; border-bottom: 1px solid #555; background: transparent; color: #eee; outline: none; }
+.mc input.mail { text-transform: none; letter-spacing: .02em; font-size: 18px; }
+.mc .go:disabled { opacity: .35; cursor: default; }
 .mc .go { margin-top: 10px; padding: 14px 22px 13px; border: 0; border-radius: 3px; background: #ece8e0; color: #0a0a0a; font: 500 16px/1 'SG Garamond', serif; letter-spacing: .28em; cursor: pointer; }
 .mc a { color: #9a958c; }
 

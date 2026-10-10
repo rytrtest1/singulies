@@ -61,6 +61,20 @@ const OPEN_FADE = 1.4;      // s de fondu d'entrée
 const LEAVE_FADE = 1.2;     // s de fondu au noir après validation (sans WebGL2)
 const HINT = P.get('indice') !== '0';   // (10/10) PRENOM en grisé si rien n'est écrit
 const HINT_AFTER = 3.0, HINT_ALPHA = 0.2;   // s après l'apparition du champ ; clarté (fraction)
+const IDLE_GO = 3.5;   // (10/10) ordinateur : fini d'écrire sans Entrée → la suite après ce temps sans frappe
+// (10/10, version alternative) à l'ouverture, ETERNEL se tape à la machine à la place du prénom, le champ s'allume avec
+// lui (on voit ce que fait une frappe), puis il s'efface lettre à lettre ; le curseur, puis PRENOM en grisé.
+// Toute frappe, tout toucher du champ l'arrête.
+const INTRO = 'ETERNEL', I_TYPE = 0.14, I_HOLD = 1.5, I_ERASE = 0.07;
+function introText() {
+  if (!ALT || S.introOff || S.typed || S.phase !== 'input' || S.hintT0 == null || model.text) return '';
+  const u = S.t - S.hintT0 - 0.4, n = INTRO.length, a = n * I_TYPE, b = a + I_HOLD, c = b + n * I_ERASE;
+  if (u < 0) return '';
+  if (u < a) return INTRO.slice(0, Math.floor(u / I_TYPE) + 1);
+  if (u < b) return INTRO;
+  if (u < c) return INTRO.slice(0, n - Math.floor((u - b) / I_ERASE) - 1);
+  S.introOff = true; S.introEnd = S.t; return '';
+}
 const SHOW_NEXT = P.get('fleche') === '1';   // flèche « suite » retirée pour l'instant (04/10) ; ?fleche=1 pour la revoir
 // passage automatique à la suite : dès que la dernière lettre allumée du champ a atteint sa clarté (prénom confirmé)
 const HANDOFF = 0.6;        // s de fondu enchaîné vers la scène des cartes (même prénom, même place)
@@ -368,7 +382,14 @@ document.addEventListener('click', (e) => {
 // Pas quand on quitte l'onglet ou l'application, ni pour la flèche retour.
 let blurGo = 0, backDown = 0;
 backEl.addEventListener('pointerdown', () => { backDown = performance.now(); }, true);
-input.addEventListener('focus', () => { if (blurGo) { clearTimeout(blurGo); blurGo = 0; } });
+input.addEventListener('focus', () => { if (blurGo) { clearTimeout(blurGo); blurGo = 0; } if (ALT && !S.introOff) { S.introOff = true; S.introEnd = S.t; } });
+// (10/10) téléphone : le clavier fermé autrement que par « OK » (bouton retour d'Android, geste) laisse le focus au
+// champ : on le libère, et la suite part comme pour « OK »
+let vvH = window.visualViewport ? window.visualViewport.height : 0;
+window.visualViewport?.addEventListener('resize', () => {
+  const h = window.visualViewport.height, grew = h - vvH > 120; vvH = h;
+  if (grew && TOUCH && document.activeElement === input && S.phase === 'input' && S.trans == null && !wheel && finalName(model.text) && !bridge.composing) input.blur();
+});
 input.addEventListener('blur', () => {
   if (S.portal || S.phase !== 'input' || S.trans != null || wheel || !finalName(model.text) || performance.now() - backDown < 600) return;
   clearTimeout(blurGo);
@@ -480,7 +501,8 @@ function frame(ts) {
   let target = 0;
   const cx = S.w / 2, cy0 = field ? field.view.cy : S.h * 0.5;   // le prénom est au point de fuite
   if (wheel && S.phase === 'input') wheel.update(dt);
-  const shownRev = revealText(wheel ? wheel.displayText : bridge.shownText);
+  const intro = introText();
+  const shownRev = intro || revealText(wheel ? wheel.displayText : bridge.shownText);
   const text = displayCase(shownRev, CFG.caseMode);
   const L0 = atlas ? layoutName(text, metrics, { w: S.w, h: S.h, cx, cy: cy0 }) : null;
   if (vv && L0 && document.activeElement === input) {
@@ -591,6 +613,9 @@ function frame(ts) {
   // (10/10) pendant que l'onde avance : le fond allumé, les lettres encore à venir partiront une fois allumées ;
   // jamais moins de 2 s après le dernier geste (toucher, souris, molette, touche)
   if (canNext && S.t >= Math.max(light.flyAt(), S.confirmedAt + 0.5, S.actAt + 2)) startTransition();
+  // (10/10) ordinateur : fini d'écrire sans Entrée → après IDLE_GO s sans frappe, la suite (comme « OK » sur téléphone)
+  if (!TOUCH && !wheel && !voice && !S.rev && S.phase === 'input' && T < 0 && S.trans == null && S.typed && S.keyAt > S.phaseAt
+    && finalName(model.text) && !bridge.composing && S.t - S.keyAt > IDLE_GO && S.t >= Math.max(light.flyAt(), S.actAt + 2)) startTransition();
   if (CFG.debug) {   // croix au point de fuite
     glyphs.push({ box: [cx - 12, vy - 0.5, cx + 12, vy + 0.5], uv: null, alpha: 0.6, pxEm: 1 });
     glyphs.push({ box: [cx - 0.5, vy - 12, cx + 0.5, vy + 12], uv: null, alpha: 0.6, pxEm: 1 });
@@ -600,8 +625,9 @@ function frame(ts) {
   // indice (10/10) : rien d'écrit quelques secondes après l'apparition du champ → PRENOM en grisé, le curseur glisse
   // devant ; il s'efface à la première lettre (?indice=0 : jamais)
   if (S.hintT0 == null && S.phase === 'input' && !S.portal && nameFade > 0.99) S.hintT0 = S.t;
+  const hintAt = ALT ? (S.introEnd != null ? S.introEnd + 0.7 : Infinity) : (S.hintT0 ?? Infinity) + HINT_AFTER;
   const hintA = HINT && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
-    ? smooth(S.hintT0 + HINT_AFTER, S.hintT0 + HINT_AFTER + 1.6, S.t) : 0;
+    ? smooth(hintAt, hintAt + 1.6, S.t) : 0;
   let hintX = L.cursor.x;
   if (hintA > 0) {
     const H = layoutName(displayCase('PRENOM', CFG.caseMode), metrics, { w: S.w, h: S.h, cx, cy });

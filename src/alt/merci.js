@@ -3,7 +3,7 @@
 // dans Stripe). La demande part par email avec la référence de la commande (send.js, setOrder).
 import './offre.css';
 import { norm } from '../basique/basique.js';
-import { installSend, setOrder, settled } from '../app/send.js';
+import { installSend, setOrder, settled, send } from '../app/send.js';
 import { installCount, count } from '../app/count.js';
 import { ENVOI } from './config.js';
 
@@ -33,6 +33,23 @@ function askName() {
     const i = d.querySelector('input'), go = () => { const n = norm(i.value).trim(); if (n) { leave(d); res(n); } };
     d.querySelector('.go').addEventListener('click', go);
     i.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) go(); });
+  });
+}
+
+// (10/10) seconde fin (?fin=mail) : après la carte, merci et l'email, pour être tenu au courant (facultatif)
+const mailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
+function askMail(name) {
+  return new Promise(res => {
+    const d = screen(`<h1>${esc(name)}</h1><p>merci. ton email, pour te tenir au courant de ton poème ?</p>
+      <input class="mail" type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send" placeholder="email" aria-label="Ton email">
+      <button class="go" type="button" disabled>ENVOYER</button>
+      <p class="small"><a href="#" data-later>plus tard</a></p>`);
+    const i = d.querySelector('input'), go = d.querySelector('.go');
+    const done = v => { leave(d); res(v); };
+    i.addEventListener('input', () => { go.disabled = !mailOk(i.value); });
+    go.addEventListener('click', () => { if (mailOk(i.value)) done(i.value.trim()); });
+    i.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && mailOk(i.value)) done(i.value.trim()); });
+    d.querySelector('[data-later]').addEventListener('click', e => { e.preventDefault(); done(''); });
   });
 }
 
@@ -71,13 +88,21 @@ async function run() {
   const done = () => { count('alt/fini'); settled().finally(() => final(order)); };
 
   // (la préparation de la scène est lourde : elle attend que le merci soit posé, sinon il ne s'affiche pas)
-  const cards = wait(1300).then(() => import('../cards/mount.js')).then(({ mountCards }) => mountCards({ name, base: './', canvas, onDone: done, onEnd: () => {} }))
+  const FIN_MAIL = Q.get('fin') === 'mail';
+  const endMail = async d => {
+    canvas.classList.remove('on');
+    const c = await askMail(order.name);
+    send({ ...d, mode: 'poste', address: [], ...(c ? { contact: c, email: c, tel: '' } : {}) });
+    done();
+  };
+  const cards = wait(1300).then(() => import('../cards/mount.js')).then(({ mountCards }) => mountCards({ name, base: './', canvas, onDone: done,
+    ...(FIN_MAIL ? { sheet: false, onEnd: d => { setTimeout(() => endMail(d), 1600); } } : { onEnd: () => {} }) }))
     .catch(e => { console.error(e); return null; });
   const [m] = await Promise.all([cards, Promise.race([wait(4200), new Promise(r => intro.addEventListener('click', r, { once: true }))])]);
   leave(intro);
   if (m) { await wait(600); m.start(); canvas.classList.add('on'); window.__scene = m; return; }
   // sans WebGL2 : la même cérémonie en version simple
   const { mountSimpleFlow } = await import('../simple/simple.js');
-  mountSimpleFlow({ name, onDone: done, onExit: () => {} });
+  mountSimpleFlow({ name, onDone: done, onExit: () => {} });   // (la seconde fin n'existe pas en version simple : l'enveloppe)
 }
 run();

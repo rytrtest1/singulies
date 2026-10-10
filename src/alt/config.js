@@ -1,7 +1,12 @@
 // Version alternative (10/10) : le prénom avant de payer, la question après. À remplir par Maxence.
 
-export const PRIX = '64 €';                 // port compris
-export const ENVOI = '24 octobre';          // date de la prochaine fournée (« posté le … »)
+export const PRIX = '30 €';                 // port compris
+// posté le lundi suivant (jamais le jour même : un lundi → le lundi d'après), en toutes lettres : « lundi 12 octobre »
+export function lundiSuivant(d = new Date()) {
+  const x = new Date(d); x.setDate(x.getDate() + (((8 - x.getDay()) % 7) || 7));
+  return x.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+export const ENVOI = lundiSuivant();
 
 // Lien de paiement Stripe (Payment Link). Vide = paiement simulé (on va directement à merci.html).
 // Dans Stripe, « Après le paiement » → « Rediriger vers votre site » :
