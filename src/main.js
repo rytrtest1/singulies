@@ -671,7 +671,7 @@ function frame(ts) {
   // devant ; il s'efface à la première lettre (?indice=0 : jamais)
   if (S.hintT0 == null && S.phase === 'input' && !S.portal && nameFade > 0.99) S.hintT0 = S.t;
   const hintAt = ALT ? Infinity : (S.hintT0 ?? Infinity) + HINT_AFTER;   // (alt : ETERNEL tapé puis effacé, puis le curseur seul)
-  const hintA = HINT && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
+  const hintA = HINT && Number.isFinite(hintAt) && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
     ? smooth(hintAt, hintAt + 1.6, S.t) * (ALT ? 1 - smooth(hintAt + 1.6 + HINT_HOLD, hintAt + 1.6 + HINT_HOLD + HINT_OUT, S.t) : 1) : 0;
   let hintX = L.cursor.x;
   if (hintA > 0) {
