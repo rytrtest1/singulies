@@ -13,13 +13,21 @@ elle garde ta **clé secrète** Stripe et crée le paiement. La clé secrète ne
    de Stripe (adresse, carte, Apple Pay / Google Pay) y sont habillés aux mêmes couleurs et polices.
 
 ## 2. Cloudflare Workers
-1. Crée un compte sur cloudflare.com → **Workers & Pages → Créer → Worker**, nomme-le `singulies-paiement`, déploie.
-2. **Modifier le code** : remplace tout par le contenu de `serveur/paiement.js`, **Déployer**.
-3. **Paramètres → Variables et secrets** :
-   - `STRIPE_SECRET_KEY` — type **Secret** — ta clé `sk_test_…`
-   - `SITE` — texte — `https://rytrtest1.github.io`
-   - `PRIX_CENTIMES` — texte — `3000`
-4. Note l'adresse du Worker, du genre `https://singulies-paiement.toncompte.workers.dev`.
+**Si tu as relié le dépôt GitHub** (Workers → Importer un dépôt) : Cloudflare ne doit construire que le dossier `serveur`
+(sinon il essaie de déployer tout le site Vite et échoue). Dans ton Worker → **Paramètres → Build** :
+- **Dossier racine** (Root directory) : `serveur`
+- **Commande de build** : vide
+- **Commande de déploiement** : `npx wrangler deploy`
+
+Puis **Paramètres → Variables et secrets → Ajouter** : `STRIPE_SECRET_KEY`, type **Secret**, ta clé `sk_test_…`
+(`SITE` et `PRIX_CENTIMES` sont déjà dans `serveur/wrangler.toml`). Relance le déploiement (Déploiements → Réessayer).
+Ensuite, chaque publication sur GitHub redéploie la fonction toute seule.
+
+**Sinon, sans GitHub** : Workers & Pages → Créer → **Commencer avec « Hello World »**, nomme-le, déploie ; **Modifier le
+code** : remplace tout par `serveur/paiement.js`, Déployer ; puis Variables et secrets : `STRIPE_SECRET_KEY` (Secret),
+`SITE` = `https://rytrtest1.github.io`, `PRIX_CENTIMES` = `3000`.
+
+Dans les deux cas, note l'adresse du Worker, du genre `https://singulies.toncompte.workers.dev`.
 
 ## 3. Le site
 Dans `src/alt/config.js`, remplis (ou donne-les moi — ces deux-là sont publics) :

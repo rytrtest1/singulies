@@ -1,0 +1,11 @@
+# La fonction de paiement chez Cloudflare (seulement elle : le site reste sur GitHub Pages).
+# Cloudflare → ton Worker « singulies » → Paramètres → Build : dossier racine = serveur, commande de build vide,
+# commande de déploiement = npx wrangler deploy. Chaque publication sur GitHub la redéploie.
+# La clé secrète Stripe N'EST PAS ici : Paramètres → Variables et secrets → STRIPE_SECRET_KEY (type Secret).
+name = "singulies"
+main = "paiement.js"
+compatibility_date = "2025-09-01"
+
+[vars]
+SITE = "https://rytrtest1.github.io"
+PRIX_CENTIMES = "3000"
