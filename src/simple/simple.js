@@ -924,11 +924,11 @@ export function mountSimpleJeu(opts = {}) {
     const done = () => { if (answering) stopAnswering(); };
     try { if (navigator.share) { await navigator.share({ title: 'SINGULIES', text, url: link }); done(); return; } }
     catch (e) { if (e && e.name === 'AbortError') return; }
-    try { await navigator.clipboard.writeText(text + '\n' + link); flash(shareEl, 'LIEN COPIÉ'); } catch { flash(shareEl, link); }
+    try { await navigator.clipboard.writeText(text + '\n' + link); flash(shareEl, 'LIEN COPIE'); } catch { flash(shareEl, link); }
     done();
   }
   shareEl.addEventListener('click', share);
-  buyEl.addEventListener('click', () => { if (JEU_LINK) { location.href = JEU_LINK; return; } flash(buyEl, 'BIENTÔT'); });
+  buyEl.addEventListener('click', () => { if (JEU_LINK) { location.href = JEU_LINK; return; } flash(buyEl, 'BIENTOT'); });
   back.addEventListener('click', () => { ta?.blur(); root.classList.remove('on'); R.later(() => { R.remove(); opts.onBack?.(); }, 700); });
   addEventListener('keydown', function esc(e) {
     if (!document.body.contains(root)) { removeEventListener('keydown', esc); return; }

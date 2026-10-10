@@ -67,7 +67,7 @@ export function shareGift(order) {
     const msg = `${said(order.name)}, quelqu’un t’offre un poème. tire ta carte : ${url}`;
     d.querySelector('[data-share]').addEventListener('click', async () => {
       try { if (navigator.share) { await navigator.share({ text: msg }); return; } } catch { return; }
-      try { await navigator.clipboard.writeText(msg); d.querySelector('[data-share]').textContent = 'COPIÉ'; } catch { /* */ }
+      try { await navigator.clipboard.writeText(msg); d.querySelector('[data-share]').textContent = 'COPIE'; } catch { /* */ }
     });
     d.querySelector('[data-done]').addEventListener('click', e => { e.preventDefault(); leave(d); res(); });
   });

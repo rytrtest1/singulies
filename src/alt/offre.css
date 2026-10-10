@@ -240,7 +240,7 @@
 .of.env .of-vit, .of.paying .of-vit { display: none; }
 
 /* (10/10, Maxence) le site en onglets, en haut, au centre (au lieu du menu à deux traits sur le côté) : ce qu'on regarde
-   (POÈME) plus clair, souligné d'un filet ; les autres pages à côté */
+   (POEME) plus clair, souligné d'un filet ; les autres pages à côté */
 .of-tabs { position: fixed; z-index: 4; top: max(6px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; gap: 6px; height: 44px; align-items: center; transition: opacity .4s; }
 .of-tabs a { position: relative; padding: 14px 10px; font: 500 12px/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; padding-right: calc(10px - .3em); color: #ece8e0; opacity: .5; text-decoration: none; }
 .of-tabs a[aria-current] { opacity: .9; }

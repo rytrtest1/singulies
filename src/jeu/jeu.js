@@ -209,12 +209,12 @@ export async function mountJeu(opts = {}) {
     const done = () => { if (answering) stopAnswering(); };
     try { if (navigator.share) { await navigator.share({ title: 'SINGULIES', text, url: link }); done(); return; } }
     catch (e) { if (e && e.name === 'AbortError') return; }
-    try { await navigator.clipboard.writeText(text + '\n' + link); flash(shareEl, 'LIEN COPIÉ'); } catch { flash(shareEl, link); }
+    try { await navigator.clipboard.writeText(text + '\n' + link); flash(shareEl, 'LIEN COPIE'); } catch { flash(shareEl, link); }
     done();
   }
   function flash(b, txt) { const t = b.textContent; b.textContent = txt; setTimeout(() => { b.textContent = t; }, 1800); }
   shareEl.addEventListener('click', share);
-  buyEl.addEventListener('click', () => { if (JEU_LINK) { location.href = JEU_LINK; return; } flash(buyEl, 'BIENTÔT'); });
+  buyEl.addEventListener('click', () => { if (JEU_LINK) { location.href = JEU_LINK; return; } flash(buyEl, 'BIENTOT'); });
 
   function leave() {
     if (!visible) return;

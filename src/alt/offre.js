@@ -355,7 +355,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   root.style.setProperty('--inset', SHEET_INSET + 'px');
   root.innerHTML = `
     <button class="of-back" type="button" aria-label="Changer le prénom">${BACK_SVG}</button>
-    <nav class="of-tabs" aria-label="Le site"><a aria-current="page">POÈME</a><a href="${esc(LIENS.jeu)}">JEU</a><a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">LIVRES</a></nav>
+    <nav class="of-tabs" aria-label="Le site"><a aria-current="page">POEME</a><a href="${esc(LIENS.jeu)}">JEU</a><a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">LIVRES</a></nav>
     <main>
       ${over ? '<div class="of-hole" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
       <button class="of-down" type="button" aria-label="D’autres prénoms, d’autres poèmes"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 9.5 L12 15.5 L18 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></button>
@@ -490,7 +490,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     inEnv = true; envAddr = null; count('alt/enveloppe');
     root.classList.add('env'); root.classList.remove('env-ready');
     root.scrollTo({ top: 0, behavior: 'smooth' });
-    go.textContent = RESERVE ? 'RÉSERVER' : 'PAYER';
+    go.textContent = RESERVE ? 'RESERVER' : 'PAYER';
     const st = vit && vit.state();
     if (st && (st.vt > 0 || st.target > 0)) fadeJump(0, () => envelope.open()); else envelope.open();
   };
