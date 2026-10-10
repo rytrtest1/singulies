@@ -19,7 +19,7 @@ export const STRIPE = '';
 // PAIEMENT_URL : l'adresse de ta fonction Cloudflare (serveur/paiement.js, mode d'emploi : serveur/LISEZ-MOI.md),
 // ex. 'https://singulies-paiement.toncompte.workers.dev'. Les deux remplis → le panneau ; sinon le lien STRIPE ;
 // sinon le paiement simulé. ?paiement=faux : le panneau avec un faux formulaire (pour voir le geste).
-export const STRIPE_PK = '';
+export const STRIPE_PK = 'pk_test_51UOqM7JWcAJxKpWbnzcJ2SYCvrqPxhvbZQ3yVKLVSRDAn0MiyH0KAfdfXrPwnMSGoaqy5tgojasLhqA26GUTyGEz00Bh2SNESQ';   // clé publiable (test) : publique par nature
 export const PAIEMENT_URL = 'https://singulies.rytrtest1.workers.dev';
 
 // Les vraies photos (dans public/vrai/). Une photo absente : un cadre « à remplacer » en mode test, rien sinon.
