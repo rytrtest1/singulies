@@ -26,7 +26,7 @@
 .of-track::-webkit-scrollbar { display: none; }
 .of-slide { flex: 0 0 100%; scroll-snap-align: center; margin: 0; padding: 0 16px; box-sizing: border-box; }
 .of-img { position: relative; aspect-ratio: 4 / 5; background: #0d0d0c; border-radius: 2px; overflow: hidden; }
-.of-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.of-img img, .of-img video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .of-img.todo { outline: 1px dashed #5b554b; outline-offset: -1px; }
 .of-img.todo::after { content: attr(data-todo); position: absolute; left: 12px; right: 12px; top: 50%; transform: translateY(-50%);
   font: 12px/1.5 'SG Machine', monospace; color: #b7ae9f; text-align: center; }

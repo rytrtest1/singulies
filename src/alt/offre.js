@@ -37,7 +37,11 @@ function pay(name) {
 function slide(p) {
   const fig = document.createElement('figure'); fig.className = 'of-slide';
   const box = document.createElement('div'); box.className = 'of-img';
-  const img = new Image(); img.alt = p.alt; img.decoding = 'async'; img.loading = 'lazy';
+  // une vidéo (.mp4) : muette, en boucle, lue dans la page (iPhone : playsinline), son image fixe en attendant
+  const vid = /\.mp4$/i.test(p.src);
+  const img = vid ? document.createElement('video') : new Image();
+  if (vid) { Object.assign(img, { muted: true, loop: true, autoplay: true, playsInline: true, preload: 'metadata' }); img.setAttribute('playsinline', ''); img.setAttribute('aria-label', p.alt); if (p.poster) img.poster = new URL(p.poster, document.baseURI).href; }
+  else { img.alt = p.alt; img.decoding = 'async'; img.loading = 'lazy'; }
   img.src = new URL(p.src, document.baseURI).href;
   img.onerror = () => {
     if (!TEST) { fig.remove(); return; }
