@@ -3,6 +3,7 @@
 // la page d'essai scene-cartes.html. Rien n'est dessiné avant start().
 import { createCardScene } from './scene.js';
 import { createSheetScene, FIELDS, MAIL_W, NOADDR } from '../sheet/sheet.js';
+import { fieldsReady } from '../sheet/envelope.js';
 import { dpr3d } from '../app/perf.js';
 import QUESTIONS from './questions.json';
 
@@ -192,7 +193,8 @@ export async function mountCards(opts) {
     answer.blur();
     sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced, hold: !!opts.hold && !paid,
       fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, insetBottom: !paid ? opts.insetBottom : null,
-      ...(paid ? { noAddr: true } : {}),
+      // payé : l'adresse connue (enveloppe d'avant, ou portefeuille) se tape seule sur l'enveloppe ; sinon elle part sans
+      ...(paid && !(paidAuto && paidAuto.fields) ? { noAddr: true } : {}),
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.'); },
         // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)
         write: d => {
@@ -231,6 +233,7 @@ export async function mountCards(opts) {
         } } });
     scene.hideName(true);
     sheetAt = now(); api.sheet = sheet;
+    if (paid && paidAuto && paidAuto.fields) autoAddress(paidAuto.fields);
     say(name + ' : ton prénom en colonne, une lettre par ligne du poème, ' + [...name].filter(c => c !== ' ').join(', ') + '.');
   }
   // ---- l'enveloppe envoyée a basculé sur sa tranche : la tranche devient le champ de l'email (08/10). L'invitation
@@ -284,7 +287,7 @@ export async function mountCards(opts) {
       }
       shown = v;
     };
-    const go = el('div', 'sc-pass', 'COMMANDER'); go.setAttribute('role', 'button'); go.tabIndex = 0;
+    const go = el('div', 'sc-pass', paid ? 'TERMINER' : 'COMMANDER'); go.setAttribute('role', 'button'); go.tabIndex = 0;
     requestAnimationFrame(() => box.classList.add('on'));
     // ordinateur : le curseur y vient dès que l'enveloppe a disparu (placeMail) ; téléphone : toucher la ligne
     const ok = () => mailOk(inp.value);
@@ -353,7 +356,9 @@ export async function mountCards(opts) {
     const Ln = sheet && sheet.edgeLine(); if (!Ln) return;
     if (Ln.gone && !mail.ready) {
       mail.ready = true; mail.box.classList.add('ready');
-      if (matchMedia('(pointer: fine)').matches) mail.inp.focus({ preventScroll: true });
+      const known = paid && paidAuto && paidAuto.email;
+      if (known) typeMail(paidAuto.email);                    // payé : l'email déjà donné se tape seul, on n'a plus qu'à confirmer
+      else if (matchMedia('(pointer: fine)').matches) mail.inp.focus({ preventScroll: true });
     }
     mail.draw();                                     // (remplissage automatique sans événement)
     // la ligne : la tranche tant qu'elle se voit, puis MAIL_W ; elle s'allonge avec ce qu'on tape
@@ -364,6 +369,29 @@ export async function mountCards(opts) {
     Object.assign(mail.box.style, { left: (cx - w / 2) + 'px', top: (y - h + 0.5) + 'px', width: w + 'px' });
     const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
     mail.go.style.top = Math.min(y + 18, kbTop - 50) + 'px';
+  }
+  // (10/10) payé : l'adresse connue se tape seule sur l'enveloppe, champ après champ (comme à la machine), puis elle part
+  function autoAddress(f) {
+    const ids = FIELDS.map(d => d.id).filter(id => (f[id] || '').trim());
+    let k = 0, i = 0, done = {}, started = false;
+    const iv = setInterval(() => {
+      if (!sheet) { clearInterval(iv); return; }
+      const es = sheet.state().env;
+      if (!es || !es.write || es.posted || es.back) return;   // la vue est sur l'adresse : on peut écrire
+      if (!started) { started = true; for (const id of ids) done[id] = ''; }
+      if (k >= ids.length) { clearInterval(iv); setTimeout(() => { if (sheet) sheet.post(now()); }, 900); return; }
+      const id = ids[k], full = String(f[id]).trim();
+      i++; done[id] = full.slice(0, i);
+      sheet.setFields({ ...es.fields, ...done });
+      if (i >= full.length) { k++; i = 0; }
+    }, 48);
+  }
+  function typeMail(v) {
+    let i = 0;
+    const iv = setInterval(() => {
+      if (!mail || mail.inp.value.length > i || i >= v.length) { clearInterval(iv); return; }   // on a commencé à écrire : on s'arrête
+      i++; mail.inp.value = v.slice(0, i); mail.inp.dispatchEvent(new Event('input'));
+    }, 55);
   }
   function closeSheet() {
     if (!sheet) return;
@@ -387,9 +415,11 @@ export async function mountCards(opts) {
   // (10/10, alt.html) payé dans la page : la suite se joue ici, sans changer de page. how : 'question' (la feuille se
   // défait, le paquet arrive et tire), 'blanche' (la carte blanche d'emblée : un thème), 'impro' (la feuille part
   // telle quelle dans l'enveloppe). L'adresse est chez Stripe : l'enveloppe se ferme et part seule.
-  let paid = false, resumeHow = null;
-  function afterPay(how = 'question') {
+  let paid = false, resumeHow = null, paidAuto = null;
+  function afterPay(how = 'question', auto = null) {
     paid = true;
+    // (10/10) ce qu'on sait déjà : l'adresse (complète) et l'email — l'enveloppe et le champ de la fin les tapent seuls
+    paidAuto = auto ? { fields: auto.fields && fieldsReady(auto.fields) ? { ...auto.fields } : null, email: auto.email || '' } : null;
     const t = now();
     if (!sheet) { scene.resume(t, how); return; }
     if (how === 'impro') { sheet.unhold(t, { noAddr: true }); return; }

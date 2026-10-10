@@ -131,6 +131,14 @@ let closePanel = () => {};
 let envAddr = null;   // (10/10) l'adresse tapée sur l'enveloppe : { prenom, nom, rue, cplt, ville, cp }
 const stripeAddr = f => ({ name: [f.prenom, f.nom].filter(Boolean).join(' ').trim(),
   address: { line1: f.rue || '', line2: f.cplt || '', city: f.ville || '', postal_code: f.cp || '', country: 'FR' } });
+// (10/10) payé par Apple Pay / Google Pay : l'adresse et l'email viennent du portefeuille — ils iront sur l'enveloppe,
+// tapés tout seuls après la cérémonie, puis l'email dans le champ de la fin
+function walletOut(ev, r) {
+  const sa = ev && ev.shippingAddress, bd = (ev && ev.billingDetails) || {}, a = (sa && sa.address) || {};
+  const nm = String((sa && sa.name) || bd.name || '').trim().split(/\s+/).filter(Boolean);
+  const address = a.line1 && a.city && a.postal_code ? { prenom: nm[0] || '', nom: nm.slice(1).join(' '), rue: a.line1, cplt: a.line2 || '', ville: a.city, cp: a.postal_code } : null;
+  return { email: bd.email || (r && r.session && r.session.email) || '', ...(address ? { address } : {}) };
+}
 function paidHere(name, ref, extra = {}) {
   const o = { ...(readOrder() || {}), name, ref, paid: true, ...(envAddr ? { address: envAddr } : {}), ...extra };
   saveOrder(o);
@@ -172,7 +180,7 @@ function barWalletSetup(root, name) {
     el.on('availablepaymentmethodschange', e => decide(e && e.paymentMethods));
     el.on('confirm', async ev => {
       const r = await actions.confirm({ expressCheckoutConfirmEvent: ev, redirect: 'if_required' });
-      if (r && r.type === 'success') paidHere(name, ref, { session: r.session?.id || '', gift: !!readOrder()?.gift });
+      if (r && r.type === 'success') paidHere(name, ref, { session: r.session?.id || '', gift: !!readOrder()?.gift, ...walletOut(ev, r) });
       else if (r && r.type === 'error') console.warn('portefeuille', r.error);
     });
   }).catch(e => { console.warn('portefeuille', e); host.remove(); card.remove(); });
@@ -237,7 +245,7 @@ function openPanel(name, ref) {
       <input class="of-pin of-fake-in" placeholder="numéro de carte" aria-label="numéro de carte" inputmode="numeric">`;
     const upd = () => { go.disabled = !mailOk(mail.value); };
     mail.addEventListener('input', upd);
-    go.addEventListener('click', () => { if (!go.disabled) paidNow({ simule: true }); });
+    go.addEventListener('click', () => { if (!go.disabled) paidNow({ simule: true, email: mail.value.trim() }); });
     return;
   }
 
@@ -260,7 +268,7 @@ function openPanel(name, ref) {
       express.on('confirm', async ev => {
         msg('');
         const r = await actions.confirm({ expressCheckoutConfirmEvent: ev, redirect: 'if_required' });
-        if (r && r.type === 'success') { paidNow({ session: r.session?.id || '' }); return; }
+        if (r && r.type === 'success') { paidNow({ session: r.session?.id || '', ...walletOut(ev, r) }); return; }
         if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
       });
     } catch (e) { console.warn('portefeuille (panneau)', e); }   // jamais au détriment de la carte
@@ -279,7 +287,7 @@ function openPanel(name, ref) {
       // (3-D Secure, PayPal…) Stripe ramène vers merci.html
       if (envAddr) await actions.updateShippingAddress?.(stripeAddr(envAddr));
       const r = await actions.confirm({ email: mail.value.trim(), redirect: 'if_required' });
-      if (r && r.type === 'success') { paidNow({ session: r.session?.id || '' }); return; }
+      if (r && r.type === 'success') { paidNow({ session: r.session?.id || '', email: mail.value.trim() }); return; }
       if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
       busy = false; upd();
     });

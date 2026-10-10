@@ -378,7 +378,8 @@ async function paidHere(order) {
     : 'merci. maintenant je tire une carte pour toi.';
   const f = document.createElement('div'); f.className = 'of-float'; f.textContent = line; document.body.appendChild(f);
   setTimeout(() => f.classList.add('on'), 400); setTimeout(() => f.classList.remove('on'), 4600); setTimeout(() => f.remove(), 5800);
-  if (cardsReady && cardsReady !== 'failed') cardsReady.afterPay(how);
+  // (10/10) l'adresse (tapée sur l'enveloppe avant de payer, ou venue du portefeuille) et l'email : la fin les tape seule
+  if (cardsReady && cardsReady !== 'failed') cardsReady.afterPay(how, { fields: order.address || null, email: order.email || '' });
 }
 // la fin d'une commande payée ici : c'est noté (rechargée : merci.html, sans seconde demande)
 async function finishPaid() {
