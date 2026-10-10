@@ -1,6 +1,7 @@
 // Version alternative (10/10) : sous la feuille, d'autres poèmes, en défilé façon story (celui du milieu plus grand,
 // les voisins plus petits, en fondu). Chacun avec la carte question tirée, posée en bas de la feuille.
 // PROVISOIRE : prénoms au hasard et poèmes d'exemple — à remplacer par de vrais poèmes (avec l'accord des personnes).
+import { ACROSTICHES } from './config.js';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // chaque vers commence par sa lettre de la colonne (la lettre, en Garamond, puis la suite tapée à la machine)
@@ -19,7 +20,11 @@ function sheetHtml(ex) {
 }
 
 export function mountExemples(host) {
-  host.innerHTML = `<div class="ex-track">${EXEMPLES.map(ex => `<figure class="ex-slide">${sheetHtml(ex)}</figure>`).join('')}</div>`;
+  // les vraies photos d'acrostiches envoyés, dès qu'il y en a ; sinon les exemples
+  const slidesHtml = ACROSTICHES.length
+    ? ACROSTICHES.map(src => `<figure class="ex-slide"><img class="ex-photo" src="${esc(new URL(src, document.baseURI).href)}" alt="Un acrostiche tapé à la machine sur une feuille noire" loading="lazy" decoding="async"></figure>`).join('')
+    : EXEMPLES.map(ex => `<figure class="ex-slide">${sheetHtml(ex)}</figure>`).join('');
+  host.innerHTML = `<div class="ex-track">${slidesHtml}</div>`;
   const track = host.querySelector('.ex-track'), slides = [...track.children];
   // le milieu grand et net, les voisins plus petits et en fondu (selon la distance au centre)
   const look = () => {

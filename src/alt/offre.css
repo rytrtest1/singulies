@@ -37,6 +37,7 @@
 .ex-track::-webkit-scrollbar { display: none; }
 .ex-slide { flex: 0 0 72%; scroll-snap-align: center; margin: 0; transform-origin: center; will-change: transform, opacity; }
 .ex-sheet { box-shadow: 0 6px 18px rgba(0,0,0,.55); }
+.ex-photo { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 2px; background: #0d0d0c; }
 .ex-sheet .ex-poem { position: absolute; left: 13cqw; right: 7cqw; top: 25cqw; font: 3.2cqw/1.95 'SG Machine', 'Courier New', monospace; color: #d6d6d6; }
 .ex-l { white-space: nowrap; }
 .ex-l b { font: 500 5.2cqw/1 'SG Garamond', Georgia, serif; color: #e8e8e8; }
