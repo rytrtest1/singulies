@@ -189,7 +189,7 @@ export async function mountCards(opts) {
   function openSheet() {
     answer.blur();
     sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced, hold: !!opts.hold && !paid,
-      fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard,
+      fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, insetBottom: !paid ? opts.insetBottom : null,
       ...(paid ? { noAddr: true } : {}),
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.'); },
         // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)

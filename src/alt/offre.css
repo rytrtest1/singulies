@@ -27,10 +27,30 @@
    en faisant défiler, la suite (opaque) monte sur la feuille */
 .of.over { background: transparent; }
 .of.over main { padding-top: 0; }
-.of.over .of-hole { height: calc(100svh - 136px - env(safe-area-inset-bottom)); }
+.of.over .of-hole { height: calc(100svh - 178px - env(safe-area-inset-bottom)); }   /* = SHEET_INSET (config.js) */
+/* la légende colle à la feuille ; la suite commence sous le bandeau (le premier écran semble fini) */
+.of.over .of-poem { margin-top: -22px; }
+.of.over .of-rest { margin-top: 110px; }
 /* (10/10) le poème original, tapé sous la feuille (ses premières lignes dépassent au-dessus du bandeau) */
 .of.over .of-poem { background: #060606; box-shadow: 0 0 0 100vmax #060606; clip-path: inset(0 -100vmax -1px); padding-top: 10px; }
-.of-poem { text-align: center; min-height: 1.7em; line-height: 1.7; color: #c4bfb5; }
+.of-poem { text-align: center; min-height: 1.7em; line-height: 1.7; color: #d6d2ca; letter-spacing: .02em; }
+/* la petite flèche vers les autres poèmes (si rien ne se passe) */
+.of-down { display: block; margin: 0 auto; width: 44px; height: 40px; padding: 0; background: none; border: 0; color: #fff; opacity: 0;
+  pointer-events: none; transition: opacity 1s; cursor: pointer; }
+.of-down.on { opacity: .55; pointer-events: auto; animation: of-bob 2.6s ease-in-out infinite; }
+@keyframes of-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+.of.over .of-down { background: transparent; }
+/* le menu, discret, en haut à droite */
+.of-menu { position: fixed; z-index: 4; right: max(6px, env(safe-area-inset-right)); top: max(6px, env(safe-area-inset-top)); display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; }
+.of-menu-b, .of-menu.open .of-menu-l { pointer-events: auto; }
+.of-menu-b { width: 44px; height: 44px; padding: 0; background: none; border: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; opacity: .62; }
+.of-menu-b i { display: block; width: 18px; height: 1px; background: #fff; transition: transform .35s; }
+.of-menu.open .of-menu-b i:first-child { transform: translateY(3.5px) rotate(45deg); }
+.of-menu.open .of-menu-b i:last-child { transform: translateY(-3.5px) rotate(-45deg); }
+.of-menu-l { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; padding: 0 14px 0 0; opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity .35s, transform .35s; }
+.of-menu.open .of-menu-l { opacity: 1; pointer-events: auto; transform: none; }
+.of-menu-l a { padding: 8px 0; font: 500 14px/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; color: #ece8e0; text-decoration: none; opacity: .8; }
+.of.paying .of-menu, .of.env .of-menu { opacity: 0; pointer-events: none; }
 .of.over .of-note { margin: 0; padding: 0 0 18px; }
 .of-note span { color: #77726a; }
 .of.over .of-after { display: none; }   /* la carte face cachée le dit */
@@ -99,9 +119,11 @@
 .of-price { font-size: 15px; line-height: 1.35; color: #9a958c; }
 .of-price b { font-weight: 500; font-size: 21px; color: #ece8e0; }
 .of-price span { font-size: 14px; }
-.of-go { flex: none; padding: 15px 22px 14px; border: 0; border-radius: 3px; background: #ece8e0; color: #0a0a0a;
-  font: 500 16px/1 'SG Garamond', Georgia, serif; letter-spacing: .28em; padding-right: calc(22px - .28em); cursor: pointer; }
+.of-go { flex: none; padding: 15px 20px 14px; border: 1px solid rgba(236, 232, 224, .55); border-radius: 0; background: transparent; color: #f1ede6;
+  font: 500 15px/1 'SG Garamond', Georgia, serif; letter-spacing: .4em; padding-right: calc(20px - .4em); cursor: pointer; transition: border-color .3s, background .3s; }
+.of-go:hover, .of-go:focus-visible { border-color: #f1ede6; background: rgba(236, 232, 224, .06); }
 .of-go:active { transform: translateY(1px); }
+.of-go:disabled { opacity: .35; }
 
 /* le panneau de paiement : à nous, en noir ; les champs de Stripe dedans, habillés pareil (offre.js, appearance) */
 /* (10/10) le bandeau grandit : la feuille reste visible au-dessus (offre.js, liftSheet) — aucun voile qui l'assombrit */

@@ -33,6 +33,10 @@ const PAGE = document.documentElement.dataset.page || '';
 // COMMANDER) au lieu des cartes ; la question vient après le paiement (merci.html)
 const ALT = PAGE === 'alt';
 const offerModule = () => import('./alt/offre.js');
+import { SHEET_INSET } from './alt/config.js';
+// la marge du bas de l'écran (barre de l'iPhone), en px
+let safeB = null;
+const safeBottom = () => { if (safeB == null) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;bottom:0;width:1px;height:env(safe-area-inset-bottom);visibility:hidden'; document.body.appendChild(d); safeB = d.offsetHeight || 0; d.remove(); } return safeB; };
 // (10/10) payé ici, page rechargée pendant la cérémonie : merci.html la reprend (la commande est gardée)
 if (ALT) {
   try {
@@ -258,7 +262,7 @@ function loadCards(name) {
   cards = cardsModule.then(({ mountCards }) => mountCards({
     name, base: './', onExit: exitCards, hidden: true, firstQ: jeuQ,
     // version alternative : la feuille seule, tout de suite, qui reste ; l'offre se pose dessus quand le curseur respire
-    ...(ALT ? { sheetFast: 1.8, payInstead: true, onEnvelope: e => offerObj?.onEnvelope?.(e), sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
+    ...(ALT ? { insetBottom: () => SHEET_INSET + safeBottom(), sheetFast: 1.8, payInstead: true, onEnvelope: e => offerObj?.onEnvelope?.(e), sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
     onEnd: () => {}, onDone: () => (S.paid ? finishPaid() : backToStart()),
   })).then((m) => {
     if (!m) throw new Error('webgl2');

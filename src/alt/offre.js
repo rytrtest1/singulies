@@ -5,7 +5,7 @@ import './offre.css';
 import { acrostic } from '../basique/basique.js';
 import { mountExemples } from './exemples.js';
 import { count } from '../app/count.js';
-import { PRIX, ENVOI, STRIPE, STRIPE_PK, PAIEMENT_URL, PHOTOS, FEUILLE_PHOTO, LIENS } from './config.js';
+import { PRIX, DELAI, STRIPE, STRIPE_PK, PAIEMENT_URL, PHOTOS, FEUILLE_PHOTO, LIENS, SHEET_INSET } from './config.js';
 
 const Q = new URLSearchParams(location.search);
 const TEST = Q.get('test') !== '0';
@@ -17,7 +17,7 @@ const readOrder = () => { try { return JSON.parse(localStorage.getItem(K_ORDER) 
 const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o)); } catch { /* */ } };
 const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
 // (10/10) sous la feuille, une seule phrase, tapée à la machine
-const POEME = ['un poème original tapé à la machine'];
+const POEME = ['un poème original tapé à la machine'];   // la légende de l'objet, sous la feuille
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // le paiement : le prénom part dans client_reference_id (A–Z, chiffres, - et _), et reste ici pour merci.html
@@ -78,7 +78,9 @@ function liftSheet(on, panelEl) {
   cv.style.transformOrigin = '50% 0';
   if (!on) { cv.style.transform = ''; return; }
   const H = innerHeight, room = H - panelEl.getBoundingClientRect().height - 18;
-  const s = Math.min(1, room / ((SHEET_Y1 - SHEET_Y0) * H)), T = SHEET_Y0 * H * s - 10;
+  // (10/10) la feuille est cadrée dans la hauteur utile (au-dessus de la légende et du bandeau) : ≈ 5–95 % de celle-ci
+  const He = H - SHEET_INSET, y0 = 0.05 * He, y1 = 0.95 * He;
+  const s = Math.min(1, room / (y1 - y0)), T = y0 * s - 10;
   cv.style.transform = `translateY(${(-T).toFixed(1)}px) scale(${s.toFixed(3)})`;
 }
 // (10/10) une seule session de paiement par commande, partagée par le bandeau (Apple Pay / Google Pay) et le panneau
@@ -176,7 +178,7 @@ function openPanel(name, ref) {
   root.innerHTML = `<button class="of-pay-x" type="button" aria-label="Fermer">×</button>
     <div class="of-pay-body">
       <div class="of-pay-title"><span class="of-pay-sub">un prénom, un poème</span>
-        <span class="of-pay-p">${esc(PRIX)}, port compris · posté le ${esc(ENVOI)}</span></div>
+        <span class="of-pay-p">${esc(PRIX)}, port compris · posté ${esc(DELAI)}</span></div>
       <div class="of-for" role="radiogroup" aria-label="Pour qui">
         <button type="button" class="on" data-for="moi" role="radio" aria-checked="true">pour moi</button>
         <button type="button" data-for="offrir" role="radio" aria-checked="false">pour offrir</button></div>
@@ -329,23 +331,25 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   root.id = 'offre'; root.className = 'of' + (over ? ' over' : '');
   root.innerHTML = `
     <button class="of-back" type="button" aria-label="Changer le prénom">${BACK_SVG}</button>
+    <nav class="of-menu" aria-label="Menu"><button class="of-menu-b" type="button" aria-label="Menu" aria-expanded="false"><i></i><i></i></button>
+      <div class="of-menu-l"><a href="${esc(LIENS.jeu)}">LE JEU</a><a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">MES LIVRES</a><a href="${esc(LIENS.instagram)}" target="_blank" rel="noopener">@E.T.ERNEL</a></div></nav>
     <main>
       ${over ? '<div class="of-hole" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
       <p class="of-note of-poem" aria-label="${esc(POEME.join(' '))}"></p>
+      <button class="of-down" type="button" aria-label="D’autres prénoms, d’autres poèmes"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 9.5 L12 15.5 L18 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></button>
       <div class="of-rest">
       <section class="of-ex" aria-label="D’autres poèmes"><h2 class="of-h">d’autres prénoms, d’autres poèmes</h2><div class="of-ex-host"></div></section>
-      <footer class="of-foot">
-        <a href="${esc(LIENS.jeu)}">le jeu</a> · <a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">mes livres</a> · <a href="${esc(LIENS.instagram)}" target="_blank" rel="noopener">@e.t.ernel</a>
-      </footer>
       </div>
     </main>
     <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
-      <div class="of-price"><b>${esc(PRIX)}</b>, port compris<br><span>posté le ${esc(ENVOI)}</span></div>
+      <div class="of-price"><b>${esc(PRIX)}</b>, port compris<br><span>posté ${esc(DELAI)}</span></div>
       <button class="of-go" type="button">COMMANDER</button>
     </div>`;
   document.body.appendChild(root);
   document.body.classList.add('of-open');
+  // le fond de la page = celui du canvas (6) : quand la feuille remonte au défilement, aucune limite ne se voit
+  document.documentElement.style.background = document.body.style.background = '#060606';
 
   // la feuille : dessinée par le moteur, ou une vraie feuille photographiée (FEUILLE_PHOTO)
   const sheet = root.querySelector('.of-sheet'), col = root.querySelector('.ac');
@@ -376,6 +380,28 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     step();
   };
   setTimeout(typePoem, over ? 900 : 1400);
+  // (10/10) une page qui semble finie : la feuille, sa légende, le bandeau ; si rien ne se passe, une petite flèche
+  // invite à descendre vers les autres poèmes
+  const down = root.querySelector('.of-down');
+  setTimeout(() => { if (root.scrollTop < 30 && !root.classList.contains('paying') && !root.classList.contains('env')) down.classList.add('on'); }, over ? 5200 : 6000);
+  down.addEventListener('click', () => { const ex = root.querySelector('.of-ex'); root.scrollTo({ top: root.scrollTop + ex.getBoundingClientRect().top - 40, behavior: 'smooth' }); });
+  // en descendant, la feuille remonte avec la page (comme si on faisait défiler une vraie page)
+  const cv = () => document.querySelector('canvas.sc-c');
+  let sRaf = 0;
+  root.addEventListener('scroll', () => {
+    if (root.scrollTop > 30) down.classList.remove('on');
+    if (!over || sRaf) return;
+    sRaf = requestAnimationFrame(() => {
+      sRaf = 0; const c = cv();
+      if (!c || root.classList.contains('paying')) return;
+      c.style.transition = 'none'; c.style.transformOrigin = '50% 0';
+      c.style.transform = root.scrollTop > 0 ? `translateY(${(-root.scrollTop).toFixed(1)}px)` : '';
+    });
+  }, { passive: true });
+  // le menu, discret, en haut à droite : il s'ouvre au toucher
+  const menu = root.querySelector('.of-menu'), mb = menu.querySelector('.of-menu-b');
+  mb.addEventListener('click', e => { e.stopPropagation(); const on = menu.classList.toggle('open'); mb.setAttribute('aria-expanded', String(on)); });
+  root.addEventListener('click', e => { if (!menu.contains(e.target)) { menu.classList.remove('open'); mb.setAttribute('aria-expanded', 'false'); } });
 
   // en faisant défiler : une ombre en haut, sous la flèche retour (elle ne passe plus sur le texte)
   root.addEventListener('scroll', () => root.classList.toggle('scrolled', root.scrollTop > 24), { passive: true });

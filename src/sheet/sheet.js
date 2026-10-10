@@ -225,11 +225,19 @@ export function createSheetScene(gl, opts) {
     const Hw = Math.max((y1 - y0) * 1.1, Math.max(wantW, (x1 - x0) * 1.08) * H / W);
     return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, D: Hw / (2 * TF), Hw };
   }
+  // (10/10, alt) une réserve en bas de l'écran (la légende, la flèche, le bandeau qui viendront) : la feuille se cadre
+  // entière dans ce qui reste au-dessus — la vue est calculée pour la hauteur utile, puis prolongée vers le bas
+  function frameAbove(y0, y1, x0, x1, wantW, W, H) {
+    const ins = Math.min(H * 0.45, Math.max(0, opts.insetBottom ? opts.insetBottom() : 0));
+    if (!ins) return frameFor(y0, y1, x0, x1, wantW, W, H);
+    const He = H - ins, f = frameFor(y0, y1, x0, x1, wantW, W, He), Hw = f.Hw * H / He;
+    return { cx: f.cx, cy: f.cy - (Hw - f.Hw) / 2, D: Hw / (2 * TF), Hw };
+  }
   function layout(W, H) {
     const cBot = C && !C.faceDown ? C_POSE.y - CARD.h / 2 : -SHEET.h / 2;   // (alt) la carte est SUR la feuille : même cadrage
-    frames.A = frameFor(SY + cBot - 8, SY + SHEET.h / 2 + 4, -SHEET.w / 2, SHEET.w / 2, SHEET.w * 1.1, W, H);
+    frames.A = frameAbove(SY + cBot - 8, SY + SHEET.h / 2 + 4, -SHEET.w / 2, SHEET.w / 2, SHEET.w * 1.1, W, H);
     // tant que les lettres sont en haut : la feuille et le prénom au-dessus
-    frames.AN = frameFor(SY + cBot - 8, Math.max(SY + SHEET.h / 2 + 4, nameTop + 8), -SHEET.w / 2, SHEET.w / 2, SHEET.w * 1.1, W, H);
+    frames.AN = frameAbove(SY + cBot - 8, Math.max(SY + SHEET.h / 2 + 4, nameTop + 8), -SHEET.w / 2, SHEET.w / 2, SHEET.w * 1.1, W, H);
     const oBot = oTop - 2 * CARD.h - O_GAP;
     const x0 = O_X - CARD.w / 2 - 2, x1 = Math.max(O_X + CARD.w / 2, C ? C_POSE.x + CARD.w / 2 : 0) + 2;
     // l'enveloppe sous la feuille ; puis l'adresse (téléphone : de près ; ordinateur : l'enveloppe entière)

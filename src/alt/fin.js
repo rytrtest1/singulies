@@ -1,7 +1,7 @@
 // Les écrans de texte de la version alternative (10/10) : ce qui flotte au-dessus des objets (Garamond), sur le noir —
 // partagés par alt.html (payé dans la page), merci.html (retour de Stripe) et pour.html (la personne offerte).
 import './offre.css';
-import { ENVOI } from './config.js';
+import { DELAI } from './config.js';
 
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const K_ORDER = 'singulies.order';
@@ -24,9 +24,9 @@ const said = n => String(n).toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCas
 export function finalScreen(order, home) {
   const n = esc(order.name), s = esc(said(order.name));
   const line = order.lien ? `c’est noté. dès que ${s} aura répondu, je tape son poème et je le poste.`
-    : order.pour ? `merci. je tape ton poème le ${esc(ENVOI)}, et il arrive chez toi par la poste.`
-    : order.gift ? `c’est noté. je tape le poème de ${s} le ${esc(ENVOI)}, et je le poste.`
-    : `c’est noté. je tape ton poème le ${esc(ENVOI)}, et je le poste chez toi.`;
+    : order.pour ? `merci. je tape ton poème et il part ${esc(DELAI)}, par la poste.`
+    : order.gift ? `c’est noté. je tape le poème de ${s} et il part ${esc(DELAI)}.`
+    : `c’est noté. je tape ton poème et il part ${esc(DELAI)}, chez toi.`;
   return screen(`<h1>${n}</h1><p>${line}</p>
     ${order.pour ? '' : '<p class="small">stripe t’a envoyé le reçu par email.</p>'}
     ${order.ref ? `<div class="ref">réf. ${esc(order.ref)}</div>` : ''}

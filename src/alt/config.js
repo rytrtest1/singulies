@@ -1,12 +1,17 @@
 // Version alternative (10/10) : le prénom avant de payer, la question après. À remplir par Maxence.
 
 export const PRIX = '30 €';                 // port compris
-// posté le lundi suivant (jamais le jour même : un lundi → le lundi d'après), en toutes lettres : « lundi 12 octobre »
+// posté le lundi suivant (jamais le jour même : un lundi → le lundi d'après) ; on n'écrit que la date : « 12 octobre »
 export function lundiSuivant(d = new Date()) {
   const x = new Date(d); x.setDate(x.getDate() + (((8 - x.getDay()) % 7) || 7));
-  return x.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  return x.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
 }
-export const ENVOI = lundiSuivant();
+// (10/10) la feuille se cadre au-dessus de ce qui viendra sous elle : la légende, la flèche, le bandeau (px, sans la
+// marge du bas de l'iPhone)
+export const SHEET_INSET = 178;
+export const ENVOI = lundiSuivant();   // (plus affiché : voir DELAI)
+// (10/10) le délai, tel qu'on l'écrit : « posté dans les trois jours »
+export const DELAI = 'dans les trois jours';
 
 // Lien de paiement Stripe (Payment Link). Vide = paiement simulé (on va directement à merci.html).
 // Dans Stripe, « Après le paiement » → « Rediriger vers votre site » :
