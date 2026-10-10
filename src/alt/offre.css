@@ -83,6 +83,14 @@
   background: linear-gradient(to top, #060606 62%, rgba(6,6,6,0));
   transform: translateY(110%); transition: transform .7s cubic-bezier(.2,.7,.3,1); }
 .of.bar-on .of-bar { transform: none; }
+/* (10/10) Apple Pay / Google Pay dans le bandeau fermé (si l'appareil en a un) : il remplace COMMANDER, « ou par carte » dessous */
+.of-bar-r { display: flex; flex-direction: column; align-items: stretch; gap: 4px; flex: none; }
+.of-bar-wallet { position: absolute; width: 190px; opacity: 0; pointer-events: none; }
+.of-bar-card { display: none; background: none; border: 0; padding: 4px 0 0; font: 14px/1.2 'SG Garamond', Georgia, serif; color: #9a958c;
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: #4a4742; cursor: pointer; }
+.of-bar.wallet .of-go { display: none; }
+.of-bar.wallet .of-bar-wallet { position: static; opacity: 1; pointer-events: auto; transition: opacity .5s; }
+.of-bar.wallet .of-bar-card { display: block; }
 .of-price { font-size: 15px; line-height: 1.35; color: #9a958c; }
 .of-price b { font-weight: 500; font-size: 21px; color: #ece8e0; }
 .of-price span { font-size: 14px; }

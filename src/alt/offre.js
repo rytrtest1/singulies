@@ -79,6 +79,84 @@ function liftSheet(on, panelEl) {
   const s = Math.min(1, room / ((SHEET_Y1 - SHEET_Y0) * H)), T = SHEET_Y0 * H * s - 10;
   cv.style.transform = `translateY(${(-T).toFixed(1)}px) scale(${s.toFixed(3)})`;
 }
+// (10/10) une seule session de paiement par commande, partagée par le bandeau (Apple Pay / Google Pay) et le panneau
+let ctx = null;
+function stripeCtx(name, ref) {
+  if (ctx && ctx.ref === ref) return ctx.p;
+  const p = loadStripe().then(async Stripe => {
+    const stripe = Stripe(STRIPE_PK, { locale: 'fr' });
+    const clientSecret = fetch(PAIEMENT_URL.replace(/\/$/, '') + '/session', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prenom: name, ref, retour: merciUrl() }),
+    }).then(r => r.json()).then(d => { if (!d.clientSecret) throw new Error(d.error || 'session'); return d.clientSecret; });
+    const fonts = new URL('./fonts/', document.baseURI).href;
+    const checkout = stripe.initCheckoutElementsSdk({
+      clientSecret,
+      elementsOptions: { appearance: appearance(), fonts: [
+        { family: 'SG Machine', src: `url(${fonts}CourierPrime-latin.woff2)`, weight: '400' },
+        { family: 'SG Garamond', src: `url(${fonts}EBGaramond-500.woff2)`, weight: '500' },
+      ] },
+    });
+    const la = await checkout.loadActions();
+    if (la.type === 'error') throw new Error(la.error?.message || 'actions');
+    return { checkout, actions: la.actions };
+  });
+  ctx = { ref, p };
+  p.catch(() => { if (ctx && ctx.p === p) ctx = null; });
+  return p;
+}
+// la référence de la commande : celle déjà en cours pour ce prénom, sinon une nouvelle
+function ensureRef(name) {
+  const o = readOrder();
+  if (o && o.name === name && !o.done && o.ref) return o.ref;
+  const ref = orderRef(name);
+  saveOrder({ name, ref, at: Date.now() });
+  return ref;
+}
+// payé : la suite ici même si la page sait enchaîner, sinon merci.html
+let closePanel = () => {};
+function paidHere(name, ref, extra = {}) {
+  const o = { ...(readOrder() || {}), name, ref, paid: true, ...extra };
+  saveOrder(o);
+  count('alt/paye');
+  if (!onPaidHere) { location.href = merciUrl(extra.simule ? { simule: '1' } : {}); return; }
+  closePanel();
+  onPaidHere(o);
+}
+// Apple Pay / Google Pay dans le bandeau fermé : un toucher, sans rien ouvrir. Sans portefeuille (pas de carte
+// enregistrée, navigateur d'Instagram, ordinateur sans Chrome…) : rien ne change, COMMANDER → le panneau (carte, PayPal).
+let barWallet = '';   // '' : pas essayé · 'yes' : bouton dans le bandeau · 'no' : aucun portefeuille
+function barWalletSetup(root, name) {
+  if (!(STRIPE_PK && PAIEMENT_URL) || Q.get('paiement') === 'faux') return;
+  const bar = root.querySelector('.of-bar'), go = bar.querySelector('.of-go');
+  const right = document.createElement('div'); right.className = 'of-bar-r';
+  const host = document.createElement('div'); host.className = 'of-bar-wallet';
+  const card = document.createElement('button'); card.type = 'button'; card.className = 'of-bar-card'; card.textContent = 'ou par carte';
+  go.replaceWith(right); right.append(go, host, card);
+  card.addEventListener('click', () => pay(name));
+  const ref = ensureRef(name);
+  stripeCtx(name, ref).then(({ checkout, actions }) => {
+    const el = checkout.createExpressCheckoutElement({
+      buttonHeight: 46, buttonTheme: { applePay: 'white', googlePay: 'white' }, buttonType: { applePay: 'buy', googlePay: 'buy' },
+      paymentMethods: { applePay: 'auto', googlePay: 'auto', link: 'never', paypal: 'never', amazonPay: 'never', klarna: 'never' },
+      layout: { maxColumns: 1, maxRows: 1, overflow: 'never' },
+    });
+    el.mount(host);
+    el.on('availablepaymentmethodschange', ({ paymentMethods }) => {
+      const ok = !!(paymentMethods && (paymentMethods.applePay || paymentMethods.googlePay));
+      barWallet = ok ? 'yes' : 'no';
+      bar.classList.toggle('wallet', ok);
+      if (ok) count('alt/portefeuille');
+      else { try { el.destroy(); } catch { /* */ } host.remove(); card.remove(); }
+    });
+    el.on('confirm', async ev => {
+      const r = await actions.confirm({ expressCheckoutConfirmEvent: ev, redirect: 'if_required' });
+      if (r && r.type === 'success') paidHere(name, ref, { session: r.session?.id || '', gift: !!readOrder()?.gift });
+      else if (r && r.type === 'error') console.warn('portefeuille', r.error);
+    });
+  }).catch(e => { console.warn('portefeuille', e); host.remove(); card.remove(); });
+}
+
 function openPanel(name, ref) {
   if (panel) { panel.root.classList.add('on'); panel.veil.classList.add('on'); requestAnimationFrame(() => liftSheet(true, panel.root)); return; }
   const fake = Q.get('paiement') === 'faux' || !(STRIPE_PK && PAIEMENT_URL);   // ?paiement=faux : toujours le faux formulaire
@@ -104,6 +182,7 @@ function openPanel(name, ref) {
   document.body.append(veil, root);
   panel = { root, veil };
   const close = () => { root.classList.remove('on'); veil.classList.remove('on'); liftSheet(false); };
+  closePanel = close;
   veil.addEventListener('click', close);
   root.querySelector('.of-pay-x').addEventListener('click', close);
   void root.offsetWidth; setTimeout(() => { root.classList.add('on'); veil.classList.add('on'); liftSheet(true, root); }, 20);
@@ -122,14 +201,7 @@ function openPanel(name, ref) {
   root.querySelectorAll('[data-for]').forEach(b => b.addEventListener('click', () => setFor(b.dataset.for === 'offrir')));
   setFor(gift);
   // payé : ici même si la page sait enchaîner, sinon merci.html
-  const paidNow = extra => {
-    const o = { ...(readOrder() || {}), name, ref, gift, paid: true, ...extra };
-    saveOrder(o);
-    count('alt/paye');
-    if (!onPaidHere) { location.href = merciUrl(extra.simule ? { simule: '1' } : {}); return; }
-    close();
-    onPaidHere(o);
-  };
+  const paidNow = extra => paidHere(name, ref, { gift, ...extra });
 
   const expressHost = root.querySelector('.of-express'), orEl = root.querySelector('.of-or');
   if (fake) {
@@ -151,39 +223,26 @@ function openPanel(name, ref) {
     pmHost.innerHTML = `<p class="of-pay-wait">le paiement ne répond pas.${STRIPE ? ' <a href="#" data-link>payer sur la page de stripe</a>' : ' réessaie dans un instant.'}</p>`;
     pmHost.querySelector('[data-link]')?.addEventListener('click', e => { e.preventDefault(); goLink(ref); });
   };
-  loadStripe().then(async Stripe => {
-    const stripe = Stripe(STRIPE_PK, { locale: 'fr' });
-    const clientSecret = fetch(PAIEMENT_URL.replace(/\/$/, '') + '/session', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prenom: name, ref, retour: merciUrl() }),
-    }).then(r => r.json()).then(d => { if (!d.clientSecret) throw new Error(d.error || 'session'); return d.clientSecret; });
-    const fonts = new URL('./fonts/', document.baseURI).href;
-    const checkout = stripe.initCheckoutElementsSdk({
-      clientSecret,
-      elementsOptions: { appearance: appearance(), fonts: [
-        { family: 'SG Machine', src: `url(${fonts}CourierPrime-latin.woff2)`, weight: '400' },
-        { family: 'SG Garamond', src: `url(${fonts}EBGaramond-500.woff2)`, weight: '500' },
-      ] },
-    });
+  stripeCtx(name, ref).then(({ checkout, actions }) => {
     pmHost.innerHTML = '';
-    // en tête : Apple Pay / Google Pay / PayPal en un toucher (l'adresse et l'email viennent du portefeuille)
-    const express = checkout.createExpressCheckoutElement({
-      buttonHeight: 48, buttonTheme: { applePay: 'white', googlePay: 'white' },
-      buttonType: { applePay: 'buy', googlePay: 'buy', paypal: 'buynow' }, layout: { maxColumns: 1, overflow: 'never' },
-    });
-    express.mount(expressHost);
-    express.on('availablepaymentmethodschange', ({ paymentMethods }) => { orEl.hidden = !paymentMethods; requestAnimationFrame(() => liftSheet(true, root)); });
+    // en tête : Apple Pay / Google Pay / PayPal en un toucher (l'adresse et l'email viennent du portefeuille) — sauf si
+    // le bandeau porte déjà le bouton du portefeuille (un seul par session) ou qu'aucun n'existe sur cet appareil
+    if (!barWallet) {
+      const express = checkout.createExpressCheckoutElement({
+        buttonHeight: 48, buttonTheme: { applePay: 'white', googlePay: 'white' },
+        buttonType: { applePay: 'buy', googlePay: 'buy', paypal: 'buynow' }, layout: { maxColumns: 1, overflow: 'never' },
+      });
+      express.mount(expressHost);
+      express.on('availablepaymentmethodschange', ({ paymentMethods }) => { orEl.hidden = !paymentMethods; requestAnimationFrame(() => liftSheet(true, root)); });
+      express.on('confirm', async ev => {
+        msg('');
+        const r = await actions.confirm({ expressCheckoutConfirmEvent: ev, redirect: 'if_required' });
+        if (r && r.type === 'success') { paidNow({ session: r.session?.id || '' }); return; }
+        if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
+      });
+    }
     checkout.createShippingAddressElement().mount(addrHost);
     checkout.createPaymentElement().mount(pmHost);
-    const la = await checkout.loadActions();
-    if (la.type === 'error') throw new Error(la.error?.message || 'actions');
-    const actions = la.actions;
-    express.on('confirm', async ev => {
-      msg('');
-      const r = await actions.confirm({ expressCheckoutConfirmEvent: ev, redirect: 'if_required' });
-      if (r && r.type === 'success') { paidNow({ session: r.session?.id || '' }); return; }
-      if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
-    });
     let busy = false;
     const upd = () => { go.disabled = busy || !mailOk(mail.value); };
     mail.addEventListener('input', upd);
@@ -322,6 +381,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null }) {
   root.querySelector('.of-back').addEventListener('click', back);
   root.querySelector('[data-act="back"]').addEventListener('click', back);
   root.querySelector('.of-go').addEventListener('click', () => pay(name));
+  barWalletSetup(root, name);
   addEventListener('keydown', e => { if (e.key === 'Escape' && root.isConnected) back(); });
 
   // l'entrée : la couche se pose sur le prénom seul, puis l'acrostiche se tape, puis la barre du prix
