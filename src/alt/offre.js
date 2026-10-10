@@ -5,7 +5,7 @@ import './offre.css';
 import { acrostic } from '../basique/basique.js';
 import { mountExemples } from './exemples.js';
 import { count } from '../app/count.js';
-import { PRIX, ENVOI, STRIPE, PHOTOS, FEUILLE_PHOTO, LIENS } from './config.js';
+import { PRIX, ENVOI, STRIPE, STRIPE_PK, PAIEMENT_URL, PHOTOS, FEUILLE_PHOTO, LIENS } from './config.js';
 
 const Q = new URLSearchParams(location.search);
 const TEST = Q.get('test') !== '0';
@@ -18,10 +18,82 @@ export function orderRef(name) {
   const r = Math.random().toString(36).slice(2, 8);
   return (name.replace(/[^A-Z ]/g, '').trim().replace(/ +/g, '_') || 'X') + '-' + r;
 }
+// l'après (merci.html), avec les réglages de l'adresse (?envoi=0, ?fin=mail…)
+function merciUrl(extra = {}) {
+  const u = new URL('./merci.html', document.baseURI), k = new URLSearchParams(location.search);
+  k.delete('paiement'); for (const [a, b] of Object.entries(extra)) k.set(a, b);
+  u.search = k.toString(); return u.href;
+}
+
+// le panneau de paiement : il monte du bandeau, le formulaire Stripe dedans (iframe sécurisée de Stripe) ;
+// Stripe ramène ensuite vers merci.html?session=… (on reste sur le site)
+let panel = null;
+function loadStripe() {
+  if (window.Stripe) return Promise.resolve(window.Stripe);
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://js.stripe.com/endive/stripe.js';
+    s.onload = () => (window.Stripe ? res(window.Stripe) : rej(new Error('stripe.js')));
+    s.onerror = () => rej(new Error('stripe.js'));
+    document.head.appendChild(s);
+  });
+}
+function openPanel(name, ref) {
+  if (panel) { panel.root.classList.add('on'); return; }
+  const fake = !(STRIPE_PK && PAIEMENT_URL);
+  const veil = document.createElement('div'); veil.className = 'of-pay-veil';
+  const root = document.createElement('div'); root.className = 'of-pay'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Paiement');
+  root.innerHTML = `<div class="of-pay-head"><span>un poème à ton prénom · ${esc(PRIX)}</span>
+      <button class="of-pay-x" type="button" aria-label="Fermer">×</button></div>
+    <div class="of-pay-body"><div class="of-checkout"><p class="of-pay-wait">un instant…</p></div></div>`;
+  document.body.append(veil, root);
+  panel = { root, veil, checkout: null };
+  const close = () => { root.classList.remove('on'); veil.classList.remove('on'); };
+  veil.addEventListener('click', close);
+  root.querySelector('.of-pay-x').addEventListener('click', close);
+  void root.offsetWidth; setTimeout(() => { root.classList.add('on'); veil.classList.add('on'); }, 20);
+  const host = root.querySelector('.of-checkout');
+  if (fake) {
+    host.innerHTML = `<div class="of-fake"><p>paiement d’essai : rien n’est débité.</p>
+      <p class="of-fake-m">ici, le formulaire Stripe : Apple Pay, Google Pay, carte, PayPal, ton adresse.</p>
+      <button class="of-go" type="button">PAYER ${esc(PRIX)}</button></div>`;
+    host.querySelector('.of-go').addEventListener('click', () => { location.href = merciUrl({ simule: '1' }); });
+    return;
+  }
+  const fail = () => {
+    host.innerHTML = `<p class="of-pay-wait">le paiement ne répond pas.${STRIPE ? ` <a href="#" data-link>payer sur la page de stripe</a>` : ' réessaie dans un instant.'}</p>`;
+    host.querySelector('[data-link]')?.addEventListener('click', e => { e.preventDefault(); goLink(ref); });
+  };
+  loadStripe().then(async Stripe => {
+    const stripe = Stripe(STRIPE_PK);
+    const fetchClientSecret = async () => {
+      const r = await fetch(PAIEMENT_URL.replace(/\/$/, '') + '/session', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prenom: name, ref, retour: merciUrl() }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.clientSecret) throw new Error(d.error || 'session');
+      return d.clientSecret;
+    };
+    host.innerHTML = '';
+    panel.checkout = await stripe.createEmbeddedCheckoutPage({ fetchClientSecret });
+    panel.checkout.mount(host);
+  }).catch(e => { console.warn('paiement', e); fail(); });
+}
+function goLink(ref) {
+  const u = new URL(STRIPE);
+  u.searchParams.set('client_reference_id', ref);
+  u.searchParams.set('locale', 'fr');
+  location.href = u.href;
+}
+
 function pay(name) {
-  const ref = orderRef(name);
+  let ref = null;
+  try { const o = JSON.parse(localStorage.getItem(K_ORDER) || 'null'); if (o && o.name === name && !o.done) ref = o.ref; } catch { /* */ }
+  ref = ref || orderRef(name);
   try { localStorage.setItem(K_ORDER, JSON.stringify({ name, ref, at: Date.now() })); } catch { /* */ }
   count('alt/commander');
+  if ((STRIPE_PK && PAIEMENT_URL) || Q.get('paiement') === 'faux') { openPanel(name, ref); return; }
   if (STRIPE) {
     const u = new URL(STRIPE);
     u.searchParams.set('client_reference_id', ref);

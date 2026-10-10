@@ -5,7 +5,7 @@ import './offre.css';
 import { norm } from '../basique/basique.js';
 import { installSend, setOrder, settled, send } from '../app/send.js';
 import { installCount, count } from '../app/count.js';
-import { ENVOI } from './config.js';
+import { ENVOI, PAIEMENT_URL } from './config.js';
 
 const Q = new URLSearchParams(location.search);
 const K_ORDER = 'singulies.order';
@@ -75,6 +75,16 @@ async function run() {
     order = { name: await askName(), ref: 'SANS-REF-' + Math.random().toString(36).slice(2, 8), at: Date.now() };
   }
   if (session) order.session = session;
+  // paiement dans la page : la fonction dit si la session est vraiment payée (réseau en panne : on continue)
+  if (PAIEMENT_URL && /^cs_/.test(session) && !order.done) {
+    const st = await fetch(PAIEMENT_URL.replace(/\/$/, '') + '/status?session_id=' + encodeURIComponent(session)).then(r => r.json()).catch(() => null);
+    if (st && st.status && st.status !== 'complete') {
+      const back = new URL('./alt.html', document.baseURI);
+      screen(`<h1>${esc(order.name)}</h1><p>le paiement n’est pas passé.</p><p class="small"><a href="${esc(back.href)}">revenir à ta feuille</a></p>`);
+      return;
+    }
+    if (st && st.prenom && !order.name) order.name = st.prenom;
+  }
   if (Q.get('simule') === '1') order.simule = true;
   saveOrder(order);
   count('alt/paye');

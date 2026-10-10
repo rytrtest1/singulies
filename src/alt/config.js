@@ -14,6 +14,14 @@ export const ENVOI = lundiSuivant();
 // et cocher « collecter l'adresse de livraison » (France) + l'email. Le prénom part dans client_reference_id.
 export const STRIPE = '';
 
+// Paiement DANS la page (10/10, recommandé) : le formulaire Stripe monte du bandeau, on ne quitte pas le site.
+// STRIPE_PK : ta clé publique (pk_test_… pour les essais, pk_live_… pour de vrai) — publique par nature, sans danger ici.
+// PAIEMENT_URL : l'adresse de ta fonction Cloudflare (serveur/paiement.js, mode d'emploi : serveur/LISEZ-MOI.md),
+// ex. 'https://singulies-paiement.toncompte.workers.dev'. Les deux remplis → le panneau ; sinon le lien STRIPE ;
+// sinon le paiement simulé. ?paiement=faux : le panneau avec un faux formulaire (pour voir le geste).
+export const STRIPE_PK = '';
+export const PAIEMENT_URL = '';
+
 // Les vraies photos (dans public/vrai/). Une photo absente : un cadre « à remplacer » en mode test, rien sinon.
 // Format conseillé : 1080 × 1350 (4:5), lumière du jour, fond noir mat, sans flash.
 // Vidéo : .mp4 H.264, 4:5, 4–6 s, muette, < 1,5 Mo, + une image fixe (poster).
