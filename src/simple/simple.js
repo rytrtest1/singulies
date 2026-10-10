@@ -571,7 +571,7 @@ export function mountSimpleFlow(opts) {
     // l'acrostiche (même mise en page que la vraie feuille)
     const chars = [...name], n = chars.length, lead = n > 1 ? Math.min(10.5, 148 / (n - 1)) : 10.5, cap = Math.min(6.4, lead * 0.6), yc = sheetCard ? -6 : 0;
     S = { lines: chars.map((ch, k) => ch === ' ' ? null : { ch, k, cap, base: yc + ((n - 1) / 2 - k) * lead - cap / 2 }), lead };
-    S.sigY = (yc + ((n - 1) / 2 - (n - 1)) * lead - cap / 2) - Math.max(lead, 8.5);   // (10/10) juste sous le poème
+    S.sigY = (yc + ((n - 1) / 2 - (n - 1)) * lead - cap / 2) - Math.max(lead * 1.6, 14);   // (10/10) sous le poème, avec de l'air
     sheetLayer.style.opacity = '1';
     layoutSheet();
     if (sheetCard) { const from = sheetCard.pose, to = S.cardPose; move(sheetCard, to, { dur: 1500, via: [{ ...from, ...to, x: (from.x + to.x) / 2, y: (from.y + to.y) / 2, w: to.w, z: 70, s: 1.04 }] }).then(() => { if (S) S.cardPlaced = true; }); }

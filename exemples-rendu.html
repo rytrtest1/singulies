@@ -60,7 +60,7 @@
     const full = new OffscreenCanvas(Math.round(SHEET.w * PX), Math.round(SHEET.h * PX)), fx = full.getContext('2d');
     fx.fillStyle = '#000'; fx.fillRect(0, 0, full.width, full.height);
     rests.forEach((r, i) => typeLines(fx, PX * k, [r], (SHEET.w / 2 + x0) / k, (SHEET.h / 2 - baseOf(i)) / k, 0, seed * 31 + i * 7, 1, '#fff'));
-    const sigY = baseOf(n - 1) - Math.max(lead, 8.5);
+    const sigY = baseOf(n - 1) - Math.max(lead * 1.6, 14);
     typeLines(fx, PX, ['- ETERNEL -'], SHEET.w / 2 + colX, SHEET.h / 2 - sigY, 0, 4049, 1, '#fff');
     const sheetInk = card.makeInk(full, true);
 

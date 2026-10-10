@@ -194,7 +194,7 @@ export function createSheetScene(gl, opts) {
   // tracées. Encre propre à la feuille (face lue = face 0 : inkBack), 8 px/mm, mise à jour par zone.
   const SIG = { text: '- ETERNEL -', px: 8, ch: 0.085 };
   SIG.x = COL_X;
-  SIG.y = baseOf(nLines - 1) - Math.max(lead, 8.5);
+  SIG.y = baseOf(nLines - 1) - Math.max(lead * 1.6, 14);   // (10/10, Maxence) un peu d'air entre le poème et la signature
   SIG.at = (flyers.length ? Math.max(...flyers.map(f => f.at + f.dur)) : FLY_AT) + 0.12 + 0.55 + 0.5;
   const sigCount = tu => reduced ? (tu > SIG.at ? SIG.text.length : 0) : Math.max(0, Math.min(SIG.text.length, Math.floor((tu - SIG.at) / SIG.ch) + 1));
   let sigTex = null, sigN = 0;

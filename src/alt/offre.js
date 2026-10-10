@@ -349,13 +349,13 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   root.style.setProperty('--inset', SHEET_INSET + 'px');
   root.innerHTML = `
     <button class="of-back" type="button" aria-label="Changer le prénom">${BACK_SVG}</button>
-    <nav class="of-menu" aria-label="Menu"><button class="of-menu-b" type="button" aria-label="Menu" aria-expanded="false"><i></i><i></i></button>
-      <div class="of-menu-l"><a href="${esc(LIENS.jeu)}">LE JEU</a><a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">MES LIVRES</a><a href="${esc(LIENS.instagram)}" target="_blank" rel="noopener">@E.T.ERNEL</a></div></nav>
+    <nav class="of-tabs" aria-label="Le site"><a aria-current="page">POÈME</a><a href="${esc(LIENS.jeu)}">JEU</a><a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">LIVRES</a></nav>
     <main>
       ${over ? '<div class="of-hole"><div class="of-stage" aria-hidden="true"></div></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
       <button class="of-down" type="button" aria-label="D’autres prénoms, d’autres poèmes"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 9.5 L12 15.5 L18 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></button>
       <div class="of-rest">
       <section class="of-ex" aria-label="D’autres poèmes"><h2 class="of-h">d’autres prénoms, d’autres poèmes</h2><div class="of-ex-host"></div></section>
+      <p class="of-foot"><a href="${esc(LIENS.instagram)}" target="_blank" rel="noopener">@e.t.ernel</a></p>
       </div>
     </main>
     <div class="of-shade" aria-hidden="true"></div>
@@ -491,11 +491,6 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
       c.style.transform = root.scrollTop > 0 ? `translateY(${(-root.scrollTop).toFixed(1)}px)` : '';
     });
   }, { passive: true });
-  // le menu, discret, en haut à droite : il s'ouvre au toucher
-  const menu = root.querySelector('.of-menu'), mb = menu.querySelector('.of-menu-b');
-  mb.addEventListener('click', e => { e.stopPropagation(); const on = menu.classList.toggle('open'); mb.setAttribute('aria-expanded', String(on)); });
-  root.addEventListener('click', e => { if (!menu.contains(e.target)) { menu.classList.remove('open'); mb.setAttribute('aria-expanded', 'false'); } });
-
   // en faisant défiler : une ombre en haut, sous la flèche retour (elle ne passe plus sur le texte)
   root.addEventListener('scroll', () => root.classList.toggle('scrolled', root.scrollTop > 24), { passive: true });
 

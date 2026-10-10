@@ -244,3 +244,19 @@
 .of-vit-a { flex: none; width: 34px; height: 44px; padding: 0; border: 0; background: none; color: #fff; opacity: .42; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: opacity .3s; }
 .of-vit-a:hover, .of-vit-a:focus-visible { opacity: .8; outline: none; }
 .of.env .of-vit, .of.paying .of-vit { display: none; }
+
+/* (10/10, Maxence) le site en onglets, en haut, au centre (au lieu du menu à deux traits sur le côté) : ce qu'on regarde
+   (POÈME) plus clair, souligné d'un filet ; les autres pages à côté */
+.of-tabs { position: fixed; z-index: 4; top: max(6px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; gap: 6px; height: 44px; align-items: center; transition: opacity .4s; }
+.of-tabs a { position: relative; padding: 14px 10px; font: 500 12px/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; padding-right: calc(10px - .3em); color: #ece8e0; opacity: .5; text-decoration: none; }
+.of-tabs a[aria-current] { opacity: .9; }
+.of-tabs a[aria-current]::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 8px; height: 1px; background: rgba(236, 232, 224, .45); }
+.of-tabs a:not([aria-current]):hover, .of-tabs a:not([aria-current]):focus-visible { opacity: .8; outline: none; }
+.of.paying .of-tabs, .of.env .of-tabs { opacity: 0; pointer-events: none; }
+/* (10/10) le bandeau : ce qu'on reçoit, le prix, puis RECEVOIR */
+.of-bar .of-vit { order: 1; }
+.of-bar .of-price { order: 2; }
+.of-bar .of-go, .of-bar .of-bar-r { order: 3; }
+.of-bar .of-down { order: 4; }
+.of-bar { gap: 6px; }
+.of-bar .of-go { margin-top: 2px; }
