@@ -387,11 +387,19 @@ export async function mountCards(opts) {
     if (!sheet) { scene.resume(t, how); return; }
     if (how === 'impro') { sheet.unhold(t, { noAddr: true }); return; }
     resumeHow = how;
+    // (10/10) l'enveloppe ouverte (adresse tapée avant le paiement) : elle se défait d'abord, puis la feuille
+    if (sheet.state().env) {
+      sheet.back(t);
+      const iv = setInterval(() => { if (!sheet) { clearInterval(iv); return; } if (!sheet.state().env) { clearInterval(iv); sheet.back(now()); } }, 120);
+      return;
+    }
     sheet.back(t);
   }
 
   let started = false;
-  const api = { afterPay, scene, canvas, gl, now, started: () => started, frames: 0, start, nameTargets: (W, H) => scene.nameTargets(name, W, H) };
+  const api = { afterPay, scene, canvas, gl, now, started: () => started, frames: 0, start, nameTargets: (W, H) => scene.nameTargets(name, W, H),
+    // (10/10, alt) COMMANDER : la feuille se glisse dans l'enveloppe (on y tape l'adresse) ; retour : elle en ressort
+    openEnvelope: () => { if (sheet) sheet.showOrders(); }, envBack: () => { if (sheet && sheet.state().env) sheet.back(now()); } };
 
   function start() {
     if (started) return; started = true;
@@ -427,7 +435,12 @@ export async function mountCards(opts) {
         }
         if (es) syncFields(); else envSynced = false;   // remplissage automatique sans événement (Safari)
         giveEl.classList.remove('on');
-        postEl.classList.toggle('on', !!(es && es.canPost && ar));
+        // (10/10, alt) payInstead : pas de POSTER — la page met son paiement à la place ; elle suit l'enveloppe
+        if (opts.payInstead) {
+          postEl.classList.remove('on');
+          const k = es ? (es.canPost && ar ? 'ready:' + JSON.stringify(es.fields) : 'open') : (api.envKey ? 'closed' : '');
+          if (k !== api.envKey) { api.envKey = k === 'closed' ? '' : k; opts.onEnvelope?.(es ? { canPost: !!(es.canPost && ar), fields: { ...es.fields } } : { closed: true }); }
+        } else postEl.classList.toggle('on', !!(es && es.canPost && ar));
         if (es && postEl.textContent !== es.sign) postEl.textContent = es.sign;
         // posé sur l'enveloppe, sous l'adresse : il la suit (caméra, inclinaison, clavier), à son échelle
         const sa = es && sheet.signAt();

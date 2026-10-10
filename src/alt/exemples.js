@@ -1,26 +1,57 @@
-// Version alternative (10/10) : sous la feuille, d'autres poèmes, en défilé façon story (celui du milieu plus grand,
-// les voisins plus petits, en fondu). Chacun avec la carte question tirée, posée en bas de la feuille.
-// PROVISOIRE : prénoms au hasard et poèmes d'exemple — à remplacer par de vrais poèmes (avec l'accord des personnes).
+// Version alternative (10/10) : sous la feuille, de vrais poèmes déjà écrits, en défilé façon story (celui du milieu
+// plus grand, les voisins plus petits, en fondu). La carte de la question est posée face cachée (on ne dit pas laquelle).
 import { ACROSTICHES } from './config.js';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-// chaque vers commence par sa lettre de la colonne (la lettre, en Garamond, puis la suite tapée à la machine)
+// trois acrostiches réels d'Eternel (10/10). Chaque vers : la lettre de la colonne, puis la suite tapée à la machine ;
+// '' = la ligne blanche entre deux mots du prénom (deux strophes)
 export const EXEMPLES = [
-  { q: 30, vers: ['Il dort au fond d’un tiroir,', 'Numéroté, plié en quatre,', 'Encore un peu de salle noire', 'Sur mes doigts quand je le touche.'] },
-  { q: 21, vers: ['Le café qui refroidit,', 'On ne se lève pas encore,', 'Un dimanche sans montre,', 'Il pleut, et tant mieux,', 'Surtout, que rien ne bouge.'] },
-  { q: 33, vers: ['Chaque été tu m’attendais', 'Haut sur la dune, ton chapeau,', 'Le sel restait dans tes rides,', 'On rentrait sans rien se dire,', 'Et j’entends encore la mer.'] },
-  { q: 26, vers: ['Sur le quai, le train partait,', 'Avec lui ma phrase entière,', 'Mes mains au fond des poches,', 'Il faisait froid, j’ai souri,', 'Rien dit. je le dis ici.'] },
+  { vers: [
+    'I l y a des liens qui courent, survivent à la distance',
+    'S i tu es loin, je souffre, je m’oublie seule en France',
+    'A ttends-moi je découvre des horizons qui dansent',
+    'B lancs les nuages qui couvrent le ciel de Paris',
+    'E t noirs les pavés mous sous les pas endormis',
+    'L à-bas je me retrouve, là-bas tout me sourit',
+    'L à-bas tu es une louve qui attend ses petits',
+    'E t quand tu me retrouves, je retrouve l’envie',
+  ] },
+  { vers: [
+    'A mour, viens dans mes bras, et ne lâche jamais prise',
+    'N ’oublie pas qu’un cœur bat quand il sort de l’emprise',
+    'A vec le contrôle part la légèreté des brises',
+    'I lluminant les soirs où les mots électrisent',
+    'S i le parfait fait peur, le pire paralyse',
+    '',
+    'M ême un cœur amoureux peut douter de lui-même',
+    'A ime-moi, si je peux, moi je ferai de même',
+    'R are est la foudre bleue, mais je l’attends sereine',
+    'Y a-t-il une manière de savoir si je saigne ?',
+    'S i mon cœur bat pour eux, ou s’il hésite, blême ?',
+    'O n peut croire ce qu’on veut ; je veux être certaine',
+    'L aissons le temps faire mieux que nos relations vaines',
+  ] },
+  { vers: [
+    'J e respire quand mon cœur a son verrou cassé',
+    'U ne fois que je meurs, je redeviens assez',
+    'L oin du lieu des douleurs, loin de l’amour tassé',
+    'I l suffit d’une lueur et soudain le passé',
+    'E claire les profondeurs, et je peux mieux aimer',
+  ] },
 ];
 
 function sheetHtml(ex) {
-  const lines = ex.vers.map(v => `<div class="ex-l"><b>${esc(v[0])}</b><span>${esc(v.slice(1))}</span></div>`).join('');
-  const card = new URL('email/q/' + ex.q + '.jpg', document.baseURI).href;
-  return `<div class="sheet ex-sheet"><div class="ex-poem">${lines}<div class="ex-sig">- ETERNEL -</div></div>
-    <div class="ex-card" style="background-image:url('${card}')"></div></div>`;
+  // la taille du texte : le vers le plus long tient dans la largeur, le poème entier au-dessus de la carte
+  const long = Math.max(...ex.vers.map(v => v.length));
+  const fs = Math.min(3.2, 78 / (long * 0.6), 68 / ((ex.vers.length + 2) * 1.95));   // (le haut à 22, la carte dès 98 : cqw)
+  const lines = ex.vers.map(v => v ? `<div class="ex-l"><b>${esc(v[0])}</b><span>${esc(v.slice(1))}</span></div>` : '<div class="ex-l ex-gap">&nbsp;</div>').join('');
+  const dos = new URL('simple/dos.jpg', document.baseURI).href;
+  return `<div class="sheet ex-sheet"><div class="ex-poem" style="font-size:${fs.toFixed(2)}cqw">${lines}<div class="ex-sig">- ETERNEL -</div></div>
+    <div class="ex-card ex-dos" style="background-image:url('${dos}')"></div></div>`;
 }
 
 export function mountExemples(host) {
-  // les vraies photos d'acrostiches envoyés, dès qu'il y en a ; sinon les exemples
+  // des photos de poèmes envoyés, s'il y en a ; sinon les poèmes réels, posés sur la feuille dessinée
   const slidesHtml = ACROSTICHES.length
     ? ACROSTICHES.map(src => `<figure class="ex-slide"><img class="ex-photo" src="${esc(new URL(src, document.baseURI).href)}" alt="Un acrostiche tapé à la machine sur une feuille noire" loading="lazy" decoding="async"></figure>`).join('')
     : EXEMPLES.map(ex => `<figure class="ex-slide">${sheetHtml(ex)}</figure>`).join('');

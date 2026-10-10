@@ -115,8 +115,11 @@ function ensureRef(name) {
 }
 // payé : la suite ici même si la page sait enchaîner, sinon merci.html
 let closePanel = () => {};
+let envAddr = null;   // (10/10) l'adresse tapée sur l'enveloppe : { prenom, nom, rue, cplt, ville, cp }
+const stripeAddr = f => ({ name: [f.prenom, f.nom].filter(Boolean).join(' ').trim(),
+  address: { line1: f.rue || '', line2: f.cplt || '', city: f.ville || '', postal_code: f.cp || '', country: 'FR' } });
 function paidHere(name, ref, extra = {}) {
-  const o = { ...(readOrder() || {}), name, ref, paid: true, ...extra };
+  const o = { ...(readOrder() || {}), name, ref, paid: true, ...(envAddr ? { address: envAddr } : {}), ...extra };
   saveOrder(o);
   count('alt/paye');
   if (!onPaidHere) { location.href = merciUrl(extra.simule ? { simule: '1' } : {}); return; }
@@ -163,6 +166,7 @@ function barWalletSetup(root, name) {
 }
 
 function openPanel(name, ref) {
+  if (panel && !!panel.env !== !!envAddr) { panel.root.remove(); panel.veil.remove(); panel = null; }
   if (panel) { panel.root.classList.add('on'); panel.veil.classList.add('on'); requestAnimationFrame(() => liftSheet(true, panel.root)); return; }
   const fake = Q.get('paiement') === 'faux' || !(STRIPE_PK && PAIEMENT_URL);   // ?paiement=faux : toujours le faux formulaire
   const veil = document.createElement('div'); veil.className = 'of-pay-veil';
@@ -185,7 +189,7 @@ function openPanel(name, ref) {
       <p class="of-pay-legal">${fake ? 'paiement d’essai : rien n’est débité.<br>' : ''}paiement sécurisé par stripe.<br>un prénom, un poème : fait pour une personne, il ne peut être ni repris ni échangé.</p>
     </div>`;
   document.body.append(veil, root);
-  panel = { root, veil };
+  panel = { root, veil, env: !!envAddr };
   const close = () => { root.classList.remove('on'); veil.classList.remove('on'); liftSheet(false); };
   closePanel = close;
   veil.addEventListener('click', close);
@@ -214,7 +218,8 @@ function openPanel(name, ref) {
     expressHost.innerHTML = '<button type="button" class="of-fake-apple">Payer avec Apple Pay</button>';
     expressHost.querySelector('button').addEventListener('click', () => paidNow({ simule: true }));
     orEl.hidden = false;
-    addrHost.innerHTML = ['prénom et nom', 'adresse', 'code postal', 'ville'].map(l => `<input class="of-pin of-fake-in" placeholder="${l}" aria-label="${l}">`).join('');
+    if (envAddr) addrHost.closest('.of-pf').hidden = true;   // l'adresse est sur l'enveloppe
+    else addrHost.innerHTML = ['prénom et nom', 'adresse', 'code postal', 'ville'].map(l => `<input class="of-pin of-fake-in" placeholder="${l}" aria-label="${l}">`).join('');
     pmHost.innerHTML = `<div class="of-fake-tabs"><span class="on">carte</span><span>apple pay</span><span>paypal</span></div>
       <input class="of-pin of-fake-in" placeholder="numéro de carte" aria-label="numéro de carte" inputmode="numeric">`;
     const upd = () => { go.disabled = !mailOk(mail.value); };
@@ -246,7 +251,9 @@ function openPanel(name, ref) {
         if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
       });
     } catch (e) { console.warn('portefeuille (panneau)', e); }   // jamais au détriment de la carte
-    checkout.createShippingAddressElement().mount(addrHost);
+    // l'adresse : déjà tapée sur l'enveloppe → elle part chez Stripe (pas de second formulaire) ; sinon ses champs
+    if (envAddr) { addrHost.closest('.of-pf').hidden = true; actions.updateShippingAddress?.(stripeAddr(envAddr)); }
+    else checkout.createShippingAddressElement().mount(addrHost);
     checkout.createPaymentElement().mount(pmHost);
     let busy = false;
     const upd = () => { go.disabled = busy || !mailOk(mail.value); };
@@ -257,6 +264,7 @@ function openPanel(name, ref) {
       busy = true; upd(); msg('');
       // (10/10) sans redirection quand c'est possible (carte, Apple Pay, Google Pay) : la suite se joue ici ; sinon
       // (3-D Secure, PayPal…) Stripe ramène vers merci.html
+      if (envAddr) await actions.updateShippingAddress?.(stripeAddr(envAddr));
       const r = await actions.confirm({ email: mail.value.trim(), redirect: 'if_required' });
       if (r && r.type === 'success') { paidNow({ session: r.session?.id || '' }); return; }
       if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
@@ -311,8 +319,9 @@ function slide(p) {
   return fig;
 }
 
-// opts : { name (capitales), onBack(), over (la vraie feuille est dessous, dans la scène des cartes) }
-export function mountOffer({ name, onBack, over = false, onPaid = null }) {
+// opts : { name (capitales), onBack(), over (la vraie feuille est dessous, dans la scène des cartes), onPaid(order),
+//          envelope : { open(), back() } (la scène sait glisser la feuille dans l'enveloppe ; alors COMMANDER y mène) }
+export function mountOffer({ name, onBack, over = false, onPaid = null, envelope = null }) {
   onPaidHere = onPaid;
   const root = document.createElement('div');
   root.id = 'offre'; root.className = 'of' + (over ? ' over' : '');
@@ -320,23 +329,9 @@ export function mountOffer({ name, onBack, over = false, onPaid = null }) {
     <button class="of-back" type="button" aria-label="Changer le prénom">${BACK_SVG}</button>
     <main>
       ${over ? '<div class="of-hole" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
-      <p class="of-note">ces lignes n’existent pas encore.<br>je les tape pour toi, à la machine.${over ? '<br><span>la carte, je la retourne après ta commande.</span>' : ''}</p>
+      <p class="of-note">ces lignes n’existent pas encore.<br>je les tape pour toi, à la machine.</p>
       <div class="of-rest">
-      <section class="of-ex" aria-label="D’autres poèmes"><h2 class="of-h">d’autres prénoms, d’autres poèmes</h2><div class="of-ex-host"></div>
-        <p class="of-ex-note">chacun avec la carte de sa question, glissée dans l’enveloppe.</p></section>
-      <section class="of-vrai" aria-label="De vrais envois">
-        <div class="of-track"></div>
-        <div class="of-dots" aria-hidden="true"></div>
-      </section>
-      <ul class="of-what">
-        <li>l’original : tapé une seule fois, à la machine, pour toi. pas une impression, pas une copie.</li>
-        <li>une feuille A5 noire, ton prénom en colonne, signé de ma main à la machine.</li>
-        <li>une carte du jeu glissée avec : ta question, ta réponse au dos.</li>
-        <li>une enveloppe noire fermée à la cire, postée le ${esc(ENVOI)}.</li>
-      </ul>
-      <p class="of-after">juste après le paiement, je tire une carte pour toi. ta réponse sera le thème du poème — ou tu passes, et j’improvise sur ton prénom.</p>
-      <p class="of-legal">paiement sécurisé par stripe · ton adresse à l’étape suivante.<br>un prénom, un poème : fait pour une personne, il ne peut être ni repris ni échangé.</p>
-      <p class="of-gift">c’est pour offrir ? <button type="button" class="of-link" data-act="back">écris son prénom</button> à la place du tien, et dis-le au paiement : la personne pourra même répondre elle-même à sa question.</p>
+      <section class="of-ex" aria-label="D’autres poèmes"><h2 class="of-h">d’autres prénoms, d’autres poèmes</h2><div class="of-ex-host"></div></section>
       <footer class="of-foot">
         <a href="${esc(LIENS.jeu)}">le jeu</a> · <a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">mes livres</a> · <a href="${esc(LIENS.instagram)}" target="_blank" rel="noopener">@e.t.ernel</a>
       </footer>
@@ -365,27 +360,31 @@ export function mountOffer({ name, onBack, over = false, onPaid = null }) {
   }
 
   mountExemples(root.querySelector('.of-ex-host'));
-  // les photos
-  const track = root.querySelector('.of-track'), dots = root.querySelector('.of-dots');
-  for (const p of PHOTOS) track.appendChild(slide(p));
-  const syncDots = () => {
-    const n = track.children.length;
-    root.querySelector('.of-vrai').hidden = n === 0;
-    dots.innerHTML = n > 1 ? '<i></i>'.repeat(n) : '';
-    const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
-    [...dots.children].forEach((d, k) => d.classList.toggle('on', k === i));
-  };
-  track.addEventListener('scroll', () => requestAnimationFrame(syncDots), { passive: true });
-  setTimeout(syncDots, 600); syncDots();
 
   // en faisant défiler : une ombre en haut, sous la flèche retour (elle ne passe plus sur le texte)
   root.addEventListener('scroll', () => root.classList.toggle('scrolled', root.scrollTop > 24), { passive: true });
 
   // gestes
-  const back = () => { count('alt/retour'); onBack?.(); };
+  // l'enveloppe (10/10) : ouverte, la page s'efface sur elle ; adresse complète → le bandeau du paiement
+  let inEnv = false;
+  const go = root.querySelector('.of-go');
+  const enterEnv = () => {
+    inEnv = true; envAddr = null; count('alt/enveloppe');
+    root.classList.add('env'); root.classList.remove('env-ready');
+    root.scrollTo({ top: 0, behavior: 'smooth' });
+    go.textContent = 'PAYER';
+    envelope.open();
+  };
+  const leaveEnv = () => { inEnv = false; envAddr = null; root.classList.remove('env', 'env-ready'); go.textContent = 'COMMANDER'; };
+  const back = () => {
+    if (inEnv) { closePanel(); envelope.back(); leaveEnv(); return; }
+    count('alt/retour'); onBack?.();
+  };
   root.querySelector('.of-back').addEventListener('click', back);
-  root.querySelector('[data-act="back"]').addEventListener('click', back);
-  root.querySelector('.of-go').addEventListener('click', () => pay(name));
+  go.addEventListener('click', () => {
+    if (envelope && !inEnv) { enterEnv(); return; }
+    pay(name);
+  });
   barWalletSetup(root, name);
   addEventListener('keydown', e => { if (e.key === 'Escape' && root.isConnected) back(); });
 
@@ -403,5 +402,12 @@ export function mountOffer({ name, onBack, over = false, onPaid = null }) {
     setTimeout(() => { root.classList.remove('on'); root.style.pointerEvents = 'none'; }, 350);
     setTimeout(() => { root.remove(); document.body.classList.remove('of-open'); panel?.root.remove(); panel?.veil.remove(); panel = null; }, 1400);
   };
-  return { root, shown, hide };
+  // la scène dit où en est l'enveloppe : ouverte (on y écrit), adresse complète (on peut payer), refermée
+  const onEnvelope = e => {
+    if (!inEnv) return;
+    if (e.closed) { leaveEnv(); return; }
+    envAddr = e.canPost ? e.fields : null;
+    root.classList.toggle('env-ready', !!e.canPost);
+  };
+  return { root, shown, hide, onEnvelope };
 }
