@@ -80,10 +80,11 @@ async function run() {
     if (st && st.prenom && !order.name) order.name = st.prenom;
   }
   if (Q.get('simule') === '1') order.simule = true;
+  if (Q.get('reserve') === '1') order.reserve = true;   // réservation sans paiement (config.js, RESERVATION)
   saveOrder(order);
-  count('alt/paye');
+  count(order.reserve ? 'alt/reserve' : 'alt/paye');
   if (order.done) { final(order); return; }   // page rechargée à la fin : pas une seconde demande
-  setOrder({ ref: order.ref, session: order.session || '', simule: !!order.simule, gift: !!order.gift });
+  setOrder({ ref: order.ref, session: order.session || '', simule: !!order.simule, gift: !!order.gift, reserve: !!order.reserve });
 
   // un poème offert : comment je l'écris ? (le lien : elle répondra elle-même — la demande part tout de suite)
   let how = order.how || 'question';

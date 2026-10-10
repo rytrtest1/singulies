@@ -24,10 +24,11 @@ export function finalScreen(order, home) {
   const n = esc(order.name), s = esc(said(order.name));
   const line = order.lien ? `c’est noté. dès que ${s} aura répondu, je tape son poème et je le poste.`
     : order.pour ? `merci. je tape ton poème et il arrive chez toi par la poste.`
+    : order.reserve ? `c’est noté. je t’écris pour le paiement, puis je tape ton poème et je le poste chez toi.`
     : order.gift ? `c’est noté. je tape le poème de ${s} et je le poste.`
     : `c’est noté. je tape ton poème et je le poste chez toi.`;
   return screen(`<h1>${n}</h1><p>${line}</p>
-    ${order.pour ? '' : '<p class="small">stripe t’a envoyé le reçu par email.</p>'}
+    ${order.pour ? '' : order.reserve ? '<p class="small">rien n’a été débité.</p>' : '<p class="small">stripe t’a envoyé le reçu par email.</p>'}
     ${order.ref ? `<div class="ref">réf. ${esc(order.ref)}</div>` : ''}
     <p class="small" style="margin-top:26px"><a href="${esc(new URL('./jeu', document.baseURI).href)}">pose une de mes questions à quelqu’un</a></p>
     ${home ? `<p class="small" style="margin-top:6px"><a href="${esc(home)}">retour</a></p>` : ''}`);

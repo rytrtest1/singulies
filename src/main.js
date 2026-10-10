@@ -43,7 +43,7 @@ if (ALT) {
     const o = JSON.parse(localStorage.getItem('singulies.order') || 'null');
     if (o && o.paid && !o.done && Date.now() - (o.at || 0) < 2 * 864e5) {
       const u = new URL('./merci.html', document.baseURI), k = new URLSearchParams(location.search);
-      if (o.simule) k.set('simule', '1'); if (o.session) k.set('session', o.session);
+      if (o.simule) k.set('simule', '1'); if (o.reserve) k.set('reserve', '1'); if (o.session) k.set('session', o.session);
       u.search = k.toString(); location.replace(u.href);
     }
   } catch { /* */ }
@@ -262,7 +262,7 @@ function loadCards(name) {
   cards = cardsModule.then(({ mountCards }) => mountCards({
     name, base: './', onExit: exitCards, hidden: true, firstQ: jeuQ,
     // version alternative : la feuille seule, tout de suite, qui reste ; l'offre se pose dessus quand le curseur respire
-    ...(ALT ? { insetBottom: () => SHEET_INSET + safeBottom(), sheetFast: 1.8, noTopCard: true, payInstead: true, onEnvelope: e => offerObj?.onEnvelope?.(e), sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
+    ...(ALT ? { insetBottom: () => SHEET_INSET + safeBottom(), sheetFast: 1.8, noTopCard: true, vitrine: true, payInstead: true, onEnvelope: e => offerObj?.onEnvelope?.(e), sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
     onEnd: () => {}, onDone: () => (S.paid ? finishPaid() : backToStart()),
   })).then((m) => {
     if (!m) throw new Error('webgl2');
@@ -355,7 +355,7 @@ function showOffer(over = false) {
   if (offer) return;
   if (!over) { S.phase = 'offre'; S.phaseAt = S.t; emitValidated(S.validatedName, false); }
   backEl.classList.remove('on'); input.blur(); input.readOnly = true;
-  const envelope = over && cardsReady && cardsReady !== 'failed' && cardsReady.openEnvelope ? { open: () => cardsReady.openEnvelope(), back: () => cardsReady.envBack() } : null;
+  const envelope = over && cardsReady && cardsReady !== 'failed' && cardsReady.openEnvelope ? { open: () => cardsReady.openEnvelope(), back: () => cardsReady.envBack(), vitrine: cardsReady.vitrine, canvas: cardsReady.canvas } : null;
   offer = offerModule().then(m => m.mountOffer({ name: S.validatedName.toUpperCase(), onBack: exitCards, over, onPaid: over ? paidHere : null, envelope }))
     .then(o => { offerObj = o; return o.shown.then(() => { cancelAnimationFrame(rafId); rafId = 0; canvas.style.visibility = 'hidden'; names2d?.stop(); names2d = null; fallbackEl.style.display = 'none'; }); })
     .catch(e => { console.error(e); why('offre : ' + (e && e.message)); noCards(); });
@@ -365,7 +365,7 @@ function showOffer(over = false) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function paidHere(order) {
   S.paid = order;
-  setOrder({ ref: order.ref, session: order.session || '', simule: !!order.simule, gift: !!order.gift });
+  setOrder({ ref: order.ref, session: order.session || '', simule: !!order.simule, gift: !!order.gift, reserve: !!order.reserve });
   offerObj?.hide();
   const fin = await import('./alt/fin.js');
   let how = 'question';

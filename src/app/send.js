@@ -5,6 +5,7 @@
 import QUESTIONS from '../cards/questions.json';
 import { encodeDemande } from '../demande/lien.js';
 import LETTERS from '../../public/email/l/tailles.json';
+import { STRIPE } from '../alt/config.js';
 
 export const EMAILJS = { service: 'service_8wqf489', template: 'template_cuh5tub', key: 'XreMhhJCN9l5J6V5J',   // identifiants publics (aucun secret)
   // confirmation envoyée à la personne (récapitulatif) : second modèle EmailJS, To = {{to_email}}
@@ -50,8 +51,18 @@ function contactLinks(c) {
   }).join(' &nbsp;·&nbsp; ');
 }
 // la commande payée : référence (client_reference_id dans Stripe) et session de paiement (adresse et email : dans Stripe)
-function orderHtml(o) {
+function orderHtml(o, email) {
   if (!o) return '';
+  // (10/10) réservation sans paiement : la référence, et le lien de paiement prérempli si STRIPE existe
+  if (o.reserve) {
+    let pay = '';
+    if (STRIPE) try {
+      const u = new URL(STRIPE); u.searchParams.set('client_reference_id', o.ref); u.searchParams.set('locale', 'fr');
+      if (email) u.searchParams.set('prefilled_email', email);
+      pay = '<br><a href="' + esc(u.href) + '" style="' + LINK + '">lien pour payer</a>';
+    } catch { /* */ }
+    return '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;"><span style="color:#8a8a8a;">réservation, pas encore payée</span><br>' + esc(o.ref) + pay + '</div>';
+  }
   return '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;"><span style="color:#8a8a8a;">commande</span><br>' + esc(o.ref) + (o.simule ? ' · paiement simulé' : '') + (o.session ? '<br><span style="color:#8a8a8a;">stripe ' + esc(o.session) + '</span>' : '') + '<br><span style="color:#8a8a8a;">adresse et email : dans stripe</span></div>';
 }
 // mode test : les réponses des testeurs (prix de l'original, retours), dans le même bloc que le contact
@@ -77,12 +88,13 @@ export function params(d) {
     reponse: d.kind === 'reponse' ? d.text || '' : '',
     theme: d.kind === 'theme' ? d.text || '' : '',
     // (10/10) un poème offert : « cadeau » ; la réponse de la personne offerte (pour.html) : « réponse du cadeau »
-    mode: d.order ? 'payé' + (d.order.simule ? ' (paiement simulé)' : '') + ', réf. ' + d.order.ref + (d.order.pour ? ', réponse de la personne offerte' : d.order.gift ? ', cadeau' : '') + (d.beta ? ' (test)' : '')
+    mode: d.order && d.order.reserve ? 'réservation (à payer : lien à envoyer), réf. ' + d.order.ref + (d.beta ? ' (test)' : '')
+      : d.order ? 'payé' + (d.order.simule ? ' (paiement simulé)' : '') + ', réf. ' + d.order.ref + (d.order.pour ? ', réponse de la personne offerte' : d.order.gift ? ', cadeau' : '') + (d.beta ? ' (test)' : '')
       : (d.mode === 'direct' ? 'en direct' : 'par la poste') + (d.test ? ' (essai, sans adresse)' : d.beta ? ' (test)' : ''),
     adresse_html: (d.address || []).map(l => quiet(esc(l))).join('<br>'),
     adresse: (d.address || []).join('\n'),
     contact: d.contact || '',
-    contact_html: orderHtml(d.order) + (d.contact ? '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;">' + contactLinks(d.contact) + '</div>' : '') + betaHtml(d.beta),
+    contact_html: orderHtml(d.order, d.email) + (d.contact ? '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;">' + contactLinks(d.contact) + '</div>' : '') + betaHtml(d.beta),
     date: new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }),
     // la demande, rendue par le site (feuille, carte, enveloppe) : tout est dans le lien, après « # »
     lien: new URL('./demande.html', document.baseURI).href + '#' + encodeDemande(d),

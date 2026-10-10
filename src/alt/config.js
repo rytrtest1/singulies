@@ -13,6 +13,13 @@ export const ENVOI = lundiSuivant();   // (plus affiché : voir DELAI)
 // (10/10) aucun délai affiché (Maxence) ; s'il revient : « je le tape et le poste sous 3 jours »
 export const DELAI = '';
 
+// (10/10) RÉSERVATION SANS PAIEMENT, en attendant le SIRET : RECEVOIR → l'enveloppe (l'adresse) → RÉSERVER → la carte,
+// la réponse, la feuille, l'enveloppe part, l'email → c'est noté. Rien n'est débité, aucun appel à Stripe ; la demande
+// part par email marquée « réservation, à payer » avec sa référence, et je t'envoie ensuite le lien de paiement
+// (si STRIPE est rempli, la demande porte déjà le lien prérempli : référence + email). false → le paiement Stripe.
+// ?paiement=stripe (ou ?paiement=faux) : le paiement, même en réservation (essais).
+export const RESERVATION = true;
+
 // Lien de paiement Stripe (Payment Link). Vide = paiement simulé (on va directement à merci.html).
 // Dans Stripe, « Après le paiement » → « Rediriger vers votre site » :
 //   https://rytrtest1.github.io/singulies/merci.html?session={CHECKOUT_SESSION_ID}
