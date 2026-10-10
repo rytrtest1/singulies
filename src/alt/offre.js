@@ -18,17 +18,15 @@ let onPaidHere = null;
 const readOrder = () => { try { return JSON.parse(localStorage.getItem(K_ORDER) || 'null'); } catch { return null; } };
 const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o)); } catch { /* */ } };
 const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
-// (10/10) la vitrine : ce qu'il y a dans l'envoi, une chose à la fois, JOUÉ EN DIRECT dans la scène de la feuille
-// (src/vitrine/vitrine.js) : une seule histoire qui s'enchaîne, de sa feuille à tout l'envoi posé à plat. Dessous, la
-// description (flèches de part et d'autre, ou glisser l'objet), RECEVOIR, le prix. Un tour tout seul, il s'arrête sur
-// tout l'envoi ; dès qu'on touche aux flèches, plus de défilé automatique.
+// (10/10) la vitrine : ce qu'il y a dans l'envoi, une chose à la fois. En haut l'objet (la feuille de la personne, en
+// direct ; les autres : des boucles rendues par le vrai moteur, tools/vitrine-shot.mjs → public/vitrine/), dessous
+// RECEVOIR, sa description (flèches de part et d'autre, ou glisser l'objet), le prix. Un tour tout seul, puis la feuille.
 const OBJETS = [
-  { id: 'feuille', txt: 'l’exemplaire unique de ton poème, tapé à la machine à écrire' },
-  { id: 'carte', txt: 'la question du jeu SINGULIES, tirée au hasard' },
-  { id: 'enveloppe', txt: 'le tout scellé à la cire, avec une carte vierge et deux fils noirs' },
-  { id: 'carbone', txt: 'du carbone blanc pour écrire ton prénom à la main, et me renvoyer la carte' },
-  { id: 'fil', txt: 'deux fils : un à garder au poignet, l’autre pour relier les SINGULIES' },
-  { id: 'tout', txt: 'tout l’envoi' },
+  { id: 'feuille', txt: 'l’exemplaire unique du poème, tapé à la machine à écrire' },
+  { id: 'carte', txt: 'la question du jeu SINGULIES que tu vas piocher' },
+  { id: 'enveloppe', txt: 'le tout dans une enveloppe scellée à la cire' },
+  { id: 'carbone', txt: 'une carte noire vierge, du papier carbone pour y écrire ton prénom, et un timbre pour me la renvoyer' },
+  { id: 'fil', txt: 'un fil noir pour relier les SINGULIES, et un bout à garder au poignet' },
 ];
 const CHEV = d => `<svg viewBox="0 0 24 24" width="16" height="16"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>`;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -357,7 +355,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     <button class="of-back" type="button" aria-label="Changer le prénom">${BACK_SVG}</button>
     <nav class="of-tabs" aria-label="Le site"><a aria-current="page">POÈME</a><a href="${esc(LIENS.jeu)}">JEU</a><a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">LIVRES</a></nav>
     <main>
-      ${over ? '<div class="of-hole" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
+      ${over ? '<div class="of-hole"><div class="of-stage" aria-hidden="true"></div></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
       <button class="of-down" type="button" aria-label="D’autres prénoms, d’autres poèmes"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 9.5 L12 15.5 L18 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></button>
       <div class="of-rest">
       <section class="of-ex" aria-label="D’autres poèmes"><h2 class="of-h">d’autres prénoms, d’autres poèmes</h2><div class="of-ex-host"></div></section>
@@ -394,11 +392,32 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   }
 
   mountExemples(root.querySelector('.of-ex-host'));
-  // ---- la vitrine (10/10) : jouée dans la scène (envelope.vitrine) ; sans elle (pas de WebGL2), seulement les mots ----
-  const txt = root.querySelector('.of-vit-t'), hole = root.querySelector('.of-hole');
-  const vit = envelope && envelope.vitrine ? envelope.vitrine : null;
+  // ---- la vitrine (10/10) ----
+  const txt = root.querySelector('.of-vit-t'), stage = root.querySelector('.of-stage'), hole = root.querySelector('.of-hole');
   const busyMode = () => root.classList.contains('paying') || root.classList.contains('env');
-  let cur = -1, auto = true, timer = 0, poll = 0, typing = 0;
+  let cur = -1, auto = true, timer = 0, typing = 0;
+  const vids = OBJETS.map(o => {
+    if (!stage || o.id === 'feuille') return null;
+    const v = document.createElement('video');
+    Object.assign(v, { muted: true, playsInline: true, preload: 'none' });
+    v.setAttribute('playsinline', ''); v.setAttribute('muted', ''); v.className = 'of-vid';
+    v.poster = new URL(`./vitrine/${o.id}.jpg`, document.baseURI).href;
+    v.dataset.src = new URL(`./vitrine/${o.id}.mp4`, document.baseURI).href;
+    v.addEventListener('error', () => { v.dataset.bad = '1'; if (OBJETS[cur] === o && !auto) stage.classList.remove('on'); });
+    v.addEventListener('ended', () => {
+      if (OBJETS[cur] !== o) return;
+      clearTimeout(timer);
+      // un tour tout seul ; ensuite (ou dès qu'on a touché aux flèches) l'objet rejoue sa boucle, après un temps
+      timer = setTimeout(() => {
+        if (auto) { step(1); return; }
+        v.classList.remove('on');
+        setTimeout(() => { if (OBJETS[cur] === o) { v.currentTime = 0; v.classList.add('on'); v.play().catch(() => {}); } }, 450);
+      }, auto ? 1300 : 2600);
+    });
+    stage.appendChild(v);
+    return v;
+  });
+  const load = k => { const v = vids[k]; if (v && !v.src) { v.preload = 'auto'; v.src = v.dataset.src; } };
   // la description, tapée à la machine (vite) ; l'ancienne s'efface d'un coup
   const typeTxt = s => {
     const my = ++typing; txt.textContent = ''; txt.setAttribute('aria-label', s);
@@ -413,36 +432,33 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     tick();
   };
   // les petits mots restent avec le suivant (jamais « à » seul en fin de ligne)
-  const nbsp = s => { const r = /(^|[\s\u00a0])(à|a|de|du|la|le|un|et|y|me|ton|pour|au) /gi, f = x => x.replace(r, (m, a, w) => a + w + '\u00a0'); return f(f(s)); };
-  // un saut (de tout l'envoi à la feuille, ou l'inverse) : la scène s'efface un instant, puis reprend là
-  const sceneCv = () => envelope && envelope.canvas;
-  const fadeJump = (k, then) => {
-    const c = sceneCv(); if (!c || !vit) { then && then(); return; }
-    c.style.transition = 'opacity .3s ease'; c.style.opacity = '0';
-    setTimeout(() => { vit.jump(k); then && then(); setTimeout(() => { c.style.opacity = '1'; }, 60); }, 320);
-  };
+  const nbsp = s => { const r = /(^|[\s ])(à|a|de|du|la|le|un|et|y|me|ton|pour|au) /gi, f = x => x.replace(r, (m, a, w) => a + w + ' '); return f(f(s)); };
   const show = (k, dir = 1) => {
     k = (k + OBJETS.length) % OBJETS.length;
     if (k === cur) return;
-    const prev = cur; cur = k;
-    clearTimeout(timer); clearInterval(poll);
+    const prev = vids[cur]; cur = k;
+    clearTimeout(timer);
     typeTxt(nbsp(OBJETS[k].txt));
-    if (vit) { if (prev >= 0 && Math.abs(k - prev) > 1) fadeJump(k); else vit.go(k); }
-    if (!auto) return;
-    // en tour automatique : l'étape jouée, on la laisse voir, puis la suivante
-    const hold = k === 0 ? 4200 : 2400;
-    if (!vit) { timer = setTimeout(() => step(1), hold + 2500); return; }
-    poll = setInterval(() => {
-      const st = vit.state();
-      if (!st || st.arrived) { clearInterval(poll); timer = setTimeout(() => step(1), hold); }
-    }, 200);
+    if (prev) { prev.classList.remove('on'); prev.style.setProperty('--dx', (-24 * dir) + 'px'); setTimeout(() => { if (vids[cur] !== prev) prev.pause(); }, 500); }
+    const v = vids[k];
+    load(k + 1 < OBJETS.length ? k + 1 : 0);
+    if (!v) { stage?.classList.remove('on'); if (auto) timer = setTimeout(() => step(1), 6000); return; }   // la feuille : en direct
+    load(k);
+    stage.classList.toggle('on', !v.dataset.bad || !auto);
+    if (v.dataset.bad && auto) { step(1); return; }
+    v.style.setProperty('--dx', (24 * dir) + 'px'); void v.offsetWidth;
+    v.classList.add('on'); v.style.setProperty('--dx', '0px');
+    try { v.currentTime = 0; } catch { /* */ }
+    const p = v.play();
+    // lecture refusée (économie d'énergie de l'iPhone…) : l'image fixe, et la suite après un temps
+    if (p && p.catch) p.catch(() => { if (auto && OBJETS[cur] === OBJETS[k]) timer = setTimeout(() => step(1), 4500); });
   };
   const step = d => {
     if (busyMode()) return;
-    if (auto && d > 0 && cur === OBJETS.length - 1) { auto = false; return; }   // un tour : on reste sur tout l'envoi
+    if (auto && d > 0 && cur === OBJETS.length - 1) { auto = false; show(0, 1); return; }   // un tour, puis la feuille
     show(cur + d, d);
   };
-  const manual = d => { auto = false; clearTimeout(timer); clearInterval(poll); count('alt/vitrine'); step(d); };
+  const manual = d => { auto = false; count('alt/vitrine'); step(d); };
   root.querySelectorAll('.of-vit-a').forEach(b => b.addEventListener('click', () => manual(+b.dataset.d)));
   // glisser l'objet (ou la description) de côté
   for (const z of [hole, root.querySelector('.of-vit')]) {
@@ -457,7 +473,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     z.addEventListener('pointercancel', () => { x0 = null; });
   }
   // la vitrine se met de côté pendant l'enveloppe et le paiement : la feuille, en direct
-  const toSheet = () => { auto = false; clearTimeout(timer); clearInterval(poll); if (cur !== 0) { cur = 0; typeTxt(nbsp(OBJETS[0].txt)); } };
+  const toSheet = () => { auto = false; clearTimeout(timer); if (cur !== 0) show(0, -1); };
   new MutationObserver(() => { if (busyMode()) toSheet(); }).observe(root, { attributes: true, attributeFilter: ['class'] });
   setTimeout(() => show(0), over ? 700 : 900);
   // (10/10) une page qui semble finie : la feuille, sa légende, le bandeau ; si rien ne se passe, une petite flèche
@@ -491,8 +507,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     root.classList.add('env'); root.classList.remove('env-ready');
     root.scrollTo({ top: 0, behavior: 'smooth' });
     go.textContent = RESERVE ? 'RÉSERVER' : 'PAYER';
-    const st = vit && vit.state();
-    if (st && (st.vt > 0 || st.target > 0)) fadeJump(0, () => envelope.open()); else envelope.open();
+    envelope.open();
   };
   const leaveEnv = () => { inEnv = false; envAddr = null; root.classList.remove('env', 'env-ready'); go.textContent = 'RECEVOIR'; };
   const back = () => {

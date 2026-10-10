@@ -193,7 +193,6 @@ export async function mountCards(opts) {
     answer.blur();
     sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced, hold: !!opts.hold && !paid,
       fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, insetBottom: !paid ? opts.insetBottom : null,
-      vitrine: !!opts.vitrine && !paid, base,
       // payé : l'adresse connue (enveloppe d'avant, ou portefeuille) se tape seule sur l'enveloppe ; sinon elle part sans
       ...(paid && !(paidAuto && paidAuto.fields) ? { noAddr: true } : {}),
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.'); },
@@ -437,9 +436,7 @@ export async function mountCards(opts) {
   let started = false;
   const api = { afterPay, scene, canvas, gl, now, started: () => started, frames: 0, start, nameTargets: (W, H) => scene.nameTargets(name, W, H),
     // (10/10, alt) COMMANDER : la feuille se glisse dans l'enveloppe (on y tape l'adresse) ; retour : elle en ressort
-    openEnvelope: () => { if (sheet) sheet.showOrders(); }, envBack: () => { if (sheet && sheet.state().env) sheet.back(now()); },
-    // (10/10, alt) la vitrine, jouée dans la scène de la feuille
-    vitrine: { go: k => sheet?.vitrine?.go(k), jump: k => sheet?.vitrine?.jump(k), state: () => sheet?.vitrine?.state() || null } };
+    openEnvelope: () => { if (sheet) sheet.showOrders(); }, envBack: () => { if (sheet && sheet.state().env) sheet.back(now()); } };
 
   function start() {
     if (started) return; started = true;

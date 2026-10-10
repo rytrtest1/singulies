@@ -262,7 +262,7 @@ function loadCards(name) {
   cards = cardsModule.then(({ mountCards }) => mountCards({
     name, base: './', onExit: exitCards, hidden: true, firstQ: jeuQ,
     // version alternative : la feuille seule, tout de suite, qui reste ; l'offre se pose dessus quand le curseur respire
-    ...(ALT ? { insetBottom: () => SHEET_INSET + safeBottom(), sheetFast: 1.8, noTopCard: true, vitrine: true, payInstead: true, onEnvelope: e => offerObj?.onEnvelope?.(e), sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
+    ...(ALT ? { insetBottom: () => SHEET_INSET + safeBottom(), sheetFast: 1.8, noTopCard: true, payInstead: true, onEnvelope: e => offerObj?.onEnvelope?.(e), sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
     onEnd: () => {}, onDone: () => (S.paid ? finishPaid() : backToStart()),
   })).then((m) => {
     if (!m) throw new Error('webgl2');
@@ -355,7 +355,7 @@ function showOffer(over = false) {
   if (offer) return;
   if (!over) { S.phase = 'offre'; S.phaseAt = S.t; emitValidated(S.validatedName, false); }
   backEl.classList.remove('on'); input.blur(); input.readOnly = true;
-  const envelope = over && cardsReady && cardsReady !== 'failed' && cardsReady.openEnvelope ? { open: () => cardsReady.openEnvelope(), back: () => cardsReady.envBack(), vitrine: cardsReady.vitrine, canvas: cardsReady.canvas } : null;
+  const envelope = over && cardsReady && cardsReady !== 'failed' && cardsReady.openEnvelope ? { open: () => cardsReady.openEnvelope(), back: () => cardsReady.envBack() } : null;
   offer = offerModule().then(m => m.mountOffer({ name: S.validatedName.toUpperCase(), onBack: exitCards, over, onPaid: over ? paidHere : null, envelope }))
     .then(o => { offerObj = o; return o.shown.then(() => { cancelAnimationFrame(rafId); rafId = 0; canvas.style.visibility = 'hidden'; names2d?.stop(); names2d = null; fallbackEl.style.display = 'none'; }); })
     .catch(e => { console.error(e); why('offre : ' + (e && e.message)); noCards(); });
