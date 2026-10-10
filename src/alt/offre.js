@@ -38,46 +38,102 @@ function loadStripe() {
     document.head.appendChild(s);
   });
 }
+// le panneau est à nous (mise en page, textes, PAYER, en noir, Garamond et machine) ; seuls les champs sensibles
+// (adresse, carte, Apple Pay / Google Pay) sont des cadres de Stripe, habillés aux couleurs et polices du site
+// (Checkout Sessions, ui_mode 'elements' : stripe.initCheckoutElementsSdk). Stripe ramène ensuite vers merci.html.
+const mailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v).trim());
+function appearance() {
+  return {
+    theme: 'night', labels: 'floating',
+    variables: {
+      colorPrimary: '#ece8e0', colorBackground: '#0f0f0e', colorText: '#d6d2ca', colorTextSecondary: '#9a958c',
+      colorTextPlaceholder: '#5f5b55', colorDanger: '#e08a7a', iconColor: '#9a958c',
+      fontFamily: '"SG Machine", "Courier New", monospace', fontSizeBase: '16px', borderRadius: '2px', spacingUnit: '4px',
+    },
+    rules: {
+      '.Input': { backgroundColor: '#0f0f0e', border: '1px solid #2c2a27', boxShadow: 'none' },
+      '.Input:focus': { border: '1px solid #8f897f', boxShadow: 'none' },
+      '.Label': { color: '#8f897f' },
+      '.Tab': { backgroundColor: '#0f0f0e', border: '1px solid #2c2a27', boxShadow: 'none' },
+      '.Tab--selected': { border: '1px solid #ece8e0' },
+    },
+  };
+}
 function openPanel(name, ref) {
-  if (panel) { panel.root.classList.add('on'); return; }
+  if (panel) { panel.root.classList.add('on'); panel.veil.classList.add('on'); return; }
   const fake = !(STRIPE_PK && PAIEMENT_URL);
   const veil = document.createElement('div'); veil.className = 'of-pay-veil';
   const root = document.createElement('div'); root.className = 'of-pay'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Paiement');
-  root.innerHTML = `<div class="of-pay-head"><span>un poème à ton prénom · ${esc(PRIX)}</span>
-      <button class="of-pay-x" type="button" aria-label="Fermer">×</button></div>
-    <div class="of-pay-body"><div class="of-checkout"><p class="of-pay-wait">un instant…</p></div></div>`;
+  root.innerHTML = `<button class="of-pay-x" type="button" aria-label="Fermer">×</button>
+    <div class="of-pay-body">
+      <div class="of-pay-title"><b>${esc(name)}</b><span>un poème à ton prénom</span>
+        <span class="of-pay-p">${esc(PRIX)}, port compris · posté le ${esc(ENVOI)}</span></div>
+      <label class="of-pf"><span>ton email</span>
+        <input class="of-pin" type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next"></label>
+      <div class="of-pf"><span>où je te l’envoie</span><div class="of-addr"></div></div>
+      <div class="of-pf"><span>le paiement</span><div class="of-pm"></div></div>
+      <button class="of-go of-pay-go" type="button" disabled>PAYER ${esc(PRIX)}</button>
+      <p class="of-pay-msg" role="alert"></p>
+      <p class="of-pay-legal">${fake ? 'paiement d’essai : rien n’est débité.<br>' : ''}paiement sécurisé par stripe.<br>un poème à ton prénom est fait pour toi : il ne peut être ni repris ni échangé.</p>
+    </div>`;
   document.body.append(veil, root);
-  panel = { root, veil, checkout: null };
+  panel = { root, veil };
   const close = () => { root.classList.remove('on'); veil.classList.remove('on'); };
   veil.addEventListener('click', close);
   root.querySelector('.of-pay-x').addEventListener('click', close);
   void root.offsetWidth; setTimeout(() => { root.classList.add('on'); veil.classList.add('on'); }, 20);
-  const host = root.querySelector('.of-checkout');
+  const mail = root.querySelector('.of-pin'), go = root.querySelector('.of-pay-go'), msg = t => { root.querySelector('.of-pay-msg').textContent = t || ''; };
+  const addrHost = root.querySelector('.of-addr'), pmHost = root.querySelector('.of-pm');
+
   if (fake) {
-    host.innerHTML = `<div class="of-fake"><p>paiement d’essai : rien n’est débité.</p>
-      <p class="of-fake-m">ici, le formulaire Stripe : Apple Pay, Google Pay, carte, PayPal, ton adresse.</p>
-      <button class="of-go" type="button">PAYER ${esc(PRIX)}</button></div>`;
-    host.querySelector('.of-go').addEventListener('click', () => { location.href = merciUrl({ simule: '1' }); });
+    // le même panneau, avec des champs d'essai à l'allure des vrais
+    addrHost.innerHTML = ['prénom et nom', 'adresse', 'code postal', 'ville'].map(l => `<input class="of-pin of-fake-in" placeholder="${l}" aria-label="${l}">`).join('');
+    pmHost.innerHTML = `<div class="of-fake-tabs"><span class="on">carte</span><span>apple pay</span><span>paypal</span></div>
+      <input class="of-pin of-fake-in" placeholder="numéro de carte" aria-label="numéro de carte" inputmode="numeric">`;
+    const upd = () => { go.disabled = !mailOk(mail.value); };
+    mail.addEventListener('input', upd);
+    go.addEventListener('click', () => { if (!go.disabled) location.href = merciUrl({ simule: '1' }); });
     return;
   }
+
+  pmHost.innerHTML = '<p class="of-pay-wait">un instant…</p>';
   const fail = () => {
-    host.innerHTML = `<p class="of-pay-wait">le paiement ne répond pas.${STRIPE ? ` <a href="#" data-link>payer sur la page de stripe</a>` : ' réessaie dans un instant.'}</p>`;
-    host.querySelector('[data-link]')?.addEventListener('click', e => { e.preventDefault(); goLink(ref); });
+    pmHost.innerHTML = `<p class="of-pay-wait">le paiement ne répond pas.${STRIPE ? ' <a href="#" data-link>payer sur la page de stripe</a>' : ' réessaie dans un instant.'}</p>`;
+    pmHost.querySelector('[data-link]')?.addEventListener('click', e => { e.preventDefault(); goLink(ref); });
   };
   loadStripe().then(async Stripe => {
-    const stripe = Stripe(STRIPE_PK);
-    const fetchClientSecret = async () => {
-      const r = await fetch(PAIEMENT_URL.replace(/\/$/, '') + '/session', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prenom: name, ref, retour: merciUrl() }),
-      });
-      const d = await r.json();
-      if (!r.ok || !d.clientSecret) throw new Error(d.error || 'session');
-      return d.clientSecret;
-    };
-    host.innerHTML = '';
-    panel.checkout = await stripe.createEmbeddedCheckoutPage({ fetchClientSecret });
-    panel.checkout.mount(host);
+    const stripe = Stripe(STRIPE_PK, { locale: 'fr' });
+    const clientSecret = fetch(PAIEMENT_URL.replace(/\/$/, '') + '/session', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prenom: name, ref, retour: merciUrl() }),
+    }).then(r => r.json()).then(d => { if (!d.clientSecret) throw new Error(d.error || 'session'); return d.clientSecret; });
+    const fonts = new URL('./fonts/', document.baseURI).href;
+    const checkout = stripe.initCheckoutElementsSdk({
+      clientSecret,
+      elementsOptions: { appearance: appearance(), fonts: [
+        { family: 'SG Machine', src: `url(${fonts}CourierPrime-latin.woff2)`, weight: '400' },
+        { family: 'SG Garamond', src: `url(${fonts}EBGaramond-500.woff2)`, weight: '500' },
+      ] },
+    });
+    pmHost.innerHTML = '';
+    checkout.createShippingAddressElement().mount(addrHost);
+    checkout.createPaymentElement().mount(pmHost);
+    const la = await checkout.loadActions();
+    if (la.type === 'error') throw new Error(la.error?.message || 'actions');
+    const actions = la.actions;
+    let busy = false;
+    const upd = () => { go.disabled = busy || !mailOk(mail.value); };
+    mail.addEventListener('input', upd);
+    mail.addEventListener('change', () => { if (mailOk(mail.value)) actions.updateEmail?.(mail.value.trim()); });
+    go.addEventListener('click', async () => {
+      if (go.disabled) return;
+      busy = true; upd(); msg('');
+      const r = await actions.confirm({ email: mail.value.trim() });
+      // ici seulement en cas d'erreur immédiate : sinon Stripe ramène vers merci.html
+      if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
+      busy = false; upd();
+    });
+    panel.checkout = checkout;
   }).catch(e => { console.warn('paiement', e); fail(); });
 }
 function goLink(ref) {

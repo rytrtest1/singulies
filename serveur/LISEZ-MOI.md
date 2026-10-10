@@ -9,8 +9,8 @@ elle garde ta **clé secrète** Stripe et crée le paiement. La clé secrète ne
    `sk_test_…` pour l'étape 2 — tu la colleras toi-même, ne l'envoie à personne (ni à Claude).
 3. **Paramètres → Moyens de paiement** : active cartes, Apple Pay, Google Pay et, si proposé, PayPal.
 4. **Paramètres → Moyens de paiement → Domaines** : ajoute `rytrtest1.github.io` (nécessaire pour Apple Pay dans la page).
-5. **Paramètres → Image de marque** : fond noir, couleur d'accent claire, police à empattement si proposée — le formulaire
-   prendra l'allure du site. (Le panneau autour est blanc ; dis-le moi si tu passes Stripe en sombre, je l'accorde.)
+5. Rien à régler côté apparence : le panneau de paiement est dessiné par le site (noir, Garamond, machine) ; les champs
+   de Stripe (adresse, carte, Apple Pay / Google Pay) y sont habillés aux mêmes couleurs et polices.
 
 ## 2. Cloudflare Workers
 1. Crée un compte sur cloudflare.com → **Workers & Pages → Créer → Worker**, nomme-le `singulies-paiement`, déploie.
@@ -27,7 +27,7 @@ Dans `src/alt/config.js`, remplis (ou donne-les moi — ces deux-là sont public
 export const STRIPE_PK = 'pk_test_…';
 export const PAIEMENT_URL = 'https://singulies-paiement.toncompte.workers.dev';
 ```
-Puis publication. COMMANDER ouvre le panneau avec le vrai formulaire Stripe (test) : carte d'essai `4242 4242 4242 4242`,
+Puis publication. COMMANDER ouvre le panneau avec les vrais champs Stripe (test) : carte d'essai `4242 4242 4242 4242`,
 date future, n'importe quel code.
 
 ## 4. Passer en vrai

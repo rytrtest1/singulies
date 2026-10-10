@@ -1,5 +1,6 @@
 // Paiement (10/10) : une petite fonction Cloudflare Workers, seul morceau « serveur » du site.
-// Elle garde la clé secrète Stripe (jamais dans le site) et crée la session de paiement intégrée à la page.
+// Elle garde la clé secrète Stripe (jamais dans le site) et crée la session de paiement ; le formulaire, lui, est
+// dessiné par le site (Checkout Sessions en mode « elements »).
 // Réglages (Cloudflare → ton Worker → Settings → Variables) :
 //   STRIPE_SECRET_KEY  (secret)  sk_test_… pour les essais, sk_live_… pour de vrai — tu la colles toi-même
 //   SITE               (texte)   https://rytrtest1.github.io  (l'origine autorisée ; à changer avec le nom de domaine)
@@ -44,7 +45,7 @@ async function createSession(env, req) {
   if (!retour.startsWith(env.SITE + '/')) return json({ error: 'retour refusé' }, 400);
   retour += (retour.includes('?') ? '&' : '?') + 'session={CHECKOUT_SESSION_ID}';
   const s = await stripe(env, 'POST', '/checkout/sessions', {
-    ui_mode: 'embedded_page',
+    ui_mode: 'elements',   // le formulaire est dessiné par le site (champs Stripe habillés à ses couleurs)
     mode: 'payment',
     locale: 'fr',
     'line_items[0][quantity]': '1',
