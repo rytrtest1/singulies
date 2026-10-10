@@ -27,11 +27,11 @@
    en faisant défiler, la suite (opaque) monte sur la feuille */
 .of.over { background: transparent; }
 .of.over main { padding-top: 0; }
-.of.over .of-hole { height: calc(100svh - 178px - env(safe-area-inset-bottom)); }   /* = SHEET_INSET (config.js) */
+.of.over .of-hole { position: relative; height: calc(100svh - var(--inset, 212px) - env(safe-area-inset-bottom)); touch-action: pan-y pinch-zoom; }   /* --inset = SHEET_INSET (config.js) */
 .of.over .of-poem { min-height: 3.4em; }
 /* la légende colle à la feuille ; la suite commence sous le bandeau (le premier écran semble fini) */
 .of.over .of-poem { margin-top: -22px; }
-.of.over .of-rest { margin-top: 110px; }
+.of.over .of-rest { margin-top: calc(var(--inset, 212px) + 24px); }
 /* (10/10) le poème original, tapé sous la feuille (ses premières lignes dépassent au-dessus du bandeau) */
 .of.over .of-poem { background: #060606; box-shadow: 0 0 0 100vmax #060606; clip-path: inset(0 -100vmax -1px); padding-top: 10px; }
 .of-poem { text-align: center; min-height: 1.7em; line-height: 1.7; color: #d6d2ca; letter-spacing: .02em; }
@@ -214,7 +214,7 @@
    qui se trace dessous), le prix en une ligne discrète en dessous ; Apple Pay / Google Pay prend la place de COMMANDER */
 .of-bar { flex-direction: column; justify-content: flex-end; align-items: center; gap: 9px; text-align: center;
   padding: 30px 16px calc(16px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 60%, rgba(6,6,6,0)); }
-.of-bar .of-price { order: 2; font-size: 12.5px; line-height: 1.3; color: #6a655d; letter-spacing: .03em; }
+.of-bar .of-price { order: 3; font-size: 12.5px; line-height: 1.3; color: #6a655d; letter-spacing: .03em; }
 .of-bar .of-price b { font-size: 13.5px; color: #a8a399; font-weight: 500; }
 .of-bar .of-price i { font-style: normal; padding: 0 .35em; color: #4a4742; }
 .of-bar .of-go { position: relative; border: 0; background: none; padding: 10px 2px 11px; padding-right: calc(2px - .45em); color: rgba(241, 237, 230, .92);
@@ -226,5 +226,21 @@
 .of-bar .of-go:hover::after, .of-bar .of-go:focus-visible::after { background: rgba(236, 232, 224, .75); }
 .of-bar .of-bar-r { align-items: center; }
 .of-bar.wallet .of-bar-wallet { width: 230px; }
-.of-bar .of-down { order: 3; width: 44px; height: 22px; margin: -4px 0 -6px; }
+.of-bar .of-down { order: 4; width: 44px; height: 22px; margin: -4px 0 -6px; }
 .of-bar .of-down svg { width: 18px; height: 18px; }
+
+/* (10/10) la vitrine : RECEVOIR, puis ce qu'on reçoit (une chose à la fois, flèches de part et d'autre), puis le prix ;
+   en haut, l'objet : la feuille en direct, ou sa boucle vidéo (rendue par le moteur, même fond) */
+.of-stage { position: absolute; top: 0; bottom: 0; left: calc(50% - 50vw); width: 100vw; background: #060606; opacity: 0; transition: opacity .5s ease; pointer-events: none; }
+.of-stage.on { opacity: 1; }
+.of-vid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #060606; opacity: 0;
+  transform: translateX(var(--dx, 0)); transition: opacity .5s ease, transform .6s cubic-bezier(.2,.7,.3,1);
+  -webkit-mask-image: radial-gradient(ellipse 62% 58% at 50% 50%, #000 70%, transparent 100%); mask-image: radial-gradient(ellipse 62% 58% at 50% 50%, #000 70%, transparent 100%); }
+.of-vid.on { opacity: 1; }
+.of-vit { order: 2; display: flex; align-items: center; justify-content: center; gap: 0; width: min(calc(100% + 16px), 400px); margin: 1px 0 -2px; touch-action: pan-y pinch-zoom; }
+.of-vit-t { flex: 1; margin: 0; height: 4.65em; display: flex; align-items: center; justify-content: center;
+  font: min(13px, 3.45vw)/1.55 'SG Machine', 'Courier New', monospace; color: #cfcac1; text-align: center; letter-spacing: .01em; }
+.of-vit-t > i { font-style: normal; display: block; }
+.of-vit-a { flex: none; width: 34px; height: 44px; padding: 0; border: 0; background: none; color: #fff; opacity: .42; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: opacity .3s; }
+.of-vit-a:hover, .of-vit-a:focus-visible { opacity: .8; outline: none; }
+.of.env .of-vit, .of.paying .of-vit { display: none; }

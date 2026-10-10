@@ -918,7 +918,7 @@ export function createSheetScene(gl, opts) {
       if (!env || !lastMenv || !vp || env.pp < PO.tip[0]) return null;
       const m = M4.mul(vp, lastMenv), pr = x => { const y = -ENV.h / 2, cx = m[0] * x + m[4] * y + m[12], cy = m[1] * x + m[5] * y + m[13], cw = m[3] * x + m[7] * y + m[15]; return [(cx / cw * 0.5 + 0.5) * W, (0.5 - cy / cw * 0.5) * H]; };
       const a = pr(-ENV.w / 2), b = pr(ENV.w / 2);
-      return { x0: a[0], y0: a[1], x1: b[0], y1: b[1], done: env.pp >= PO.end };
+      return { x0: a[0], y0: a[1], x1: b[0], y1: b[1], done: env.pp >= PO.end, gone: env.pp >= PO.fade[1] };   // gone : l'enveloppe s'est fondue, la ligne reste
     },
     // où poser POSTER : sous le bas de l'enveloppe, à l'aplomb de l'adresse, à l'écran (il la suit)
     signAt: () => {

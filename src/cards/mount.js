@@ -39,7 +39,9 @@ const CSS = `
 .sc-mail input { display: block; width: 100%; box-sizing: border-box; font: 16px/1.5 'SG Machine', 'Courier New', monospace; color: transparent;
   text-align: center; background: transparent; border: 0; border-radius: 0; padding: 0 0 5px; margin: 0; outline: none;
   caret-color: rgba(255,255,255,.7); -webkit-appearance: none; appearance: none; }
-.sc-mail input::placeholder { color: rgba(255,255,255,.3); }
+/* (10/10) « email » n'apparaît qu'une fois l'enveloppe disparue, quand on peut écrire */
+.sc-mail input::placeholder { color: transparent; transition: color .8s; }
+.sc-mail.ready input::placeholder { color: rgba(255,255,255,.3); }
 /* remplissage automatique : pas de fond coloré ni de rectangle derrière l'email */
 .sc-mail input:-webkit-autofill, .sc-mail input:-webkit-autofill:hover, .sc-mail input:-webkit-autofill:focus, .sc-mail input:autofill {
   -webkit-text-fill-color: transparent; -webkit-box-shadow: 0 0 0 1000px #060606 inset; box-shadow: 0 0 0 1000px #060606 inset;
@@ -284,8 +286,7 @@ export async function mountCards(opts) {
     };
     const go = el('div', 'sc-pass', 'COMMANDER'); go.setAttribute('role', 'button'); go.tabIndex = 0;
     requestAnimationFrame(() => box.classList.add('on'));
-    // ordinateur : le curseur y est tout de suite ; téléphone : toucher la ligne (le clavier ne s'ouvre qu'au toucher)
-    if (matchMedia('(pointer: fine)').matches) setTimeout(() => inp.focus({ preventScroll: true }), 700);
+    // ordinateur : le curseur y vient dès que l'enveloppe a disparu (placeMail) ; téléphone : toucher la ligne
     const ok = () => mailOk(inp.value);
     inp.addEventListener('input', () => { draw(); go.classList.toggle('on', ok()); if (mail) placeMail(); });
     inp.addEventListener('change', draw);
@@ -309,7 +310,7 @@ export async function mountCards(opts) {
     go.addEventListener('click', finish);
     go.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); finish(); } });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); finish(); } });
-    mail = { box, inp, go, inner, draw };
+    mail = { box, inp, go, inner, draw, ready: false };
     say('l’enveloppe est partie. ton email, puis COMMANDER.');
     api.ask = { input: inp, send: finish };
   }
@@ -350,6 +351,10 @@ export async function mountCards(opts) {
   // le champ de l'email suit la tranche (à l'écran) ; COMMANDER dessous (clavier ouvert : au-dessus du clavier)
   function placeMail() {
     const Ln = sheet && sheet.edgeLine(); if (!Ln) return;
+    if (Ln.gone && !mail.ready) {
+      mail.ready = true; mail.box.classList.add('ready');
+      if (matchMedia('(pointer: fine)').matches) mail.inp.focus({ preventScroll: true });
+    }
     mail.draw();                                     // (remplissage automatique sans événement)
     // la ligne : la tranche tant qu'elle se voit, puis MAIL_W ; elle s'allonge avec ce qu'on tape
     const tw = mail.inner.offsetWidth || 0;

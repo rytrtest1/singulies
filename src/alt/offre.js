@@ -16,16 +16,17 @@ let onPaidHere = null;
 const readOrder = () => { try { return JSON.parse(localStorage.getItem(K_ORDER) || 'null'); } catch { return null; } };
 const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o)); } catch { /* */ } };
 const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
-// (10/10) sous la feuille, une seule phrase, tapée à la machine
-// (10/10) sous la feuille, juste au-dessus de COMMANDER : ce qu'il y a dans l'enveloppe, tapé à la machine, une chose à
-// la fois (chaque ligne se tape, reste, s'efface ; deux tours, puis la première reste). À ajuster par Maxence.
-const POEME = [
-  'un poème original tapé à la machine',
-  'ta question, sur une carte du jeu',
-  'une enveloppe noire, fermée à la cire',
-  'une carte vierge, pour écrire ton prénom et me la renvoyer',
-  'un fil noir, pour relier les singuliers',
+// (10/10) la vitrine : ce qu'il y a dans l'envoi, une chose à la fois. En haut l'objet (la feuille de la personne, en
+// direct ; les autres : des boucles rendues par le vrai moteur, tools/vitrine-shot.mjs → public/vitrine/), dessous
+// RECEVOIR, sa description (flèches de part et d'autre, ou glisser l'objet), le prix. Un tour tout seul, puis la feuille.
+const OBJETS = [
+  { id: 'feuille', txt: 'l’exemplaire unique du poème, tapé à la machine à écrire' },
+  { id: 'carte', txt: 'la question du jeu SINGULIES que tu vas piocher' },
+  { id: 'enveloppe', txt: 'le tout dans une enveloppe scellée à la cire' },
+  { id: 'carbone', txt: 'une carte noire vierge, du papier carbone pour y écrire ton prénom, et un timbre pour me la renvoyer' },
+  { id: 'fil', txt: 'un fil noir pour relier les SINGULIES, et un bout à garder au poignet' },
 ];
+const CHEV = d => `<svg viewBox="0 0 24 24" width="16" height="16"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>`;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // le paiement : le prénom part dans client_reference_id (A–Z, chiffres, - et _), et reste ici pour merci.html
@@ -337,13 +338,13 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   onPaidHere = onPaid;
   const root = document.createElement('div');
   root.id = 'offre'; root.className = 'of' + (over ? ' over' : '');
+  root.style.setProperty('--inset', SHEET_INSET + 'px');
   root.innerHTML = `
     <button class="of-back" type="button" aria-label="Changer le prénom">${BACK_SVG}</button>
     <nav class="of-menu" aria-label="Menu"><button class="of-menu-b" type="button" aria-label="Menu" aria-expanded="false"><i></i><i></i></button>
       <div class="of-menu-l"><a href="${esc(LIENS.jeu)}">LE JEU</a><a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">MES LIVRES</a><a href="${esc(LIENS.instagram)}" target="_blank" rel="noopener">@E.T.ERNEL</a></div></nav>
     <main>
-      ${over ? '<div class="of-hole" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
-      <p class="of-note of-poem" aria-label="${esc(POEME.join(' '))}"></p>
+      ${over ? '<div class="of-hole"><div class="of-stage" aria-hidden="true"></div></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
       <button class="of-down" type="button" aria-label="D’autres prénoms, d’autres poèmes"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 9.5 L12 15.5 L18 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></button>
       <div class="of-rest">
       <section class="of-ex" aria-label="D’autres poèmes"><h2 class="of-h">d’autres prénoms, d’autres poèmes</h2><div class="of-ex-host"></div></section>
@@ -351,8 +352,13 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     </main>
     <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
+      <button class="of-go" type="button">RECEVOIR</button>
+      <div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
+        <button class="of-vit-a" type="button" data-d="-1" aria-label="Précédent">${CHEV('M14.5 6 L8.5 12 L14.5 18')}</button>
+        <p class="of-vit-t" aria-live="polite"></p>
+        <button class="of-vit-a" type="button" data-d="1" aria-label="Suivant">${CHEV('M9.5 6 L15.5 12 L9.5 18')}</button>
+      </div>
       <div class="of-price"><b>${esc(PRIX)}</b> frais compris</div>
-      <button class="of-go" type="button">COMMANDER</button>
     </div>`;
   document.body.appendChild(root);
   document.body.classList.add('of-open');
@@ -374,37 +380,95 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   }
 
   mountExemples(root.querySelector('.of-ex-host'));
-  // le poème, tapé à la machine sous la feuille (lettre par lettre, appui irrégulier), une fois la feuille posée
-  const poem = root.querySelector('.of-poem');
-  const typePoem = () => {
-    // une ligne : tapée (appui irrégulier), tenue, effacée comme au retour arrière ; puis la suivante
-    let k = 0, tour = 0;
-    const wait = ms => new Promise(r => setTimeout(r, ms));
-    const typeLine = async txt => {
-      for (const c of txt) {
-        if (!poem.isConnected) return;
-        const sp = document.createElement('span'); sp.textContent = c; sp.style.opacity = (0.7 + 0.3 * Math.random()).toFixed(2); poem.appendChild(sp);
-        await wait(c === ' ' ? 45 : 28 + Math.random() * 30);
-      }
+  // ---- la vitrine (10/10) ----
+  const txt = root.querySelector('.of-vit-t'), stage = root.querySelector('.of-stage'), hole = root.querySelector('.of-hole');
+  const busyMode = () => root.classList.contains('paying') || root.classList.contains('env');
+  let cur = -1, auto = true, timer = 0, typing = 0;
+  const vids = OBJETS.map(o => {
+    if (!stage || o.id === 'feuille') return null;
+    const v = document.createElement('video');
+    Object.assign(v, { muted: true, playsInline: true, preload: 'none' });
+    v.setAttribute('playsinline', ''); v.setAttribute('muted', ''); v.className = 'of-vid';
+    v.poster = new URL(`./vitrine/${o.id}.jpg`, document.baseURI).href;
+    v.dataset.src = new URL(`./vitrine/${o.id}.mp4`, document.baseURI).href;
+    v.addEventListener('error', () => { v.dataset.bad = '1'; if (OBJETS[cur] === o && !auto) stage.classList.remove('on'); });
+    v.addEventListener('ended', () => {
+      if (OBJETS[cur] !== o) return;
+      clearTimeout(timer);
+      // un tour tout seul ; ensuite (ou dès qu'on a touché aux flèches) l'objet rejoue sa boucle, après un temps
+      timer = setTimeout(() => {
+        if (auto) { step(1); return; }
+        v.classList.remove('on');
+        setTimeout(() => { if (OBJETS[cur] === o) { v.currentTime = 0; v.classList.add('on'); v.play().catch(() => {}); } }, 450);
+      }, auto ? 1300 : 2600);
+    });
+    stage.appendChild(v);
+    return v;
+  });
+  const load = k => { const v = vids[k]; if (v && !v.src) { v.preload = 'auto'; v.src = v.dataset.src; } };
+  // la description, tapée à la machine (vite) ; l'ancienne s'efface d'un coup
+  const typeTxt = s => {
+    const my = ++typing; txt.textContent = ''; txt.setAttribute('aria-label', s);
+    const box = document.createElement('i'); txt.appendChild(box);
+    let i = 0;
+    const tick = () => {
+      if (my !== typing || i >= s.length) return;
+      const sp = document.createElement('span'); sp.textContent = s[i]; sp.style.opacity = (0.72 + 0.28 * Math.random()).toFixed(2);
+      box.appendChild(sp); i++;
+      setTimeout(tick, s[i - 1] === ' ' ? 22 : 12 + Math.random() * 14);
     };
-    const erase = async () => { while (poem.lastChild && poem.isConnected) { poem.lastChild.remove(); await wait(14); } };
-    (async () => {
-      for (;;) {
-        await typeLine(POEME[k]);
-        if (tour >= 2 && k === 0) return;                       // deux tours faits : la première ligne reste
-        await wait(k === 0 ? 2600 : 2200);
-        if (!poem.isConnected || root.classList.contains('paying') || root.classList.contains('env')) return;
-        await erase(); await wait(260);
-        k = (k + 1) % POEME.length; if (k === 0) tour++;
-      }
-    })();
+    tick();
   };
-  setTimeout(typePoem, over ? 900 : 1400);
+  // les petits mots restent avec le suivant (jamais « à » seul en fin de ligne)
+  const nbsp = s => { const r = /(^|[\s ])(à|a|de|du|la|le|un|et|y|me|ton|pour|au) /gi, f = x => x.replace(r, (m, a, w) => a + w + ' '); return f(f(s)); };
+  const show = (k, dir = 1) => {
+    k = (k + OBJETS.length) % OBJETS.length;
+    if (k === cur) return;
+    const prev = vids[cur]; cur = k;
+    clearTimeout(timer);
+    typeTxt(nbsp(OBJETS[k].txt));
+    if (prev) { prev.classList.remove('on'); prev.style.setProperty('--dx', (-24 * dir) + 'px'); setTimeout(() => { if (vids[cur] !== prev) prev.pause(); }, 500); }
+    const v = vids[k];
+    load(k + 1 < OBJETS.length ? k + 1 : 0);
+    if (!v) { stage?.classList.remove('on'); if (auto) timer = setTimeout(() => step(1), 6000); return; }   // la feuille : en direct
+    load(k);
+    stage.classList.toggle('on', !v.dataset.bad || !auto);
+    if (v.dataset.bad && auto) { step(1); return; }
+    v.style.setProperty('--dx', (24 * dir) + 'px'); void v.offsetWidth;
+    v.classList.add('on'); v.style.setProperty('--dx', '0px');
+    try { v.currentTime = 0; } catch { /* */ }
+    const p = v.play();
+    // lecture refusée (économie d'énergie de l'iPhone…) : l'image fixe, et la suite après un temps
+    if (p && p.catch) p.catch(() => { if (auto && OBJETS[cur] === OBJETS[k]) timer = setTimeout(() => step(1), 4500); });
+  };
+  const step = d => {
+    if (busyMode()) return;
+    if (auto && d > 0 && cur === OBJETS.length - 1) { auto = false; show(0, 1); return; }   // un tour, puis la feuille
+    show(cur + d, d);
+  };
+  const manual = d => { auto = false; count('alt/vitrine'); step(d); };
+  root.querySelectorAll('.of-vit-a').forEach(b => b.addEventListener('click', () => manual(+b.dataset.d)));
+  // glisser l'objet (ou la description) de côté
+  for (const z of [hole, root.querySelector('.of-vit')]) {
+    if (!z) continue;
+    let x0 = null, y0 = 0;
+    z.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; }, { passive: true });
+    z.addEventListener('pointerup', e => {
+      if (x0 == null) return;
+      const dx = e.clientX - x0, dy = e.clientY - y0; x0 = null;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > 1.6 * Math.abs(dy)) manual(dx < 0 ? 1 : -1);
+    });
+    z.addEventListener('pointercancel', () => { x0 = null; });
+  }
+  // la vitrine se met de côté pendant l'enveloppe et le paiement : la feuille, en direct
+  const toSheet = () => { auto = false; clearTimeout(timer); if (cur !== 0) show(0, -1); };
+  new MutationObserver(() => { if (busyMode()) toSheet(); }).observe(root, { attributes: true, attributeFilter: ['class'] });
+  setTimeout(() => show(0), over ? 700 : 900);
   // (10/10) une page qui semble finie : la feuille, sa légende, le bandeau ; si rien ne se passe, une petite flèche
   // invite à descendre vers les autres poèmes
   const down = root.querySelector('.of-down');
   root.querySelector('.of-bar').appendChild(down);   // (10/10) tout en bas, sous le prix : elle invite à descendre, sans pointer COMMANDER
-  setTimeout(() => { if (root.scrollTop < 30 && !root.classList.contains('paying') && !root.classList.contains('env')) down.classList.add('on'); }, over ? 5200 : 6000);
+  setTimeout(() => { if (root.scrollTop < 30 && !busyMode()) down.classList.add('on'); }, over ? 5200 : 6000);
   down.addEventListener('click', () => { const ex = root.querySelector('.of-ex'); root.scrollTo({ top: root.scrollTop + ex.getBoundingClientRect().top - 40, behavior: 'smooth' }); });
   // en descendant, la feuille remonte avec la page (comme si on faisait défiler une vraie page)
   const cv = () => document.querySelector('canvas.sc-c');
@@ -438,7 +502,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     go.textContent = 'PAYER';
     envelope.open();
   };
-  const leaveEnv = () => { inEnv = false; envAddr = null; root.classList.remove('env', 'env-ready'); go.textContent = 'COMMANDER'; };
+  const leaveEnv = () => { inEnv = false; envAddr = null; root.classList.remove('env', 'env-ready'); go.textContent = 'RECEVOIR'; };
   const back = () => {
     if (inEnv) { closePanel(); envelope.back(); leaveEnv(); return; }
     count('alt/retour'); onBack?.();

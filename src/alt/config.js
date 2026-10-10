@@ -6,9 +6,9 @@ export function lundiSuivant(d = new Date()) {
   const x = new Date(d); x.setDate(x.getDate() + (((8 - x.getDay()) % 7) || 7));
   return x.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
 }
-// (10/10) la feuille se cadre au-dessus de ce qui viendra sous elle : la légende, la flèche, le bandeau (px, sans la
+// (10/10) la feuille se cadre au-dessus de ce qui viendra sous elle : RECEVOIR, la description, le prix (px, sans la
 // marge du bas de l'iPhone)
-export const SHEET_INSET = 178;
+export const SHEET_INSET = 188;
 export const ENVOI = lundiSuivant();   // (plus affiché : voir DELAI)
 // (10/10) aucun délai affiché (Maxence) ; s'il revient : « je le tape et le poste sous 3 jours »
 export const DELAI = '';

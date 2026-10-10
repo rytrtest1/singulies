@@ -93,7 +93,8 @@ const CSS = `
 .sp-mail input { display: block; width: 100%; box-sizing: border-box; text-align: center; font: 16px/1.5 'SG Machine', 'Courier New', monospace;
   color: rgb(214,214,214); background: transparent; border: 0; border-bottom: 1px solid rgba(255,255,255,.3); border-radius: 0; padding: 4px 0;
   outline: none; -webkit-appearance: none; caret-color: rgba(255,255,255,.7); -webkit-user-select: text; user-select: text; }
-.sp-mail input::placeholder { color: rgba(255,255,255,.3); }
+.sp-mail input::placeholder { color: transparent; transition: color .8s; }
+.sp-mail.ready input::placeholder { color: rgba(255,255,255,.3); }   /* (10/10) « email » une fois l'enveloppe disparue */
 .sp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @keyframes sp-bob { 0%, 100% { translate: 0 0; } 18% { translate: 0 -14px; } 36% { translate: 0 0; } 50% { translate: 0 -5px; } 64% { translate: 0 0; } }
 `;
@@ -756,7 +757,7 @@ export function mountSimpleFlow(opts) {
     const place = () => { const y = size.H * (size.kb > 40 ? 0.55 : 0.52); box.style.top = (y - 30) + 'px'; go.style.top = Math.min(y + 22, size.H - 50) + 'px'; };
     R.onResize = place; place();
     R.later(() => box.classList.add('on'), 200);
-    if (!TOUCH) R.later(() => inp.focus({ preventScroll: true }), 700);
+    R.later(() => { box.classList.add('ready'); if (!TOUCH) inp.focus({ preventScroll: true }); }, REDUCED ? 0 : 1100);   // l'enveloppe s'est fondue
     R.say('l’enveloppe est partie. ton email, puis COMMANDER.');
     const ok = () => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(inp.value.trim());
     inp.addEventListener('input', () => go.classList.toggle('on', ok()));
