@@ -125,7 +125,7 @@ function paidHere(name, ref, extra = {}) {
 }
 // Apple Pay / Google Pay dans le bandeau fermé : un toucher, sans rien ouvrir. Sans portefeuille (pas de carte
 // enregistrée, navigateur d'Instagram, ordinateur sans Chrome…) : rien ne change, COMMANDER → le panneau (carte, PayPal).
-let barWallet = '';   // '' : pas essayé · 'yes' : bouton dans le bandeau · 'no' : aucun portefeuille
+let barWallet = '';   // '' : pas essayé · 'pending' : bouton créé, réponse attendue · 'yes' : dans le bandeau · 'no' : aucun
 function barWalletSetup(root, name) {
   if (!(STRIPE_PK && PAIEMENT_URL) || Q.get('paiement') === 'faux') return;
   const bar = root.querySelector('.of-bar'), go = bar.querySelector('.of-go');
@@ -141,14 +141,19 @@ function barWalletSetup(root, name) {
       paymentMethods: { applePay: 'auto', googlePay: 'auto', link: 'never', paypal: 'never', amazonPay: 'never', klarna: 'never' },
       layout: { maxColumns: 1, maxRows: 1, overflow: 'never' },
     });
+    barWallet = 'pending';   // (un seul bouton de portefeuille par session : le panneau n'en crée pas d'autre)
     el.mount(host);
-    el.on('availablepaymentmethodschange', ({ paymentMethods }) => {
-      const ok = !!(paymentMethods && (paymentMethods.applePay || paymentMethods.googlePay));
+    let decided = false;
+    const decide = pm => {
+      if (decided) return; decided = true;
+      const ok = !!(pm && (pm.applePay || pm.googlePay));
       barWallet = ok ? 'yes' : 'no';
       bar.classList.toggle('wallet', ok);
       if (ok) count('alt/portefeuille');
-      else { try { el.destroy(); } catch { /* */ } host.remove(); card.remove(); }
-    });
+      else { host.remove(); card.remove(); }
+    };
+    el.on('ready', e => decide(e && e.availablePaymentMethods));
+    el.on('availablepaymentmethodschange', e => decide(e && e.paymentMethods));
     el.on('confirm', async ev => {
       const r = await actions.confirm({ expressCheckoutConfirmEvent: ev, redirect: 'if_required' });
       if (r && r.type === 'success') paidHere(name, ref, { session: r.session?.id || '', gift: !!readOrder()?.gift });
@@ -227,7 +232,7 @@ function openPanel(name, ref) {
     pmHost.innerHTML = '';
     // en tête : Apple Pay / Google Pay / PayPal en un toucher (l'adresse et l'email viennent du portefeuille) — sauf si
     // le bandeau porte déjà le bouton du portefeuille (un seul par session) ou qu'aucun n'existe sur cet appareil
-    if (!barWallet) {
+    if (!barWallet) try {
       const express = checkout.createExpressCheckoutElement({
         buttonHeight: 48, buttonTheme: { applePay: 'white', googlePay: 'white' },
         buttonType: { applePay: 'buy', googlePay: 'buy', paypal: 'buynow' }, layout: { maxColumns: 1, overflow: 'never' },
@@ -240,7 +245,7 @@ function openPanel(name, ref) {
         if (r && r.type === 'success') { paidNow({ session: r.session?.id || '' }); return; }
         if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
       });
-    }
+    } catch (e) { console.warn('portefeuille (panneau)', e); }   // jamais au détriment de la carte
     checkout.createShippingAddressElement().mount(addrHost);
     checkout.createPaymentElement().mount(pmHost);
     let busy = false;
