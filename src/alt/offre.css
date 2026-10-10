@@ -231,12 +231,6 @@
 
 /* (10/10) la vitrine : RECEVOIR, puis ce qu'on reçoit (une chose à la fois, flèches de part et d'autre), puis le prix ;
    en haut, l'objet : la feuille en direct, ou sa boucle vidéo (rendue par le moteur, même fond) */
-.of-stage { position: absolute; top: 0; bottom: 0; left: calc(50% - 50vw); width: 100vw; background: #060606; opacity: 0; transition: opacity .5s ease; pointer-events: none; }
-.of-stage.on { opacity: 1; }
-.of-vid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #060606; opacity: 0;
-  transform: translateX(var(--dx, 0)); transition: opacity .5s ease, transform .6s cubic-bezier(.2,.7,.3,1);
-  -webkit-mask-image: radial-gradient(ellipse 62% 58% at 50% 50%, #000 70%, transparent 100%); mask-image: radial-gradient(ellipse 62% 58% at 50% 50%, #000 70%, transparent 100%); }
-.of-vid.on { opacity: 1; }
 .of-vit { order: 2; display: flex; align-items: center; justify-content: center; gap: 0; width: min(calc(100% + 16px), 400px); margin: 1px 0 -2px; touch-action: pan-y pinch-zoom; }
 .of-vit-t { flex: 1; margin: 0; height: 4.65em; display: flex; align-items: center; justify-content: center;
   font: min(13px, 3.45vw)/1.55 'SG Machine', 'Courier New', monospace; color: #cfcac1; text-align: center; letter-spacing: .01em; }

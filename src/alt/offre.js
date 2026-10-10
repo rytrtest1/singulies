@@ -372,7 +372,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
         <p class="of-vit-t" aria-live="polite"></p>
         <button class="of-vit-a" type="button" data-d="1" aria-label="Suivant">${CHEV('M9.5 6 L15.5 12 L9.5 18')}</button>
       </div>
-      <div class="of-price"><b>${esc(PRIX)}</b> frais compris${RESERVE ? ' <span>· rien à payer maintenant</span>' : ''}</div>
+      <div class="of-price"><b>${esc(PRIX)}</b> frais compris</div>
     </div>`;
   document.body.appendChild(root);
   document.body.classList.add('of-open');

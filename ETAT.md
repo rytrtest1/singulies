@@ -348,6 +348,6 @@ Voir « Point de reprise » en tête de fichier.
 
 ## 10/10 — réservation sans paiement (pas encore de SIRET)
 - `RESERVATION = true` (src/alt/config.js) : RÉSERVER au lieu de PAYER dans l'enveloppe, aucune session Stripe ; la suite = la cérémonie « payé » (afterPay), email tapé à la fin ; demande marquée « réservation (à payer : lien à envoyer), réf. … » ; lien Payment Link prérempli (client_reference_id, prefilled_email) dans contact_html si `STRIPE` est rempli.
-- Vérifié (`node tools/alt-paid-check.mjs reserve`, 390×844) : bandeau « RÉSERVER / 30 € frais compris · rien à payer maintenant », adresse tapée seule, email, TERMINER, fin « je t'écris pour le paiement… », aucune erreur ; le parcours payé (`alt-paid-check.mjs` sans argument) inchangé.
+- Vérifié (`node tools/alt-paid-check.mjs reserve`, 390×844) : bandeau « RÉSERVER / 30 € frais compris » (11/10 : « rien à payer maintenant » retiré), adresse tapée seule, email, TERMINER, fin « je t'écris pour le paiement… », aucune erreur ; le parcours payé (`alt-paid-check.mjs` sans argument) inchangé.
 - Non vérifié : vrai envoi EmailJS (essais en `?envoi=0`), iPhone réel. « pour moi / pour offrir » n'existe pas en réservation (il était dans le panneau de paiement).
 - Reste : obtenir le SIRET, créer le Payment Link Stripe (STRIPE), puis `RESERVATION = false`.
