@@ -275,7 +275,7 @@ export function createSheetScene(gl, opts) {
   const EC = { x: 0, y: EC_Y, z: ENV_Z };
   const envClock = t => !env ? 0 : env.back ? Math.max(0, env.back.e0 - (t - env.back.t0) * 2.2 / SLOW) : (t - env.t0) / SLOW;
   // (10/10, alt) la vitrine : ce qu'il y a dans l'envoi, joué ici même, de la feuille de la personne (src/vitrine)
-  const VIT = HOLD && opts.vitrine ? createVitrine({ gl, card, rnd, PRENOM, SY, EC, SHEET, C_POSE, C_IN, reduced, top: from.top || null, base: opts.base || './' }) : null;
+  const VIT = HOLD && opts.vitrine ? createVitrine({ gl, card, rnd, PRENOM, SY, EC, SHEET, C_POSE, C_IN, reduced, top: from.top || null, base: opts.base || './', sigY: SIG.y }) : null;
   let vOcc = null;
   const quads = {};
 
@@ -444,10 +444,10 @@ export function createSheetScene(gl, opts) {
         M4.mul(G, M4.mul(M4.model(-(Math.PI / 2 - TILT) * uTip, 0, 0), M4.model(0, Math.PI * (uFlip + uTurn), 0))));
       // réglages (?cachet) : l'enveloppe tournée à la main, autour du cachet
       if (SEAL_SHAPE.rotX || SEAL_SHAPE.rotY) { const py = ENV.h / 2 - FLAP_H + 7; Menv = M4.mul(Menv, M4.mul(T(0, py, 0), M4.mul(M4.model(SEAL_SHAPE.rotX, SEAL_SHAPE.rotY, 0), T(0, -py, 0)))); }
-      if (VE && VE.M) Menv = VE.M;                            // vitrine, tout l'envoi : l'enveloppe posée à plat
+      if (VE && VE.M) Menv = VE.M;                            // vitrine : l'enveloppe là où elle la pose
       lastMenv = Menv;
     }
-    const envFade = inEnv ? (VE ? VE.fade * (VE.M ? 1 : uI) : uI * (1 - sstep(PO.fade[0], PO.fade[1], pp))) : 0;
+    const envFade = inEnv ? (VE ? VE.fade * (VE.M || VE.rel ? 1 : uI) : uI * (1 - sstep(PO.fade[0], PO.fade[1], pp))) : 0;
     // ---- la feuille : arrive du fond, un peu d'en dessous ; en focus tant qu'on la regarde ; « par la poste » :
     // elle pivote (paysage), descend sous le bord de la poche et s'y glisse ----
     const sIn = reduced ? sstep(SHEET_IN[0], SHEET_IN[0] + 0.8, tu) : ease(span(SHEET_IN, tu));
@@ -462,6 +462,8 @@ export function createSheetScene(gl, opts) {
     }
     const VS = V && !env ? V.sheetState() : null;
     if (VS && VS.M) Msheet = VS.M;
+    // vitrine : l'enveloppe posée sur la feuille (repère de la feuille : elle penche avec elle, rien ne la traverse)
+    if (VE && VE.rel) { Menv = M4.mul(Msheet, VE.rel); lastMenv = Menv; }
     const sheetFade = VS && VS.fade != null ? VS.fade : 1;
     lastMsheet = Msheet;
     const dimS = 1 - L.unfocusDim * sL;
@@ -501,7 +503,7 @@ export function createSheetScene(gl, opts) {
     }
     // ---- dessin : enveloppe (fond), feuille, carte, lettres, puis le dos de l'enveloppe et le rabat (devant) ----
     // pleine : bombée une fois la feuille glissée dedans ; l'ombre du rabat du haut une fois fermé
-    const EP = envPieces(inEnv ? ease(span(E.slide, ev)) : 0, uFlap);
+    const EP = envPieces(VE && VE.bulge != null ? VE.bulge : inEnv ? ease(span(E.slide, ev)) : 0, uFlap);
     if (Menv && envFade > 0.004) {
       const cur = writePhase && (env.writing || !env.f[env.field]) ? { cursor: [ENV.w / 2 - env.cursor.x, ENV.h / 2 - env.cursor.y - 0.8, TYPE.size * 0.92, (0.55 + 0.4 * Math.sin(t * 2.4)) * sstep(E.write, E.write + 0.8, ev)], cursorFace: 1 } : {};
       // l'encre de l'enveloppe : posée SUR le papier, bien lisible (06/10 : on la croyait sous la feuille) — lampe lointaine ici
@@ -615,13 +617,13 @@ export function createSheetScene(gl, opts) {
       if (P_LOGO && uSe > 0) {
         // la pose : la cire coule, le sceau (invisible) appuie, elle refroidit (sealForm) ; mouvement réduit : le cachet fini
         const Fm = sealForm(reduced ? 1 : SEAL_PRESS0 + (1 - SEAL_PRESS0) * uSe, SEAL_LOOK, SEAL_SHAPE);
-        const Ms = M4.mul(Mf, T(0, FLAP_H / 2 - 7, -0.19 - EP.sealDz));
+        const Ms = M4.mul(M4.mul(Mf, T(0, FLAP_H / 2 - 7, -0.19 - EP.sealDz)), M4.model(0, 0, VE && VE.sealRot ? -VE.sealRot : 0));   // (vitrine : l'enveloppe est dressée, le logo reste droit)
         card.draw(vp, eye, { ...P, ...Fm.look }, { model: Ms, lod: sealLod, fade: envFade * sstep(0, reduced ? 0.35 : 0.1, uSe), shade: 1, ...sealV, paperLo: SEAL_SHAPE.marbre, ...pq,
           sealP: [SEAL_SHAPE.hd, SEAL_SHAPE.hc, SEAL_SHAPE.crest, Fm.ring], sealQ: [Fm.pits, Fm.cavWall, SEAL_SHAPE.cavEdge, SEAL_SHAPE.aoW], form: Fm.form,
           sealV4: [SD.wobPhase, SD.crest, SD.tilt, Fm.peau], sealR: [SEAL_SHAPE.film, SEAL_SHAPE.sss, SEAL_SHAPE.offX, SEAL_SHAPE.offY], logoOff: [SEAL_SHAPE.offX, SEAL_SHAPE.offY], blend: true });
       }
     }
-    if (V && !env) { const r = V.draw(vp, eye, P, Msheet, Menv, t); vOcc = r.occ; } else vOcc = null;
+    if (VIT && !env && !backing) { const r = VIT.draw(vp, eye, P, Msheet, Menv, t, sstep(CURSOR_AT, CURSOR_AT + 1.2, tu)); vOcc = r.occ; } else vOcc = null;
     // « en direct » envoyé : l'événement, une fois la carte partie
     if (direct && direct.postT >= 0 && !direct.sent && t - direct.postT > 1.7) {
       direct.sent = true;

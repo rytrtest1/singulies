@@ -20,12 +20,13 @@ const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o));
 const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
 // (10/10) la vitrine : ce qu'il y a dans l'envoi, une chose à la fois, JOUÉ EN DIRECT dans la scène de la feuille
 // (src/vitrine/vitrine.js) : une seule histoire qui s'enchaîne, de sa feuille à tout l'envoi posé à plat. Dessous, la
-// description (flèches de part et d'autre, ou glisser l'objet), RECEVOIR, le prix. Trois étapes (Maxence 10/10 : plus
-// simple) ; un tour tout seul, il s'arrête sur la dernière ; dès qu'on touche aux flèches, plus de défilé automatique.
+// description (flèches de part et d'autre, ou glisser l'objet), RECEVOIR, le prix. Quatre étapes, la vue ne bouge pas,
+// un fil noir les relie (Maxence 11/10) ; un tour tout seul, il s'arrête sur la dernière ; dès qu'on touche aux flèches, plus de défilé automatique.
 const OBJETS = [
   { id: 'feuille', txt: 'l’exemplaire unique de ton poème, tapé à la machine à écrire' },
-  { id: 'enveloppe', txt: 'la question du jeu SINGULIES, tirée au hasard, le tout scellé à la cire' },
-  { id: 'carte', txt: 'une carte vierge pour m’écrire ton prénom à la main, et un fil noir… pour relier les SINGULIES' },
+  { id: 'carte', txt: 'la question du jeu SINGULIES, tirée au hasard' },
+  { id: 'enveloppe', txt: 'le tout scellé à la cire' },
+  { id: 'fil', txt: 'une carte vierge pour m’écrire ton prénom à la main, et un fil noir… pour relier les SINGULIES' },
 ];
 const CHEV = d => `<svg viewBox="0 0 24 24" width="16" height="16"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>`;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

@@ -1,17 +1,18 @@
-// La vitrine (10/10, alt.html) : ce qu'il y a dans l'envoi, joué EN DIRECT dans la scène de la feuille — la feuille de
-// la personne, son prénom, puis une seule histoire qui s'enchaîne, en trois étapes qu'on avance ou recule :
-//   0 la feuille (le prénom en colonne)
-//   1 la carte question monte du bas de l'écran, se retourne face cachée, se pose sur la feuille ; la feuille et la carte
-//     entrent dans l'enveloppe ; une carte noire vierge se pose sur le dos, un fil noir fait le tour de l'enveloppe et la
-//     tient ; le rabat se ferme sur la carte ; le cachet de cire
-//   2 le fil glisse, la carte vierge aussi ; le carbone blanc s'y pose, le prénom s'écrit à la main (en noir sur le
-//     carbone) ; le carbone se soulève : le prénom, blanc, sur la carte ; un timbre ; puis la carte rejoint d'autres cartes
-//     à prénoms, le fil passe dans leurs trous : la guirlande des SINGULIES (le fil du poignet reste une surprise)
-// Tout est une fonction de l'horloge vt (s) : reculer rejoue à l'envers. sheet.js lui confie la feuille, l'enveloppe et
-// le cachet (ses propres horloges E / PO, sans retournement), la vitrine dessine le reste (carte, carte vierge,
-// carbone, timbre, fil, autres cartes).
+// La vitrine (11/10, alt.html) : ce qu'il y a dans l'envoi, joué EN DIRECT dans la scène de la feuille, sans bouger la
+// vue (la feuille garde sa taille et sa place ; le cadre ne s'élargit qu'un peu, si un objet dépasse, et revient) — un
+// fil noir fait le lien d'une étape à l'autre (le fil rouge), et annonce la guirlande :
+//   0 la feuille ; le fil pend sous « JEU », en haut
+//   1 la carte question descend de « JEU » (face cachée), le fil la suit, elle se pose en bas de la feuille
+//   2 l'enveloppe (dressée, à la place de la feuille) glisse sur la feuille et la carte ; une carte vierge descend le
+//     long du fil (enfilée par ses trous), se pose sur l'enveloppe ; le fil en fait le tour et la tient ; le rabat se
+//     ferme sur elle ; le cachet de cire
+//   3 le fil glisse, la carte vierge vient devant ; le carbone blanc, son prénom écrit à la main (en noir sur le carbone),
+//     le carbone se soulève (le prénom blanc), le timbre ; le fil passe par ses trous et file vers d'autres cartes à
+//     prénoms qu'on devine aux bords : la guirlande des SINGULIES (le fil du poignet reste une surprise)
+// Tout est une fonction de l'horloge vt (s) : reculer rejoue à l'envers. sheet.js dessine la feuille, l'enveloppe et le
+// cachet (ses horloges, sans retournement ; l'enveloppe dans le repère de la feuille), la vitrine le reste.
 import { M4, CARD } from '../cards/cardRenderer.js';
-import { ENV, E, PO, FLAP_H } from '../sheet/envelope.js';
+import { ENV, PO } from '../sheet/envelope.js';
 import { createThread, pathLen } from './thread.js';
 import { handOrder, loadHand, handStyle, handInk, stampInk } from './hand.js';
 
@@ -25,20 +26,31 @@ const span = (a, b, x) => clamp01((x - a) / (b - a));
 const T = (x, y, z) => M4.model(0, 0, 0, x, y, z);
 const ap = (m, p) => [m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]];
 const posOf = m => [m[12], m[13], m[14]];
-const PM = p => M4.model(p.rx || 0, p.ry || 0, p.rz || 0, p.x, p.y, p.z);
-const lerpPose = (a, b, u) => ({ x: lerp(a.x, b.x, u), y: lerp(a.y, b.y, u), z: lerp(a.z, b.z, u), rx: lerp(a.rx || 0, b.rx || 0, u), ry: lerp(a.ry || 0, b.ry || 0, u), rz: lerp(a.rz || 0, b.rz || 0, u) });
-const poseOfM = m => ({ x: m[12], y: m[13], z: m[14], rx: 0, ry: 0, rz: Math.atan2(m[1], m[0]) });
 
-// les phases (s) : la carte, l'enveloppe, la carte vierge, la guirlande ; les étapes qu'on montre en regroupent deux
-const D = [2.3, 7.0, 6.2, 5.4];
-const K = D.reduce((a, d) => (a.push(a[a.length - 1] + d), a), [0]);
-export const VKEYS = [K[0], K[2], K[4]];
+// les étapes (s) : la carte, l'enveloppe, la carte vierge et la guirlande
+const D = [2.6, 6.2, 6.0];
+export const VKEYS = D.reduce((a, d) => (a.push(a[a.length - 1] + d), a), [0]);
+const K = VKEYS;
 const BACK_SPEED = 2.6;
-// ce qu'on écrit sur les autres cartes de la guirlande
 const OTHERS = ['Julie', 'Isabelle', 'Marysol', 'Anaïs', 'Lou', 'Nour', 'Sacha', 'Inès', 'Hugo', 'Yanis', 'Camille', 'Léon', 'Mila', 'Noé', 'Rose', 'Jade', 'Tom', 'Zoé', 'Malo', 'Lina'];
+const N = 180;                                                                // points du fil (pour passer d'une forme à l'autre)
+
+// un chemin rééchantillonné à N points, à pas égal
+function resample(pts, n = N) {
+  const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1], pts[i][2] - pts[i - 1][2]));
+  const tot = L[L.length - 1] || 1, out = []; let j = 1;
+  for (let i = 0; i < n; i++) {
+    const s = tot * i / (n - 1); while (j < pts.length - 1 && L[j] < s) j++;
+    const a = pts[j - 1], b = pts[j], u = (L[j] - L[j - 1]) > 0 ? (s - L[j - 1]) / (L[j] - L[j - 1]) : 0;
+    out.push(mix3(a, b, clamp01(u)));
+  }
+  return out;
+}
+const blendPath = (A, B, u) => A.map((p, i) => mix3(p, B[i], u));
+const seg = (a, b, n = 12) => Array.from({ length: n }, (_, i) => mix3(a, b, (i + 1) / n));
 
 export function createVitrine(o) {
-  const { gl, card, rnd, PRENOM, SY, EC, SHEET, C_POSE, C_IN, reduced } = o;
+  const { gl, card, rnd, PRENOM, SY, SHEET, reduced } = o;
   const base = o.base || './';
   const thread = createThread(gl);
   card.addShape('carbon', { w: 102, h: 66, r: 0.5, t: 0.05 });
@@ -48,21 +60,20 @@ export function createVitrine(o) {
     logoOff: [rnd.range(-0.15, 0.15), rnd.range(-0.15, 0.15)], warp: [rnd.range(0.05, 0.3), rnd.range(-0.18, 0.04), rnd.range(-0.1, 0.1)],
     jx: rnd.range(-0.6, 0.6), jy: rnd.range(-0.5, 0.5), jr: rnd.range(-0.015, 0.015) });
   const vQ = o.top || variant(), vB = variant(), vC = { ...variant(), warp: [0, 0, 0] }, vS = variant();
-  // les écritures de cette visite (la sienne d'abord) et les prénoms des autres cartes
+  // les écritures de cette visite (la sienne d'abord) et les prénoms des cartes voisines
   const hands = handOrder();
-  const others = OTHERS.filter(n => n.toLowerCase() !== PRENOM.toLowerCase()).sort(() => Math.random() - 0.5).slice(0, 3);
-  const G = [{ name: PRENOM, font: hands[0], v: vB, k: 0 }, ...others.map((name, i) => ({ name, font: hands[i + 1], v: variant(), k: [-1, 1, 2][i] }))];
+  const others = OTHERS.filter(n => n.toLowerCase() !== PRENOM.toLowerCase()).sort(() => Math.random() - 0.5).slice(0, 2);
+  const G = [{ name: PRENOM, font: hands[0], v: vB, k: 0 }, ...others.map((name, i) => ({ name, font: hands[i + 1], v: variant(), k: i ? 1 : -1 }))];
   G.forEach(g => { g.st = handStyle(g.font, (Math.random() * 1e9) >>> 0); g.ink = null; });
   Promise.all(G.map(g => loadHand(g.font, base))).then(() => { G.forEach(g => { if (g.ink) { card.freeInk(g.ink); g.ink = null; } }); carbonU = -1; });
-  const BOX = { cx: CARD.w / 2 - 3, cy: CARD.h / 2 + 3, w: 60 };              // la zone où l'on écrit (mm, depuis le coin haut-gauche)
-  const CARB_OFF = [2.5, -1.2];                                              // le carbone sur la carte (décalé)
+  const BOX = { cx: CARD.w / 2 - 3, cy: CARD.h / 2 + 3, w: 60 };
+  const CARB_OFF = [2.5, -1.2];
   const nameInk = g => g.ink || (g.ink = card.makeInk(handInk(g.name, g.st, CARD.w, CARD.h, 14, BOX, 1)));
   let carbonInk = null, carbonU = -1, carbonCv = null;
   function carbonInkAt(u) {
     const q = Math.round(u * 60) / 60;
     if (q === carbonU && carbonInk) return carbonInk;
     carbonU = q;
-    // la même écriture sur le carbone (plus grand : décalée d'autant)
     const bx = { cx: BOX.cx + (102 - CARD.w) / 2 - CARB_OFF[0], cy: BOX.cy + (66 - CARD.h) / 2 + CARB_OFF[1], w: BOX.w };
     carbonCv = handInk(G[0].name, G[0].st, 102, 66, 9, bx, q, carbonCv);
     if (carbonInk) card.freeInk(carbonInk);
@@ -73,6 +84,7 @@ export function createVitrine(o) {
   const stamp = () => stampTex || (stampTex = card.makeInk(stampInk()));
   const CARBON_P = { albedo: 0.52, rough: 0.7, spec: 0.6, sheen: 0, glint: 0.05, grain: 0.5, fiber: 0.02, edge: 0.5, inkAlb: 0.012, inkPaper: 2 };
   const STAMP_AT = [29, 12.8, 0.2];
+  const HX = CARD.w / 2 - 5, HY = -3;                                        // les trous de la carte vierge : côtés gauche et droit
 
   // ---- l'horloge ----
   let vt = 0, target = 0, k = 0;
@@ -83,164 +95,177 @@ export function createVitrine(o) {
     else if (vt > target) vt = Math.max(target, vt - dt * BACK_SPEED);
   }
   const on = () => vt > 0 || target > 0;
+  const r2 = () => vt - K[1], r3 = () => vt - K[2];
 
-  // ---- l'enveloppe (phase 2) : son horloge (sans retournement), celle de l'envoi (le rabat, le cachet) ----
-  const r2 = () => vt - K[1];
-  const evOf = () => Math.min(E.flip[0] - 0.15, Math.max(0, r2()) * 1.9);
-  const PP0 = PO.flap[0] - 0.05, R2_FLAP = 4.3;
-  const ppOf = () => Math.min(PO.zoomOut[1] - 0.2, PP0 + Math.max(0, r2() - R2_FLAP) * 1.5);
-  const B_LOC = { x: 0, y: -26, z: 0 };                                      // la carte vierge, sur le dos de l'enveloppe
-  const bulgeAt = (x, y) => 1.2 * Math.max(0, 1 - (x / (ENV.w / 2)) ** 2) * Math.max(0, 1 - (y / (ENV.h / 2)) ** 2);
-  const inCard = (x, y) => { const dx = Math.max(0, Math.abs(x - B_LOC.x) - CARD.w / 2), dy = Math.max(0, Math.abs(y - B_LOC.y) - CARD.h / 2); return 1 - sstep(0, 1.6, Math.hypot(dx, dy)); };
+  // ---- les places (repère de la feuille : son centre, mm) ----
+  const TOP = SHEET.h / 2;
+  const ANCHOR = [0, TOP + 150, 18];                                        // au-dessus de l'écran, sous « JEU »
+  // la carte question : en bas de la feuille, sous la signature (elle dépasse un peu en bas s'il le faut)
+  const QY = Math.min(-SHEET.h / 2 + CARD.h / 2 - 4, (o.sigY ?? -60) - 7 - CARD.h / 2);
+  const Q_REST = { x: vQ.jx * 2, y: QY + vQ.jy, z: 0.45, rz: -0.03 + vQ.jr };
+  function questionRel() {                                                   // elle descend de « JEU », face cachée
+    const u = ease(span(0.15, 2.3, vt));
+    const y = lerp(TOP + 110, Q_REST.y, u), x = lerp(0, Q_REST.x, u);
+    const sw = (1 - u) * 0.08 * Math.sin(vt * 5);
+    return M4.model(-0.2 * (1 - u), 0, lerp(0.12, Q_REST.rz, u) + sw, x, y, Q_REST.z + 26 * (1 - u) * Math.sin(Math.PI * Math.min(1, u * 1.1)) + 8 * (1 - u));
+  }
+  // l'enveloppe : dressée (le rabat à droite), elle arrive de la gauche et se pose sur la feuille
+  const ENV_Z = -0.2;
+  function envRel() {
+    const u = ease(span(0, 1.3, r2()));
+    return M4.mul(T(-(ENV.h + 40) * (1 - u), 0, ENV_Z), M4.model(0, 0, -Math.PI / 2));
+  }
+  const PP0 = PO.flap[0] - 0.05, R2_FLAP = 4.0;
+  const ppOf = () => Math.min(PO.seal[1] + 0.4, PP0 + Math.max(0, r2() - R2_FLAP) * 1.35);
+  // la carte vierge, posée sur l'enveloppe (repère de la feuille), logo gaufré vers nous ; le fil passe sur elle
+  const B_REST = [-12, -26, ENV_Z + 3.25];                                 // (au-dessus du dos bombé de l'enveloppe pleine)
   const zBack = 1.95;
-  // le fil fait le tour de l'enveloppe à la hauteur y (repère de l'enveloppe), sur la carte vierge
-  function loopPath(y0, tilt, dyOff = 0) {
-    const pts = [], w2 = ENV.w / 2 + 0.5, step = 3, yAt = x => y0 + tilt * x + dyOff;
-    for (let x = -w2; x <= w2; x += step) { const y = yAt(x); pts.push([x, y, zBack + bulgeAt(x, y) + 0.45 + 0.75 * inCard(x, y) + 0.5]); }
-    for (let i = 1; i < 6; i++) { const a = Math.PI * i / 6; pts.push([w2 + 0.9 * Math.sin(a), yAt(w2), zBack / 2 + (zBack / 2 + 0.9) * Math.cos(a) - 0.2]); }
-    for (let x = w2; x >= -w2; x -= step) pts.push([x, yAt(x), -0.45]);
-    for (let i = 1; i <= 6; i++) { const a = Math.PI * i / 6; pts.push([-w2 - 0.9 * Math.sin(a), yAt(-w2), zBack / 2 - (zBack / 2 + 0.9) * Math.cos(a) - 0.2]); }
+  // la carte vierge : elle descend de « JEU » enfilée sur le fil, se pose sur l'enveloppe ; puis elle vient devant
+  const FRONT = [0, 4, 24];
+  function blankRel(Ms) {
+    const ud = ease(span(1.3, 2.9, r2()));
+    let p = [lerp(0, B_REST[0], ud), lerp(TOP + 110, B_REST[1], ud), lerp(28, B_REST[2], ud)], ry = Math.PI, rx = -0.2 * (1 - ud), rz = 0.1 * (1 - ud) * Math.sin(vt * 4);
+    const ul = ease(span(0.3, 1.6, r3()));
+    if (ul > 0) { p = mix3(p, FRONT, ul); p[2] += 16 * Math.sin(Math.PI * ul); ry = Math.PI * (1 + ul); rx = -0.12 * Math.sin(Math.PI * ul); rz = 0; }
+    const br = sstep(1.6, 2.4, r3());
+    return M4.model(rx + br * 0.02 * Math.sin(vt * 0.9), ry, rz + br * 0.01 * Math.sin(vt * 0.6), p[0], p[1], p[2]);
+  }
+  // les cartes voisines de la guirlande, qu'on devine aux bords
+  const nbRel = g => M4.model(0.04 * Math.sin(vt * 0.5 + g.k), 0.05 * Math.sin(vt * 0.45 + g.k * 2), 0.03 * Math.sin(vt * 0.8 + g.k * 1.3), FRONT[0] + 112 * g.k, FRONT[1] + 2 * Math.sin(vt * 0.7 + g.k), FRONT[2] - 8);
+
+  // ---- le fil : une forme par étape, et il passe de l'une à l'autre ----
+  const wob = (i, a) => a * Math.sin(vt * 0.9 + i * 0.37);
+  function hangPath() {                                                     // il pend sous « JEU »
+    const end = [0.6 * Math.sin(vt * 0.8), TOP + 6, 10];
+    return seg(ANCHOR, end, 40).map((p, i) => [p[0] + wob(i, 0.4) * (i / 40), p[1], p[2]]);
+  }
+  function trailPath(Mq) {                                                  // il suit la carte question, jusqu'à son coin
+    const c = ap(Mq, [CARD.w / 2 - 4, CARD.h / 2 + 1, 0.4]), side = [SHEET.w / 2 + 4, TOP - 30, 6];
+    const mid = [lerp(ANCHOR[0], side[0], 0.6), TOP + 40, 12];
+    const pts = [ANCHOR]; pts.push(...seg(ANCHOR, mid, 20), ...seg(mid, [lerp(side[0], c[0], 0.3), lerp(side[1], c[1], 0.3), 7], 20), ...seg([lerp(side[0], c[0], 0.3), lerp(side[1], c[1], 0.3), 7], c, 20));
     return pts;
   }
-  const LOOP = { y: -24, tilt: 0.015 }, loopLen = pathLen(loopPath(0, 0));
-
-  // la carte question : du bas de l'écran (recto), elle se retourne en montant (face cachée) et se pose sur la feuille ;
-  // puis elle entre dans l'enveloppe avec la feuille
-  function questionM(Msheet) {
-    const u = ease(span(0.1, 2.1, vt));
-    const relLand = { x: C_POSE.x + vQ.jx, y: C_POSE.y + vQ.jy * 2, z: 2.2, rz: C_POSE.rz };
-    const uC = ease(span(E.cIn[0], E.cIn[1], evOf()));
-    const rel = { x: lerp(relLand.x, C_IN.x, uC), y: lerp(relLand.y, C_IN.y, uC), z: lerp(2.2, C_IN.z, uC) + 9 * Math.sin(Math.PI * uC), rz: lerp(relLand.rz, C_IN.rz, uC) };
-    const land = M4.mul(Msheet, M4.model(0, 0, rel.rz, rel.x, rel.y, rel.z));
-    if (u >= 1) return land;
-    const p1 = posOf(land), p0 = [p1[0] - 6, SY - SHEET.h / 2 - 170, 60];
-    const p = mix3(p0, p1, u); p[2] += 34 * Math.sin(Math.PI * u);
-    return M4.model(-0.25 * Math.sin(Math.PI * u), Math.PI * (1 - sstep(0.25, 0.8, u)), lerp(0.25, rel.rz, u), p[0], p[1], p[2]);
+  function vPath(Mb) {                                                      // enfilée par les trous de la carte vierge
+    const l = ap(Mb, [-HX, HY, 0]), r = ap(Mb, [HX, HY, 0]), lb = ap(Mb, [-HX, HY, 0.8]), rb = ap(Mb, [HX, HY, 0.8]);
+    const a1 = [ANCHOR[0] - 5, ANCHOR[1], ANCHOR[2]], a2 = [ANCHOR[0] + 5, ANCHOR[1], ANCHOR[2]];
+    return [a1, ...seg(a1, l, 30), lb, rb, ...seg(r, a2, 30)];
   }
-  // la carte vierge : posée sur le dos de l'enveloppe (logo gaufré vers nous), puis elle glisse, se soulève, se retourne
-  const W_CARD = () => [EC.x, EC.y - 6, EC.z + 58];
-  function blankM(Menv) {
-    const r = r2();
-    const onEnv = M4.mul(Menv, M4.model(0, Math.PI, 0.02, B_LOC.x, B_LOC.y, zBack + 1.25));
-    const ua = easeOut(span(2.5, 3.3, r));                                   // arrivée : d'en haut, devant
-    if (ua < 1) { const p1 = posOf(onEnv), p0 = [p1[0] + 30, p1[1] + 120, p1[2] + 70]; const p = mix3(p0, p1, ua); return M4.mul(T(p[0] - p1[0], p[1] - p1[1], p[2] - p1[2]), onEnv); }
-    const r3 = vt - K[2];
-    if (r3 <= 0) return onEnv;
-    // elle glisse hors du rabat (vers le bas), puis vient devant nous en se retournant (la face lisse, pour écrire)
-    const us = ease(span(0.4, 1.3, r3)), ul = ease(span(1.1, 2.3, r3));
-    const slid = M4.mul(Menv, M4.model(0, Math.PI, 0.02, B_LOC.x, B_LOC.y - 72 * us, zBack + 1.25 + 3 * Math.sin(Math.PI * us)));
-    if (ul <= 0) return slid;
-    const a = posOf(slid), b = W_CARD(), p = mix3(a, b, ul);
-    p[2] += 18 * Math.sin(Math.PI * ul);
-    const br = sstep(2.3, 3.0, r3);
-    return M4.model(-0.15 * Math.sin(Math.PI * ul) + br * 0.02 * Math.sin(vt * 0.9), Math.PI * (1 + ul), lerp(0.02, -0.02, ul) + br * 0.01 * Math.sin(vt * 0.6), p[0], p[1], p[2]);
+  function loopPath(Me) {                                                   // il fait le tour de l'enveloppe et tient la carte
+    // (repère de l'enveloppe : une boucle le long de son grand côté, à la hauteur de la carte vierge)
+    const xl = -B_REST[1], pts = [], h2 = ENV.h / 2 + 0.5;
+    const inCard = y => { const d = Math.max(0, Math.abs(y - (B_REST[0])) - CARD.w / 2); return 1 - sstep(0, 1.6, d); };
+    const bulge = y => 1.2 * Math.max(0, 1 - (xl / (ENV.w / 2)) ** 2) * Math.max(0, 1 - (y / (ENV.h / 2)) ** 2);
+    for (let y = -h2; y <= h2; y += 3) pts.push([xl, y, lerp(zBack + bulge(y) + 0.55, 3.95, inCard(y))]);
+    for (let i = 1; i < 6; i++) { const a = Math.PI * i / 6; pts.push([xl, h2 + 0.9 * Math.sin(a), zBack / 2 + (zBack / 2 + 0.9) * Math.cos(a) - 0.2]); }
+    for (let y = h2; y >= -h2; y -= 3) pts.push([xl, y, -0.45]);
+    for (let i = 1; i <= 6; i++) { const a = Math.PI * i / 6; pts.push([xl, -h2 - 0.9 * Math.sin(a), zBack / 2 - (zBack / 2 + 0.9) * Math.cos(a) - 0.2]); }
+    return pts.map(p => ap(Me, p));
   }
-  // la guirlande : la carte de la personne (k = 0) et les autres, suspendues
-  const GD = [112, -3, -26];
-  const gPose = (g, t) => {
-    const w = W_CARD(), sw = 0.03 * Math.sin(t * 0.8 + g.k * 1.3) + 0.015 * Math.sin(t * 0.37 + g.k);
-    return { x: w[0] + GD[0] * g.k, y: w[1] + 8 + GD[1] * g.k + 1.2 * Math.sin(t * 0.7 + g.k), z: w[2] + GD[2] * g.k, rx: 0.04 * Math.sin(t * 0.5 + g.k), ry: 0.05 * Math.sin(t * 0.45 + g.k * 2), rz: sw };
-  };
-  const HX = CARD.w / 2 - 5, HY = -3;                                     // les trous : sur les côtés gauche et droit (le fil les perfore)
+  function garlandPath(Ms, sag) {                                           // par les trous : la guirlande
+    const ord = G.map((g, i) => ({ g, M: Ms[i] })).sort((a, b) => a.g.k - b.g.k), pts = [];
+    const sagTo = (a, b, s, n = 16) => { for (let j = 1; j <= n; j++) { const u = j / n, p = mix3(a, b, u); p[1] -= s * 4 * u * (1 - u); pts.push(p); } };
+    const f0 = ap(ord[0].M, [-HX, HY, 0.8]), start = [f0[0] - 110, f0[1] + 10, f0[2]];
+    pts.push(start); sagTo(start, f0, sag * 0.6);
+    ord.forEach(({ M }, i) => {
+      pts.push(ap(M, [-HX, HY, -0.8]), ap(M, [HX, HY, -0.8]));
+      const rf = ap(M, [HX, HY, 0.8]); pts.push(rf);
+      if (i < ord.length - 1) sagTo(rf, ap(ord[i + 1].M, [-HX, HY, 0.8]), sag);
+      else sagTo(rf, [rf[0] + 110, rf[1] + 10, rf[2]], sag * 0.6);
+    });
+    return pts;
+  }
 
-  // ---- ce que sheet.js reprend : l'enveloppe, la feuille, la caméra ----
+  // ---- ce que sheet.js reprend : l'enveloppe (dans le repère de la feuille), la feuille, la caméra ----
   function envState() {
     if (!on() || vt <= K[1]) return null;
-    let fade = 1;
-    if (vt > K[2]) fade = 1 - ease(span(0.7, 2.0, vt - K[2]));             // la carte vierge vient devant : l'enveloppe s'efface
-    return { ev: evOf(), pp: ppOf(), fade, M: null, flapDz: 1.1 };
+    const fade = r3() > 0 ? 1 - ease(span(0.5, 1.6, r3())) : 1;            // la carte vierge vient devant : l'enveloppe s'efface
+    return { ev: 0, pp: ppOf(), fade, rel: envRel(), bulge: sstep(0.8, 1.3, r2()), flapDz: 1.9, sealRot: Math.PI / 2 };
   }
-  const sheetState = () => (on() && vt > K[2] + 0.8 ? { hide: true } : null);
-  // la caméra (cadres de sheet.js : A = la feuille ; E = la feuille et l'enveloppe ; P = l'enveloppe entière)
+  // (la feuille et la carte question, une fois l'enveloppe posée dessus : cachées — elles sont dedans)
+  const sheetState = () => (on() && vt > K[1] + 1.35 ? { hide: true } : null);
+  // la vue : celle de la feuille ; un peu plus large seulement si la carte ou l'enveloppe dépasse, et elle revient
   function camera(f, frameFor, W, H) {
     if (!on()) return null;
     const lg = c => ({ cx: c.cx, cy: c.cy, lD: Math.log(c.D) });
     const mixC = (a, b, u) => ({ cx: lerp(a.cx, b.cx, u), cy: lerp(a.cy, b.cy, u), lD: lerp(a.lD, b.lD, u) });
-    // la feuille et sa carte (qui dépasse en bas)
-    const AC = lg(frameFor(SY + C_POSE.y - CARD.h / 2 - 10, SY + SHEET.h / 2 + 4, -SHEET.w / 2, SHEET.w / 2 + 8, SHEET.w * 1.1, W, H));
-    let c = mixC(lg(f.A), AC, ease(span(0.3, 2.1, vt)));
-    if (vt > K[1]) {
-      const r = r2();
-      c = mixC(c, lg(f.E), ease(span(E.cam[0], E.cam[1], evOf())));
-      c = mixC(c, lg(f.P), ease(span(2.4, 3.7, r)));
-      // le cachet de près pendant qu'il se fait, puis l'enveloppe entière
-      const pp = ppOf(), uz = (reduced ? 0 : 1) * ease(span(PO.zoomIn[0], PO.zoomIn[1], pp)) * (1 - ease(span(PO.zoomOut[0], PO.zoomOut[1], pp)));
-      if (uz > 0) { const sy = EC.y + ENV.h / 2 - FLAP_H + 4, zD = f.P.D * Math.max(0.25, 70 / (f.P.Hw * Math.min(1, W / H))); c = mixC(c, { cx: EC.x, cy: sy, lD: Math.log(zD) }, uz); }
-    }
-    // un cadre pour des objets à la hauteur z (vers nous) : la vue recule d'autant et se décale (elle regarde d'en bas)
-    const TILT = 0.22, fr = (y0, y1, x0, x1, wantW, z) => { const q = frameFor(y0, y1, x0, x1, wantW, W, H); return { cx: q.cx, cy: q.cy + z * Math.tan(TILT), lD: Math.log(q.D + z * Math.cos(TILT)) }; };
-    const w = W_CARD();
-    if (vt > K[2]) c = mixC(c, fr(w[1] - 34, w[1] + 34, w[0] - 50, w[0] + 50, 128, w[2]), ease(span(1.0, 2.4, vt - K[2])));   // la carte vierge, de près
-    if (vt > K[3]) c = mixC(c, fr(w[1] - 70, w[1] + 40, w[0] - 60, w[0] + 175, 250, w[2] - 25), ease(span(2.6, 4.6, vt - K[3])));   // la guirlande
-    if (!Number.isFinite(c.cx + c.cy + c.lD)) return null;   // (jamais de vue invalide : celle de la feuille)
-    return c;
+    const bot = Math.min(-SHEET.h / 2, QY - CARD.h / 2 - 2, -ENV.w / 2), top = Math.max(SHEET.h / 2, ENV.w / 2);
+    const B = lg(frameFor(SY + bot - 8, SY + top + 4, -SHEET.w / 2, SHEET.w / 2, SHEET.w * 1.1, W, H));
+    const wide = ease(span(1.2, 2.4, vt)) * (1 - ease(span(0.6, 1.8, r3())));
+    const c = mixC(lg(f.A), B, wide);
+    return Number.isFinite(c.cx + c.cy + c.lD) ? c : null;
   }
-  // la lampe se tourne vers l'objet qu'on regarde
+  // la lampe se tourne vers l'objet qu'on regarde (l'enveloppe : la direction réglée pour le cachet)
   function focus() {
     if (!on()) return null;
-    if (vt > K[2]) { const w = W_CARD(); return { x: w[0], y: w[1], envW: 1 - 0.5 * sstep(0, 2, vt - K[2]) }; }
-    if (vt > K[1]) return { x: EC.x, y: EC.y + 20, envW: ease(span(E.cam[0], E.cam[1], evOf())) };
+    if (vt > K[1]) return { x: 0, y: SY, envW: r3() > 0 ? 1 - 0.5 * sstep(0, 1.5, r3()) : sstep(0, 1.2, r2()) };
     return null;
   }
 
   // ---- dessin de ce qui est propre à la vitrine ----
-  function draw(vp, eye, P, Msheet, Menv, t) {
-    if (!on()) return { occ: null };
+  // ready : la feuille est posée (0 → 1) — le fil n'apparaît qu'alors
+  function draw(vp, eye, P, Msheet, Menv, t, ready = 1) {
+    if (!on()) {                                                            // la feuille seule : le fil pend sous « JEU »
+      if (ready > 0.01) thread.draw(vp, eye, P, hangPath().map(p => ap(Msheet, p)), 0.45, { fade: ready });
+      return { occ: null };
+    }
     let occ = null;
     const drawCard = (M, v, x = {}) => card.draw(vp, eye, P, { model: M, lod: 'fine', ...v, ...x });
     const drawStamp = (M, fade = 1) => card.draw(vp, eye, P, { model: M, lod: 'stamp', ...vS, inkBack: stamp(), logoScale: [0.3, 0.3], logoOff: [0, 1.2], fade });
-    // la carte question (face cachée), jusque dans l'enveloppe
-    if (vt < K[2] + 0.8) {
-      const M = questionM(Msheet);
-      drawCard(M, vQ, { fade: sstep(0.05, 0.5, vt) });
-      if (vt > 2.0 && vt < K[1] + 1.2) occ = { m: M };
+    // la carte question (face cachée) : de « JEU » à la feuille, puis dans l'enveloppe
+    let Mq = null;
+    if (vt < K[1] + 1.4) {
+      Mq = M4.mul(Msheet, questionRel());
+      drawCard(Mq, vQ, { fade: sstep(0.05, 0.4, vt) });
+      if (vt > 2.1) occ = { m: Mq };
     }
-    // la carte vierge et le fil sur l'enveloppe ; puis le carbone, le prénom, le timbre
-    const r = r2();
-    if (Menv && r > 2.4 && vt <= K[3]) {
-      const Mb = blankM(Menv), g = G[0], r3 = vt - K[2];
-      drawCard(Mb, vB, { logoK: 1, inkBack: r3 > 3.0 ? nameInk(g) : null, fade: sstep(2.45, 2.8, r) });
-      if (r3 > 2.3 && r3 < 5.6) {
-        const ui = ease(span(2.4, 3.0, r3)), uo = ease(span(4.8, 5.5, r3)), wr = span(3.1, 4.6, r3);
+    // la carte vierge (enfilée sur le fil, puis sur l'enveloppe, puis devant nous) ; le carbone ; le timbre
+    let Mb = null;
+    if (vt > K[1] + 1.2) {
+      Mb = M4.mul(Msheet, blankRel());
+      const rr = r3();
+      drawCard(Mb, vB, { logoK: 1, inkBack: rr > 2.7 ? nameInk(G[0]) : null, fade: sstep(K[1] + 1.25, K[1] + 1.6, vt) });
+      if (rr > 1.9 && rr < 5.1) {
+        const ui = ease(span(2.0, 2.6, rr)), uo = ease(span(4.3, 5.0, rr)), wr = span(2.7, 4.1, rr);
         const Mc = M4.mul(Mb, M4.model(0, 0, -0.02 * (1 - ui) - 0.1 * uo, CARB_OFF[0] + 130 * (1 - ui) + 150 * uo, CARB_OFF[1] - 6 * uo, 0.55 + 6 * Math.sin(Math.PI * ui) * (1 - ui) + 16 * Math.sin(Math.PI * Math.min(1, uo * 1.3))));
-        card.draw(vp, eye, { ...P, ...CARBON_P }, { model: Mc, lod: 'carbon', ...vC, noLogo: true, inkBack: r3 > 3.05 ? carbonInkAt(wr) : null, paperTile: 40, paperLo: 0.5, fade: sstep(2.35, 2.6, r3) * (1 - sstep(5.2, 5.55, r3)) });
+        card.draw(vp, eye, { ...P, ...CARBON_P }, { model: Mc, lod: 'carbon', ...vC, noLogo: true, inkBack: rr > 2.65 ? carbonInkAt(wr) : null, paperTile: 40, paperLo: 0.5, fade: sstep(1.95, 2.2, rr) * (1 - sstep(4.7, 5.05, rr)) });
       }
-      if (r3 > 5.5) {                                                        // le timbre tombe dans le coin
-        const u = easeOut(span(5.55, 6.1, r3));
-        drawStamp(M4.mul(Mb, M4.model(0.3 * (1 - u), 0, lerp(0.45, 0.06, u), STAMP_AT[0] + 16 * (1 - u), STAMP_AT[1] + 20 * (1 - u), STAMP_AT[2] + 36 * (1 - u) * (1 - u))), sstep(5.55, 5.75, r3));
+      if (rr > 5.0) {
+        const u = easeOut(span(5.05, 5.6, rr));
+        drawStamp(M4.mul(Mb, M4.model(0.3 * (1 - u), 0, lerp(0.45, 0.06, u), STAMP_AT[0] + 16 * (1 - u), STAMP_AT[1] + 20 * (1 - u), STAMP_AT[2] + 36 * (1 - u) * (1 - u))), sstep(5.05, 5.25, rr));
       }
-      // le fil : il fait le tour, puis il glisse
-      const prog = span(2.9, 4.0, r), ls = r3 > 0 ? ease(span(0, 1.2, r3)) : 0;
-      if (prog > 0) thread.draw(vp, eye, P, loopPath(LOOP.y, LOOP.tilt, -110 * ls).map(p => ap(Menv, p)), 0.45, { upTo: prog * loopLen * 1.02, fade: 1 - sstep(0.7, 1, ls) });
+      const hf = sstep(1.0, 1.6, rr);                                       // les trous (visibles une fois devant nous)
+      if (hf > 0.01) for (const sx of [-HX, HX]) card.draw(vp, eye, { ...P, albedo: 0, spec: 0, env: 0, sheen: 0, glint: 0 }, { model: M4.mul(Mb, T(sx, HY, 0.1)), lod: 'hole', noLogo: true, fade: hf });
     }
-    // la guirlande
-    if (vt > K[3]) {
-      const r4 = vt - K[3], Ms = [];
-      G.forEach(g => {
-        const pz = gPose(g, t);
-        const M = g.k === 0 ? PM(lerpPose(poseOfM(blankM(Menv || T(0, 0, 0))), pz, ease(span(0, 1.0, r4)))) : PM(pz);
-        Ms.push(M);
-        const fade = g.k === 0 ? 1 : sstep(0.3, 1.2, r4);
+    // les cartes voisines (on les devine aux bords)
+    const Ms = [Mb];
+    if (vt > K[2]) {
+      const rr = r3();
+      for (const g of G.slice(1)) {
+        const M = M4.mul(Msheet, nbRel(g)); Ms.push(M);
+        const fade = sstep(0.9, 1.9, rr);
+        if (fade < 0.01) continue;
         drawCard(M, g.v, { logoK: 1, inkBack: nameInk(g), fade });
-        const hf = sstep(0.1, 0.5, r4) * fade;
-        for (const sx of [-HX, HX]) card.draw(vp, eye, { ...P, albedo: 0, spec: 0, env: 0, sheen: 0, glint: 0 }, { model: M4.mul(M, T(sx, HY, 0.1)), lod: 'hole', noLogo: true, fade: hf });
-        if (g.k === 0) drawStamp(M4.mul(M, M4.model(0, 0, 0.06, ...STAMP_AT)));
-      });
-      // le fil passe dans les trous, de gauche à droite (les cartes rangées par place)
-      const order = G.map((g, i) => ({ g, M: Ms[i] })).sort((a, b) => a.g.k - b.g.k);
-      const pts = [], sag = lerp(15, 9, sstep(3.8, 4.6, r4));
-      const sagTo = (a, b, s, n = 18) => { for (let j = 1; j <= n; j++) { const u = j / n, p = mix3(a, b, u); p[1] -= s * 4 * u * (1 - u); pts.push(p); } };
-      const f0 = ap(order[0].M, [-HX, HY, 0.8]), start = [f0[0] - 90, f0[1] + 16, f0[2] + 20];
-      pts.push(start); sagTo(start, f0, sag * 0.6);
-      order.forEach(({ M }, i) => {
-        pts.push(ap(M, [-HX, HY, -0.8]), ap(M, [HX, HY, -0.8]));
-        const rf = ap(M, [HX, HY, 0.8]); pts.push(rf);
-        if (i < order.length - 1) sagTo(rf, ap(order[i + 1].M, [-HX, HY, 0.8]), sag);
-        else sagTo(rf, [rf[0] + 90, rf[1] + 16, rf[2] - 20], sag * 0.6);
-      });
-      const head = pathLen(pts) * ease(span(1.0, 3.8, r4));
-      if (head > 0) thread.draw(vp, eye, P, pts, 0.45, { upTo: head });
+        for (const sx of [-HX, HX]) card.draw(vp, eye, { ...P, albedo: 0, spec: 0, env: 0, sheen: 0, glint: 0 }, { model: M4.mul(M, T(sx, HY, 0.1)), lod: 'hole', noLogo: true, fade });
+      }
     }
+    // ---- le fil : d'une forme à l'autre ----
+    let path = resample(hangPath().map(p => ap(Msheet, p)));
+    if (vt > 0 && Mq) {
+      path = blendPath(path, resample(trailPath(questionRel()).map(p => ap(Msheet, p))), ease(span(0.05, 0.9, vt)));
+    }
+    if (vt > K[1]) {
+      const r = r2();
+      // il quitte la carte question (entrée dans l'enveloppe) et va chercher la carte vierge en haut
+      const trail = resample(trailPath(questionRel()).map(p => ap(Msheet, p)));
+      const vB_ = Mb ? resample(vPath(blankRel()).map(p => ap(Msheet, p))) : resample(hangPath().map(p => ap(Msheet, p)));
+      path = blendPath(trail, vB_, ease(span(0.6, 1.6, r)));
+      if (Menv) path = blendPath(path, resample(loopPath(Menv)), ease(span(2.9, 3.9, r)));
+    }
+    if (vt > K[2] && Menv && Mb) {
+      const rr = r3(), garl = resample(garlandPath(Ms.length === G.length ? Ms : [Mb, Mb, Mb], lerp(14, 8, sstep(3, 4, rr))));
+      path = blendPath(resample(loopPath(Menv)), garl, ease(span(0.1, 1.8, rr)));
+    }
+    thread.draw(vp, eye, P, path, 0.45);
     return { occ };
   }
 

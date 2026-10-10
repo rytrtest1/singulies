@@ -37,11 +37,13 @@ import { SHEET_INSET } from './alt/config.js';
 // la marge du bas de l'écran (barre de l'iPhone), en px
 let safeB = null;
 const safeBottom = () => { if (safeB == null) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;bottom:0;width:1px;height:env(safe-area-inset-bottom);visibility:hidden'; document.body.appendChild(d); safeB = d.offsetHeight || 0; d.remove(); } return safeB; };
-// (10/10) payé ici, page rechargée pendant la cérémonie : merci.html la reprend (la commande est gardée)
+// (10/10) payé ici, page rechargée PENDANT la cérémonie : merci.html la reprend (la commande est gardée) — une seule fois,
+// et seulement dans les 20 minutes (Maxence 11/10 : après une réservation, alt.html renvoyait toujours vers merci.html)
 if (ALT) {
   try {
     const o = JSON.parse(localStorage.getItem('singulies.order') || 'null');
-    if (o && o.paid && !o.done && Date.now() - (o.at || 0) < 2 * 864e5) {
+    if (o && o.paid && !o.done && !o.resumed && Date.now() - (o.at || 0) < 20 * 60e3) {
+      o.resumed = true; localStorage.setItem('singulies.order', JSON.stringify(o));
       const u = new URL('./merci.html', document.baseURI), k = new URLSearchParams(location.search);
       if (o.simule) k.set('simule', '1'); if (o.reserve) k.set('reserve', '1'); if (o.session) k.set('session', o.session);
       u.search = k.toString(); location.replace(u.href);
@@ -706,7 +708,8 @@ function frame(ts) {
 
   // lumière : diff du prénom → ondes / extinctions ; le champ écoute (souffle + ralentissement)
   const kind = light.update((wheel ? bridge.shownText : shownRev).toUpperCase(), S.t);
-  if (kind && S.phase === 'input' && !CFG.reduced) { BR.v += kind > 0 ? 0.015 : 0.008; S.slowAt = S.t; }
+  // (11/10) pas pour ETERNEL qui se tape seul à l'ouverture (on voyait le champ avancer puis reculer) : seulement quand on tape
+  if (kind && S.phase === 'input' && !CFG.reduced && (S.typed || model.text)) { BR.v += kind > 0 ? 0.015 : 0.008; S.slowAt = S.t; }
   { const w = 2.2, z = 0.85; BR.v += (-BR.p * w * w - 2 * z * w * BR.v) * dt; BR.p += BR.v * dt; }
   let speed = 1 - 0.65 * (1 - smooth(0, 1.1, S.t - S.slowAt));
   // pendant la transition le champ continue d'avancer et de défiler : les mots s'éteignent en mouvement
