@@ -17,7 +17,15 @@ const readOrder = () => { try { return JSON.parse(localStorage.getItem(K_ORDER) 
 const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o)); } catch { /* */ } };
 const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
 // (10/10) sous la feuille, une seule phrase, tapée à la machine
-const POEME = ['un poème original tapé à la machine'];   // la légende de l'objet, sous la feuille
+// (10/10) sous la feuille, juste au-dessus de COMMANDER : ce qu'il y a dans l'enveloppe, tapé à la machine, une chose à
+// la fois (chaque ligne se tape, reste, s'efface ; deux tours, puis la première reste). À ajuster par Maxence.
+const POEME = [
+  'un poème original tapé à la machine',
+  'ta question, sur une carte du jeu',
+  'une enveloppe noire, fermée à la cire',
+  'une carte vierge, pour écrire ton prénom et me la renvoyer',
+  'un fil noir, pour relier les singuliers',
+];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // le paiement : le prénom part dans client_reference_id (A–Z, chiffres, - et _), et reste ici pour merci.html
@@ -369,15 +377,27 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   // le poème, tapé à la machine sous la feuille (lettre par lettre, appui irrégulier), une fois la feuille posée
   const poem = root.querySelector('.of-poem');
   const typePoem = () => {
-    const txt = POEME.join('\n'); let i = 0;
-    const step = () => {
-      if (i >= txt.length || !poem.isConnected) return;
-      const c = txt[i++];
-      if (c === '\n') poem.appendChild(document.createElement('br'));
-      else { const sp = document.createElement('span'); sp.textContent = c; sp.style.opacity = (0.7 + 0.3 * Math.random()).toFixed(2); poem.appendChild(sp); }
-      setTimeout(step, c === '\n' ? 260 : c === ' ' ? 45 : 28 + Math.random() * 30);
+    // une ligne : tapée (appui irrégulier), tenue, effacée comme au retour arrière ; puis la suivante
+    let k = 0, tour = 0;
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const typeLine = async txt => {
+      for (const c of txt) {
+        if (!poem.isConnected) return;
+        const sp = document.createElement('span'); sp.textContent = c; sp.style.opacity = (0.7 + 0.3 * Math.random()).toFixed(2); poem.appendChild(sp);
+        await wait(c === ' ' ? 45 : 28 + Math.random() * 30);
+      }
     };
-    step();
+    const erase = async () => { while (poem.lastChild && poem.isConnected) { poem.lastChild.remove(); await wait(14); } };
+    (async () => {
+      for (;;) {
+        await typeLine(POEME[k]);
+        if (tour >= 2 && k === 0) return;                       // deux tours faits : la première ligne reste
+        await wait(k === 0 ? 2600 : 2200);
+        if (!poem.isConnected || root.classList.contains('paying') || root.classList.contains('env')) return;
+        await erase(); await wait(260);
+        k = (k + 1) % POEME.length; if (k === 0) tour++;
+      }
+    })();
   };
   setTimeout(typePoem, over ? 900 : 1400);
   // (10/10) une page qui semble finie : la feuille, sa légende, le bandeau ; si rien ne se passe, une petite flèche
