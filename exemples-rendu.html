@@ -54,6 +54,7 @@
     const rests = vers.map(v => v.slice(2).replace(/œ/g, 'oe').replace(/Œ/g, 'OE'));
     // le bloc (lettres + vers) centré sur la feuille ; les vers à la taille de la machine, plus petits seulement s'ils ne tiennent pas
     const lw = Math.max(...chars.map(c => nameR.adv(c))) * emT, gap = TYPE.pitch * 0.9, long = Math.max(...rests.map(r => r.length)) * TYPE.pitch;
+    // (10/10, Maxence) lettres centrées sur l'axe de la colonne ; colonne + vers, ensemble, centrés sur la feuille
     const k = Math.min(1, (SHEET.w - 24 - lw - gap) / long);
     const colX = -(lw + gap + long * k) / 2, x0 = colX + lw + gap;
     const full = new OffscreenCanvas(Math.round(SHEET.w * PX), Math.round(SHEET.h * PX)), fx = full.getContext('2d');
@@ -84,7 +85,7 @@
       logoOff: [0, LOGO_Y], logoScale: [LOGO_K, LOGO_K], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35, inkBack: sheetInk, inkRG: true });
     const Mc = M4.mul(M4.mul(Ms, M4.model(0, 0, -0.03, 0, CY, 2.2)), M4.model(0, Math.PI, 0));
     card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink: cardInk, seed: (seed * 7) % 97, paperXf: [0.6, -0.4, 0, 0], warp: [0.18, -0.08, 0.04], logoOff: [0, 0] });
-    const list = chars.map((ch, i) => ({ i, model: M4.mul(Ms, M4.mul(T(colX, baseOf(i), SHEET.t / 2 + 1), S(emT))), glow: 0.16, alpha: 1 }));
+    const list = chars.map((ch, i) => ({ i, model: M4.mul(Ms, M4.mul(T(colX + (lw - nameR.adv(ch) * emT) / 2, baseOf(i), SHEET.t / 2 + 1), S(emT))), glow: 0.16, alpha: 1 }));
     nameR.drawLetters(vp, eye, P, L, list, 2);
     gl.finish();
     const url = canvas.toDataURL('image/jpeg', 0.9);

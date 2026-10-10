@@ -177,9 +177,15 @@ export function createSheetScene(gl, opts) {
   const first = chars.findIndex(c => c !== ' ');
   // lignes à écrire : un souligné à la machine à droite de chaque lettre, tapé quand elle se pose (fin commune,
   // marge droite = marge de la colonne)
-  const RULE_X1 = -COL_X;   // (10/10) marges égales : le bloc (colonne + lignes) centré sur la feuille
+  // (10/10, Maxence) les lettres centrées entre elles sur l'axe de la colonne ; la colonne et ses lignes, ensemble, centrées
+  // sur la feuille (même marge à gauche de la colonne qu'à droite des lignes) ; les lignes partent toutes du même bord
+  const W_COL = Math.max(0, ...chars.filter(c => c !== ' ').map(c => nameR.adv(c))) * emT;
+  const COL_C = COL_X + W_COL / 2;                          // l'axe de la colonne
+  const letX = ch => COL_C - nameR.adv(ch) * emT / 2;
+  const RULE_X0 = COL_X + W_COL + TYPE.pitch * 1.2;
+  const RULE_X1 = -COL_X;
   const rulesOf = tu => flyers.map((f, k) => {
-    const x0 = COL_X + nameR.adv(f.ch) * emT + TYPE.pitch * 1.2;
+    const x0 = RULE_X0;
     const u = reduced ? (tu > f.at + f.dur ? 1 : 0) : clamp01((tu - (f.at + f.dur + 0.12)) / 0.55);
     return [baseOf(f.i) - 0.9, x0, u, k + 1];
   });
@@ -207,7 +213,7 @@ export function createSheetScene(gl, opts) {
     card.updateInk(sigTex, cv, Math.round(bx * PX), Math.round(by * PX)); releaseCanvas(cv);
     sigN = n;
   }
-  const cursorMM = first >= 0 ? { x: COL_X + nameR.adv(chars[first]) * emT + TYPE.pitch * 1.2, y: baseOf(first) - 0.5 } : { x: COL_X, y: 0 };
+  const cursorMM = first >= 0 ? { x: RULE_X0, y: baseOf(first) - 0.5 } : { x: 0, y: 0 };
 
   // ---- la commande ----
   const orders = (ORDERS_ON ? ORDERS : []).map((o, k) => {
@@ -551,7 +557,7 @@ export function createSheetScene(gl, opts) {
     for (const f of flyers) {
       if (hideInside) break;
       const u = reduced ? (tu > f.at ? 1 : 0) : clamp01((tu - f.at) / f.dur);
-      const end = M4.mul(Msheet, M4.mul(T(COL_X, baseOf(f.i), SHEET.t / 2 + zL), S(emT)));
+      const end = M4.mul(Msheet, M4.mul(T(letX(f.ch), baseOf(f.i), SHEET.t / 2 + zL), S(emT)));
       const start = M4.mul(starts[f.i], S(from.em));
       let M;
       if (u <= 0) M = start;

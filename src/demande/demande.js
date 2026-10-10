@@ -168,7 +168,8 @@ export async function mountDemande(canvas, d, { base = './', reduced = false } =
       quads.card = screenQuad(Mc, CARD.w, CARD.h);
     }
     const list = [];
-    chars.forEach((ch, i) => { if (ch !== ' ') list.push({ i, model: M4.mul(Ms, M4.mul(T(COL_X, baseOf(i), SHEET.t / 2 + 1), S(emT))), glow: 0.12 + 0.1 * Math.sin(t * 0.7 + i * 0.9), alpha: fade }); });
+    const wCol = Math.max(0, ...chars.filter(c => c !== ' ').map(c => nameR.adv(c))) * emT;   // (10/10) lettres centrées sur l'axe de la colonne
+    chars.forEach((ch, i) => { if (ch !== ' ') list.push({ i, model: M4.mul(Ms, M4.mul(T(COL_X + (wCol - nameR.adv(ch) * emT) / 2, baseOf(i), SHEET.t / 2 + 1), S(emT))), glow: 0.12 + 0.1 * Math.sin(t * 0.7 + i * 0.9), alpha: fade }); });
     nameR.drawLetters(vp, eye, P, L, list, t);
   }
   canvas.addEventListener('click', ev => {

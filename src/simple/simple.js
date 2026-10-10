@@ -534,25 +534,29 @@ export function mountSimpleFlow(opts) {
     return { s, cx, cy, left: cx - SHEET.w / 2 * s, right: cx + SHEET.w / 2 * s };
   }
   const toPx = (g, xmm, ymm) => ({ x: g.cx + xmm * g.s, y: g.cy - ymm * g.s });
+  // (10/10) la colonne centrée sur la feuille : la largeur d'une lettre (EB Garamond 500) pour la centrer sur l'axe
+  const mctx = document.createElement('canvas').getContext('2d');
+  const letterW = (ch, fs) => { mctx.font = `500 ${fs}px "SG Garamond", Georgia, serif`; return mctx.measureText(ch || 'M').width; };
   function layoutSheet() {
     if (!S) return;
     const g = sheetGeom(); S.g = g;
     const iw = SHEET.w * g.s / IMG.sheet.f, ih = iw * IMG.sheet.h / IMG.sheet.w;
     Object.assign(sheetImg.style, { left: (g.cx - iw / 2) + 'px', top: (g.cy - ih / 2) + 'px', width: iw + 'px', height: ih + 'px' });
     if (sheetCard) { const p = toPx(g, C_POSE.x, C_POSE.y); S.cardPose = { x: p.x, y: p.y, w: 87 * g.s / IMG.card.f, r: -C_POSE.rz * 180 / Math.PI, ry: 0 }; if (S.cardPlaced) setPose(sheetCard, S.cardPose); }
+    const wMax = Math.max(0, ...S.lines.filter(Boolean).map(ln => letterW(ln.el && ln.el.textContent, ln.cap * g.s / 0.65)));
     S.lines.forEach((ln, k) => {
       if (!ln) return;
-      const p = toPx(g, -SHEET.w / 2 + COL, ln.base);
-      ln.to = { x: p.x, y: p.y - ln.cap * g.s * 1.0 };            // haut de la capitale (le span a une hauteur de ligne d'1 em)
       ln.fs = ln.cap * g.s / 0.65;
+      const p = toPx(g, -SHEET.w / 2 + COL, ln.base), wl = letterW(ln.el && ln.el.textContent, ln.fs);
+      ln.to = { x: p.x + (wMax - wl) / 2, y: p.y - ln.cap * g.s * 1.0 };   // centrée sur l'axe de la colonne ; haut de la capitale (le span a une hauteur de ligne d'1 em)
       if (ln.el && ln.landed) { ln.el.style.fontSize = ln.fs + 'px'; ln.el.style.transform = `translate(${ln.to.x}px, ${ln.to.y - ln.fs * 0.12}px)`; }
       if (ln.rule) {
-        const x0 = p.x + ln.fs * 0.82 + PITCH * 1.2 * g.s, x1 = g.right - 30 * g.s, fsR = TYPE_MM * g.s;
+        const x0 = p.x + wMax + PITCH * 1.2 * g.s, x1 = g.right - COL * g.s, fsR = TYPE_MM * g.s;   // colonne + lignes centrées (marges égales)
         Object.assign(ln.rule.style, { left: x0 + 'px', top: (p.y - fsR * 0.95) + 'px', fontSize: fsR + 'px', letterSpacing: (PITCH * g.s - fsR * 0.6) + 'px' });
         ln.rule.dataset.n = String(Math.max(4, Math.floor((x1 - x0) / (PITCH * g.s))));
       }
     });
-    if (sig) { const p = toPx(g, -SHEET.w / 2 + COL, S.sigY), fsS = TYPE_MM * g.s; Object.assign(sig.style, { left: p.x + 'px', top: (p.y - fsS * 0.95) + 'px', fontSize: fsS + 'px', letterSpacing: (PITCH * g.s - fsS * 0.6) + 'px' }); }
+    if (sig) { const fsS = TYPE_MM * g.s, p = toPx(g, -SHEET.w / 2 + COL, S.sigY); Object.assign(sig.style, { left: p.x + 'px', top: (p.y - fsS * 0.95) + 'px', fontSize: fsS + 'px', letterSpacing: (PITCH * g.s - fsS * 0.6) + 'px' }); }
   }
   function toSheet() {
     stageName = 'sheet'; touched();
