@@ -20,15 +20,12 @@ const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o));
 const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
 // (10/10) la vitrine : ce qu'il y a dans l'envoi, une chose à la fois, JOUÉ EN DIRECT dans la scène de la feuille
 // (src/vitrine/vitrine.js) : une seule histoire qui s'enchaîne, de sa feuille à tout l'envoi posé à plat. Dessous, la
-// description (flèches de part et d'autre, ou glisser l'objet), RECEVOIR, le prix. Un tour tout seul, il s'arrête sur
-// tout l'envoi ; dès qu'on touche aux flèches, plus de défilé automatique.
+// description (flèches de part et d'autre, ou glisser l'objet), RECEVOIR, le prix. Trois étapes (Maxence 10/10 : plus
+// simple) ; un tour tout seul, il s'arrête sur la dernière ; dès qu'on touche aux flèches, plus de défilé automatique.
 const OBJETS = [
   { id: 'feuille', txt: 'l’exemplaire unique de ton poème, tapé à la machine à écrire' },
-  { id: 'carte', txt: 'la question du jeu SINGULIES, tirée au hasard' },
-  { id: 'enveloppe', txt: 'le tout scellé à la cire, avec une carte vierge et deux fils noirs' },
-  { id: 'carbone', txt: 'du carbone blanc pour écrire ton prénom à la main, et me renvoyer la carte' },
-  { id: 'fil', txt: 'deux fils : un à garder au poignet, l’autre pour relier les SINGULIES' },
-  { id: 'tout', txt: 'tout l’envoi' },
+  { id: 'enveloppe', txt: 'la question du jeu SINGULIES, tirée au hasard, le tout scellé à la cire' },
+  { id: 'carte', txt: 'une carte vierge pour m’écrire ton prénom à la main, et un fil noir… pour relier les SINGULIES' },
 ];
 const CHEV = d => `<svg viewBox="0 0 24 24" width="16" height="16"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>`;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -143,6 +140,12 @@ function walletOut(ev, r) {
   const address = a.line1 && a.city && a.postal_code ? { prenom: nm[0] || '', nom: nm.slice(1).join(' '), rue: a.line1, cplt: a.line2 || '', ville: a.city, cp: a.postal_code } : null;
   return { email: bd.email || (r && r.session && r.session.email) || '', ...(address ? { address } : {}) };
 }
+// (10/10) l'adresse donnée dans le panneau (Stripe) : elle s'écrira seule sur l'enveloppe, après
+function sessionAddr(r) {
+  const s = r && r.session, sa = s && (s.shippingAddress || s.shipping), a = (sa && sa.address) || {};
+  const nm = String((sa && sa.name) || '').trim().split(/\s+/).filter(Boolean);
+  return a.line1 && a.city && a.postal_code ? { address: { prenom: nm[0] || '', nom: nm.slice(1).join(' '), rue: a.line1, cplt: a.line2 || '', ville: a.city, cp: a.postal_code } } : {};
+}
 function paidHere(name, ref, extra = {}) {
   const o = { ...(readOrder() || {}), name, ref, paid: true, ...(envAddr ? { address: envAddr } : {}), ...extra };
   saveOrder(o);
@@ -249,7 +252,11 @@ function openPanel(name, ref) {
       <input class="of-pin of-fake-in" placeholder="numéro de carte" aria-label="numéro de carte" inputmode="numeric">`;
     const upd = () => { go.disabled = !mailOk(mail.value); };
     mail.addEventListener('input', upd);
-    go.addEventListener('click', () => { if (!go.disabled) paidNow({ simule: true, email: mail.value.trim() }); });
+    const fakeAddr = () => {
+      const v = [...addrHost.querySelectorAll('input')].map(i => i.value.trim()), nm = (v[0] || '').split(/\s+/).filter(Boolean);
+      return v[1] && v[2] && v[3] ? { address: { prenom: nm[0] || '', nom: nm.slice(1).join(' '), rue: v[1], cplt: '', cp: v[2], ville: v[3] } } : {};
+    };
+    go.addEventListener('click', () => { if (!go.disabled) paidNow({ simule: true, email: mail.value.trim(), ...fakeAddr() }); });
     return;
   }
 
@@ -291,7 +298,7 @@ function openPanel(name, ref) {
       // (3-D Secure, PayPal…) Stripe ramène vers merci.html
       if (envAddr) await actions.updateShippingAddress?.(stripeAddr(envAddr));
       const r = await actions.confirm({ email: mail.value.trim(), redirect: 'if_required' });
-      if (r && r.type === 'success') { paidNow({ session: r.session?.id || '', email: mail.value.trim() }); return; }
+      if (r && r.type === 'success') { paidNow({ session: r.session?.id || '', email: mail.value.trim(), ...sessionAddr(r) }); return; }
       if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
       busy = false; upd();
     });
@@ -439,7 +446,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   };
   const step = d => {
     if (busyMode()) return;
-    if (auto && d > 0 && cur === OBJETS.length - 1) { auto = false; return; }   // un tour : on reste sur tout l'envoi
+    if (auto && d > 0 && cur === OBJETS.length - 1) { auto = false; return; }   // un tour : on reste sur la dernière
     show(cur + d, d);
   };
   const manual = d => { auto = false; clearTimeout(timer); clearInterval(poll); count('alt/vitrine'); step(d); };
@@ -500,9 +507,11 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     count('alt/retour'); onBack?.();
   };
   root.querySelector('.of-back').addEventListener('click', back);
+  // (10/10, Maxence) RECEVOIR : directement le paiement (ou la réservation) — plus d'adresse sur l'enveloppe avant ;
+  // l'enveloppe vient après, avec la cérémonie (l'adresse connue s'y tape seule, sinon on l'y écrit)
   go.addEventListener('click', () => {
-    if (envelope && !inEnv) { enterEnv(); return; }
-    pay(name);
+    const st = vit && vit.state();
+    if (st && (st.vt > 0 || st.target > 0)) fadeJump(0, () => pay(name)); else pay(name);
   });
   barWalletSetup(root, name);
   addEventListener('keydown', e => { if (e.key === 'Escape' && root.isConnected) back(); });

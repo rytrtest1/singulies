@@ -39,9 +39,9 @@ async function playStep(k, d = 1) {
   console.log('étape', k, d < 0 ? '(recul)' : '', JSON.stringify(await vs()), await page.evaluate(() => document.querySelector('.of-vit-t').getAttribute('aria-label')));
 }
 await page.screenshot({ path: `${dir}/etape-0.png` });
-for (let k = 1; k <= 5; k++) await playStep(k);
+for (let k = 1; k <= 2; k++) await playStep(k);
 if (BACK) {
-  await playStep(4, -1);
+  await playStep(1, -1);
   await page.click('.of-bar .of-go');   // RECEVOIR depuis la guirlande : la feuille revient, puis l'enveloppe
   await page.waitForTimeout(3500); await page.screenshot({ path: `${dir}/recevoir.png` });
   console.log('recevoir', JSON.stringify(await vs()), await page.evaluate(() => document.getElementById('offre').className));

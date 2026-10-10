@@ -13,8 +13,8 @@ export const ENVOI = lundiSuivant();   // (plus affiché : voir DELAI)
 // (10/10) aucun délai affiché (Maxence) ; s'il revient : « je le tape et le poste sous 3 jours »
 export const DELAI = '';
 
-// (10/10) RESERVATION SANS PAIEMENT, en attendant le SIRET : RECEVOIR → l'enveloppe (l'adresse) → RESERVER → la carte,
-// la réponse, la feuille, l'enveloppe part, l'email → c'est noté. Rien n'est débité, aucun appel à Stripe ; la demande
+// (10/10) RESERVATION SANS PAIEMENT, en attendant le SIRET : RECEVOIR → (aussitôt) la carte, la réponse, la feuille,
+// l'enveloppe : on y écrit l'adresse, POSTER → l'email → c'est noté. Rien n'est débité, aucun appel à Stripe ; la demande
 // part par email marquée « réservation, à payer » avec sa référence, et je t'envoie ensuite le lien de paiement
 // (si STRIPE est rempli, la demande porte déjà le lien prérempli : référence + email). false → le paiement Stripe.
 // ?paiement=stripe (ou ?paiement=faux) : le paiement, même en réservation (essais).

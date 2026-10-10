@@ -194,8 +194,7 @@ export async function mountCards(opts) {
     sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced, hold: !!opts.hold && !paid,
       fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, insetBottom: !paid ? opts.insetBottom : null,
       vitrine: !!opts.vitrine && !paid, base,
-      // payé : l'adresse connue (enveloppe d'avant, ou portefeuille) se tape seule sur l'enveloppe ; sinon elle part sans
-      ...(paid && !(paidAuto && paidAuto.fields) ? { noAddr: true } : {}),
+      // payé : l'adresse connue (panneau, portefeuille) se tape seule sur l'enveloppe ; sinon on l'y écrit, puis POSTER
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.'); },
         // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)
         write: d => {
@@ -476,7 +475,7 @@ export async function mountCards(opts) {
         if (es) syncFields(); else envSynced = false;   // remplissage automatique sans événement (Safari)
         giveEl.classList.remove('on');
         // (10/10, alt) payInstead : pas de POSTER — la page met son paiement à la place ; elle suit l'enveloppe
-        if (opts.payInstead) {
+        if (opts.payInstead && !paid) {
           postEl.classList.remove('on');
           const k = es ? (es.canPost && ar ? 'ready:' + JSON.stringify(es.fields) : 'open') : (api.envKey ? 'closed' : '');
           if (k !== api.envKey) { api.envKey = k === 'closed' ? '' : k; opts.onEnvelope?.(es ? { canPost: !!(es.canPost && ar), fields: { ...es.fields } } : { closed: true }); }
