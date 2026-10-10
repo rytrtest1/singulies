@@ -43,22 +43,24 @@
     const vers = ex.vers.filter(v => v !== '');
     const chars = vers.map(v => v[0].toUpperCase());
     nameR.letters(chars);
-    const n = chars.length, lead = n > 1 ? Math.min(10.5, 148 / (n - 1)) : 10.5;
-    const cap = Math.min(6.4, lead * 0.6), emT = cap / nameR.capHeight, yc = 14;   // le poème entre le logo et la carte
+    // la carte posée SUR la feuille, sous le nom, centrée ; le poème centré entre le logo et la carte
+    const CY = -SHEET.h / 2 + CARD.h / 2 + 10, colTop = SHEET.h / 2 - 32, colBot = CY + CARD.h / 2 + 10;
+    const n = chars.length, lead = n > 1 ? Math.min(10.5, (colTop - colBot - 14) / (n - 1)) : 10.5;
+    const cap = Math.min(6.4, lead * 0.6), emT = cap / nameR.capHeight, yc = (colTop + colBot) / 2 + cap / 2 + 4;
     const baseOf = k => yc + ((n - 1) / 2 - k) * lead - cap / 2;
 
     // les vers, tapés à la machine juste après la lettre de la colonne ; plus petits si le plus long ne tient pas
-    const x0 = COL_X + Math.max(...chars.map(c => nameR.adv(c))) * emT + TYPE.pitch * 0.9;
     // (la police machine n'a pas de « œ », les machines à écrire non plus : « oe »)
     const rests = vers.map(v => v.slice(2).replace(/œ/g, 'oe').replace(/Œ/g, 'OE'));
-    const avail = SHEET.w / 2 - 9 - x0, long = Math.max(...rests.map(r => r.length)) * TYPE.pitch;
-    const k = Math.min(1, avail / long);
+    // le bloc (lettres + vers) centré sur la feuille ; les vers à la taille de la machine, plus petits seulement s'ils ne tiennent pas
+    const lw = Math.max(...chars.map(c => nameR.adv(c))) * emT, gap = TYPE.pitch * 0.9, long = Math.max(...rests.map(r => r.length)) * TYPE.pitch;
+    const k = Math.min(1, (SHEET.w - 24 - lw - gap) / long);
+    const colX = -(lw + gap + long * k) / 2, x0 = colX + lw + gap;
     const full = new OffscreenCanvas(Math.round(SHEET.w * PX), Math.round(SHEET.h * PX)), fx = full.getContext('2d');
     fx.fillStyle = '#000'; fx.fillRect(0, 0, full.width, full.height);
-    // frappé deux fois au même endroit (même graine) : l'appui irrégulier reste, aucune lettre ne disparaît
-    for (let rep = 0; rep < 2; rep++) rests.forEach((r, i) => typeLines(fx, PX * k, [r], (SHEET.w / 2 + x0) / k, (SHEET.h / 2 - baseOf(i)) / k, 0, seed * 31 + i * 7, 0.75, '#fff'));
+    rests.forEach((r, i) => typeLines(fx, PX * k, [r], (SHEET.w / 2 + x0) / k, (SHEET.h / 2 - baseOf(i)) / k, 0, seed * 31 + i * 7, 1, '#fff'));
     const sigY = baseOf(n - 1) - Math.max(lead, 8.5);
-    typeLines(fx, PX, ['- ETERNEL -'], SHEET.w / 2 + COL_X, SHEET.h / 2 - sigY, 0, 4049, 1, '#fff');
+    typeLines(fx, PX, ['- ETERNEL -'], SHEET.w / 2 + colX, SHEET.h / 2 - sigY, 0, 4049, 1, '#fff');
     const sheetInk = card.makeInk(full, true);
 
     // la carte : une question au hasard, côté question, posée en bas de la feuille comme dans le parcours
@@ -66,7 +68,7 @@
     const cardInk = card.makeInk(makeInkMap(q, seed * 13 + 5).canvas);
 
     // cadrage : la feuille entière (et la carte qui dépasse un peu en bas), vue presque de face, lampe rasante
-    const y0 = Math.min(-SHEET.h / 2, C_POSE.y - CARD.h / 2) - 6, y1 = SHEET.h / 2 + 4, x0f = -SHEET.w / 2, x1f = SHEET.w / 2;
+    const y0 = -SHEET.h / 2 - 4, y1 = SHEET.h / 2 + 4, x0f = -SHEET.w / 2, x1f = SHEET.w / 2;
     const Hw = Math.max((y1 - y0) * 1.06, (x1f - x0f) * 1.06 * H / W), D = Hw / (2 * TF), cy = (y0 + y1) / 2;
     const eye = [0, cy - D * Math.sin(TILT), D * Math.cos(TILT)];
     const vp = M4.mul(M4.perspective(FOV, W / H, D * 0.25, D * 3), M4.lookAt(eye, [0, cy, 0], [0, 1, 0]));
@@ -80,9 +82,9 @@
     const Ms = M4.model(0, 0, 0.012, 0, 0, 0);
     card.draw(vp, eye, P, { model: Ms, lod: 'sheet', seed: 40 + seed, paperXf: [1.2, -0.6, 0, 0], warp: [0.4, -0.22, 0.05],
       logoOff: [0, LOGO_Y], logoScale: [LOGO_K, LOGO_K], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35, inkBack: sheetInk, inkRG: true });
-    const Mc = M4.mul(M4.mul(Ms, M4.model(0, 0, C_POSE.rz, C_POSE.x, C_POSE.y, 2.2)), M4.model(0, Math.PI, 0));
+    const Mc = M4.mul(M4.mul(Ms, M4.model(0, 0, -0.03, 0, CY, 2.2)), M4.model(0, Math.PI, 0));
     card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink: cardInk, seed: (seed * 7) % 97, paperXf: [0.6, -0.4, 0, 0], warp: [0.18, -0.08, 0.04], logoOff: [0, 0] });
-    const list = chars.map((ch, i) => ({ i, model: M4.mul(Ms, M4.mul(T(COL_X, baseOf(i), SHEET.t / 2 + 1), S(emT))), glow: 0.16, alpha: 1 }));
+    const list = chars.map((ch, i) => ({ i, model: M4.mul(Ms, M4.mul(T(colX, baseOf(i), SHEET.t / 2 + 1), S(emT))), glow: 0.16, alpha: 1 }));
     nameR.drawLetters(vp, eye, P, L, list, 2);
     gl.finish();
     const url = canvas.toDataURL('image/jpeg', 0.9);

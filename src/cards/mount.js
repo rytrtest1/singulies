@@ -22,7 +22,7 @@ const CSS = `
   opacity: 0; transition: opacity 1.2s; pointer-events: none;
   font: 500 14px/44px 'SG Garamond', serif; letter-spacing: 0.4em; padding-left: 0.4em; color: #fff; }
 .sc-pass.on { opacity: .62; pointer-events: auto; }
-.sc-pass .sc-sub { display: block; margin-top: -12px; font-size: 13px; line-height: 1.2; letter-spacing: .04em; opacity: .55; }
+.sc-pass .sc-sub { display: block; margin-top: -12px; font-size: 13px; line-height: 1.2; letter-spacing: .04em; padding-left: 0; opacity: .55; }
 .sc-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); }
 /* feuille : boutons accessibles (clavier, lecteur d'écran) posés sur la carte et la commande ; le toucher passe au canvas */
 .sc-hit { position: fixed; margin: 0; padding: 0; border: 0; background: transparent; color: transparent; font-size: 1px;
@@ -135,7 +135,8 @@ export async function mountCards(opts) {
   }
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');
   const giveEl = el('div', 'sc-sign', '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
-  const passEl = el('div', 'sc-pass', 'PASSER<span class="sc-sub">j’improvise</span>'); passEl.setAttribute('role', 'button'); passEl.setAttribute('aria-label', 'Passer : j’improvise sur ton prénom');
+  const passEl = el('div', 'sc-pass', 'PASSER<span class="sc-sub"></span>'); passEl.setAttribute('role', 'button'); passEl.setAttribute('aria-label', 'Passer : j’improvise à partir de ' + name);
+  passEl.querySelector('.sc-sub').textContent = '(j’improvise à partir de ' + name + ')';
   // l'enveloppe : POSTER (même signe que PASSER), dès que l'adresse a deux lignes, même clavier ouvert
   const postEl = el('div', 'sc-pass', 'POSTER'); postEl.setAttribute('role', 'button'); postEl.tabIndex = 0;
   // pointerdown sans effet par défaut : le champ garde le focus, le clavier ne se ferme pas sous le doigt avant le clic
@@ -474,7 +475,8 @@ export async function mountCards(opts) {
       passEl.classList.toggle('on', !st.ended && ((st.mode === 'free' && st.freeFor > 3) || blankIn));
       const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
       if (st.kb && r) passEl.style.top = Math.max(r.bottom + 2, (r.bottom + kbTop) / 2 - 22) + 'px';
-      else if (st.mode === 'q' && mk) passEl.style.top = (mk.blankTop - 64) + 'px';
+      // (10/10) centré entre la question (et sa bande de réponse) et la carte blanche
+      else if (st.mode === 'q' && mk) passEl.style.top = (((mk.qBottom || mk.deckBottom) + mk.blankTop) / 2 - (passEl.offsetHeight || 60) / 2) + 'px';
       else if (mk) passEl.style.top = (mk.deckBottom + 34) + 'px';
       // respiration : la lumière et la carte en focus bougent d'elles-mêmes, très peu (le vivant, sans gyroscope)
       // la lampe respire d'elle-même (scene.js : breathAz / breathEl) ; carte en focus : elle respire aussi, moins que

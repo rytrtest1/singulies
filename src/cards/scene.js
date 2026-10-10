@@ -316,7 +316,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     a.cursorMM = pre ? pre.cursorMM : makeStripInk('', Math.floor(v.seed * 1000) + 7, question.margin).cursor;
     return a;
   }
-  const HINT_ANSWER = 'ta réponse est le thème', HINT_BLANK = 'le thème de ton poème';
+  const HINT_ANSWER = 'réponds ici', HINT_BLANK = 'le thème de ton poème';   // (10/10 : était « ta réponse est le thème »)
   function renderAnswer(c = act()) {
     if (!c) return;
     const sd = Math.floor(c.v.seed * 1000) + 7;
@@ -727,7 +727,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function marks() {
     if (!vp) return null;
     const z = { jx: 0, jy: 0, jr: 0 };
-    return { peekBottom: rectOf(screenQuad(peekPose(z))).bottom, blankTop: rectOf(screenQuad(blankRest(z))).top, deckBottom: rectOf(screenQuad(centerPose(z))).bottom };
+    return { peekBottom: rectOf(screenQuad(peekPose(z))).bottom, blankTop: rectOf(screenQuad(blankRest(z))).top, deckBottom: rectOf(screenQuad(centerPose(z))).bottom, qBottom: lowestBottom() };
   }
   function lowestBottom() {
     if (!vp) return null;

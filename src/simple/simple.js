@@ -64,7 +64,7 @@ const CSS = `
 .sp-sign { position: absolute; left: 0; right: 0; text-align: center; font: 500 14px/44px 'SG Garamond', Georgia, serif; letter-spacing: .4em;
   padding: 0 0 0 .4em; margin: 0; border: 0; background: transparent; color: #fff; opacity: 0; transition: opacity 1.2s; pointer-events: none; cursor: pointer; }
 .sp-sign.on { opacity: .62; pointer-events: auto; }
-.sp-sign .sp-sub { display: block; margin-top: -10px; font-size: 13px; line-height: 1.2; letter-spacing: .04em; opacity: .55; }
+.sp-sign .sp-sub { display: block; margin-top: -10px; font-size: 13px; line-height: 1.2; letter-spacing: .04em; padding-left: 0; opacity: .55; }
 .sp-sign.on:hover { opacity: .85; }
 .sp-back { position: absolute; left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); width: 44px; height: 44px;
   display: flex; align-items: center; justify-content: center; color: #fff; opacity: 0; transition: opacity .8s; pointer-events: none;
@@ -359,11 +359,12 @@ export function mountSimpleFlow(opts) {
   const ta = el('textarea', 'sp-write', root);
   Object.assign(ta, { spellcheck: false, rows: 3 });
   ta.setAttribute('autocapitalize', 'none'); ta.setAttribute('autocomplete', 'off'); ta.setAttribute('autocorrect', 'off');
-  ta.setAttribute('enterkeyhint', 'done'); ta.placeholder = 'ta réponse est le thème';
+  ta.setAttribute('enterkeyhint', 'done'); ta.placeholder = 'réponds ici';
   const deckBtn = el('button', 'sp-btn', root); deckBtn.type = 'button'; deckBtn.textContent = 'une autre question'; deckBtn.setAttribute('aria-label', 'une autre question');
   const prevBtn = el('button', 'sp-btn', root); prevBtn.type = 'button'; prevBtn.textContent = 'la question précédente'; prevBtn.setAttribute('aria-label', 'la question précédente');
   const blankBtn = el('button', 'sp-btn', root); blankBtn.type = 'button'; blankBtn.textContent = 'carte blanche'; blankBtn.setAttribute('aria-label', 'carte blanche : écrire le thème de ton poème');
-  const pass = el('button', 'sp-sign', root, 'PASSER<span class="sp-sub">j’improvise</span>'); pass.type = 'button'; pass.setAttribute('aria-label', 'Passer : j’improvise sur ton prénom');
+  const pass = el('button', 'sp-sign', root, 'PASSER<span class="sp-sub"></span>'); pass.type = 'button'; pass.setAttribute('aria-label', 'Passer : j’improvise à partir de ' + name);
+  pass.querySelector('.sp-sub').textContent = '(j’improvise à partir de ' + name + ')';
   const curl = el('div', 'sp-curl', root);
   let L = null;                                            // disposition des cartes
   function layoutCards() {
@@ -386,7 +387,8 @@ export function mountSimpleFlow(opts) {
     box(prevBtn, 22, qy, 44, 44);
     box(blankBtn, W / 2, H - L.visH * 0.25, L.vis, L.visH * 0.5);
     Object.assign(curl.style, { left: (W / 2 + L.vis / 2 - 22) + 'px', top: (qy - L.visH / 2) + 'px' });
-    pass.style.top = (mode === 'free' ? Math.min(qy + L.visH / 2 + 18, H - 52) : H - L.visH * 0.72 - 58) + 'px';
+    // (10/10) sur une question : centré entre la question (et sa bande de réponse) et la carte blanche
+    pass.style.top = (mode === 'free' ? Math.min(qy + L.visH / 2 + 18, H - 52) : ((qy + L.visH / 2 + L.visH * 0.35) + (H - L.visH * 0.72)) / 2 - 30) + 'px';
   }
   function placeBlank() {
     if (!L) return;
@@ -454,7 +456,7 @@ export function mountSimpleFlow(opts) {
     if (mode !== 'free') return;
     answers.blank = ta.value; mode = 'q'; passOn();
     for (const d of [...deck, ansCard, ...(q ? [q.c] : [])]) d.style.opacity = 1;
-    ta.placeholder = 'ta réponse est le thème';
+    ta.placeholder = 'réponds ici';
     if (q) { ta.value = answers[q.id] || ''; ta.setAttribute('aria-label', QUESTIONS.find(x => x.id === q.id)?.q || 'Réponse'); }
     blank.style.zIndex = '';
     layoutCards();

@@ -49,7 +49,7 @@ const FLY_AT = 1.05, FLY_GAP = 0.27, FLY_T = 1.35;
 const CAM_T = 2.4;
 const C_IN = { x: 14, y: -56, rz: -0.03, z: 0.3 };                  // la carte, posée sur la feuille pour entrer
 const FD_IN = [1.6, 3.1];                        // (alt) la carte face cachée glisse sur la feuille
-const FD_Y = -SHEET.h / 2 + 26;                  // … et s'y pose entière (le bas de l'écran porte l'offre)
+const FD_Y = -SHEET.h / 2 + CARD.h / 2 + 10;     // … et s'y pose entière, sous le nom, centrée (10/10 : rien ne dépasse de la feuille)
 const ENVELOPE = new URLSearchParams(location.search).get('enveloppe') !== '0';   // ?enveloppe=0 : « bientôt » comme avant
 // 08/10 : plus de commande — l'acrostiche posé, on passe directement à l'enveloppe (?commande=1 : les deux cartes)
 const ORDERS_ON = new URLSearchParams(location.search).get('commande') === '1' || !ENVELOPE;
@@ -151,10 +151,13 @@ export function createSheetScene(gl, opts) {
   const chars = [...name];
   nameR.letters(chars);
   const nLines = chars.length;
-  const lead = nLines > 1 ? Math.min(10.5, 148 / (nLines - 1)) : 10.5;
+  // (10/10) l'acrostiche toujours centré sur la feuille : entre le haut (sous le logo) et le bas — ou, quand la carte
+  // face cachée est posée sur la feuille (alt), le haut de la carte ; l'interligne se resserre s'il le faut
+  const FD = !!(C && C.faceDown), colTop = SHEET.h / 2 - 32, colBot = FD ? FD_Y + CARD.h / 2 + 10 : -SHEET.h / 2 + 18;
+  const lead = nLines > 1 ? Math.min(10.5, 148 / (nLines - 1), FD ? (colTop - colBot - 6) / (nLines - 1) : Infinity) : 10.5;
   const cap = Math.min(6.4, lead * 0.6), emT = cap / nameR.capHeight;
-  // bloc un peu remonté quand la carte occupe le bas ; (alt) plus encore : la carte face cachée est posée SUR la feuille
-  const yc = C ? (C.faceDown ? 10 : -6) : 0;
+  // bloc un peu remonté quand la carte (réponse) recouvre le bas ; (alt) centré au-dessus de la carte posée sur la feuille
+  const yc = C ? (FD ? (colTop + colBot) / 2 + cap / 2 : -6) : 0;
   const baseOf = k => yc + ((nLines - 1) / 2 - k) * lead - cap / 2;
   // départ : la lettre telle que la scène des cartes l'a laissée (monde, à plat)
   const starts = [];
@@ -174,7 +177,7 @@ export function createSheetScene(gl, opts) {
   const first = chars.findIndex(c => c !== ' ');
   // lignes à écrire : un souligné à la machine à droite de chaque lettre, tapé quand elle se pose (fin commune,
   // marge droite = marge de la colonne)
-  const RULE_X1 = SHEET.w / 2 - 30;
+  const RULE_X1 = -COL_X;   // (10/10) marges égales : le bloc (colonne + lignes) centré sur la feuille
   const rulesOf = tu => flyers.map((f, k) => {
     const x0 = COL_X + nameR.adv(f.ch) * emT + TYPE.pitch * 1.2;
     const u = reduced ? (tu > f.at + f.dur ? 1 : 0) : clamp01((tu - (f.at + f.dur + 0.12)) / 0.55);
@@ -223,7 +226,7 @@ export function createSheetScene(gl, opts) {
     return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, D: Hw / (2 * TF), Hw };
   }
   function layout(W, H) {
-    const cBot = C ? C_POSE.y - CARD.h / 2 : -SHEET.h / 2;
+    const cBot = C && !C.faceDown ? C_POSE.y - CARD.h / 2 : -SHEET.h / 2;   // (alt) la carte est SUR la feuille : même cadrage
     frames.A = frameFor(SY + cBot - 8, SY + SHEET.h / 2 + 4, -SHEET.w / 2, SHEET.w / 2, SHEET.w * 1.1, W, H);
     // tant que les lettres sont en haut : la feuille et le prénom au-dessus
     frames.AN = frameFor(SY + cBot - 8, Math.max(SY + SHEET.h / 2 + 4, nameTop + 8), -SHEET.w / 2, SHEET.w / 2, SHEET.w * 1.1, W, H);
@@ -443,7 +446,7 @@ export function createSheetScene(gl, opts) {
       const u = reduced ? sstep(FD_IN[0], FD_IN[0] + 0.5, tu) : span(FD_IN, tu), e = ease(u);
       const lv = C.leaveT != null ? (reduced ? 1 : ease(clamp01((t - C.leaveT) / 1.1))) : 0;
       const k = Math.max(1 - e, lv);
-      Mc = M4.mul(Msheet, M4.model(0, 0, C_POSE.rz - 0.28 * k, C_POSE.x + C.v.jx + 24 * k, FD_Y + C.v.jy * 2 - 125 * k, 2.2 + 26 * k));
+      Mc = M4.mul(Msheet, M4.model(0, 0, -0.03 - 0.28 * k, C.v.jx + 24 * k, FD_Y + C.v.jy * 2 - 125 * k, 2.2 + 26 * k));
       C.fade = sstep(0, 0.35, u) * (1 - sstep(0.3, 1, lv));
       C.occ = u > 0.9 && lv < 0.05 && !hideInside ? { m: Mc } : null;
     } else if (C) {

@@ -16,14 +16,8 @@ let onPaidHere = null;
 const readOrder = () => { try { return JSON.parse(localStorage.getItem(K_ORDER) || 'null'); } catch { return null; } };
 const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o)); } catch { /* */ } };
 const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
-// (10/10) sous la feuille : un poème original, tapé à la machine (à la place de « ces lignes n'existent pas encore… »)
-const POEME = [
-  'ton prénom attend, en colonne,',
-  'une ligne vide pour chaque lettre.',
-  'je n’écris rien d’avance :',
-  'je lis ta réponse, je pose mes mains,',
-  'et je tape ce qui te ressemble.',
-];
+// (10/10) sous la feuille, une seule phrase, tapée à la machine
+const POEME = ['un poème original tapé à la machine'];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // le paiement : le prénom part dans client_reference_id (A–Z, chiffres, - et _), et reste ici pour merci.html
