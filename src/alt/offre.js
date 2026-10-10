@@ -64,18 +64,35 @@ function appearance() {
     },
   };
 }
+// (10/10) payer depuis le bandeau : il grandit vers le haut (jamais plein écran) et la feuille — le prénom — reste
+// visible au-dessus : la scène remonte et se réduit pour tenir dans ce qui reste (la feuille occupe ≈ 21–79 % de la hauteur)
+const SHEET_Y0 = 0.21, SHEET_Y1 = 0.79;
+function liftSheet(on, panelEl) {
+  const cv = document.querySelector('canvas.sc-c');
+  const of = document.getElementById('offre');
+  if (of) { of.classList.toggle('paying', on); if (on) of.scrollTo({ top: 0, behavior: 'smooth' }); }
+  if (!cv) return;
+  cv.style.transition = 'transform .6s cubic-bezier(.2,.7,.3,1)';
+  cv.style.transformOrigin = '50% 0';
+  if (!on) { cv.style.transform = ''; return; }
+  const H = innerHeight, room = H - panelEl.getBoundingClientRect().height - 18;
+  const s = Math.min(1, room / ((SHEET_Y1 - SHEET_Y0) * H)), T = SHEET_Y0 * H * s - 10;
+  cv.style.transform = `translateY(${(-T).toFixed(1)}px) scale(${s.toFixed(3)})`;
+}
 function openPanel(name, ref) {
-  if (panel) { panel.root.classList.add('on'); panel.veil.classList.add('on'); return; }
-  const fake = !(STRIPE_PK && PAIEMENT_URL);
+  if (panel) { panel.root.classList.add('on'); panel.veil.classList.add('on'); requestAnimationFrame(() => liftSheet(true, panel.root)); return; }
+  const fake = Q.get('paiement') === 'faux' || !(STRIPE_PK && PAIEMENT_URL);   // ?paiement=faux : toujours le faux formulaire
   const veil = document.createElement('div'); veil.className = 'of-pay-veil';
   const root = document.createElement('div'); root.className = 'of-pay'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Paiement');
   root.innerHTML = `<button class="of-pay-x" type="button" aria-label="Fermer">×</button>
     <div class="of-pay-body">
-      <div class="of-pay-title"><b>${esc(name)}</b><span class="of-pay-sub">un poème à ton prénom</span>
+      <div class="of-pay-title"><span class="of-pay-sub">un poème à ton prénom</span>
         <span class="of-pay-p">${esc(PRIX)}, port compris · posté le ${esc(ENVOI)}</span></div>
       <div class="of-for" role="radiogroup" aria-label="Pour qui">
         <button type="button" class="on" data-for="moi" role="radio" aria-checked="true">pour moi</button>
         <button type="button" data-for="offrir" role="radio" aria-checked="false">pour offrir</button></div>
+      <div class="of-express"></div>
+      <p class="of-or" hidden><span>ou par carte</span></p>
       <label class="of-pf"><span>ton email</span>
         <input class="of-pin" type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next"></label>
       <div class="of-pf"><span class="of-where">où je te l’envoie</span><div class="of-addr"></div></div>
@@ -86,10 +103,11 @@ function openPanel(name, ref) {
     </div>`;
   document.body.append(veil, root);
   panel = { root, veil };
-  const close = () => { root.classList.remove('on'); veil.classList.remove('on'); };
+  const close = () => { root.classList.remove('on'); veil.classList.remove('on'); liftSheet(false); };
   veil.addEventListener('click', close);
   root.querySelector('.of-pay-x').addEventListener('click', close);
-  void root.offsetWidth; setTimeout(() => { root.classList.add('on'); veil.classList.add('on'); }, 20);
+  void root.offsetWidth; setTimeout(() => { root.classList.add('on'); veil.classList.add('on'); liftSheet(true, root); }, 20);
+  addEventListener('resize', () => { if (root.classList.contains('on')) liftSheet(true, root); });
   const mail = root.querySelector('.of-pin'), go = root.querySelector('.of-pay-go'), msg = t => { root.querySelector('.of-pay-msg').textContent = t || ''; };
   const addrHost = root.querySelector('.of-addr'), pmHost = root.querySelector('.of-pm');
   // pour moi / pour offrir (10/10) : offert, le prénom écrit est le sien ; après le paiement, je demande comment l'écrire
@@ -113,8 +131,12 @@ function openPanel(name, ref) {
     onPaidHere(o);
   };
 
+  const expressHost = root.querySelector('.of-express'), orEl = root.querySelector('.of-or');
   if (fake) {
-    // le même panneau, avec des champs d'essai à l'allure des vrais
+    // le même panneau, avec des champs d'essai à l'allure des vrais (et un faux bouton Apple Pay en tête)
+    expressHost.innerHTML = '<button type="button" class="of-fake-apple">Payer avec Apple Pay</button>';
+    expressHost.querySelector('button').addEventListener('click', () => paidNow({ simule: true }));
+    orEl.hidden = false;
     addrHost.innerHTML = ['prénom et nom', 'adresse', 'code postal', 'ville'].map(l => `<input class="of-pin of-fake-in" placeholder="${l}" aria-label="${l}">`).join('');
     pmHost.innerHTML = `<div class="of-fake-tabs"><span class="on">carte</span><span>apple pay</span><span>paypal</span></div>
       <input class="of-pin of-fake-in" placeholder="numéro de carte" aria-label="numéro de carte" inputmode="numeric">`;
@@ -144,11 +166,24 @@ function openPanel(name, ref) {
       ] },
     });
     pmHost.innerHTML = '';
+    // en tête : Apple Pay / Google Pay / PayPal en un toucher (l'adresse et l'email viennent du portefeuille)
+    const express = checkout.createExpressCheckoutElement({
+      buttonHeight: 48, buttonTheme: { applePay: 'white', googlePay: 'white' },
+      buttonType: { applePay: 'buy', googlePay: 'buy', paypal: 'buynow' }, layout: { maxColumns: 1, overflow: 'never' },
+    });
+    express.mount(expressHost);
+    express.on('availablepaymentmethodschange', ({ paymentMethods }) => { orEl.hidden = !paymentMethods; requestAnimationFrame(() => liftSheet(true, root)); });
     checkout.createShippingAddressElement().mount(addrHost);
     checkout.createPaymentElement().mount(pmHost);
     const la = await checkout.loadActions();
     if (la.type === 'error') throw new Error(la.error?.message || 'actions');
     const actions = la.actions;
+    express.on('confirm', async ev => {
+      msg('');
+      const r = await actions.confirm({ expressCheckoutConfirmEvent: ev, redirect: 'if_required' });
+      if (r && r.type === 'success') { paidNow({ session: r.session?.id || '' }); return; }
+      if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
+    });
     let busy = false;
     const upd = () => { go.disabled = busy || !mailOk(mail.value); };
     mail.addEventListener('input', upd);

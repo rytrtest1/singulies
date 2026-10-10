@@ -91,16 +91,25 @@
 .of-go:active { transform: translateY(1px); }
 
 /* le panneau de paiement : à nous, en noir ; les champs de Stripe dedans, habillés pareil (offre.js, appearance) */
-.of-pay-veil { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,.6); opacity: 0; pointer-events: none; transition: opacity .5s; }
+/* (10/10) le bandeau grandit : la feuille reste visible au-dessus (offre.js, liftSheet) — aucun voile qui l'assombrit */
+.of-pay-veil { position: fixed; inset: 0; z-index: 30; background: transparent; opacity: 0; pointer-events: none; }
 .of-pay-veil.on { opacity: 1; pointer-events: auto; }
-.of-pay { position: fixed; z-index: 31; left: 50%; bottom: 0; width: min(100%, 520px); height: min(94svh, 860px);
+.of-pay { position: fixed; z-index: 31; left: 50%; bottom: 0; width: min(100%, 520px); height: auto; max-height: 60svh; display: flex; flex-direction: column;
   transform: translate(-50%, 104%); transition: transform .6s cubic-bezier(.2,.7,.3,1); background: #0b0b0a; color: #d6d2ca;
   border-top: 1px solid #262422; border-radius: 3px 3px 0 0; box-shadow: 0 -16px 50px rgba(0,0,0,.7); }
 .of-pay.on { transform: translate(-50%, 0); }
 .of-pay-x { position: absolute; z-index: 2; right: 6px; top: 6px; width: 44px; height: 44px; border: 0; background: none; font-size: 26px; line-height: 1; color: #8f897f; cursor: pointer; }
-.of-pay-body { height: 100%; box-sizing: border-box; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+.of-pay-body { flex: 1; min-height: 0; max-height: 60svh; box-sizing: border-box; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   padding: 30px 20px calc(28px + env(safe-area-inset-bottom)); font: 16px/1.5 'SG Garamond', Georgia, serif; }
-.of-pay-title { text-align: center; margin: 0 0 26px; }
+.of-pay-title { text-align: center; margin: -6px 30px 16px; }
+.of-express { margin: 0 0 4px; }
+.of-express:empty { display: none; }
+.of-or { display: flex; align-items: center; gap: 12px; margin: 14px 0 16px; font-size: 14px; color: #6c675e; }
+.of-or::before, .of-or::after { content: ''; flex: 1; border-top: 1px solid #262422; }
+.of-fake-apple { display: block; width: 100%; height: 48px; border: 0; border-radius: 4px; background: #fff; color: #000; font: 600 17px/48px -apple-system, system-ui, sans-serif; cursor: pointer; }
+/* pendant le paiement : la note et la barre du prix s'effacent (le bandeau, c'est le paiement) */
+.of.paying .of-bar { transform: translateY(110%); }
+.of.paying .of-note, .of.paying .of-back { opacity: 0; pointer-events: none; transition: opacity .4s; }
 .of-pay-title b { display: block; font: 500 26px/1.2 'SG Garamond', Georgia, serif; letter-spacing: .3em; padding-left: .3em; color: #f1ede6; margin-bottom: 4px; }
 .of-pay-title span { display: block; color: #c4bfb5; }
 .of-pay-title .of-pay-p { font-size: 14px; color: #8f897f; margin-top: 2px; }
