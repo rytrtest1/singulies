@@ -623,7 +623,7 @@ export function createSheetScene(gl, opts) {
           sealV4: [SD.wobPhase, SD.crest, SD.tilt, Fm.peau], sealR: [SEAL_SHAPE.film, SEAL_SHAPE.sss, SEAL_SHAPE.offX, SEAL_SHAPE.offY], logoOff: [SEAL_SHAPE.offX, SEAL_SHAPE.offY], blend: true });
       }
     }
-    if (VIT && !env && !backing) { const r = VIT.draw(vp, eye, P, Msheet, Menv, t, sstep(CURSOR_AT, CURSOR_AT + 1.2, tu)); vOcc = r.occ; } else vOcc = null;
+    if (VIT && !env && !backing) { const r = VIT.draw(vp, eye, P, Msheet, Menv, t); vOcc = r.occ; } else vOcc = null;
     // « en direct » envoyé : l'événement, une fois la carte partie
     if (direct && direct.postT >= 0 && !direct.sent && t - direct.postT > 1.7) {
       direct.sent = true;

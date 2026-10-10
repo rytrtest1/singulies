@@ -250,7 +250,20 @@
 /* (10/10) le bandeau : ce qu'on reçoit, RECEVOIR, puis le prix dessous */
 .of-bar .of-vit { order: 1; }
 .of-bar .of-go, .of-bar .of-bar-r { order: 2; }
-.of-bar .of-price { order: 3; }
-.of-bar .of-down { order: 4; }
+.of-bar .of-fil-host { order: 3; }
+.of-bar .of-price { order: 4; }
+.of-bar .of-down { order: 5; }
 .of-bar { gap: 6px; }
 .of-bar .of-go { margin-top: 2px; }
+
+/* (11/10) le fil : il souligne RECEVOIR, tendu d'un bord à l'autre de l'écran (fil.js) — il remplace le filet */
+.of-bar .of-go::after { display: none; }
+.of-fil-host { align-self: stretch; position: relative; height: 26px; margin: -22px -16px -8px; pointer-events: none; opacity: 0; transition: opacity 1s ease .3s; }
+.of.bar-on .of-fil-host { opacity: 1; }
+.of-fil { display: block; }
+.of.env .of-fil-host, .of.paying .of-fil-host { opacity: 0; }
+/* la description glisse (l'ancienne part, la nouvelle arrive) */
+.of-vit-t { position: relative; }
+.of-vit-t > i { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; font-style: normal;
+  transition: transform .75s cubic-bezier(.2,.7,.3,1) .16s, opacity .55s ease .2s; }
+.of-vit-t > i.out { transition: transform .45s cubic-bezier(.5,0,.8,.4), opacity .22s ease; }

@@ -5,6 +5,7 @@ import './offre.css';
 import { acrostic } from '../basique/basique.js';
 import { mountExemples } from './exemples.js';
 import { count } from '../app/count.js';
+import { createFil } from './fil.js';
 import { PRIX, STRIPE, STRIPE_PK, PAIEMENT_URL, PHOTOS, FEUILLE_PHOTO, LIENS, SHEET_INSET, RESERVATION } from './config.js';
 
 const Q = new URLSearchParams(location.search);
@@ -375,6 +376,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
       <button class="of-go" type="button">RECEVOIR</button>
+      <div class="of-fil-host"></div>
       <div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
         <button class="of-vit-a" type="button" data-d="-1" aria-label="Précédent">${CHEV('M14.5 6 L8.5 12 L14.5 18')}</button>
         <p class="of-vit-t" aria-live="polite"></p>
@@ -407,18 +409,20 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   const vit = envelope && envelope.vitrine ? envelope.vitrine : null;
   const busyMode = () => root.classList.contains('paying') || root.classList.contains('env');
   let cur = -1, auto = true, timer = 0, poll = 0, typing = 0;
-  // la description, tapée à la machine (vite) ; l'ancienne s'efface d'un coup
-  const typeTxt = s => {
-    const my = ++typing; txt.textContent = ''; txt.setAttribute('aria-label', s);
-    const box = document.createElement('i'); txt.appendChild(box);
-    let i = 0;
-    const tick = () => {
-      if (my !== typing || i >= s.length) return;
-      const sp = document.createElement('span'); sp.textContent = s[i]; sp.style.opacity = (0.72 + 0.28 * Math.random()).toFixed(2);
-      box.appendChild(sp); i++;
-      setTimeout(tick, s[i - 1] === ' ' ? 22 : 12 + Math.random() * 14);
-    };
-    tick();
+  // (11/10) la description glisse (de droite à gauche quand on avance) : l'ancienne part d'un côté, la nouvelle arrive de
+  // l'autre ; le fil, dessous, coulisse avec elle (fil.js) — les descriptions y sont comme enfilées
+  const fil = createFil(root.querySelector('.of-fil-host'), { reduced: matchMedia('(prefers-reduced-motion: reduce)').matches });
+  const slideTxt = (s, dir = 1) => {
+    txt.setAttribute('aria-label', s);
+    for (const old of txt.querySelectorAll('i:not(.out)')) {
+      old.classList.add('out'); old.style.transform = `translateX(${-dir * 46}px)`; old.style.opacity = '0';
+      setTimeout(() => old.remove(), 700);
+    }
+    const box = document.createElement('i'); box.textContent = s;
+    box.style.transform = `translateX(${dir * 46}px)`; box.style.opacity = '0';
+    txt.appendChild(box); void box.offsetWidth;
+    box.style.transform = ''; box.style.opacity = '';
+    fil.pull(dir);
   };
   // les petits mots restent avec le suivant (jamais « à » seul en fin de ligne)
   const nbsp = s => { const r = /(^|[\s\u00a0])(à|a|de|du|la|le|un|et|y|me|ton|pour|au) /gi, f = x => x.replace(r, (m, a, w) => a + w + '\u00a0'); return f(f(s)); };
@@ -434,7 +438,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     if (k === cur) return;
     const prev = cur; cur = k;
     clearTimeout(timer); clearInterval(poll);
-    typeTxt(nbsp(OBJETS[k].txt));
+    slideTxt(nbsp(OBJETS[k].txt), prev < 0 ? 1 : dir);
     if (vit) { if (prev >= 0 && Math.abs(k - prev) > 1) fadeJump(k); else vit.go(k); }
     if (!auto) return;
     // en tour automatique : l'étape jouée, on la laisse voir, puis la suivante
@@ -465,7 +469,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     z.addEventListener('pointercancel', () => { x0 = null; });
   }
   // la vitrine se met de côté pendant l'enveloppe et le paiement : la feuille, en direct
-  const toSheet = () => { auto = false; clearTimeout(timer); clearInterval(poll); if (cur !== 0) { cur = 0; typeTxt(nbsp(OBJETS[0].txt)); } };
+  const toSheet = () => { auto = false; clearTimeout(timer); clearInterval(poll); if (cur !== 0) { cur = 0; slideTxt(nbsp(OBJETS[0].txt), -1); } };
   new MutationObserver(() => { if (busyMode()) toSheet(); }).observe(root, { attributes: true, attributeFilter: ['class'] });
   setTimeout(() => show(0), over ? 700 : 900);
   // (10/10) une page qui semble finie : la feuille, sa légende, le bandeau ; si rien ne se passe, une petite flèche
