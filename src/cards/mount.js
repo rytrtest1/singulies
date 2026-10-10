@@ -186,7 +186,7 @@ export async function mountCards(opts) {
   }
   function openSheet() {
     answer.blur();
-    sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced,
+    sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced, hold: !!opts.hold,
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.'); },
         // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)
         write: d => {
@@ -368,7 +368,7 @@ export async function mountCards(opts) {
   }
   function focusAnswer() { if (document.activeElement !== answer) answer.focus({ preventScroll: true }); }
   const setValue = (s) => { if (answer.value !== s) { answer.value = s; try { answer.setSelectionRange(s.length, s.length); } catch { /* */ } } };
-  const scene = await createCardScene(gl, { base, seed, look, toSheet, autoWrite: !coarse, firstQ: opts.firstQ ?? null, on: { end: finish, write: focusAnswer, text: (d) => setValue(d.text),
+  const scene = await createCardScene(gl, { base, seed, look, toSheet, autoWrite: !coarse, firstQ: opts.firstQ ?? null, sheetOnly: !!opts.sheetOnly, on: { end: finish, write: focusAnswer, text: (d) => setValue(d.text),
     draw: d => { const q = QUESTIONS.find(x => x.id === d.id)?.q; if (q) { labelAnswer(q); say(q); } window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id: d.id, action: 'tiree' } })); },
     discard: d => window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id: d.id, action: 'passee' } })),
     blank: () => { labelAnswer('carte blanche : le thème de ton poème'); say('carte blanche. écris le thème de ton poème.'); } } });
@@ -394,7 +394,8 @@ export async function mountCards(opts) {
         sh.frame(t, dt, W, H);
         if (sheet !== sh) { if (manualDt == null) requestAnimationFrame(frame); return; }     // retour : la scène des cartes reprend
         passEl.classList.remove('on');
-        backEl.classList.toggle('on', t - sheetAt > 2.5 && !sheet.state().backing && !mail);
+        backEl.classList.toggle('on', !opts.hold && t - sheetAt > 2.5 && !sheet.state().backing && !mail);
+        if (opts.onSheetReady && !api.sheetReady && sheet.ready()) { api.sheetReady = true; opts.onSheetReady(); }
         // l'enveloppe : le champ natif sur le bloc d'adresse ; le signe « donner » = poster
         const ar = sheet.addrRect(), es = sheet.state().env;
         // chaque champ natif sur sa ligne de l'enveloppe ; la carte « en direct » : le champ de texte

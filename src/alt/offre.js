@@ -53,14 +53,14 @@ function slide(p) {
   return fig;
 }
 
-// opts : { name (capitales), onBack() }
-export function mountOffer({ name, onBack }) {
+// opts : { name (capitales), onBack(), over (la vraie feuille est dessous, dans la scène des cartes) }
+export function mountOffer({ name, onBack, over = false }) {
   const root = document.createElement('div');
-  root.id = 'offre'; root.className = 'of';
+  root.id = 'offre'; root.className = 'of' + (over ? ' over' : '');
   root.innerHTML = `
     <button class="of-back" type="button" aria-label="Changer le prénom">${BACK_SVG}</button>
     <main>
-      <div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>
+      ${over ? '<div class="of-hole" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
       <p class="of-note">ces lignes n’existent pas encore.<br>je les tape pour toi, à la machine.</p>
       <section class="of-vrai" aria-label="De vrais envois">
         <div class="of-track"></div>
@@ -87,7 +87,7 @@ export function mountOffer({ name, onBack }) {
 
   // la feuille : dessinée par le moteur, ou une vraie feuille photographiée (FEUILLE_PHOTO)
   const sheet = root.querySelector('.of-sheet'), col = root.querySelector('.ac');
-  if (FEUILLE_PHOTO) {
+  if (sheet && FEUILLE_PHOTO) {
     const im = new Image();
     im.onload = () => {
       const z = FEUILLE_PHOTO.zone;
@@ -123,8 +123,8 @@ export function mountOffer({ name, onBack }) {
   count('alt/offre');
   void root.offsetWidth; setTimeout(() => root.classList.add('on'), 20);
   const shown = new Promise(res => setTimeout(res, 950));
-  setTimeout(() => acrostic(col, name), 700);
+  if (col) setTimeout(() => acrostic(col, name), 700);
   const letters = name.replace(/ /g, '').length;
-  setTimeout(() => root.classList.add('bar-on'), 900 + letters * 90 + 600);
+  setTimeout(() => root.classList.add('bar-on'), over ? 700 : 900 + letters * 90 + 600);
   return { root, shown };
 }

@@ -20,6 +20,15 @@
 @keyframes of-frappe { from { opacity: 0; transform: translateY(-.08em) scale(1.06); filter: blur(.6px); } }
 .of-note { font: 14px/1.6 'SG Machine', 'Courier New', monospace; color: #9a958c; text-align: center; margin: 14px 0 0; }
 
+/* par-dessus la vraie feuille (scène des cartes, en dessous) : le premier écran est transparent, la note en bas ;
+   en faisant défiler, la suite (opaque) monte sur la feuille */
+.of.over { background: transparent; }
+.of.over main { padding-top: 0; }
+.of.over .of-hole { height: calc(100svh - 156px - env(safe-area-inset-bottom)); }
+.of.over .of-note { margin: 0; padding: 0 0 18px; }
+.of.over .of-vrai, .of.over .of-what, .of.over .of-after, .of.over .of-legal, .of.over .of-gift, .of.over .of-foot { position: relative; }
+.of.over main > :not(.of-hole):not(.of-note) { background: #060606; box-shadow: 0 0 0 100vmax #060606; clip-path: inset(0 -100vmax); }
+.of.over .of-vrai { margin-top: 0; padding-top: 30px; }
 /* les vraies photos : on glisse de l'une à l'autre */
 .of-vrai { margin: 30px -16px 0; }
 .of-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; touch-action: pan-x pan-y pinch-zoom; }

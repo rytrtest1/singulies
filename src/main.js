@@ -226,6 +226,8 @@ function loadCards(name) {
   prefetchCards();
   cards = cardsModule.then(({ mountCards }) => mountCards({
     name, base: './', onExit: exitCards, hidden: true, firstQ: jeuQ,
+    // version alternative : la feuille seule, tout de suite, qui reste ; l'offre se pose dessus quand le curseur respire
+    ...(ALT ? { sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
     onEnd: () => {}, onDone: backToStart,
   })).then((m) => {
     if (!m) throw new Error('webgl2');
@@ -312,12 +314,12 @@ function noCards() {
 
 // version alternative : la feuille qui attend se pose sur le prénom seul ; le champ s'arrête une fois couvert
 let offer = null;
-function showOffer() {
+// over : par-dessus la vraie feuille (scène des cartes) ; sinon (sans WebGL2, cartes en échec) la feuille dessinée
+function showOffer(over = false) {
   if (offer) return;
-  S.phase = 'offre'; S.phaseAt = S.t;
+  if (!over) { S.phase = 'offre'; S.phaseAt = S.t; emitValidated(S.validatedName, false); }
   backEl.classList.remove('on'); input.blur(); input.readOnly = true;
-  emitValidated(S.validatedName, false);
-  offer = offerModule().then(m => m.mountOffer({ name: S.validatedName.toUpperCase(), onBack: exitCards }))
+  offer = offerModule().then(m => m.mountOffer({ name: S.validatedName.toUpperCase(), onBack: exitCards, over }))
     .then(o => o.shown.then(() => { cancelAnimationFrame(rafId); rafId = 0; canvas.style.visibility = 'hidden'; names2d?.stop(); names2d = null; fallbackEl.style.display = 'none'; }))
     .catch(e => { console.error(e); why('offre : ' + (e && e.message)); noCards(); });
 }
@@ -533,8 +535,7 @@ function frame(ts) {
       });
       window.__sg.plan = plan;
     }
-    if (ALT) { if (T >= plan.tEnd + (CFG.reduced ? 0.1 : REST * 0.6)) showOffer(); }
-    else if (T >= plan.tEnd) loadCards(S.validatedName.toUpperCase());   // tout est arrivé, le champ est éteint
+    if (T >= plan.tEnd) loadCards(S.validatedName.toUpperCase());   // tout est arrivé, le champ est éteint
     const restAt = plan.tEnd + (CFG.reduced ? 0.1 : REST);
     if (S.riseT == null && T >= restAt) {
       if (cardsReady === 'failed') { S.trans = null; plan = null; validate(); return; }   // pas de cartes : la version simple (image suivante)
@@ -805,7 +806,6 @@ async function boot() {
     await Promise.race([gate.ready.then(() => new Promise(r => setTimeout(r, 6400))), gate.go]);
   }
   // rechargement après la suite : directement la scène des cartes (le prénom à sa place, le paquet arrive)
-  if (S.phase === 'scene' && ALT) { canvas.style.visibility = 'hidden'; showOffer(); return; }
   if (S.phase === 'scene') {
     canvas.style.visibility = 'hidden'; input.readOnly = true;
     loadCards(S.validatedName.toUpperCase());

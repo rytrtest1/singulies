@@ -80,6 +80,7 @@ function blendM(a, b, u, off = [0, 0, 0]) {
 export function createSheetScene(gl, opts) {
   const { card, nameR, look: L, from, on = {} } = opts;
   const reduced = !!opts.reduced;
+  const HOLD = !!opts.hold;   // (10/10, version alternative) la feuille reste : ni enveloppe ni commande (le paiement vient après)
   const rnd = createRng(opts.seed ?? ((Math.random() * 1e9) >>> 0));
   const emit = (k, d) => { try { on[k] && on[k](d); } catch (e) { console.error(e); } };
   const P_LOGO = (P => new URLSearchParams(location.search).get(P))('logoFeuille') !== '0';
@@ -317,9 +318,9 @@ export function createSheetScene(gl, opts) {
     // essai sans adresse : retournée, l'enveloppe part d'elle-même
     if (NOADDR && inEnv && !env.back && env.postT < 0 && ev >= E.write + 0.5) { env.postT = t; env.sent = false; }
 
-    if (!env && !backing && ENVELOPE && tu > CURSOR_AT + 0.3) prepareEnv();
+    if (!env && !backing && ENVELOPE && !HOLD && tu > CURSOR_AT + 0.3) prepareEnv();
     // passage automatique vers la commande : le curseur posé, et jamais moins de 3 s après le dernier geste
-    if (!backing && orderAt < 0 && tu > CURSOR_AT + 1.8 && t - lastGesture > 3) showOrders(t);
+    if (!backing && !HOLD && orderAt < 0 && tu > CURSOR_AT + 1.8 && t - lastGesture > 3) showOrders(t);
     if (backing) sT = 0;
     // ressort de la vue (feuille ↔ commande)
     { const w2 = reduced ? 30 : 2.4; svV += (w2 * w2 * (sT - sv) - 2 * w2 * svV) * dt; sv += svV * dt; }
@@ -678,7 +679,7 @@ export function createSheetScene(gl, opts) {
   // glisser / molette : d < 0 = descendre vers la commande, d > 0 = remonter vers la feuille
   function scroll(d, t) {
     gesture(t);
-    if (backing || tau(t) < CURSOR_AT * 0.6) return;
+    if (backing || HOLD || tau(t) < CURSOR_AT * 0.6) return;
     if (d < 0) showOrders(t); else sT = 0;
   }
   function back(t) {
@@ -893,7 +894,7 @@ export function createSheetScene(gl, opts) {
         : direct ? { writing: direct.writing, text: direct.contact, contact: direct.contact, zone: 'contact', canPost: direct.pu < 0.5 && !direct.back && contactOk(direct.contact), posted: direct.postT >= 0, back: !!direct.back, write: !direct.back && lastT - direct.t0 > 1.1, sign: 'ENVOYER' } : null, tau: tau(lastT), view: sv > 0.5 ? 'commande' : 'feuille', orders: orderAt >= 0, backing: !!backing, cursor: cursorOn(tau(lastT)) > 0.5, chosen: chosen ? chosen.id : null }),
     // tests / captures
     showOrders: () => showOrders(lastT), choose: id => { const o = orders.find(x => x.id === id); const q = quads[id]; if (o && q) { const r = rectOf(q); return tap((r.left + r.right) / 2, (r.top + r.bottom) / 2, lastT); } return null; },
-    timing: { landAll, CURSOR_AT, INTRO_END },
+    timing: { landAll, CURSOR_AT, INTRO_END }, ready: () => !backing && tau(lastT) >= CURSOR_AT,
     sealTune: { look: SEAL_LOOK, shape: SEAL_SHAPE, lamp: () => ({ az: wrapA(lamp.a - CAM_AZ - Math.PI), el: lamp.e }) },
     // zones écran (px CSS) de ce qu'on peut toucher : la carte, les deux cartes de la commande
     rects: () => ({ card: quads.C || null, poste: quads.poste || null, direct: quads.direct || null }),

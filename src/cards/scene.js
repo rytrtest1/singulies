@@ -62,7 +62,7 @@ const bare = ch => ch.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 //   carte réponse (curseur seul, sans invitation) pour répondre à une question qu'on nous a partagée — setJeuWrite(false)
 //   la retire (elle se fond), et c'est le jeu seul : des questions, sans réponse à donner
 // firstQ : la question tirée en premier (lien partagé, ou venue du jeu) ; noIntro : le paquet est déjà là (relais)
-export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true, jeu = false, jeuWrite = false, firstQ = null, noIntro = false, firstBack = null } = {}) {
+export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true, jeu = false, jeuWrite = false, firstQ = null, noIntro = false, firstBack = null, sheetOnly = false } = {}) {
   const card = await createCardRenderer(gl, base);
   const nameR = await createNameRelief(gl, card.paperTex);
   await loadTypeFont(base);
@@ -783,7 +783,11 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     return 'end';
   }
 
-  function start(t) { startT = noIntro ? t - 10 : t; pendingDraw = t + (noIntro ? 0.3 : 1.1); }
+  function start(t) {
+    startT = noIntro ? t - 10 : t; pendingDraw = t + (noIntro ? 0.3 : 1.1);
+    // (10/10, version alternative) la feuille seule, tout de suite : aucun paquet, aucun tirage
+    if (sheetOnly) { pendingDraw = Infinity; ended = { t0: t - 1.45, kind: 'improvisation', qFrom: null, aFrom: null }; }
+  }
   function drawAt(t) { if (!question) pendingDraw = t; }          // le premier tirage, à l'instant voulu (relais du portail)      // le paquet arrive (fondu), puis il tire
   // retour depuis la feuille : la scène revient telle qu'on l'a laissée (question, réponse, carte blanche), en
   // fondu depuis le fond ; les lettres du prénom, revenues d'elles-mêmes à leur place, redescendent au repos

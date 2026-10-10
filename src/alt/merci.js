@@ -45,7 +45,8 @@ function final(order) {
     screen(`<h1>${esc(order.name)}</h1><p>c’est noté. je tape ton poème le ${esc(ENVOI)}, et je le poste chez toi.</p>
       <p class="small">stripe t’a envoyé le reçu par email.</p>
       <div class="ref">réf. ${esc(order.ref)}</div>
-      <p class="small" style="margin-top:22px"><a href="${esc(home.href)}">retour</a></p>`);
+      <p class="small" style="margin-top:26px"><a href="${esc(new URL('./jeu', document.baseURI).href)}">pose une de mes questions à quelqu’un</a></p>
+      <p class="small" style="margin-top:6px"><a href="${esc(home.href)}">retour</a></p>`);
   }, 1100);
 }
 
