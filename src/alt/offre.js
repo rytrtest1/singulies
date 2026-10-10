@@ -178,7 +178,7 @@ function openPanel(name, ref) {
   root.innerHTML = `<button class="of-pay-x" type="button" aria-label="Fermer">×</button>
     <div class="of-pay-body">
       <div class="of-pay-title"><span class="of-pay-sub">un prénom, un poème</span>
-        <span class="of-pay-p">${esc(PRIX)}, port compris · posté ${esc(DELAI)}</span></div>
+        <span class="of-pay-p">${esc(PRIX)} frais compris · posté ${esc(DELAI)}</span></div>
       <div class="of-for" role="radiogroup" aria-label="Pour qui">
         <button type="button" class="on" data-for="moi" role="radio" aria-checked="true">pour moi</button>
         <button type="button" data-for="offrir" role="radio" aria-checked="false">pour offrir</button></div>
@@ -343,7 +343,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     </main>
     <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
-      <div class="of-price"><b>${esc(PRIX)}</b>, port compris<br><span>posté ${esc(DELAI)}</span></div>
+      <div class="of-price"><b>${esc(PRIX)}</b> frais compris<br><span>posté ${esc(DELAI)}</span></div>
       <button class="of-go" type="button">COMMANDER</button>
     </div>`;
   document.body.appendChild(root);

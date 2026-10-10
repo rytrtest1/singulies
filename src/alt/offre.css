@@ -105,7 +105,7 @@
 /* la barre du prix : toujours en vue, après l'acrostiche */
 .of-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 14px;
   padding: 26px max(16px, calc(50% - 214px)) calc(14px + env(safe-area-inset-bottom));
-  background: linear-gradient(to top, #060606 62%, rgba(6,6,6,0));
+  background: linear-gradient(to top, #060606 55%, rgba(6,6,6,0));
   transform: translateY(110%); transition: transform .7s cubic-bezier(.2,.7,.3,1); }
 .of.bar-on .of-bar { transform: none; }
 /* (10/10) Apple Pay / Google Pay dans le bandeau fermé (si l'appareil en a un) : il remplace COMMANDER, « ou par carte » dessous */
@@ -116,12 +116,13 @@
 .of-bar.wallet .of-go { display: none; }
 .of-bar.wallet .of-bar-wallet { position: static; opacity: 1; pointer-events: auto; transition: opacity .5s; }
 .of-bar.wallet .of-bar-card { display: block; }
-.of-price { font-size: 15px; line-height: 1.35; color: #9a958c; }
-.of-price b { font-weight: 500; font-size: 21px; color: #ece8e0; }
-.of-price span { font-size: 14px; }
-.of-go { flex: none; padding: 15px 20px 14px; border: 1px solid rgba(236, 232, 224, .55); border-radius: 0; background: transparent; color: #f1ede6;
-  font: 500 15px/1 'SG Garamond', Georgia, serif; letter-spacing: .4em; padding-right: calc(20px - .4em); cursor: pointer; transition: border-color .3s, background .3s; }
-.of-go:hover, .of-go:focus-visible { border-color: #f1ede6; background: rgba(236, 232, 224, .06); }
+/* (10/10) le bandeau, discret : le prix sans gras, peu de contraste, dans la DA */
+.of-price { font-size: 13px; line-height: 1.45; color: #7d786f; letter-spacing: .02em; }
+.of-price b { font-weight: 500; font-size: 16px; color: #c9c4ba; letter-spacing: .03em; }
+.of-price span { font-size: 12.5px; color: #5f5b55; }
+.of-go { flex: none; padding: 13px 18px 12px; border: 1px solid rgba(236, 232, 224, .28); border-radius: 0; background: transparent; color: rgba(241, 237, 230, .86);
+  font: 500 14px/1 'SG Garamond', Georgia, serif; letter-spacing: .4em; padding-right: calc(18px - .4em); cursor: pointer; transition: border-color .3s, color .3s, background .3s; }
+.of-go:hover, .of-go:focus-visible { border-color: rgba(236, 232, 224, .6); color: #f1ede6; background: rgba(236, 232, 224, .04); }
 .of-go:active { transform: translateY(1px); }
 .of-go:disabled { opacity: .35; }
 
