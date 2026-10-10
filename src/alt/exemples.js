@@ -3,8 +3,10 @@
 import { ACROSTICHES } from './config.js';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-// trois acrostiches réels d'Eternel (10/10). Chaque vers : la lettre de la colonne, puis la suite tapée à la machine ;
-// '' = la ligne blanche entre deux mots du prénom (deux strophes)
+// acrostiches réels d'Eternel (10/10), un prénom par exemple : ISABELLE, ANAIS, MARYSOL, JULIE. Chaque vers : la lettre
+// de la colonne, une espace, puis la suite tapée à la machine. Rendus par le vrai moteur (exemples-rendu.html →
+// node tools/exemples-shot.mjs → public/exemples/<prénom>.jpg, avec une carte question au hasard) ; sans image : la
+// feuille dessinée ci-dessous
 export const EXEMPLES = [
   { vers: [
     'I l y a des liens qui courent, survivent à la distance',
@@ -22,7 +24,8 @@ export const EXEMPLES = [
     'A vec le contrôle part la légèreté des brises',
     'I lluminant les soirs où les mots électrisent',
     'S i le parfait fait peur, le pire paralyse',
-    '',
+  ] },
+  { vers: [
     'M ême un cœur amoureux peut douter de lui-même',
     'A ime-moi, si je peux, moi je ferai de même',
     'R are est la foudre bleue, mais je l’attends sereine',
@@ -52,10 +55,13 @@ function sheetHtml(ex) {
 
 export function mountExemples(host) {
   // des photos de poèmes envoyés, s'il y en a ; sinon les poèmes réels, posés sur la feuille dessinée
+  const img = src => `<img class="ex-photo ex-rendu" src="${esc(new URL(src, document.baseURI).href)}" alt="Un acrostiche tapé à la machine sur une feuille noire, signé Eternel" loading="lazy" decoding="async">`;
   const slidesHtml = ACROSTICHES.length
-    ? ACROSTICHES.map(src => `<figure class="ex-slide"><img class="ex-photo" src="${esc(new URL(src, document.baseURI).href)}" alt="Un acrostiche tapé à la machine sur une feuille noire" loading="lazy" decoding="async"></figure>`).join('')
-    : EXEMPLES.map(ex => `<figure class="ex-slide">${sheetHtml(ex)}</figure>`).join('');
+    ? ACROSTICHES.map(src => `<figure class="ex-slide">${img(src)}</figure>`).join('')
+    : EXEMPLES.map((ex, i) => `<figure class="ex-slide" data-i="${i}">${img('exemples/' + ex.vers.map(v => v[0]).join('').toLowerCase() + '.jpg')}</figure>`).join('');
   host.innerHTML = `<div class="ex-track">${slidesHtml}</div>`;
+  // une image absente : la feuille dessinée
+  host.querySelectorAll('figure[data-i] img').forEach(im => { im.onerror = () => { im.parentElement.innerHTML = sheetHtml(EXEMPLES[+im.parentElement.dataset.i]); }; });
   const track = host.querySelector('.ex-track'), slides = [...track.children];
   // le milieu grand et net, les voisins plus petits et en fondu (selon la distance au centre)
   const look = () => {

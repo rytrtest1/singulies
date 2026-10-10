@@ -27,7 +27,10 @@
    en faisant défiler, la suite (opaque) monte sur la feuille */
 .of.over { background: transparent; }
 .of.over main { padding-top: 0; }
-.of.over .of-hole { height: calc(100svh - 156px - env(safe-area-inset-bottom)); }
+.of.over .of-hole { height: calc(100svh - 150px - env(safe-area-inset-bottom)); }
+/* (10/10) le poème original, tapé sous la feuille (ses premières lignes dépassent au-dessus du bandeau) */
+.of.over .of-poem { background: #060606; box-shadow: 0 0 0 100vmax #060606; clip-path: inset(0 -100vmax -1px); padding-top: 10px; }
+.of-poem { text-align: left; width: fit-content; max-width: 340px; margin-left: auto; margin-right: auto; min-height: 8.5em; line-height: 1.7; color: #c4bfb5; }
 .of.over .of-note { margin: 0; padding: 0 0 18px; }
 .of-note span { color: #77726a; }
 .of.over .of-after { display: none; }   /* la carte face cachée le dit */
@@ -44,6 +47,7 @@
 .ex-slide { flex: 0 0 72%; scroll-snap-align: center; margin: 0; transform-origin: center; will-change: transform, opacity; }
 .ex-sheet { box-shadow: 0 6px 18px rgba(0,0,0,.55); }
 .ex-photo { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 2px; background: #0d0d0c; }
+.ex-photo.ex-rendu { aspect-ratio: 900 / 1240; object-fit: contain; background: #060606; }
 .ex-sheet .ex-poem { position: absolute; left: 13cqw; right: 7cqw; top: 22cqw; font: 3.2cqw/1.95 'SG Machine', 'Courier New', monospace; color: #d6d6d6; }
 .ex-l { white-space: nowrap; }
 .ex-l b { font: 500 5.2cqw/1 'SG Garamond', Georgia, serif; color: #e8e8e8; }

@@ -92,7 +92,9 @@ function introText() {
 }
 const SHOW_NEXT = P.get('fleche') === '1';   // flèche « suite » retirée pour l'instant (04/10) ; ?fleche=1 pour la revoir
 // passage automatique à la suite : dès que la dernière lettre allumée du champ a atteint sa clarté (prénom confirmé)
-const HANDOFF = 0.6;        // s de fondu enchaîné vers la scène des cartes (même prénom, même place)
+const HANDOFF = PAGE === 'alt' ? 0.35 : 0.6;   // s de fondu enchaîné vers la scène des cartes (même prénom, même place)
+// (10/10, alt) du prénom à la colonne de la feuille, tout va plus vite : le vol, le repos, la montée, la feuille
+const ALT_K = PAGE === 'alt' ? 1.7 : 1;
 
 const canvas = document.getElementById('c');
 const input = document.getElementById('in');
@@ -256,7 +258,7 @@ function loadCards(name) {
   cards = cardsModule.then(({ mountCards }) => mountCards({
     name, base: './', onExit: exitCards, hidden: true, firstQ: jeuQ,
     // version alternative : la feuille seule, tout de suite, qui reste ; l'offre se pose dessus quand le curseur respire
-    ...(ALT ? { payInstead: true, onEnvelope: e => offerObj?.onEnvelope?.(e), sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
+    ...(ALT ? { sheetFast: 1.8, noTopCard: true, payInstead: true, onEnvelope: e => offerObj?.onEnvelope?.(e), sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
     onEnd: () => {}, onDone: () => (S.paid ? finishPaid() : backToStart()),
   })).then((m) => {
     if (!m) throw new Error('webgl2');
@@ -600,16 +602,17 @@ function frame(ts) {
           return light.level(w.chars[i], w.lp[i], Math.min(1, Math.hypot(nx, ny) / Math.SQRT2), w.z, S.t, nx, ny);
         },
         readyIn: (w, i, x, y) => light.readyIn(w.chars[i], w.lp[i], w.z, S.t, (x - cx) / (S.w / 2), (y - cy) / (S.h / 2)),
+        fast: ALT ? 1.4 : 1,
       });
       window.__sg.plan = plan;
     }
     if (T >= plan.tEnd) loadCards(S.validatedName.toUpperCase());   // tout est arrivé, le champ est éteint
-    const restAt = plan.tEnd + (CFG.reduced ? 0.1 : REST);
+    const restAt = plan.tEnd + (CFG.reduced ? 0.1 : ALT ? 0.15 : REST);
     if (S.riseT == null && T >= restAt) {
       if (cardsReady === 'failed') { S.trans = null; plan = null; validate(); return; }   // pas de cartes : la version simple (image suivante)
       else if (cardsReady) { S.riseT = S.t; S.targets = cardsReady.nameTargets(S.w, S.h); }
     }
-    const rise = CFG.reduced ? 0.9 : RISE;
+    const rise = CFG.reduced ? 0.9 : RISE / ALT_K;
     if (S.riseT != null && S.handT == null && S.t >= S.riseT + rise) handoff();
     if (S.handT != null && S.t - S.handT > HANDOFF + 0.15) { enterScene(); return; }
     if (!CFG.reduced) {
@@ -623,10 +626,11 @@ function frame(ts) {
     } else bright = here.map(() => 1);
     const tg = S.targets && S.targets.length === here.length ? S.targets : null;
     if (S.riseT != null) {
-      const u = CFG.reduced ? 1 : riseU(S.t, S.riseT), gu = CFG.reduced ? 1 : grayU(S.t, S.riseT);
+      const rT = S.riseT + (S.t - S.riseT) * ALT_K;   // (alt : montée plus vive)
+      const u = CFG.reduced ? 1 : riseU(rT, S.riseT), gu = CFG.reduced ? 1 : grayU(rT, S.riseT);
       if (tg) place = here.map((p, i) => ({ ch: p.ch, x: p.x + (tg[i].x - p.x) * u, y: p.y + (tg[i].y - p.y) * u, fs: p.fs + (tg[i].fs - p.fs) * u, fsx: p.fs + ((tg[i].fsx || tg[i].fs) - p.fs) * u }));
       bright = bright.map((b) => b + (NAME_GRAY - b) * gu);
-      vig = 1 - (CFG.reduced ? smooth(S.riseT, S.riseT + 0.9, S.t) : smT(S.riseT, S.riseT + RISE, S.t));
+      vig = 1 - (CFG.reduced ? smooth(S.riseT, S.riseT + 0.9, S.t) : smT(S.riseT, S.riseT + RISE, rT));
       // la caméra descend : le prénom (le plus proche, z ≈ 3) monte de toute sa course, les mots lointains à peine
       if (tg && here.length) camDY = u * (here[0].y - tg[0].y) * 3 / focal;
     }

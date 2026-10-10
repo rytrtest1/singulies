@@ -16,6 +16,14 @@ let onPaidHere = null;
 const readOrder = () => { try { return JSON.parse(localStorage.getItem(K_ORDER) || 'null'); } catch { return null; } };
 const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o)); } catch { /* */ } };
 const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
+// (10/10) sous la feuille : un poème original, tapé à la machine (à la place de « ces lignes n'existent pas encore… »)
+const POEME = [
+  'ton prénom attend, en colonne,',
+  'une ligne vide pour chaque lettre.',
+  'je n’écris rien d’avance :',
+  'je lis ta réponse, je pose mes mains,',
+  'et je tape ce qui te ressemble.',
+];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // le paiement : le prénom part dans client_reference_id (A–Z, chiffres, - et _), et reste ici pour merci.html
@@ -329,7 +337,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     <button class="of-back" type="button" aria-label="Changer le prénom">${BACK_SVG}</button>
     <main>
       ${over ? '<div class="of-hole" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
-      <p class="of-note">ces lignes n’existent pas encore.<br>je les tape pour toi, à la machine.</p>
+      <p class="of-note of-poem" aria-label="${esc(POEME.join(' '))}"></p>
       <div class="of-rest">
       <section class="of-ex" aria-label="D’autres poèmes"><h2 class="of-h">d’autres prénoms, d’autres poèmes</h2><div class="of-ex-host"></div></section>
       <footer class="of-foot">
@@ -360,6 +368,20 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   }
 
   mountExemples(root.querySelector('.of-ex-host'));
+  // le poème, tapé à la machine sous la feuille (lettre par lettre, appui irrégulier), une fois la feuille posée
+  const poem = root.querySelector('.of-poem');
+  const typePoem = () => {
+    const txt = POEME.join('\n'); let i = 0;
+    const step = () => {
+      if (i >= txt.length || !poem.isConnected) return;
+      const c = txt[i++];
+      if (c === '\n') poem.appendChild(document.createElement('br'));
+      else { const sp = document.createElement('span'); sp.textContent = c; sp.style.opacity = (0.7 + 0.3 * Math.random()).toFixed(2); poem.appendChild(sp); }
+      setTimeout(step, c === '\n' ? 260 : c === ' ' ? 45 : 28 + Math.random() * 30);
+    };
+    step();
+  };
+  setTimeout(typePoem, over ? 900 : 1400);
 
   // en faisant défiler : une ombre en haut, sous la flèche retour (elle ne passe plus sur le texte)
   root.addEventListener('scroll', () => root.classList.toggle('scrolled', root.scrollTop > 24), { passive: true });

@@ -36,7 +36,7 @@ const MAX_FLY = 140;               // toutes les lettres allumées à l'écran, 
 // (10/10) le vol part avant que l'onde ait atteint le premier plan : une lettre pas encore allumée reste à sa place,
 // continue de s'allumer, et ne part qu'une fois allumée — les premières volent pendant que les dernières s'allument
 export function planRecharge(ctx) {
-  const { words, letterScreen, level, readyIn, name, W, H, rng, mode = 'lettres' } = ctx;
+  const { words, letterScreen, level, readyIn, name, W, H, rng, mode = 'lettres', fast = 1 } = ctx;   // fast : (alt) vol plus vif
   const chars = new Set(name.map((g) => g.ch.toUpperCase()));
   let pool = [];
   for (const w of words) {
@@ -68,15 +68,15 @@ export function planRecharge(ctx) {
   const n = pool.length;
   const flyers = pool.map((c, k) => ({
     w: c.w, i: c.i, j: c.j, L: c.L, C: c.C,
-    dep: Math.max(DEP0 + DEP_SPAN * (n > 1 ? k / (n - 1) : 0) + (rng() - 0.5) * 0.3, c.r > 0 ? c.r + 0.1 : 0),
-    dur: 1.75 + 0.5 * rng(),
+    dep: Math.max((DEP0 + DEP_SPAN * (n > 1 ? k / (n - 1) : 0) + (rng() - 0.5) * 0.3) / fast, c.r > 0 ? c.r + 0.1 : 0),
+    dur: (1.75 + 0.5 * rng()) / fast,
     bow: (rng() < 0.5 ? -1 : 1) * (0.05 + 0.1 * rng()),
     s0: null,
   }));
   // énergie : la tête du filament part au départ, sa queue quitte la lettre un peu après et la vide en partant
   if (mode === 'energie') for (const f of flyers) { f.dur *= 0.85; f.lag = 0.45 + 0.2 * rng(); f.tdur = f.dur + 0.5; f.ph = rng() * 6.283; f.amp = 0.04 + 0.05 * rng(); }
   const fEnd = (f) => (mode === 'energie' ? f.dep + f.lag + f.tdur : f.dep + f.dur);
-  const tEnd = flyers.reduce((m, f) => Math.max(m, fEnd(f)), 3.2);
+  const tEnd = flyers.reduce((m, f) => Math.max(m, fEnd(f)), 3.2 / fast);
   const src = new Map();   // mot → { rang → lettre en route }
   for (const f of flyers) { if (!src.has(f.w)) src.set(f.w, {}); src.get(f.w)[f.i] = f; }
   return { flyers, src, fed: count.map((c) => c > 0), tEnd, mode };

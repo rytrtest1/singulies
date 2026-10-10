@@ -136,7 +136,7 @@ export function createSheetScene(gl, opts) {
     const v = from.blank.v;
     const fr = makeAnswerInk(from.blank.text, Math.floor(v.seed * 1000) + 7, 3, 0);
     C = { v, front: card.makeInk(fr.canvas), back: from.blank.labelInk, M0: from.blank.M, phi0: Math.PI, phi1: Math.PI, ownFront: true };
-  } else if (HOLD && from.top) {
+  } else if (HOLD && from.top && !opts.noTopCard) {   // (10/10 : retirée en alt, elle distrayait)
     // (10/10, alt.html) la carte du dessus du paquet, posée face cachée sur la feuille : la question viendra après le
     // paiement (c'est cette carte, au même papier, que le paquet tire ensuite)
     C = { v: from.top, front: null, back: null, faceDown: true, phi0: 0, phi1: 0, leaveT: null };
@@ -261,11 +261,12 @@ export function createSheetScene(gl, opts) {
   // τ : temps de la scène ; au retour il redescend (le temps remonte)
   // tout va ≈ 1,45 × plus vite qu'à l'origine, de la réponse donnée jusqu'à l'adresse (Maxence 06/10) ; ?lent=k ralentit
   const SPEED = 1.45;
+  const FAST = opts.fast || 1;   // (10/10, alt) la feuille et la descente des lettres plus vives (l'envoi garde son rythme)
   const SLOW = (+(new URLSearchParams(location.search).get('lent') || 1) || 1) / SPEED;   // captures : temps ralenti
   const LENT = SLOW * SPEED;                                 // (l'envoi garde son propre rythme : seul ?lent l'allonge)
   function tau(t) {
-    if (!backing) return (t - t0) / SLOW;
-    return Math.max(0, backing.tau0 - (t - backing.t0) * 2.4 / SLOW);
+    if (!backing) return (t - t0) * FAST / SLOW;
+    return Math.max(0, backing.tau0 - (t - backing.t0) * 2.4 * FAST / SLOW);
   }
 
   // ---- lumière (celle de la scène des cartes) ----

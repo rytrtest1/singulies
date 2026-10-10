@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>Rendu des exemples</title>
+<style>
+  @font-face { font-family: 'SG Garamond'; src: url(./fonts/EBGaramond-500.woff2) format('woff2'); font-weight: 500; }
+  html, body { margin: 0; background: #060606; }
+  #c { display: block; width: 900px; height: 1240px; }
+</style>
+</head>
+<body>
+<canvas id="c" width="900" height="1240"></canvas>
+<script type="module">
+  // Les poèmes d'exemple de alt.html, rendus une fois par le vrai moteur (tools/exemples-shot.mjs les enregistre dans
+  // public/exemples/) : la feuille A5 noire, le prénom en colonne (lettres en relief, comme la feuille de la personne),
+  // les vers tapés à la machine, la signature, et une carte question tirée au hasard, posée comme dans le parcours.
+  import { createCardRenderer, M4, CARD } from './src/cards/cardRenderer.js';
+  import { loadTypeFont, makeInkMap, TYPE } from './src/cards/ink.js';
+  import { createNameRelief } from './src/cards/nameRelief.js';
+  import { LOOK } from './src/cards/scene.js';
+  import { SHEET, LOGO_Y, LOGO_K, COL_X, C_POSE } from './src/sheet/sheet.js';
+  import { typeLines } from './src/sheet/typewriter.js';
+  import QUESTIONS from './src/cards/questions.json';
+  import { EXEMPLES } from './src/alt/exemples.js';
+
+  const canvas = document.getElementById('c');
+  const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: true });
+  const card = await createCardRenderer(gl, './');
+  await document.fonts.load('500 64px "SG Garamond"');
+  const nameR = await createNameRelief(gl, card.paperTex);
+  await loadTypeFont('./');
+  card.addShape('sheet', { ...SHEET, fine: [10, 10, 0.25, 0, LOGO_Y] });
+  const L = { ...LOOK };
+  const FOV = 26 * Math.PI / 180, TILT = 0.2, TF = Math.tan(FOV / 2);
+  const T = (x, y, z) => M4.model(0, 0, 0, x, y, z);
+  const S = k => new Float32Array([k, 0, 0, 0, 0, k, 0, 0, 0, 0, k, 0, 0, 0, 0, 1]);
+  const PX = 12;                                             // px par mm de l'encre de la feuille (fin : les petits vers restent nets)
+
+  function render(ex, qid, seed) {
+    const W = canvas.width, H = canvas.height;
+    const vers = ex.vers.filter(v => v !== '');
+    const chars = vers.map(v => v[0].toUpperCase());
+    nameR.letters(chars);
+    const n = chars.length, lead = n > 1 ? Math.min(10.5, 148 / (n - 1)) : 10.5;
+    const cap = Math.min(6.4, lead * 0.6), emT = cap / nameR.capHeight, yc = 14;   // le poème entre le logo et la carte
+    const baseOf = k => yc + ((n - 1) / 2 - k) * lead - cap / 2;
+
+    // les vers, tapés à la machine juste après la lettre de la colonne ; plus petits si le plus long ne tient pas
+    const x0 = COL_X + Math.max(...chars.map(c => nameR.adv(c))) * emT + TYPE.pitch * 0.9;
+    // (la police machine n'a pas de « œ », les machines à écrire non plus : « oe »)
+    const rests = vers.map(v => v.slice(2).replace(/œ/g, 'oe').replace(/Œ/g, 'OE'));
+    const avail = SHEET.w / 2 - 9 - x0, long = Math.max(...rests.map(r => r.length)) * TYPE.pitch;
+    const k = Math.min(1, avail / long);
+    const full = new OffscreenCanvas(Math.round(SHEET.w * PX), Math.round(SHEET.h * PX)), fx = full.getContext('2d');
+    fx.fillStyle = '#000'; fx.fillRect(0, 0, full.width, full.height);
+    // frappé deux fois au même endroit (même graine) : l'appui irrégulier reste, aucune lettre ne disparaît
+    for (let rep = 0; rep < 2; rep++) rests.forEach((r, i) => typeLines(fx, PX * k, [r], (SHEET.w / 2 + x0) / k, (SHEET.h / 2 - baseOf(i)) / k, 0, seed * 31 + i * 7, 0.75, '#fff'));
+    const sigY = baseOf(n - 1) - Math.max(lead, 8.5);
+    typeLines(fx, PX, ['- ETERNEL -'], SHEET.w / 2 + COL_X, SHEET.h / 2 - sigY, 0, 4049, 1, '#fff');
+    const sheetInk = card.makeInk(full, true);
+
+    // la carte : une question au hasard, côté question, posée en bas de la feuille comme dans le parcours
+    const q = QUESTIONS.find(x => x.id === qid).q.toLowerCase();
+    const cardInk = card.makeInk(makeInkMap(q, seed * 13 + 5).canvas);
+
+    // cadrage : la feuille entière (et la carte qui dépasse un peu en bas), vue presque de face, lampe rasante
+    const y0 = Math.min(-SHEET.h / 2, C_POSE.y - CARD.h / 2) - 6, y1 = SHEET.h / 2 + 4, x0f = -SHEET.w / 2, x1f = SHEET.w / 2;
+    const Hw = Math.max((y1 - y0) * 1.06, (x1f - x0f) * 1.06 * H / W), D = Hw / (2 * TF), cy = (y0 + y1) / 2;
+    const eye = [0, cy - D * Math.sin(TILT), D * Math.cos(TILT)];
+    const vp = M4.mul(M4.perspective(FOV, W / H, D * 0.25, D * 3), M4.lookAt(eye, [0, cy, 0], [0, 1, 0]));
+    const kf = 2.2, kk = Hw / 235 * kf, R = L.lightR0 * Hw * kf, Z = L.lightZ * kk, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R);
+    const az = L.lightAz + 0.3, el = L.elBase;
+    const P = { ...L, lightPos: [Math.cos(az) * D0 * Math.cos(el), cy + Math.sin(az) * D0 * Math.cos(el), D0 * Math.sin(el)],
+      light: L.light * kk * kk * Math.sin(el0) / Math.sin(el), spotI: 0 };
+    gl.viewport(0, 0, W, H);
+    gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    const Ms = M4.model(0, 0, 0.012, 0, 0, 0);
+    card.draw(vp, eye, P, { model: Ms, lod: 'sheet', seed: 40 + seed, paperXf: [1.2, -0.6, 0, 0], warp: [0.4, -0.22, 0.05],
+      logoOff: [0, LOGO_Y], logoScale: [LOGO_K, LOGO_K], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35, inkBack: sheetInk, inkRG: true });
+    const Mc = M4.mul(M4.mul(Ms, M4.model(0, 0, C_POSE.rz, C_POSE.x, C_POSE.y, 2.2)), M4.model(0, Math.PI, 0));
+    card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink: cardInk, seed: (seed * 7) % 97, paperXf: [0.6, -0.4, 0, 0], warp: [0.18, -0.08, 0.04], logoOff: [0, 0] });
+    const list = chars.map((ch, i) => ({ i, model: M4.mul(Ms, M4.mul(T(COL_X, baseOf(i), SHEET.t / 2 + 1), S(emT))), glow: 0.16, alpha: 1 }));
+    nameR.drawLetters(vp, eye, P, L, list, 2);
+    gl.finish();
+    const url = canvas.toDataURL('image/jpeg', 0.9);
+    card.freeInk(sheetInk); card.freeInk(cardInk);
+    return url;
+  }
+
+  // une question au hasard pour chacun (tirée une fois : le même rendu à chaque fois que l'outil tourne)
+  let sd = 20261010;
+  const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+  window.__exemples = {
+    ready: true,
+    all: () => EXEMPLES.map((ex, i) => {
+      const id = QUESTIONS[Math.floor(rnd() * QUESTIONS.length)].id;
+      const name = ex.vers.filter(Boolean).map(v => v[0]).join('').toLowerCase();
+      return { name, id, url: render(ex, id, i + 1) };
+    }),
+  };
+</script>
+</body>
+</html>
