@@ -10,8 +10,8 @@ export function lundiSuivant(d = new Date()) {
 // marge du bas de l'iPhone)
 export const SHEET_INSET = 178;
 export const ENVOI = lundiSuivant();   // (plus affiché : voir DELAI)
-// (10/10) le délai, tel qu'on l'écrit : « posté dans les trois jours »
-export const DELAI = 'dans les trois jours';
+// (10/10) aucun délai affiché (Maxence) ; s'il revient : « je le tape et le poste sous 3 jours »
+export const DELAI = '';
 
 // Lien de paiement Stripe (Payment Link). Vide = paiement simulé (on va directement à merci.html).
 // Dans Stripe, « Après le paiement » → « Rediriger vers votre site » :
