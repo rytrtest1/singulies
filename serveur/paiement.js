@@ -51,7 +51,7 @@ async function createSession(env, req) {
     'line_items[0][quantity]': '1',
     'line_items[0][price_data][currency]': 'eur',
     'line_items[0][price_data][unit_amount]': String(+env.PRIX_CENTIMES || 3000),
-    'line_items[0][price_data][product_data][name]': 'Un poème à ton prénom : ' + prenom,
+    'line_items[0][price_data][product_data][name]': 'Un prénom, un poème : ' + prenom,
     'line_items[0][price_data][product_data][description]': 'Acrostiche tapé à la machine par Eternel, posté chez toi (port compris).',
     'shipping_address_collection[allowed_countries][0]': 'FR',
     'phone_number_collection[enabled]': 'false',

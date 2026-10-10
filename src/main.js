@@ -77,10 +77,10 @@ const HINT_AFTER = 3.0, HINT_ALPHA = 0.2;   // s après l'apparition du champ ; 
 const HINT_TEXT = ALT ? 'UN PRENOM UN POEME' : 'PRENOM';   // (deux lignes comme un prénom : coupure aux espaces, la plus équilibrée)
 const HINT_HOLD = 2.6, HINT_OUT = 1.3;   // (alt) s de lecture, s de fondu
 const IDLE_GO = 3.5;   // (10/10) ordinateur : fini d'écrire sans Entrée → la suite après ce temps sans frappe
-// (10/10, version alternative) à l'ouverture, ETERNEL se tape à la machine à la place du prénom, le champ s'allume avec
-// lui (on voit ce que fait une frappe), puis il s'efface lettre à lettre ; le curseur, puis PRENOM en grisé.
-// Toute frappe, tout toucher du champ l'arrête.
-const INTRO = 'ETERNEL', I_TYPE = 0.14, I_HOLD = 1.5, I_ERASE = 0.07;
+// (10/10, version alternative) à l'ouverture, UN PRENOM, UN POEME se tape à la machine à la place du prénom, en blanc
+// (deux lignes, comme un prénom), le champ s'allume avec lui (on voit ce que fait une frappe), puis il s'efface lettre à
+// lettre ; reste le curseur seul. Toute frappe, tout toucher du champ l'arrête.
+const INTRO = 'UN PRENOM, UN POEME', I_TYPE = 0.11, I_HOLD = 1.8, I_ERASE = 0.05;
 function introText() {
   if (!ALT || S.introOff || S.typed || S.phase !== 'input' || S.hintT0 == null || model.text) return '';
   const u = S.t - S.hintT0 - 0.4, n = INTRO.length, a = n * I_TYPE, b = a + I_HOLD, c = b + n * I_ERASE;
@@ -670,7 +670,7 @@ function frame(ts) {
   // indice (10/10) : rien d'écrit quelques secondes après l'apparition du champ → PRENOM en grisé, le curseur glisse
   // devant ; il s'efface à la première lettre (?indice=0 : jamais)
   if (S.hintT0 == null && S.phase === 'input' && !S.portal && nameFade > 0.99) S.hintT0 = S.t;
-  const hintAt = ALT ? (S.introEnd != null ? S.introEnd + 0.7 : Infinity) : (S.hintT0 ?? Infinity) + HINT_AFTER;
+  const hintAt = ALT ? Infinity : (S.hintT0 ?? Infinity) + HINT_AFTER;   // (alt : l'intro dit déjà UN PRENOM, UN POEME)
   const hintA = HINT && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
     ? smooth(hintAt, hintAt + 1.6, S.t) * (ALT ? 1 - smooth(hintAt + 1.6 + HINT_HOLD, hintAt + 1.6 + HINT_HOLD + HINT_OUT, S.t) : 1) : 0;
   let hintX = L.cursor.x;
@@ -900,7 +900,7 @@ async function boot() {
     simpleModule().then(m => { if (S.phase === 'input') names2d = m.startNames2D(canvas, () => bridge.shownText); }).catch(e => console.warn('champ simple', e));
     window.dispatchEvent(new CustomEvent('singulies:simple', { detail: { where: 'champ' } }));
   } else {
-    atlas = buildAtlas('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', `"${FONT_FAMILY}", serif`, 500);
+    atlas = buildAtlas('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,', `"${FONT_FAMILY}", serif`, 500);   // (la virgule : UN PRENOM, UN POEME)
     metrics = { adv: (ch) => atlas.glyphs[ch]?.adv ?? 0.6, capHeight: atlas.capHeight };
     renderer = createRenderer(canvas, gl, atlas);
     const t0 = performance.now();

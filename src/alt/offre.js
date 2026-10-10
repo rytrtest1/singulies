@@ -169,7 +169,7 @@ function openPanel(name, ref) {
   const root = document.createElement('div'); root.className = 'of-pay'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Paiement');
   root.innerHTML = `<button class="of-pay-x" type="button" aria-label="Fermer">×</button>
     <div class="of-pay-body">
-      <div class="of-pay-title"><span class="of-pay-sub">un poème à ton prénom</span>
+      <div class="of-pay-title"><span class="of-pay-sub">un prénom, un poème</span>
         <span class="of-pay-p">${esc(PRIX)}, port compris · posté le ${esc(ENVOI)}</span></div>
       <div class="of-for" role="radiogroup" aria-label="Pour qui">
         <button type="button" class="on" data-for="moi" role="radio" aria-checked="true">pour moi</button>
@@ -182,7 +182,7 @@ function openPanel(name, ref) {
       <div class="of-pf"><span>le paiement</span><div class="of-pm"></div></div>
       <button class="of-go of-pay-go" type="button" disabled>PAYER ${esc(PRIX)}</button>
       <p class="of-pay-msg" role="alert"></p>
-      <p class="of-pay-legal">${fake ? 'paiement d’essai : rien n’est débité.<br>' : ''}paiement sécurisé par stripe.<br>un poème à ton prénom est fait pour toi : il ne peut être ni repris ni échangé.</p>
+      <p class="of-pay-legal">${fake ? 'paiement d’essai : rien n’est débité.<br>' : ''}paiement sécurisé par stripe.<br>un prénom, un poème : fait pour une personne, il ne peut être ni repris ni échangé.</p>
     </div>`;
   document.body.append(veil, root);
   panel = { root, veil };
@@ -199,7 +199,7 @@ function openPanel(name, ref) {
   const setFor = g => {
     gift = g;
     root.querySelectorAll('[data-for]').forEach(b => { const on = (b.dataset.for === 'offrir') === g; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
-    root.querySelector('.of-pay-sub').textContent = g ? 'un poème à son prénom' : 'un poème à ton prénom';
+    root.querySelector('.of-pay-sub').textContent = g ? 'un prénom, un poème · à offrir' : 'un prénom, un poème';
     root.querySelector('.of-where').textContent = g ? 'où je l’envoie' : 'où je te l’envoie';
     const o = readOrder(); if (o && o.ref === ref) saveOrder({ ...o, gift: g });
   };
@@ -335,7 +335,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null }) {
         <li>une enveloppe noire fermée à la cire, postée le ${esc(ENVOI)}.</li>
       </ul>
       <p class="of-after">juste après le paiement, je tire une carte pour toi. ta réponse sera le thème du poème — ou tu passes, et j’improvise sur ton prénom.</p>
-      <p class="of-legal">paiement sécurisé par stripe · ton adresse à l’étape suivante.<br>un poème à ton prénom est fait pour toi : il ne peut être ni repris ni échangé.</p>
+      <p class="of-legal">paiement sécurisé par stripe · ton adresse à l’étape suivante.<br>un prénom, un poème : fait pour une personne, il ne peut être ni repris ni échangé.</p>
       <p class="of-gift">c’est pour offrir ? <button type="button" class="of-link" data-act="back">écris son prénom</button> à la place du tien, et dis-le au paiement : la personne pourra même répondre elle-même à sa question.</p>
       <footer class="of-foot">
         <a href="${esc(LIENS.jeu)}">le jeu</a> · <a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">mes livres</a> · <a href="${esc(LIENS.instagram)}" target="_blank" rel="noopener">@e.t.ernel</a>
