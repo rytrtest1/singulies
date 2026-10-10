@@ -14,7 +14,7 @@ import { handName } from '../text/accents.js';
 
 const Q = new URLSearchParams(location.search);
 export const SIMPLE = Q.get('simple') === '1' ? 'all' : Q.get('simple') === 'suite' ? 'suite' : null;
-const NOADDR = Q.get('adresse') === '0' || document.documentElement.dataset.page === 'merci';   // merci.html : l'adresse est chez Stripe
+const NOADDR = Q.get('adresse') === '0' || ['merci', 'pour'].includes(document.documentElement.dataset.page);   // merci.html, pour.html : l'adresse est chez Stripe
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const TOUCH = matchMedia('(pointer: coarse)').matches;
 const url = p => new URL(p, document.baseURI).href;

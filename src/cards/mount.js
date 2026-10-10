@@ -75,7 +75,7 @@ const CSS = `
 //          sheet? (défaut : oui ; ?feuille=0 → l'ancienne fin, fondu au noir), onOrder?(detail) }
 export async function mountCards(opts) {
   const { name, base = './', seed, look = {}, onEnd, onExit, log = () => {} } = opts;
-  const PAID = document.documentElement.dataset.page === 'merci';   // (10/10) après le paiement : pas l'essai sans adresse
+  const PAID = ['merci', 'pour'].includes(document.documentElement.dataset.page);   // (10/10) après le paiement : pas l'essai sans adresse
   const TEST = new URLSearchParams(location.search).get('test') !== '0' || (NOADDR && !PAID);   // (09/10 : par défaut pendant la phase de test ; ?test=0 pour l'enlever)
   const toSheet = opts.sheet ?? new URLSearchParams(location.search).get('feuille') !== '0';
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -187,7 +187,8 @@ export async function mountCards(opts) {
   }
   function openSheet() {
     answer.blur();
-    sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced, hold: !!opts.hold,
+    sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced, hold: !!opts.hold && !paid,
+      ...(paid ? { noAddr: true } : {}),
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.'); },
         // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)
         write: d => {
@@ -222,7 +223,7 @@ export async function mountCards(opts) {
             // plus d'écran de fin (08/10) : directement le portail
             opts.onAddress?.(d); setTimeout(() => opts.onDone?.(d), 300);
           };
-          if (TEST) askBeta(d, end); else end(d);
+          if (TEST && !paid) askBeta(d, end); else end(d);
         } } });
     scene.hideName(true);
     sheetAt = now(); api.sheet = sheet;
@@ -292,7 +293,7 @@ export async function mountCards(opts) {
       const c = inp.value.trim(), out = { ...d, contact: c, email: c, tel: '' };
       try { localStorage.removeItem('singulies.draft'); } catch { /* */ }
       inp.blur(); go.classList.remove('on'); box.classList.remove('on');
-      if (TEST) { askBeta(out, send); return; }
+      if (TEST && !paid) { askBeta(out, send); return; }
       send(out);
     };
     const send = out => {
@@ -365,6 +366,7 @@ export async function mountCards(opts) {
     answer.setAttribute('aria-label', srLabel); answer.setAttribute('enterkeyhint', 'done');
     answer.setAttribute('autocomplete', 'off'); answer.setAttribute('autocapitalize', 'none');
     scene.reopen(now());
+    if (resumeHow) { scene.resume(now(), resumeHow); resumeHow = null; }
     log('retour aux cartes');
   }
   function focusAnswer() { if (document.activeElement !== answer) answer.focus({ preventScroll: true }); }
@@ -375,8 +377,21 @@ export async function mountCards(opts) {
     blank: () => { labelAnswer('carte blanche : le thème de ton poème'); say('carte blanche. écris le thème de ton poème.'); } } });
   scene.setName(name);
 
+  // (10/10, alt.html) payé dans la page : la suite se joue ici, sans changer de page. how : 'question' (la feuille se
+  // défait, le paquet arrive et tire), 'blanche' (la carte blanche d'emblée : un thème), 'impro' (la feuille part
+  // telle quelle dans l'enveloppe). L'adresse est chez Stripe : l'enveloppe se ferme et part seule.
+  let paid = false, resumeHow = null;
+  function afterPay(how = 'question') {
+    paid = true;
+    const t = now();
+    if (!sheet) { scene.resume(t, how); return; }
+    if (how === 'impro') { sheet.unhold(t, { noAddr: true }); return; }
+    resumeHow = how;
+    sheet.back(t);
+  }
+
   let started = false;
-  const api = { scene, canvas, gl, now, started: () => started, frames: 0, start, nameTargets: (W, H) => scene.nameTargets(name, W, H) };
+  const api = { afterPay, scene, canvas, gl, now, started: () => started, frames: 0, start, nameTargets: (W, H) => scene.nameTargets(name, W, H) };
 
   function start() {
     if (started) return; started = true;
@@ -395,8 +410,8 @@ export async function mountCards(opts) {
         sh.frame(t, dt, W, H);
         if (sheet !== sh) { if (manualDt == null) requestAnimationFrame(frame); return; }     // retour : la scène des cartes reprend
         passEl.classList.remove('on');
-        backEl.classList.toggle('on', !opts.hold && t - sheetAt > 2.5 && !sheet.state().backing && !mail);
-        if (opts.onSheetReady && !api.sheetReady && sheet.ready()) { api.sheetReady = true; opts.onSheetReady(); }
+        backEl.classList.toggle('on', (!opts.hold || paid) && t - sheetAt > 2.5 && !sheet.state().backing && !mail);
+        if (opts.onSheetReady && !api.sheetReady && sheet.ready(true)) { api.sheetReady = true; opts.onSheetReady(); }
         // l'enveloppe : le champ natif sur le bloc d'adresse ; le signe « donner » = poster
         const ar = sheet.addrRect(), es = sheet.state().env;
         // chaque champ natif sur sa ligne de l'enveloppe ; la carte « en direct » : le champ de texte
@@ -452,7 +467,7 @@ export async function mountCards(opts) {
       // celle en attente (Maxence 05/10)
       const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
       scene.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
-      backEl.classList.toggle('on', !st.ended && (st.mode === 'free' || (!!onExit && t > 3 && !st.kb)));
+      backEl.classList.toggle('on', !st.ended && (st.mode === 'free' || (!!onExit && !paid && t > 3 && !st.kb)));
       // le champ natif est posé, invisible, sur la carte réponse : la toucher ouvre le clavier (iPhone : seul un
       // toucher direct sur le champ l'ouvre)
       if (r && !st.ended) {
@@ -596,7 +611,7 @@ export async function mountCards(opts) {
   });
   backEl.addEventListener('click', () => {
     if (sheet) { if (sheet.back(now())) { backEl.classList.remove('on'); log('retour'); } return; }
-    if (scene.state().mode !== 'free') { if (onExit) { answer.blur(); onExit(); } return; }
+    if (scene.state().mode !== 'free') { if (onExit && !paid) { answer.blur(); onExit(); } return; }
     if (scene.back(now())) {
       answer.value = scene.state().active?.text || ''; focusAnswer(); log('retour');
       const q = QUESTIONS.find(x => x.id === scene.state().active?.id)?.q; if (q) labelAnswer(q);

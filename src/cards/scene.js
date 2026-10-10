@@ -379,6 +379,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (mode !== 'free' || ended || busy(blank, t)) return false;
     writing = false;
     mode = 'q'; backT = t;
+    if (!question && pendingDraw < 0) pendingDraw = t + FLIP_T * 0.6;   // (alt, carte blanche prise d'emblée) le paquet tire
     blank.from = poseOf(blank, t); blank.place = 'rest'; blank.anim = 'flip'; blank.t0 = t; blank.dur = FLIP_T;
     if (blank.ink) { card.freeInk(blank.ink); blank.ink = null; } blank.text = '';
     if (autoWrite) startWriting();
@@ -455,6 +456,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     lastT = t;
     layout(W, H);
     if (pendingDraw >= 0 && t >= pendingDraw) { pendingDraw = -1; drawNext(t); }
+    if (blankAt >= 0 && t >= blankAt && blank) { blankAt = -1; takeBlank(t); }
     // la question suivante se prépare pendant qu'on lit celle-ci (09/10, à-coups sur iPhone X : sa frappe se faisait
     // au moment où la question passée s'envolait) ; la précédente, ramenée de côté, reprend l'encre de l'esquisse
     if (question && !question.anim && !preQ && !dragging && t - question.landedAt > 1.2 && pendingDraw < 0) prepare();
@@ -783,6 +785,21 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     return 'end';
   }
 
+  // (10/10, alt.html) payé : la feuille seule redevient la scène des cartes — le paquet arrive et tire (la carte face
+  // cachée sur la feuille était celle du dessus), ou la carte blanche d'emblée (un poème offert, thème choisi)
+  let blankAt = -1;
+  function resume(t, how = 'question') {
+    sheetOnly = false;
+    if (how === 'blanche') { blankAt = t + 1.4; pendingDraw = -1; } else pendingDraw = t + 1.1;
+  }
+  function takeBlank(t) {
+    if (ended || mode === 'free') return;
+    mode = 'free'; freeT = t;
+    blank.from = poseOf(blank, t); blank.place = 'up'; blank.anim = 'flip'; blank.t0 = t; blank.dur = FLIP_T;
+    setAnswerText('', blank);
+    startWriting();
+    emit('blank', {});
+  }
   function start(t) {
     startT = noIntro ? t - 10 : t; pendingDraw = t + (noIntro ? 0.3 : 1.1);
     // (10/10, version alternative) la feuille seule, tout de suite : aucun paquet, aucun tirage
@@ -806,6 +823,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       blank: blank && kind === 'theme' ? { v: blank.v, text: blank.text, labelInk: blank.labelInk, M: snap.b } : null,
       name: nameText, glyphs: snap.name ? snap.name.glyphs : [], em: snap.name ? snap.name.em : 1, glow: snap.glow.slice(),
       cam: snap.cam, lamp: snap.lamp, ap: snap.ap, ts: { ...ts },
+      top: sheetOnly ? stack[stack.length - 1] : null,   // (alt) la carte du dessus, posée face cachée sur la feuille
     };
   }
   function hideName(on) { sheetHidesName = on; }
@@ -822,7 +840,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function setJeuWrite(on) { jw = jeu && !!on; if (!jw) writing = false; }
   function setBreath(x, y) { breath.x = x; breath.y = y; }
   return {
-    frame, tap, drag, release, give, pass, back, start, prepare, reopen, snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer, setJeuWrite, drawAt, relayIn, relayOut, relaying: () => !!relay && !relay.fin,
+    frame, tap, drag, release, give, pass, back, start, prepare, reopen, resume, snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer, setJeuWrite, drawAt, relayIn, relayOut, relaying: () => !!relay && !relay.fin,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
     state: () => ({ freeFor: mode === 'free' ? lastT - freeT : 0, blankFor: blank && blank.appearT != null ? lastT - blank.appearT + 2.2 : 0, hasPrev: hasPrev(), idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),

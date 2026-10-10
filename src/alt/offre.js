@@ -10,6 +10,11 @@ import { PRIX, ENVOI, STRIPE, STRIPE_PK, PAIEMENT_URL, PHOTOS, FEUILLE_PHOTO, LI
 const Q = new URLSearchParams(location.search);
 const TEST = Q.get('test') !== '0';
 const K_ORDER = 'singulies.order';
+// (10/10) payé dans la page : alt.html enchaîne lui-même (la feuille se défait, la carte est tirée) ; sans lui (pas de
+// WebGL2, ou Stripe a dû rediriger) : merci.html
+let onPaidHere = null;
+const readOrder = () => { try { return JSON.parse(localStorage.getItem(K_ORDER) || 'null'); } catch { return null; } };
+const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o)); } catch { /* */ } };
 const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -66,11 +71,14 @@ function openPanel(name, ref) {
   const root = document.createElement('div'); root.className = 'of-pay'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Paiement');
   root.innerHTML = `<button class="of-pay-x" type="button" aria-label="Fermer">×</button>
     <div class="of-pay-body">
-      <div class="of-pay-title"><b>${esc(name)}</b><span>un poème à ton prénom</span>
+      <div class="of-pay-title"><b>${esc(name)}</b><span class="of-pay-sub">un poème à ton prénom</span>
         <span class="of-pay-p">${esc(PRIX)}, port compris · posté le ${esc(ENVOI)}</span></div>
+      <div class="of-for" role="radiogroup" aria-label="Pour qui">
+        <button type="button" class="on" data-for="moi" role="radio" aria-checked="true">pour moi</button>
+        <button type="button" data-for="offrir" role="radio" aria-checked="false">pour offrir</button></div>
       <label class="of-pf"><span>ton email</span>
         <input class="of-pin" type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next"></label>
-      <div class="of-pf"><span>où je te l’envoie</span><div class="of-addr"></div></div>
+      <div class="of-pf"><span class="of-where">où je te l’envoie</span><div class="of-addr"></div></div>
       <div class="of-pf"><span>le paiement</span><div class="of-pm"></div></div>
       <button class="of-go of-pay-go" type="button" disabled>PAYER ${esc(PRIX)}</button>
       <p class="of-pay-msg" role="alert"></p>
@@ -84,6 +92,26 @@ function openPanel(name, ref) {
   void root.offsetWidth; setTimeout(() => { root.classList.add('on'); veil.classList.add('on'); }, 20);
   const mail = root.querySelector('.of-pin'), go = root.querySelector('.of-pay-go'), msg = t => { root.querySelector('.of-pay-msg').textContent = t || ''; };
   const addrHost = root.querySelector('.of-addr'), pmHost = root.querySelector('.of-pm');
+  // pour moi / pour offrir (10/10) : offert, le prénom écrit est le sien ; après le paiement, je demande comment l'écrire
+  let gift = !!readOrder()?.gift;
+  const setFor = g => {
+    gift = g;
+    root.querySelectorAll('[data-for]').forEach(b => { const on = (b.dataset.for === 'offrir') === g; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+    root.querySelector('.of-pay-sub').textContent = g ? 'un poème à son prénom' : 'un poème à ton prénom';
+    root.querySelector('.of-where').textContent = g ? 'où je l’envoie' : 'où je te l’envoie';
+    const o = readOrder(); if (o && o.ref === ref) saveOrder({ ...o, gift: g });
+  };
+  root.querySelectorAll('[data-for]').forEach(b => b.addEventListener('click', () => setFor(b.dataset.for === 'offrir')));
+  setFor(gift);
+  // payé : ici même si la page sait enchaîner, sinon merci.html
+  const paidNow = extra => {
+    const o = { ...(readOrder() || {}), name, ref, gift, paid: true, ...extra };
+    saveOrder(o);
+    count('alt/paye');
+    if (!onPaidHere) { location.href = merciUrl(extra.simule ? { simule: '1' } : {}); return; }
+    close();
+    onPaidHere(o);
+  };
 
   if (fake) {
     // le même panneau, avec des champs d'essai à l'allure des vrais
@@ -92,7 +120,7 @@ function openPanel(name, ref) {
       <input class="of-pin of-fake-in" placeholder="numéro de carte" aria-label="numéro de carte" inputmode="numeric">`;
     const upd = () => { go.disabled = !mailOk(mail.value); };
     mail.addEventListener('input', upd);
-    go.addEventListener('click', () => { if (!go.disabled) location.href = merciUrl({ simule: '1' }); });
+    go.addEventListener('click', () => { if (!go.disabled) paidNow({ simule: true }); });
     return;
   }
 
@@ -128,8 +156,10 @@ function openPanel(name, ref) {
     go.addEventListener('click', async () => {
       if (go.disabled) return;
       busy = true; upd(); msg('');
-      const r = await actions.confirm({ email: mail.value.trim() });
-      // ici seulement en cas d'erreur immédiate : sinon Stripe ramène vers merci.html
+      // (10/10) sans redirection quand c'est possible (carte, Apple Pay, Google Pay) : la suite se joue ici ; sinon
+      // (3-D Secure, PayPal…) Stripe ramène vers merci.html
+      const r = await actions.confirm({ email: mail.value.trim(), redirect: 'if_required' });
+      if (r && r.type === 'success') { paidNow({ session: r.session?.id || '' }); return; }
       if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
       busy = false; upd();
     });
@@ -149,7 +179,7 @@ function pay(name) {
   ref = ref || orderRef(name);
   try { localStorage.setItem(K_ORDER, JSON.stringify({ name, ref, at: Date.now() })); } catch { /* */ }
   count('alt/commander');
-  if ((STRIPE_PK && PAIEMENT_URL) || Q.get('paiement') === 'faux') { openPanel(name, ref); return; }
+  if ((STRIPE_PK && PAIEMENT_URL) || Q.get('paiement') === 'faux' || (!STRIPE && onPaidHere)) { openPanel(name, ref); return; }
   if (STRIPE) {
     const u = new URL(STRIPE);
     u.searchParams.set('client_reference_id', ref);
@@ -183,14 +213,16 @@ function slide(p) {
 }
 
 // opts : { name (capitales), onBack(), over (la vraie feuille est dessous, dans la scène des cartes) }
-export function mountOffer({ name, onBack, over = false }) {
+export function mountOffer({ name, onBack, over = false, onPaid = null }) {
+  onPaidHere = onPaid;
   const root = document.createElement('div');
   root.id = 'offre'; root.className = 'of' + (over ? ' over' : '');
   root.innerHTML = `
     <button class="of-back" type="button" aria-label="Changer le prénom">${BACK_SVG}</button>
     <main>
       ${over ? '<div class="of-hole" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
-      <p class="of-note">ces lignes n’existent pas encore.<br>je les tape pour toi, à la machine.</p>
+      <p class="of-note">ces lignes n’existent pas encore.<br>je les tape pour toi, à la machine.${over ? '<br><span>la carte, je la retourne après ta commande.</span>' : ''}</p>
+      <div class="of-rest">
       <section class="of-ex" aria-label="D’autres poèmes"><h2 class="of-h">d’autres prénoms, d’autres poèmes</h2><div class="of-ex-host"></div>
         <p class="of-ex-note">chacun avec la carte de sa question, glissée dans l’enveloppe.</p></section>
       <section class="of-vrai" aria-label="De vrais envois">
@@ -205,11 +237,13 @@ export function mountOffer({ name, onBack, over = false }) {
       </ul>
       <p class="of-after">juste après le paiement, je tire une carte pour toi. ta réponse sera le thème du poème — ou tu passes, et j’improvise sur ton prénom.</p>
       <p class="of-legal">paiement sécurisé par stripe · ton adresse à l’étape suivante.<br>un poème à ton prénom est fait pour toi : il ne peut être ni repris ni échangé.</p>
-      <p class="of-gift">c’est pour offrir ? <button type="button" class="of-link" data-act="back">écris son prénom</button> à la place du tien, et son adresse au paiement.</p>
+      <p class="of-gift">c’est pour offrir ? <button type="button" class="of-link" data-act="back">écris son prénom</button> à la place du tien, et dis-le au paiement : la personne pourra même répondre elle-même à sa question.</p>
       <footer class="of-foot">
         <a href="${esc(LIENS.jeu)}">le jeu</a> · <a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">mes livres</a> · <a href="${esc(LIENS.instagram)}" target="_blank" rel="noopener">@e.t.ernel</a>
       </footer>
+      </div>
     </main>
+    <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
       <div class="of-price"><b>${esc(PRIX)}</b>, port compris<br><span>posté le ${esc(ENVOI)}</span></div>
       <button class="of-go" type="button">COMMANDER</button>
@@ -245,6 +279,9 @@ export function mountOffer({ name, onBack, over = false }) {
   track.addEventListener('scroll', () => requestAnimationFrame(syncDots), { passive: true });
   setTimeout(syncDots, 600); syncDots();
 
+  // en faisant défiler : une ombre en haut, sous la flèche retour (elle ne passe plus sur le texte)
+  root.addEventListener('scroll', () => root.classList.toggle('scrolled', root.scrollTop > 24), { passive: true });
+
   // gestes
   const back = () => { count('alt/retour'); onBack?.(); };
   root.querySelector('.of-back').addEventListener('click', back);
@@ -259,5 +296,12 @@ export function mountOffer({ name, onBack, over = false }) {
   if (col) setTimeout(() => acrostic(col, name), 700);
   const letters = name.replace(/ /g, '').length;
   setTimeout(() => root.classList.add('bar-on'), over ? 700 : 900 + letters * 90 + 600);
-  return { root, shown };
+  // payé : l'offre s'efface, la feuille reste seule (la suite se joue dessous)
+  const hide = () => {
+    root.classList.remove('bar-on');
+    root.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => { root.classList.remove('on'); root.style.pointerEvents = 'none'; }, 350);
+    setTimeout(() => { root.remove(); document.body.classList.remove('of-open'); panel?.root.remove(); panel?.veil.remove(); panel = null; }, 1400);
+  };
+  return { root, shown, hide };
 }

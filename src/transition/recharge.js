@@ -17,7 +17,9 @@ export const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u +
 const lerp = (a, b, u) => a + (b - a) * u;
 
 export const REST = 0.6;          // repos minimal après la dernière arrivée (s)
-export const RISE = 1.9;          // durée de la montée (s)
+// (10/10) version alternative : un peu plus vif (le prix vient après ; on ne fait pas attendre)
+const FAST = globalThis.document?.documentElement?.dataset?.page === 'alt';
+export const RISE = FAST ? 1.5 : 1.9;   // durée de la montée (s)
 // une seule clarté du prénom dans toute l'app (accueil, transition, cartes) : 0,62 (≈ 158/255, accordée aux cartes) ; jamais de baisse
 // d'une scène à l'autre. La recharge le fait baisser puis le ramène à ce niveau (pas au-delà) ; la marge jusqu'au
 // blanc sert à l'allumage de ses lettres quand on écrit la réponse.
@@ -26,7 +28,7 @@ export const NAME_REST = LUM.name;   // 06/10 : tout le site ≈ 10 % plus clair
 export const NAME_LOW = 0.62;     // fraction de NAME_REST : le prénom baisse avant d'être rechargé
 export const NAME_GRAY = NAME_REST;   // (ancien gris « en retrait » 0,42 : retiré, 05/10)
 const NAME_LIT = NAME_REST;       // clarté visée par une lettre qui rejoint le prénom
-const DEP0 = 0.5, DEP_SPAN = 2.2; // départs étalés, du plus loin au plus proche
+const DEP0 = 0.5, DEP_SPAN = FAST ? 1.5 : 2.2; // départs étalés, du plus loin au plus proche
 const MAX_FLY = 140;               // toutes les lettres allumées à l'écran, du fond au premier plan
 
 // ctx : { words, letterScreen(w, i), level(w, i, x, y) → lumière, readyIn?(w, i, x, y) → s avant d'être allumée,

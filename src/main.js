@@ -10,8 +10,8 @@ import { buildAtlas } from './gl/atlas.js';
 import { createRenderer } from './render/renderer.js';
 import { layoutName } from './name/layout.js';
 import { loadState, saveValidated, clearStored, clearValidated } from './app/storage.js';
-import { installSend, settled } from './app/send.js';
-import { installCount } from './app/count.js';
+import { installSend, settled, setOrder, send } from './app/send.js';
+import { installCount, count } from './app/count.js';
 import { createField, MODES } from './field/field.js';
 import { createRng } from './field/rng.js';
 import { createLight } from './field/light.js';
@@ -33,6 +33,17 @@ const PAGE = document.documentElement.dataset.page || '';
 // COMMANDER) au lieu des cartes ; la question vient après le paiement (merci.html)
 const ALT = PAGE === 'alt';
 const offerModule = () => import('./alt/offre.js');
+// (10/10) payé ici, page rechargée pendant la cérémonie : merci.html la reprend (la commande est gardée)
+if (ALT) {
+  try {
+    const o = JSON.parse(localStorage.getItem('singulies.order') || 'null');
+    if (o && o.paid && !o.done && Date.now() - (o.at || 0) < 2 * 864e5) {
+      const u = new URL('./merci.html', document.baseURI), k = new URLSearchParams(location.search);
+      if (o.simule) k.set('simule', '1'); if (o.session) k.set('session', o.session);
+      u.search = k.toString(); location.replace(u.href);
+    }
+  } catch { /* */ }
+}
 // (09/10 : les réglages de l'adresse — ?test=1, ?envoi=0… — restent ; sans eux, le mode test se perdait en entrant
 // dans le poème ; la question partagée q= ne suit que le jeu)
 const showPath = p => { try { const u = new URL(p, document.baseURI), k = new URLSearchParams(location.search); if (!/^jeu/.test(p)) k.delete('q'); u.search = k.toString(); history.replaceState(history.state, '', u); } catch { /* */ } };
@@ -61,6 +72,10 @@ const OPEN_FADE = 1.4;      // s de fondu d'entrée
 const LEAVE_FADE = 1.2;     // s de fondu au noir après validation (sans WebGL2)
 const HINT = P.get('indice') !== '0';   // (10/10) PRENOM en grisé si rien n'est écrit
 const HINT_AFTER = 3.0, HINT_ALPHA = 0.2;   // s après l'apparition du champ ; clarté (fraction)
+// (10/10, version alternative) après ETERNEL : UN PRENOM / UN POEME en grisé (la grammaire de tout le site), qui
+// s'efface pour laisser le curseur seul au centre ; ailleurs : PRENOM, le curseur glisse devant
+const HINT_TEXT = ALT ? 'UN PRENOM UN POEME' : 'PRENOM';   // (deux lignes comme un prénom : coupure aux espaces, la plus équilibrée)
+const HINT_HOLD = 2.6, HINT_OUT = 1.3;   // (alt) s de lecture, s de fondu
 const IDLE_GO = 3.5;   // (10/10) ordinateur : fini d'écrire sans Entrée → la suite après ce temps sans frappe
 // (10/10, version alternative) à l'ouverture, ETERNEL se tape à la machine à la place du prénom, le champ s'allume avec
 // lui (on voit ce que fait une frappe), puis il s'efface lettre à lettre ; le curseur, puis PRENOM en grisé.
@@ -242,7 +257,7 @@ function loadCards(name) {
     name, base: './', onExit: exitCards, hidden: true, firstQ: jeuQ,
     // version alternative : la feuille seule, tout de suite, qui reste ; l'offre se pose dessus quand le curseur respire
     ...(ALT ? { sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
-    onEnd: () => {}, onDone: backToStart,
+    onEnd: () => {}, onDone: () => (S.paid ? finishPaid() : backToStart()),
   })).then((m) => {
     if (!m) throw new Error('webgl2');
     m.warm();
@@ -327,15 +342,45 @@ function noCards() {
 }
 
 // version alternative : la feuille qui attend se pose sur le prénom seul ; le champ s'arrête une fois couvert
-let offer = null;
+let offer = null, offerObj = null;
 // over : par-dessus la vraie feuille (scène des cartes) ; sinon (sans WebGL2, cartes en échec) la feuille dessinée
+// (et le paiement mène à merci.html)
 function showOffer(over = false) {
   if (offer) return;
   if (!over) { S.phase = 'offre'; S.phaseAt = S.t; emitValidated(S.validatedName, false); }
   backEl.classList.remove('on'); input.blur(); input.readOnly = true;
-  offer = offerModule().then(m => m.mountOffer({ name: S.validatedName.toUpperCase(), onBack: exitCards, over }))
-    .then(o => o.shown.then(() => { cancelAnimationFrame(rafId); rafId = 0; canvas.style.visibility = 'hidden'; names2d?.stop(); names2d = null; fallbackEl.style.display = 'none'; }))
+  offer = offerModule().then(m => m.mountOffer({ name: S.validatedName.toUpperCase(), onBack: exitCards, over, onPaid: over ? paidHere : null }))
+    .then(o => { offerObj = o; return o.shown.then(() => { cancelAnimationFrame(rafId); rafId = 0; canvas.style.visibility = 'hidden'; names2d?.stop(); names2d = null; fallbackEl.style.display = 'none'; }); })
     .catch(e => { console.error(e); why('offre : ' + (e && e.message)); noCards(); });
+}
+// (10/10) payé dans la page : sans changer de page, l'offre s'efface et la suite se joue sur la feuille — elle se
+// défait, le paquet arrive et tire (la carte face cachée était la sienne) ; un poème offert : comment je l'écris ?
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function paidHere(order) {
+  S.paid = order;
+  setOrder({ ref: order.ref, session: order.session || '', simule: !!order.simule, gift: !!order.gift });
+  offerObj?.hide();
+  const fin = await import('./alt/fin.js');
+  let how = 'question';
+  if (order.gift) { await sleep(1100); how = order.how = await fin.askHow(order.name); fin.saveOrder(order); }
+  if (how === 'lien') {
+    send({ name: order.name, kind: 'lien', text: '', id: null, mode: 'poste', address: [] });
+    await fin.shareGift(order); order.lien = true; finishPaid(); return;
+  }
+  const line = order.gift ? { question: 'merci. je tire une carte : ta réponse sera le thème de son poème.', blanche: 'merci. écris le thème de son poème.', impro: 'merci. j’improvise sur son prénom.' }[how]
+    : 'merci. maintenant je tire une carte pour toi.';
+  const f = document.createElement('div'); f.className = 'of-float'; f.textContent = line; document.body.appendChild(f);
+  setTimeout(() => f.classList.add('on'), 400); setTimeout(() => f.classList.remove('on'), 4600); setTimeout(() => f.remove(), 5800);
+  if (cardsReady && cardsReady !== 'failed') cardsReady.afterPay(how);
+}
+// la fin d'une commande payée ici : c'est noté (rechargée : merci.html, sans seconde demande)
+async function finishPaid() {
+  const fin = await import('./alt/fin.js'), o = S.paid;
+  o.done = true; fin.saveOrder(o); count('alt/fini');
+  await Promise.race([settled().catch(() => {}), sleep(2500)]);
+  if (cardsReady && cardsReady !== 'failed') { cardsReady.canvas.style.transition = 'opacity 1.1s ease'; cardsReady.canvas.style.opacity = '0'; }
+  const home = new URL('./alt.html', document.baseURI); home.search = location.search;
+  setTimeout(() => fin.finalScreen(o, home.href), 1100);
 }
 
 function goBack() {
@@ -627,22 +672,24 @@ function frame(ts) {
   if (S.hintT0 == null && S.phase === 'input' && !S.portal && nameFade > 0.99) S.hintT0 = S.t;
   const hintAt = ALT ? (S.introEnd != null ? S.introEnd + 0.7 : Infinity) : (S.hintT0 ?? Infinity) + HINT_AFTER;
   const hintA = HINT && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
-    ? smooth(hintAt, hintAt + 1.6, S.t) : 0;
+    ? smooth(hintAt, hintAt + 1.6, S.t) * (ALT ? 1 - smooth(hintAt + 1.6 + HINT_HOLD, hintAt + 1.6 + HINT_HOLD + HINT_OUT, S.t) : 1) : 0;
   let hintX = L.cursor.x;
   if (hintA > 0) {
-    const H = layoutName(displayCase('PRENOM', CFG.caseMode), metrics, { w: S.w, h: S.h, cx, cy });
+    const H = layoutName(displayCase(HINT_TEXT, CFG.caseMode), metrics, { w: S.w, h: S.h, cx, cy });
     for (const g of H.glyphs) {
       const gm = atlas.glyphs[g.ch]; if (!gm) continue;
       glyphs.push({ box: [g.x + gm.x0 * g.fs, g.y + gm.y0 * g.fs, g.x + gm.x1 * g.fs, g.y + gm.y1 * g.fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: HINT_ALPHA * hintA * nameFade, pxEm: g.fs });
     }
-    hintX = L.cursor.x + (H.lines[0].x0 - H.track * H.fs * 0.5 - L.cursor.x) * smooth(0, 1, hintA);
-    S.nameBox = [Math.min(S.nameBox[0], H.lines[0].x0 - 30), S.nameBox[1], Math.max(S.nameBox[2], H.lines[0].x1 + 30), S.nameBox[3]];
+    if (!ALT) hintX = L.cursor.x + (H.lines[0].x0 - H.track * H.fs * 0.5 - L.cursor.x) * smooth(0, 1, hintA);
+    const hx0 = Math.min(...H.lines.map(l => l.x0)), hx1 = Math.max(...H.lines.map(l => l.x1));
+    S.nameBox = [Math.min(S.nameBox[0], hx0 - 30), Math.min(S.nameBox[1], H.top - 20), Math.max(S.nameBox[2], hx1 + 30), Math.max(S.nameBox[3], H.bottom + 20)];
   }
   const voiceHidesCursor = voice && !S.voiceTyped && (voice.state === 'idle' || voice.state === 'asking' || voice.state === 'listening');
   if (!wheel && !voiceHidesCursor && !S.typed && !S.confirmed && S.phase === 'input') {
     // respiration douce (pas de clignotement sec) : 0,2 → 0,9, période 1,6 s
     const ph = (S.t - OPEN_DARK) / 1.6 * Math.PI * 2;
-    const blink = CFG.reduced ? 0.8 : 0.2 + 0.7 * Math.pow(0.5 + 0.5 * Math.cos(ph), 1.6);
+    // (alt) le curseur s'efface sous UN PRENOM / UN POEME et revient seul quand il s'en va
+    const blink = (CFG.reduced ? 0.8 : 0.2 + 0.7 * Math.pow(0.5 + 0.5 * Math.cos(ph), 1.6)) * (ALT ? 1 - hintA : 1);
     const cw = L.cursor.w;
     glyphs.push({ box: [hintX - cw / 2, L.cursor.y0, hintX + cw / 2, L.cursor.y1], uv: null, alpha: blink * nameFade, pxEm: 1, taper: 0.22 });
   }

@@ -339,3 +339,9 @@ Voir « Point de reprise » en tête de fichier.
 - Compteur : `alt/offre`, `alt/commander`, `alt/paye`, `alt/fini`, `alt/retour`.
 - Vérifié (navigateur intégré 375×812) : parcours complet LEA (champ → feuille → COMMANDER → merci → réponse → enveloppe → fin), sans WebGL (`?simple=1`, CLEMENCE ROSE). Non vérifié : vrai iPhone, navigateur d'Instagram, Stripe réel.
 - À fournir : prix, date, lien Stripe, 3 photos (ou feuille vierge photographiée pour `FEUILLE_PHOTO`).
+
+## 10/10 soir — alt.html au niveau du site de base (regard neuf)
+- Fait : carte face cachée sur la feuille ; paiement fini dans la page → la suite sur la même scène (afterPay) ; pour moi / pour offrir + 4 façons (question, lien `pour.html`, thème, improvisation) ; UN PRENOM / UN POEME ; transition alt plus vive (≈ −2,2 s) ; bandes grises et flèche retour corrigées.
+- Vérifié (Playwright 390×844, `tools/alt-check.mjs moi|offrir`) : parcours complet sans erreur, commande `paid/done`, fin juste. Headless : prix ≈ 14 s après Entrée (GPU lent ; vrai téléphone non mesuré).
+- Non vérifié : vrai iPhone, Stripe réel (`redirect: 'if_required'` à confirmer avec les clés), `pour.html` de bout en bout sur un téléphone, version simple du choix cadeau (sans WebGL2 : on passe par merci.html, qui sait demander « comment je l'écris »).
+

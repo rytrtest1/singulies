@@ -18,7 +18,8 @@ let ORDER = null;
 export function setOrder(o) { ORDER = o; }
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const KIND = { reponse: 'une question du jeu', theme: 'carte blanche', improvisation: 'improvisation (sur le prénom)' };
+const KIND = { reponse: 'une question du jeu', theme: 'carte blanche', improvisation: 'improvisation (sur le prénom)',
+  lien: 'en attente : la personne offerte répondra (lien envoyé)' };
 
 // paramètres du modèle EmailJS (voir ressources/email-demande.html) ; *_html : à insérer avec {{{ }}}
 // Gmail ne charge pas les polices du site : le prénom est composé d'images de lettres (EB Garamond, rendues une
@@ -75,7 +76,8 @@ export function params(d) {
     question: q.toLowerCase(),
     reponse: d.kind === 'reponse' ? d.text || '' : '',
     theme: d.kind === 'theme' ? d.text || '' : '',
-    mode: d.order ? 'payé' + (d.order.simule ? ' (paiement simulé)' : '') + ', réf. ' + d.order.ref + (d.beta ? ' (test)' : '')
+    // (10/10) un poème offert : « cadeau » ; la réponse de la personne offerte (pour.html) : « réponse du cadeau »
+    mode: d.order ? 'payé' + (d.order.simule ? ' (paiement simulé)' : '') + ', réf. ' + d.order.ref + (d.order.pour ? ', réponse de la personne offerte' : d.order.gift ? ', cadeau' : '') + (d.beta ? ' (test)' : '')
       : (d.mode === 'direct' ? 'en direct' : 'par la poste') + (d.test ? ' (essai, sans adresse)' : d.beta ? ' (test)' : ''),
     adresse_html: (d.address || []).map(l => quiet(esc(l))).join('<br>'),
     adresse: (d.address || []).join('\n'),
