@@ -114,6 +114,7 @@
 .of-express:empty { display: none; }
 .of-or { display: flex; align-items: center; gap: 12px; margin: 14px 0 16px; font-size: 14px; color: #6c675e; }
 .of-or::before, .of-or::after { content: ''; flex: 1; border-top: 1px solid #262422; }
+.of-or[hidden] { display: none; }
 .of-fake-apple { display: block; width: 100%; height: 48px; border: 0; border-radius: 4px; background: #fff; color: #000; font: 600 17px/48px -apple-system, system-ui, sans-serif; cursor: pointer; }
 /* pendant le paiement : la note et la barre du prix s'effacent (le bandeau, c'est le paiement) */
 .of.paying .of-bar { transform: translateY(110%); }
