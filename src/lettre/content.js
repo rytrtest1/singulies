@@ -25,7 +25,6 @@ const HTML = `<main class="lt">
     <p class="lt-note">rien n’est débité. je t’écris, c’est tout.</p>
   </form>
   <p class="lt-done" role="status" aria-live="polite"></p>
-  <button class="lt-contact" type="button">écris-moi</button>
 </main>`;
 
 // host : l'élément où poser la page ; rend { main }
@@ -54,7 +53,5 @@ export function buildLettre(host, base = './') {
     const strike = () => { if (i <= msg.length) { done.textContent = msg.slice(0, i++); setTimeout(strike, reduced ? 0 : 55 + Math.random() * 90); } };
     strike();
   });
-  // écris-moi : le message sur une carte vierge (src/menu/contact.js)
-  main.querySelector('.lt-contact').addEventListener('click', () => import('../menu/contact.js').then(m => m.openContact({ base, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches })));
   return { main };
 }

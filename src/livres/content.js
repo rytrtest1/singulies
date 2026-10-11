@@ -11,14 +11,11 @@ const HTML = `<main class="lt">
   </div>
   <a class="lt-go on lt-link" href="https://www.amazon.fr/dp/B0DS8RF83H" target="_blank" rel="noopener">LE LIRE</a>
   <p class="lt-note">sur amazon</p>
-  <button class="lt-contact" type="button">écris-moi</button>
 </main>`;
 
 export function buildLivres(host, base = './') {
   host.innerHTML = HTML.replace(/BASE/g, base);
   const main = host.querySelector('.lt');
   main.querySelector('.lt-link').addEventListener('click', () => count('livres/amazon'));
-  // écris-moi : le message sur une carte vierge (src/menu/contact.js)
-  main.querySelector('.lt-contact').addEventListener('click', () => import('../menu/contact.js').then(m => m.openContact({ base, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches })));
   return { main };
 }

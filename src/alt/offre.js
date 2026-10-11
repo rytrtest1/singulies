@@ -375,7 +375,6 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
       ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
       <div class="of-rest">
       <section class="of-ex" aria-label="D’autres prénoms, d’autres poèmes"><div class="of-ex-host"></div></section>
-      <button class="of-contact" type="button">écris-moi</button>
       </div>
     </main>
     <div class="of-shade" aria-hidden="true"></div>
@@ -549,7 +548,6 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   root.addEventListener('scroll', () => root.classList.toggle('scrolled', root.scrollTop > storyLen() + 24), { passive: true });
   // (11/10) tout ce qui est souligné l'est par un bout de fil noir, cousu (stitch.js)
   stitch(root.querySelector('.of-bar .of-go'), { seed: 'RECEVOIR'.length * 13 });
-  root.querySelector('.of-contact').addEventListener('click', () => import('../menu/contact.js').then(m => m.openContact({ base: './', name })));
 
   // gestes
   // l'enveloppe (10/10) : ouverte, la page s'efface sur elle ; adresse complète → le bandeau du paiement

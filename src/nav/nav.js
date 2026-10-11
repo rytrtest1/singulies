@@ -254,6 +254,7 @@ export function installNav(opts) {
     if (!reduced) { el.style.translate = x ? `${x.toFixed(1)}px 0` : ''; el.style.scale = s !== 1 ? s.toFixed(3) : ''; }
     el.style.opacity = o === 1 ? '' : String(o);
   }
+  const clearT = el => { el.style.transition = 'none'; el.style.translate = ''; el.style.scale = ''; el.style.transformOrigin = ''; };
   // ---- aller à une page voisine (d : ±1, ±2, ±3) ----
   async function go(d, opt = {}) {
     if (busy || !d) return;
@@ -267,6 +268,9 @@ export function installNav(opts) {
     items.forEach((a, i) => { const k = i - C - d; a.classList.toggle('cur', k === 0); a.classList.remove('far', 'd2', 'd3'); if (Math.abs(k) > 1) a.classList.add('far', 'd' + Math.min(3, Math.abs(k))); });
     // l'objet du centre va à la place du voisin opposé (en rapetissant), et s'efface en arrivant
     const out = els(from || {}, true);
+    // (ce qui suivait le doigt sans faire partie de ce qui part — la description, le texte d'une page — : il garde son
+    // décalage le temps de sortir, puis le perd ; sinon, au retour, il restait décalé)
+    const outDrag = els(from || {}, false).filter(el => !out.includes(el));
     for (const el of out) put(el, -dir * dd * steps, sc, 0, c0.y, true);
     from?.leave?.();
     // les objets voisins se décalent d'autant : celui vers qui l'on va vient au centre (et grandit), l'autre sort
@@ -288,13 +292,15 @@ export function installNav(opts) {
     cur = mod(cur + d, PAGES.length);
     // l'objet de la page suivante part de la place du voisin (petit, pâle) et vient au centre
     const inn = els(pg, true), c1 = objC();
+    for (const el of els(pg, false)) if (!inn.includes(el)) clearT(el);
     for (const el of inn) { el.style.visibility = ''; put(el, dir * dd * steps, sc, 0.4, c1.y, false); }
     void document.body.offsetWidth;
     for (const el of inn) put(el, 0, 1, 1, c1.y, true);
     pg.back?.();
     if (!opt.pop) try { history.pushState({ sgPage: target.id }, '', url(target)); } catch { /* */ }
     setTimeout(() => {
-      for (const el of out) { el.style.visibility = 'hidden'; el.style.transition = 'none'; el.style.translate = ''; el.style.scale = ''; }
+      for (const el of out) { el.style.visibility = 'hidden'; clearT(el); }
+      for (const el of outDrag) clearT(el);
       for (const el of inn) { el.style.transition = 'none'; el.style.transformOrigin = ''; }
       if (from && from.transient) delete pages[fromId];
       // les nouveaux voisins se posent à leur place, en fondu

@@ -1036,6 +1036,7 @@ if (ALT) {
   });
   // venue par le fil (rechargement) : le champ entre du côté d'où l'on vient ; glisser le champ = la page voisine
   nav?.enter([canvas]);
+  window.__nav = nav;   // (essais)
   if (nav) nav.swipe(canvas, 'poeme');
 }
 if (PAGE === 'jeu') {
