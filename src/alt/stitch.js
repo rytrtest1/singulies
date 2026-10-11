@@ -5,6 +5,45 @@
 // dans les trous (il s'affine et s'assombrit), qui gardent un liseré de lumière sur leur bord bas. Immobile.
 function rng(seed) { let s = seed >>> 0 || 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 
+// le fil cousu entre ha et hb (px), à la hauteur y0, dans un contexte 2D déjà réglé (aussi : le bandeau des pages, nav.js)
+export function paintThread(x, ha, hb, y0, seed = 7, TH = 1.25) {
+  const R = rng(seed);
+  // le chemin : à peine affaissé, à peine irrégulier
+  const P = [];
+  for (let px = ha; px <= hb + 0.01; px += 1) { const u = (px - ha) / (hb - ha); P.push([px, y0 + 0.45 * Math.sin(Math.PI * u) + 0.12 * Math.sin(px * 0.41 + seed)]); }
+  x.lineCap = 'round'; x.lineJoin = 'round';
+  const line = (dyy, col, wd, a = 0, b = P.length) => { x.beginPath(); for (let i = a; i < b; i++) (i > a ? x.lineTo : x.moveTo).call(x, P[i][0], P[i][1] + dyy); x.strokeStyle = col; x.lineWidth = wd; x.stroke(); };
+  // ombre portée très douce, le corps, le modelé (haut éclairé, bas plus sombre)
+  line(0.9, 'rgba(0,0,0,.5)', TH + 1.4);
+  line(0, 'rgb(28,27,25)', TH, 2, P.length - 2);
+  line(0, 'rgb(18,17,16)', TH * 0.7, 0, 3); line(0, 'rgb(18,17,16)', TH * 0.7, P.length - 3, P.length);   // il plonge : plus fin, plus sombre
+  line(-TH * 0.2, 'rgba(120,116,108,.24)', TH * 0.42, 2, P.length - 2);
+  line(TH * 0.3, 'rgba(0,0,0,.35)', TH * 0.3, 2, P.length - 2);
+  // la torsion : de fins reflets en biais, irréguliers
+  for (let s = ha + 2.5 + R() * 2; s < hb - 2.5; s += 3.1 + (R() - 0.5) * 0.8) {
+    const i = Math.min(P.length - 1, Math.round(s - ha)), [px, py] = P[i], a = 0.07 + 0.16 * R() ** 2;
+    x.beginPath(); x.moveTo(px - 0.6, py - TH * 0.46); x.lineTo(px + 0.5, py + TH * 0.18);
+    x.strokeStyle = `rgba(165,160,150,${a.toFixed(3)})`; x.lineWidth = 0.45; x.stroke();
+  }
+  // une pointe de lustre ciré
+  { const c = ha + (hb - ha) * (0.3 + 0.4 * R()), l = 6 + 8 * R(), i0 = Math.max(2, Math.round(c - l / 2 - ha)), i1 = Math.min(P.length - 2, Math.round(c + l / 2 - ha));
+    if (i1 > i0) line(-TH * 0.34, 'rgba(205,199,187,.22)', 0.45, i0, i1); }
+  // deux ou trois fibres qui s'échappent
+  for (let f = 0, nf = 2 + Math.floor(R() * 2); f < nf; f++) {
+    const s = ha + 6 + R() * (hb - ha - 12), i = Math.round(s - ha), [px, py] = P[i], up = R() > 0.5 ? -1 : 1, l = 1.2 + 2.2 * R(), an = 0.4 + 0.7 * R();
+    x.beginPath(); x.moveTo(px, py + up * TH * 0.4);
+    x.quadraticCurveTo(px + l * Math.cos(an) * 0.6, py + up * (TH * 0.4 + l * Math.sin(an) * 0.6), px + l * Math.cos(an + 0.4), py + up * (TH * 0.4 + l * Math.sin(an + 0.4)));
+    x.strokeStyle = `rgba(125,120,112,${(0.1 + 0.15 * R()).toFixed(3)})`; x.lineWidth = 0.35; x.stroke();
+  }
+  // les deux trous : le fil y rentre (le noir du trou, un liseré de lumière sur le bord bas, côté opposé à la lampe)
+  for (const hx of [ha, hb]) {
+    const hy = y0 + 0.1;
+    x.beginPath(); x.ellipse(hx, hy, 1.15, 0.85, 0, 0, Math.PI * 2); x.fillStyle = 'rgb(2,2,2)'; x.fill();
+    x.beginPath(); x.ellipse(hx, hy, 1.25, 0.95, 0, 0.15 * Math.PI, 0.85 * Math.PI); x.strokeStyle = 'rgba(130,126,118,.28)'; x.lineWidth = 0.4; x.stroke();
+    x.beginPath(); x.ellipse(hx, hy, 1.3, 1.0, 0, 1.1 * Math.PI, 1.9 * Math.PI); x.strokeStyle = 'rgba(0,0,0,.6)'; x.lineWidth = 0.5; x.stroke();
+  }
+}
+
 export function stitch(el, { pad = 3.5, dy = 0, seed = 7 } = {}) {
   const cv = document.createElement('canvas');
   cv.className = 'of-stitch'; cv.setAttribute('aria-hidden', 'true');
@@ -29,41 +68,7 @@ export function stitch(el, { pad = 3.5, dy = 0, seed = 7 } = {}) {
   }
   function draw(w, dpr) {
     x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, H);
-    const R = rng(seed), y0 = H / 2, ha = 2.6, hb = w - 2.6;
-    // le chemin : à peine affaissé, à peine irrégulier
-    const P = [];
-    for (let px = ha; px <= hb + 0.01; px += 1) { const u = (px - ha) / (hb - ha); P.push([px, y0 + 0.45 * Math.sin(Math.PI * u) + 0.12 * Math.sin(px * 0.41 + seed)]); }
-    x.lineCap = 'round'; x.lineJoin = 'round';
-    const line = (dyy, col, wd, a = 0, b = P.length) => { x.beginPath(); for (let i = a; i < b; i++) (i > a ? x.lineTo : x.moveTo).call(x, P[i][0], P[i][1] + dyy); x.strokeStyle = col; x.lineWidth = wd; x.stroke(); };
-    // ombre portée très douce, le corps, le modelé (haut éclairé, bas plus sombre)
-    line(0.9, 'rgba(0,0,0,.5)', TH + 1.4);
-    line(0, 'rgb(28,27,25)', TH, 2, P.length - 2);
-    line(0, 'rgb(18,17,16)', TH * 0.7, 0, 3); line(0, 'rgb(18,17,16)', TH * 0.7, P.length - 3, P.length);   // il plonge : plus fin, plus sombre
-    line(-TH * 0.2, 'rgba(120,116,108,.24)', TH * 0.42, 2, P.length - 2);
-    line(TH * 0.3, 'rgba(0,0,0,.35)', TH * 0.3, 2, P.length - 2);
-    // la torsion : de fins reflets en biais, irréguliers
-    for (let s = ha + 2.5 + R() * 2; s < hb - 2.5; s += 3.1 + (R() - 0.5) * 0.8) {
-      const i = Math.min(P.length - 1, Math.round(s - ha)), [px, py] = P[i], a = 0.07 + 0.16 * R() ** 2;
-      x.beginPath(); x.moveTo(px - 0.6, py - TH * 0.46); x.lineTo(px + 0.5, py + TH * 0.18);
-      x.strokeStyle = `rgba(165,160,150,${a.toFixed(3)})`; x.lineWidth = 0.45; x.stroke();
-    }
-    // une pointe de lustre ciré
-    { const c = ha + (hb - ha) * (0.3 + 0.4 * R()), l = 6 + 8 * R(), i0 = Math.max(2, Math.round(c - l / 2 - ha)), i1 = Math.min(P.length - 2, Math.round(c + l / 2 - ha));
-      if (i1 > i0) line(-TH * 0.34, 'rgba(205,199,187,.22)', 0.45, i0, i1); }
-    // deux ou trois fibres qui s'échappent
-    for (let f = 0, nf = 2 + Math.floor(R() * 2); f < nf; f++) {
-      const s = ha + 6 + R() * (hb - ha - 12), i = Math.round(s - ha), [px, py] = P[i], up = R() > 0.5 ? -1 : 1, l = 1.2 + 2.2 * R(), an = 0.4 + 0.7 * R();
-      x.beginPath(); x.moveTo(px, py + up * TH * 0.4);
-      x.quadraticCurveTo(px + l * Math.cos(an) * 0.6, py + up * (TH * 0.4 + l * Math.sin(an) * 0.6), px + l * Math.cos(an + 0.4), py + up * (TH * 0.4 + l * Math.sin(an + 0.4)));
-      x.strokeStyle = `rgba(125,120,112,${(0.1 + 0.15 * R()).toFixed(3)})`; x.lineWidth = 0.35; x.stroke();
-    }
-    // les deux trous : le fil y rentre (le noir du trou, un liseré de lumière sur le bord bas, côté opposé à la lampe)
-    for (const hx of [ha, hb]) {
-      const hy = y0 + 0.1;
-      x.beginPath(); x.ellipse(hx, hy, 1.15, 0.85, 0, 0, Math.PI * 2); x.fillStyle = 'rgb(2,2,2)'; x.fill();
-      x.beginPath(); x.ellipse(hx, hy, 1.25, 0.95, 0, 0.15 * Math.PI, 0.85 * Math.PI); x.strokeStyle = 'rgba(130,126,118,.28)'; x.lineWidth = 0.4; x.stroke();
-      x.beginPath(); x.ellipse(hx, hy, 1.3, 1.0, 0, 1.1 * Math.PI, 1.9 * Math.PI); x.strokeStyle = 'rgba(0,0,0,.6)'; x.lineWidth = 0.5; x.stroke();
-    }
+    paintThread(x, 2.6, w - 2.6, H / 2, seed, TH);
   }
   const ro = new ResizeObserver(layout); ro.observe(el);
   document.fonts && document.fonts.ready.then(layout);

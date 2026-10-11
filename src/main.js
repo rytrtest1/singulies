@@ -34,9 +34,14 @@ const PAGE = document.documentElement.dataset.page || '';
 const ALT = PAGE === 'alt';
 const offerModule = () => import('./alt/offre.js');
 import { SHEET_INSET, LIENS } from './alt/config.js';
+import { installNav } from './nav/nav.js';
 // la marge du bas de l'écran (barre de l'iPhone), en px
 let safeB = null;
 const safeBottom = () => { if (safeB == null) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;bottom:0;width:1px;height:env(safe-area-inset-bottom);visibility:hidden'; document.body.appendChild(d); safeB = d.offsetHeight || 0; d.remove(); } return safeB; };
+let safeT = null;
+const safeTop = () => { if (safeT == null) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;top:0;width:1px;height:env(safe-area-inset-top);visibility:hidden'; document.body.appendChild(d); safeT = d.offsetHeight || 0; d.remove(); } return safeT; };
+// (11/10) la réserve du bandeau des pages, en haut (px, sans la marge du haut de l'iPhone)
+const NAV_TOP = 46;
 // (10/10) payé ici, page rechargée PENDANT la cérémonie : merci.html la reprend (la commande est gardée) — une seule fois,
 // et seulement dans les 20 minutes (Maxence 11/10 : après une réservation, alt.html renvoyait toujours vers merci.html)
 if (ALT) {
@@ -264,7 +269,7 @@ function loadCards(name) {
   cards = cardsModule.then(({ mountCards }) => mountCards({
     name, base: './', onExit: exitCards, hidden: true, firstQ: jeuQ,
     // version alternative : la feuille seule, tout de suite, qui reste ; l'offre se pose dessus quand le curseur respire
-    ...(ALT ? { insetBottom: () => SHEET_INSET + safeBottom(), sheetFast: 1.8, noTopCard: true, vitrine: true, payInstead: true, onEnvelope: e => offerObj?.onEnvelope?.(e), sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
+    ...(ALT ? { insetBottom: () => SHEET_INSET + safeBottom(), insetTop: () => NAV_TOP + safeTop(), sheetZoom: (W, H) => (W < H ? 0.8 : 0.86), sheetFast: 1.8, noTopCard: true, vitrine: true, payInstead: true, onEnvelope: e => offerObj?.onEnvelope?.(e), sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
     onEnd: () => {}, onDone: () => (S.paid ? finishPaid() : backToStart()),
   })).then((m) => {
     if (!m) throw new Error('webgl2');
@@ -358,7 +363,7 @@ function showOffer(over = false) {
   if (!over) { S.phase = 'offre'; S.phaseAt = S.t; emitValidated(S.validatedName, false); }
   backEl.classList.remove('on'); input.blur(); input.readOnly = true;
   const envelope = over && cardsReady && cardsReady !== 'failed' && cardsReady.openEnvelope ? { open: () => cardsReady.openEnvelope(), back: () => cardsReady.envBack(), vitrine: cardsReady.vitrine, canvas: cardsReady.canvas } : null;
-  offer = offerModule().then(m => m.mountOffer({ name: S.validatedName.toUpperCase(), onBack: exitCards, over, onPaid: over ? paidHere : null, envelope }))
+  offer = offerModule().then(m => m.mountOffer({ name: S.validatedName.toUpperCase(), onBack: exitCards, over, onPaid: over ? paidHere : null, envelope, nav }))
     .then(o => { offerObj = o; return o.shown.then(() => { cancelAnimationFrame(rafId); rafId = 0; canvas.style.visibility = 'hidden'; names2d?.stop(); names2d = null; fallbackEl.style.display = 'none'; }); })
     .catch(e => { console.error(e); why('offre : ' + (e && e.message)); noCards(); });
 }
@@ -945,17 +950,28 @@ fpsMeter();      // ?fps=1 : images par seconde (essais de fluidité)
 installCount(PAGE);   // des totaux anonymes (GoatCounter rytrtest1 ; ?envoi=0 ou « Ne pas suivre » : rien)
 installSend();   // la demande part par email quand l'enveloppe est postée (ou « en direct »)
 
-// le menu (11/10) : alt.html, où l'on arrive directement sur le poème — un signe discret en haut à droite ouvre le
-// portail par-dessus la page (src/menu/menu.js) ; jamais pendant un geste (frappe, vol des lettres, enveloppe, paiement)
-if (ALT) import('./menu/menu.js').then(({ installMenu }) => installMenu({
-  base: './', reduced: CFG.reduced, simple: SIMPLE, links: { jeu: LIENS.jeu },
-  name: () => S.validatedName || finalName(model.text) || '',
-  canShow: () => booted && !S.portal && (
-    (S.phase === 'input' && S.trans == null && document.activeElement !== input && !(model.text && !S.confirmed))
-    // la page de la feuille (l'offre posée sur la scène des cartes, ou seule) : sauf pendant l'enveloppe et le paiement
-    || (!!document.querySelector('#offre.on') && !document.querySelector('.of.paying, .of.env'))),
-  // ouvert : le champ ne reçoit plus rien (S.portal) et s'arrête une fois couvert ; fermé : il reprend
-  onOpen: () => { S.portal = true; input.blur(); setTimeout(() => { if (S.portal && S.phase === 'input') { cancelAnimationFrame(rafId); rafId = 0; } }, 450); },
-  onClose: () => { S.portal = false; if (S.phase === 'input' && booted && !rafId && !document.hidden) { last = 0; rafId = requestAnimationFrame(frame); } },
-})).catch(e => console.warn('menu', e));
+// (11/10, Maxence) plus de menu : le bandeau des pages, en haut (src/nav/nav.js) — UN PRENOM UN POEME au centre, relié
+// par le fil à MES LIVRES (à gauche) et à UN POEME PAR MOIS (à droite). Jamais sur le champ de prénoms (sauf si l'on
+// vient d'arriver par le fil : il s'efface dès qu'on écrit) ; sur la feuille, sauf pendant l'enveloppe et le paiement.
+let nav = null;
+if (ALT) {
+  nav = installNav({
+    current: 'poeme', base: './',
+    show: () => {
+      if (nav && nav.arrived && S.phase === 'input' && S.trans == null && !S.typed && !model.text) return true;
+      const of = document.querySelector('#offre.on.bar-on');
+      return !!of && !of.matches('.paying, .env') && (!offerObj || offerObj.top < offerObj.storyLen() + 40);
+    },
+    side: () => !!document.querySelector('#offre.on.bar-on') && (!offerObj || offerObj.top < 30),
+    stage: () => (offerObj ? offerObj.stage() : [canvas, fallbackEl]),
+    center: () => { const top = NAV_TOP + safeTop(), bot = innerHeight - SHEET_INSET - safeBottom(); return { y: (top + bot) / 2, h: (bot - top) * 0.82 }; },
+  });
+  // venue par le fil : le champ entre du côté d'où l'on vient
+  nav?.enter([canvas]);
+}
+if (PAGE === 'jeu') {
+  const st = document.createElement('style'); st.textContent = '#jeu .jeu-back { display: none !important; }'; document.head.appendChild(st);
+  installNav({ current: 'jeu', base: './', show: () => !!document.querySelector('#jeu.on'), side: () => false,
+    stage: () => [document.querySelector('#jeu')] });
+}
 boot();

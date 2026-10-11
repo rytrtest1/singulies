@@ -5,15 +5,17 @@ import { sendNote } from '../app/send.js';
 import { knownEmail, EMAIL_RE } from '../app/storage.js';
 import { installCount, count } from '../app/count.js';
 import { menuFonts } from '../menu/menu.js';
+import { installNav } from '../nav/nav.js';
 
 const main = document.querySelector('.lt');
 menuFonts('./').finally(() => requestAnimationFrame(() => requestAnimationFrame(() => main.classList.add('on'))));
 installCount('lettre');
 
-document.querySelector('.lt-back').addEventListener('click', () => {
-  let same = false; try { same = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch { /* */ }
-  if (same && history.length > 1) history.back(); else location.href = new URL('./', document.baseURI).href;
-});
+// (11/10) plus de flèche retour : le bandeau des pages, en haut, relié par le fil (src/nav/nav.js)
+const nav = installNav({ current: 'lettre', base: './', show: () => true, side: () => scrollY < 40, stage: () => [main],
+  center: () => { const im = main.querySelector('.lt-env').getBoundingClientRect(); return { y: im.top + im.height / 2, h: Math.max(160, innerHeight * 0.36) }; } });
+nav?.enter([main]);
+if (nav) nav.swipe(main);
 
 const form = document.querySelector('.lt-wait'), mail = form.querySelector('.lt-mail'), trap = form.querySelector('.lt-trap');
 const go = form.querySelector('.lt-go'), done = document.querySelector('.lt-done');

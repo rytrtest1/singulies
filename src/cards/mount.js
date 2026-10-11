@@ -192,7 +192,7 @@ export async function mountCards(opts) {
   function openSheet() {
     answer.blur();
     sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced, hold: !!opts.hold && !paid,
-      fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, insetBottom: !paid ? opts.insetBottom : null,
+      fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, insetBottom: !paid ? opts.insetBottom : null, insetTop: !paid ? opts.insetTop : null, sheetZoom: !paid ? opts.sheetZoom : null,
       vitrine: !!opts.vitrine && !paid, base,
       // payé : l'adresse connue (panneau, portefeuille) se tape seule sur l'enveloppe ; sinon on l'y écrit, puis POSTER
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.'); },

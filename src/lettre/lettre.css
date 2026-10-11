@@ -36,3 +36,7 @@ body { font: 15px/1.85 'SG Machine', 'Courier New', monospace; -webkit-tap-highl
 /* la flèche retour reste lisible quand on fait défiler : un voile du noir de la page derrière elle */
 body::before { content: ''; position: fixed; z-index: 1; left: 0; right: 0; top: 0; height: calc(58px + env(safe-area-inset-top));
   background: linear-gradient(#060606 55%, rgba(6, 6, 6, 0)); pointer-events: none; }
+
+/* (11/10) mes livres : le lien vers le recueil (le signe du site), la carte « mes livres » en tête */
+a.lt-go { display: table; text-decoration: none; }
+.lt-card { width: min(70%, 340px); border-radius: 3px; }

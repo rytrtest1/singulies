@@ -18,7 +18,6 @@ const K_ORDER = 'singulies.order';
 let onPaidHere = null;
 const readOrder = () => { try { return JSON.parse(localStorage.getItem(K_ORDER) || 'null'); } catch { return null; } };
 const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o)); } catch { /* */ } };
-const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
 // (10/10) la vitrine : ce qu'il y a dans l'envoi, une chose à la fois, JOUÉ EN DIRECT dans la scène de la feuille
 // (src/vitrine/vitrine.js) : une seule histoire qui s'enchaîne, de sa feuille à tout l'envoi posé à plat. Dessous, la
 // description (flèches de part et d'autre, ou glisser l'objet), RECEVOIR, le prix. Quatre étapes, la vue ne bouge pas,
@@ -204,7 +203,7 @@ function openPanel(name, ref) {
   root.innerHTML = `<button class="of-pay-x" type="button" aria-label="Fermer">×</button>
     <div class="of-pay-body">
       <div class="of-pay-title"><span class="of-pay-sub">un prénom, un poème</span>
-        <span class="of-pay-p">${esc(PRIX)} frais compris</span></div>
+        <span class="of-pay-p">${esc(PRIX)} tout compris</span></div>
       <div class="of-for" role="radiogroup" aria-label="Pour qui">
         <button type="button" class="on" data-for="moi" role="radio" aria-checked="true">pour moi</button>
         <button type="button" data-for="offrir" role="radio" aria-checked="false">pour offrir</button></div>
@@ -357,16 +356,24 @@ function slide(p) {
 
 // opts : { name (capitales), onBack(), over (la vraie feuille est dessous, dans la scène des cartes), onPaid(order),
 //          envelope : { open(), back() } (la scène sait glisser la feuille dans l'enveloppe ; alors COMMANDER y mène) }
-export function mountOffer({ name, onBack, over = false, onPaid = null, envelope = null }) {
+// nav : le bandeau des pages (src/nav/nav.js) — glisser l'objet mène aux pages voisines
+export function mountOffer({ name, onBack, over = false, onPaid = null, envelope = null, nav = null }) {
   onPaidHere = onPaid;
   const root = document.createElement('div');
   root.id = 'offre'; root.className = 'of' + (over ? ' over' : '');
   root.style.setProperty('--inset', SHEET_INSET + 'px');
   root.innerHTML = `
-    <button class="of-back" type="button" aria-label="Changer le prénom">${BACK_SVG}</button>
-    <!-- (11/10) plus d'onglets : le menu (deux traits, en haut à droite) ouvre le portail par-dessus la page (src/menu/menu.js) -->
+    <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
     <main>
-      ${over ? '<div class="of-hole" aria-hidden="true"></div><div class="of-story" aria-hidden="true"></div><div class="of-edges" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
+      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"></div><div class="of-cap"><div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
+        <button class="of-vit-a" type="button" data-d="-1" aria-label="Précédent">${CHEV('M14.5 6 L8.5 12 L14.5 18')}</button>
+        <p class="of-vit-t" aria-live="polite"></p>
+        <button class="of-vit-a" type="button" data-d="1" aria-label="Suivant">${CHEV('M9.5 6 L15.5 12 L9.5 18')}</button>
+      </div></div><div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div><div class="of-cap"><div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
+        <button class="of-vit-a" type="button" data-d="-1" aria-label="Précédent">${CHEV('M14.5 6 L8.5 12 L14.5 18')}</button>
+        <p class="of-vit-t" aria-live="polite"></p>
+        <button class="of-vit-a" type="button" data-d="1" aria-label="Suivant">${CHEV('M9.5 6 L15.5 12 L9.5 18')}</button>
+      </div></div>`}
       <button class="of-down" type="button" aria-label="D’autres prénoms, d’autres poèmes"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 9.5 L12 15.5 L18 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></button>
       <div class="of-rest">
       <section class="of-ex" aria-label="D’autres poèmes"><h2 class="of-h">d’autres prénoms, d’autres poèmes</h2><div class="of-ex-host"></div></section>
@@ -376,12 +383,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
       <button class="of-go" type="button">RECEVOIR</button>
-      <div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
-        <button class="of-vit-a" type="button" data-d="-1" aria-label="Précédent">${CHEV('M14.5 6 L8.5 12 L14.5 18')}</button>
-        <p class="of-vit-t" aria-live="polite"></p>
-        <button class="of-vit-a" type="button" data-d="1" aria-label="Suivant">${CHEV('M9.5 6 L15.5 12 L9.5 18')}</button>
-      </div>
-      <div class="of-price"><b>${esc(PRIX)}</b> frais compris</div>
+      <div class="of-price"><b>${esc(PRIX)}</b><i>/</i>tout compris</div>
     </div>`;
   document.body.appendChild(root);
   document.body.classList.add('of-open');
@@ -411,14 +413,19 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   const vit = envelope && envelope.vitrine ? envelope.vitrine : null;
   const busyMode = () => root.classList.contains('paying') || root.classList.contains('env');
   const N = OBJETS.length;
-  const STEP = () => Math.round(innerHeight * 0.42);                       // défilement par étape (px)
-  const storyLen = () => (vit && story ? (N - 1) * STEP() : 0);
+  // (11/10, Maxence) le défilement EST le temps : chaque étape a une longueur de page proportionnelle à sa durée réelle
+  // (la carte 1,8 s, l'enveloppe et la carte mystère 7 s, le cachet 2,4 s) — aucune partie en accéléré
+  const KEYS = vit ? vit.state().keys : OBJETS.map((o, i) => i);
+  const PXS = () => innerHeight * 0.18;                                      // px de défilement par seconde d'animation
+  const keyY = i => KEYS[i] * PXS();
+  const storyLen = () => (vit && story ? keyY(N - 1) : 0);
+  const pOf = y => { const t = Math.max(0, y) / PXS(); for (let i = 0; i < N - 1; i++) if (t < KEYS[i + 1]) return i + (t - KEYS[i]) / (KEYS[i + 1] - KEYS[i]); return N - 1; };
   // (des repères d'arrêt : la page se pose doucement sur chaque étape — scroll-snap)
   const sizeStory = () => {
     if (!story) return;
     story.style.height = storyLen() + 'px';
     if (vit && !story.children.length) for (let i = 0; i < N; i++) { const m = document.createElement('i'); m.className = 'of-snap'; story.appendChild(m); }
-    [...story.children].forEach((m, i) => { m.style.top = (i * STEP() - (hole ? hole.offsetHeight : 0)) + 'px'; });
+    [...story.children].forEach((m, i) => { m.style.top = (keyY(i) - story.offsetTop) + 'px'; });
   };
   sizeStory(); addEventListener('resize', sizeStory);
   let cur = -1;
@@ -451,49 +458,83 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     slideTxt(nbsp(OBJETS[k].txt), dir);
     root.classList.toggle('vit-last', k === N - 1);
   };
-  // les flèches, le glissé : on fait défiler jusqu'à l'étape voulue (le défilement fait le reste)
-  const goStep = k => {
-    k = Math.max(0, Math.min(N - 1, k));
+  // les flèches : la page défile jusqu'à l'étape voulue À L'ALLURE DE L'ÉTAPE (1 × en avançant, 1,5 × en reculant) ;
+  // depuis la dernière, la flèche de droite rembobine tout, un peu plus vite (2,2 ×). Un geste (molette, doigt) l'arrête.
+  let drive = 0;
+  const stopDrive = () => { if (drive) { cancelAnimationFrame(drive); drive = 0; root.style.scrollSnapType = ''; } };
+  const driveTo = (y, speed) => {
+    stopDrive();
+    root.style.scrollSnapType = 'none';
+    let pos = root.scrollTop, last = performance.now();
+    const f = now => {
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      const d = y - pos, mv = Math.sign(d) * Math.min(Math.abs(d), speed * dt);
+      pos += mv; root.scrollTop = pos;
+      if (Math.abs(y - pos) < 0.5) { drive = 0; setTimeout(() => { if (!drive) root.style.scrollSnapType = ''; }, 120); return; }
+      drive = requestAnimationFrame(f);
+    };
+    drive = requestAnimationFrame(f);
+  };
+  for (const ev of ['wheel', 'touchstart']) root.addEventListener(ev, stopDrive, { passive: true });
+  const goStep = d => {
     if (busyMode()) return;
     count('alt/vitrine');
-    if (vit && story) root.scrollTo({ top: k * STEP(), behavior: 'smooth' }); else show(k);
+    if (!(vit && story)) { show(cur + d); return; }
+    const p = pOf(root.scrollTop);
+    if (d > 0 && p > N - 1.02) { driveTo(0, PXS() * 2.2); return; }      // depuis la fin : tout rembobiner
+    const k = Math.max(0, Math.min(N - 1, d > 0 ? Math.floor(p + 0.02) + 1 : Math.ceil(p - 0.02) - 1));
+    driveTo(keyY(k), PXS() * (d > 0 ? 1 : 1.5));
   };
-  root.querySelectorAll('.of-vit-a').forEach(b => b.addEventListener('click', () => goStep(cur + +b.dataset.d)));
-  for (const z of [hole, root.querySelector('.of-vit')]) {
-    if (!z) continue;
+  root.querySelectorAll('.of-vit-a').forEach(b => b.addEventListener('click', () => goStep(+b.dataset.d)));
+  // glisser la description = l'étape suivante / précédente ; glisser l'objet = la page voisine (le bandeau, nav.js)
+  {
+    const z = root.querySelector('.of-vit');
     let x0 = null, y0 = 0;
     z.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; }, { passive: true });
     z.addEventListener('pointerup', e => {
       if (x0 == null) return;
       const dx = e.clientX - x0, dy = e.clientY - y0; x0 = null;
-      if (Math.abs(dx) > 40 && Math.abs(dx) > 1.6 * Math.abs(dy)) goStep(cur + (dx < 0 ? 1 : -1));
+      if (Math.abs(dx) > 40 && Math.abs(dx) > 1.6 * Math.abs(dy)) goStep(dx < 0 ? 1 : -1);
     });
     z.addEventListener('pointercancel', () => { x0 = null; });
   }
+  if (nav && hole) nav.swipe(hole);
+  // (téléphone, une fois) l'objet esquisse le geste vers la page voisine
+  if (nav) setTimeout(() => { if (innerWidth < 760 && root.scrollTop < 30 && !busyMode()) nav.nudge(); }, over ? 3600 : 4200);
   // pendant l'enveloppe et le paiement : la feuille
   new MutationObserver(() => { if (busyMode() && cur !== 0) { cur = 0; slideTxt(nbsp(OBJETS[0].txt), -1); } }).observe(root, { attributes: true, attributeFilter: ['class'] });
   setTimeout(() => show(0), over ? 700 : 900);
   // (10/10) une page qui semble finie : la feuille, sa légende, le bandeau ; si rien ne se passe, une petite flèche
-  // invite à descendre (la suite de l'histoire, puis les autres poèmes)
+  // invite à descendre ; (11/10) elle mène directement aux autres prénoms, sans dérouler l'histoire (la scène s'efface
+  // le temps du saut et se retrouve à la fin de l'histoire, là où la page est)
   const down = root.querySelector('.of-down');
   root.querySelector('.of-bar').appendChild(down);
-  setTimeout(() => { if (root.scrollTop < 30 && !busyMode()) down.classList.add('on'); }, over ? 5200 : 6000);
+  setTimeout(() => { down.dataset.shown = '1'; if (root.scrollTop < storyLen() + 30 && !busyMode()) down.classList.add('on'); }, over ? 5200 : 6000);
   down.addEventListener('click', () => {
-    if (vit && story && cur < N - 1) { goStep(cur + 1); return; }
-    const ex = root.querySelector('.of-ex'); root.scrollTo({ top: root.scrollTop + ex.getBoundingClientRect().top - 40, behavior: 'smooth' });
+    stopDrive();
+    const ex = root.querySelector('.of-ex'), y = root.scrollTop + ex.getBoundingClientRect().top - 40;
+    const c = sceneCv(), cap = root.querySelector('.of-cap');
+    if (!(vit && story) || !c || root.scrollTop >= storyLen()) { root.scrollTo({ top: y, behavior: 'smooth' }); return; }
+    count('alt/autres');
+    for (const e of [c, cap]) { e.style.transition = 'opacity .28s ease'; e.style.opacity = '0'; }
+    setTimeout(() => {
+      root.style.scrollSnapType = 'none'; root.scrollTop = y; vit.jump(N - 1); show(N - 1);
+      setTimeout(() => { root.style.scrollSnapType = ''; for (const e of [c, cap]) { e.style.transition = 'opacity .6s ease'; e.style.opacity = ''; } }, 80);
+    }, 300);
   });
   // en descendant : d'abord l'histoire (la scène reste en place), puis la feuille remonte avec la page
   const cv = () => document.querySelector('canvas.sc-c');
   let sRaf = 0;
   root.addEventListener('scroll', () => {
-    if (root.scrollTop > 30) down.classList.remove('on');
+    // (la flèche reste tant qu'on n'est pas aux autres prénoms : elle y mène directement)
+    if (root.scrollTop > storyLen() + 30) down.classList.remove('on'); else if (down.dataset.shown) down.classList.add('on');
     if (!over || sRaf) return;
     sRaf = requestAnimationFrame(() => {
       sRaf = 0;
       if (root.classList.contains('paying') || busyMode()) return;
       const y = root.scrollTop, L = storyLen();
       // l'histoire suit le doigt : on descend, elle avance ; on remonte, elle rembobine (tout de suite)
-      if (vit && story) { const p = Math.min(y, L) / STEP(); vit.scrub(p); show(Math.round(p)); }
+      if (vit && story) { const p = pOf(Math.min(y, L)); vit.scrub(p); show(Math.round(p)); }
       const c = cv(); if (!c) return;
       c.style.transition = 'none'; c.style.transformOrigin = '50% 0';
       const off = Math.max(0, y - L);
@@ -503,7 +544,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   // en faisant défiler : une ombre en haut, sous la flèche retour (elle ne passe plus sur le texte)
   root.addEventListener('scroll', () => root.classList.toggle('scrolled', root.scrollTop > storyLen() + 24), { passive: true });
   // (11/10) tout ce qui est souligné l'est par un bout de fil noir, cousu (stitch.js)
-  for (const el of [root.querySelector('.of-bar .of-go'), root.querySelector('.of-tabs a[aria-current]'), root.querySelector('.of-foot a')]) if (el) stitch(el, { seed: el.textContent.length * 13 });
+  for (const el of [root.querySelector('.of-bar .of-go'), root.querySelector('.of-foot a')]) if (el) stitch(el, { seed: el.textContent.length * 13 });
 
   // gestes
   // l'enveloppe (10/10) : ouverte, la page s'efface sur elle ; adresse complète → le bandeau du paiement
@@ -522,7 +563,6 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     if (inEnv) { closePanel(); envelope.back(); leaveEnv(); return; }
     count('alt/retour'); onBack?.();
   };
-  root.querySelector('.of-back').addEventListener('click', back);
   // (10/10, Maxence) RECEVOIR : directement le paiement (ou la réservation) — plus d'adresse sur l'enveloppe avant ;
   // l'enveloppe vient après, avec la cérémonie (l'adresse connue s'y tape seule, sinon on l'y écrit)
   go.addEventListener('click', () => {
@@ -530,7 +570,8 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     if (st && (st.vt > 0 || st.target > 0)) { root.scrollTo({ top: 0 }); fadeJump(0, () => pay(name)); } else pay(name);
   });
   barWalletSetup(root, name);
-  addEventListener('keydown', e => { if (e.key === 'Escape' && root.isConnected) back(); });
+  // (11/10) plus de retour au prénom (on peut toujours recharger la page) ; Échap défait seulement l'enveloppe
+  addEventListener('keydown', e => { if (e.key === 'Escape' && root.isConnected && inEnv) back(); });
 
   // l'entrée : la couche se pose sur le prénom seul, puis l'acrostiche se tape, puis la barre du prix
   count('alt/offre');
@@ -553,5 +594,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     envAddr = e.canPost ? e.fields : null;
     root.classList.toggle('env-ready', !!e.canPost);
   };
-  return { root, shown, hide, onEnvelope };
+  // (pour le bandeau des pages) l'objet de la page : la scène (ou la feuille dessinée) et sa description
+  const stage = () => [sceneCv() || root.querySelector('.of-sheet'), root.querySelector('.of-cap')];
+  return { root, shown, hide, onEnvelope, stage, storyLen, get top() { return root.scrollTop; } };
 }

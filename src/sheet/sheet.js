@@ -235,11 +235,14 @@ export function createSheetScene(gl, opts) {
   }
   // (10/10, alt) une réserve en bas de l'écran (la légende, la flèche, le bandeau qui viendront) : la feuille se cadre
   // entière dans ce qui reste au-dessus — la vue est calculée pour la hauteur utile, puis prolongée vers le bas
+  // (11/10) et une réserve en haut (le bandeau des pages), et une feuille un peu plus petite (les pages voisines se
+  // devinent sur les côtés) : sheetZoom(W, H) ≤ 1
   function frameAbove(y0, y1, x0, x1, wantW, W, H) {
     const ins = Math.min(H * 0.45, Math.max(0, opts.insetBottom ? opts.insetBottom() : 0));
-    if (!ins) return frameFor(y0, y1, x0, x1, wantW, W, H);
-    const He = H - ins, f = frameFor(y0, y1, x0, x1, wantW, W, He), Hw = f.Hw * H / He;
-    return { cx: f.cx, cy: f.cy - (Hw - f.Hw) / 2, D: Hw / (2 * TF), Hw };
+    const top = Math.min(H * 0.2, Math.max(0, opts.insetTop ? opts.insetTop() : 0)), z = opts.sheetZoom ? opts.sheetZoom(W, H) : 1;
+    if (!ins && !top && z === 1) return frameFor(y0, y1, x0, x1, wantW, W, H);
+    const He = H - ins - top, f = frameFor(y0, y1, x0, x1, wantW, W, He), Hw = f.Hw / z * H / He;
+    return { cx: f.cx, cy: f.cy + (top + He / 2 - H / 2) * Hw / H, D: Hw / (2 * TF), Hw };
   }
   function layout(W, H) {
     const cBot = C && !C.faceDown ? C_POSE.y - CARD.h / 2 : -SHEET.h / 2;   // (alt) la carte est SUR la feuille : même cadrage

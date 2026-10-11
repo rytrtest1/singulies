@@ -278,3 +278,14 @@
   background: linear-gradient(to bottom, #060606 0, rgba(6,6,6,.85) calc(env(safe-area-inset-top) + 34px), rgba(6,6,6,0) calc(env(safe-area-inset-top) + 78px)),
     linear-gradient(to right, #060606 0, rgba(6,6,6,0) 20px), linear-gradient(to left, #060606 0, rgba(6,6,6,0) 20px); }
 .of.paying .of-edges, .of.env .of-edges { opacity: .6; }
+
+/* (11/10, Maxence) la description de l'objet n'est plus dans le bandeau du bas : elle est sous l'objet, et reste avec lui
+   pendant l'histoire (collante jusqu'à la fin de .of-stage, puis elle monte avec la feuille) ; le bandeau : RECEVOIR, le
+   prix, la flèche qui mène directement aux autres prénoms */
+.of-cap { position: relative; z-index: 0; height: 64px; display: flex; align-items: center; justify-content: center; }
+.of-cap .of-vit { margin: 0; width: min(100%, 400px); }
+.of.over .of-cap { position: sticky; top: calc(100svh - var(--inset, 212px) - env(safe-area-inset-bottom)); margin: 0 -16px; }
+.of.over .of-rest { margin-top: calc(var(--inset, 212px) - 40px); z-index: 1; }
+.of:not(.over) .of-cap { margin-top: 10px; }
+.of.env .of-cap, .of.paying .of-cap { opacity: 0; pointer-events: none; }
+.of-bar .of-price { font-size: 13px; }

@@ -39,7 +39,8 @@ export function createVitrine(o) {
     jx: rnd.range(-0.6, 0.6), jy: rnd.range(-0.5, 0.5), jr: rnd.range(-0.015, 0.015) });
   const vQ = o.top || variant(), vM = variant();
 
-  // ---- l'horloge : go(k) va à l'étape à son rythme ; scrub(p) suit le défilement (p : 0 → 3, en étapes) ----
+  // ---- l'horloge : go(k) va à l'étape à son rythme ; scrub(p) suit le défilement (p : 0 → 3, en étapes ; la page donne
+  //      à chaque étape une longueur proportionnelle à sa durée : le défilement est le temps) ----
   let vt = 0, target = 0, k = 0, scrubbing = false;
   const go = i => { scrubbing = false; k = Math.max(0, Math.min(VKEYS.length - 1, i)); target = VKEYS[k]; if (reduced) vt = target; };
   const jump = i => { go(i); vt = target; };
@@ -49,8 +50,16 @@ export function createVitrine(o) {
     scrubbing = true; k = Math.round(p); target = VKEYS[i] + (VKEYS[i + 1] - VKEYS[i]) * f;
     if (reduced) vt = VKEYS[k];
   }
+  // (11/10, Maxence : « réactif, mais aucune partie en accéléré ») : l'histoire suit le défilement, sans jamais aller
+  // plus vite que 2,2 × son allure réelle (3 × en rembobinant)
+  const MAX_F = 2.2, MAX_B = 3;
   function update(dt) {
-    if (scrubbing) { vt += (target - vt) * (1 - Math.exp(-dt * 9)); if (Math.abs(target - vt) < 1e-3) vt = target; return; }
+    if (scrubbing) {
+      const d = target - vt, mv = d * (1 - Math.exp(-dt * 8)), cap = (d > 0 ? MAX_F : MAX_B) * dt;
+      vt += Math.sign(mv) * Math.min(Math.abs(mv), cap);
+      if (Math.abs(target - vt) < 1e-3) vt = target;
+      return;
+    }
     if (vt < target) vt = Math.min(target, vt + dt);
     else if (vt > target) vt = Math.max(target, vt - dt * BACK_SPEED);
   }
@@ -77,7 +86,12 @@ export function createVitrine(o) {
     return M4.mul(M4.mul(T(cx - (ENV.h * ENV_K + 40) * (1 - us), cy, ENV_Z), M4.model(0, 0, rz)), S(ENV_K));
   }
   // le rabat se referme (fin de l'étape 2), puis la cire et le cachet (étape 3)
-  const ppOf = () => r2() < 6.0 ? PO.flap[0] - 0.05 : Math.min(PO.seal[1] + 0.3, PO.flap[0] + (r2() - 6.0) * (PO.flap[1] - PO.flap[0]) / 0.95);
+  // (11/10) la cire n'arrive qu'à l'étape 3 (« le tout scellé à la cire ») : l'étape 2 s'arrête rabat fermé, cire absente ;
+  // à l'étape 3, la vue s'approche, puis la cire et le cachet à leur allure réelle
+  const ppOf = () => {
+    if (vt <= K[2]) return Math.min(PO.seal[0] - 0.02, PO.flap[0] - 0.05 + Math.max(0, r2() - 6.0) * (PO.flap[1] - PO.flap[0] + 0.05) / 0.95);
+    return Math.min(PO.seal[1] + 0.3, PO.seal[0] - 0.02 + Math.max(0, r3() - 0.55));
+  };
   // la carte mystère : couchée, logo gaufré vers nous, sur le dos de l'enveloppe, sous le rabat (repère de l'enveloppe)
   const M_LOC = [0, -12, 3.7];
   function mysteryLocal() {
