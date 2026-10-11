@@ -1024,6 +1024,10 @@ if (ALT) {
     host: {
       stage: () => (offerObj ? offerObj.stage() : [canvas, fallbackEl]),
       all: () => (offerObj ? [offerObj.stage()[0], offerObj.root].filter((e, i) => !(i === 0 && e && offerObj.root.contains(e))) : [canvas, fallbackEl]),
+      // l'objet : la feuille (la scène) ; sur la page des prénoms, aucun (le champ s'efface et paraît sur place)
+      obj: () => { const o = offerObj && offerObj.stage()[0]; return o && !offerObj.root.contains(o) ? [o] : []; },
+      rest: () => (offerObj ? [offerObj.root] : [canvas, fallbackEl]),
+      objRect: () => { const top = NAV_TOP + safeTop(), bot = innerHeight - SHEET_INSET - safeBottom(); return { cy: (top + bot) / 2, h: (bot - top) * 0.82 }; },
       // ailleurs : le champ s'arrête (comme sous un menu), il reprend au retour
       leave: () => { input.blur(); if (onNames()) { S.portal = true; setTimeout(() => { if (S.portal && S.phase === 'input') { cancelAnimationFrame(rafId); rafId = 0; } }, 700); } },
       back: () => { if (S.portal) { S.portal = false; if (S.phase === 'input' && booted && !rafId && !document.hidden) { last = 0; rafId = requestAnimationFrame(frame); } } },

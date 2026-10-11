@@ -260,60 +260,111 @@ export function installNav(opts) {
     el.style.opacity = o === 1 ? '' : String(o);
   }
   const clearT = el => { el.style.transition = 'none'; el.style.translate = ''; el.style.scale = ''; el.style.transformOrigin = ''; };
+  // ---- l'objet d'une page et le reste ----
+  // obj : ce qui voyage dans l'espace (l'enveloppe, le livre, la feuille, la carte du jeu) ; objRect() : où il est au
+  // repos quand l'élément est plus grand que lui (une scène plein écran) ; rest : tout le reste de la page (textes,
+  // boutons), qui s'efface et paraît à sa place, sans voyager ; layer : ce qu'on montre / cache
+  const objOf = pg => (pg.obj ? pg.obj() : []).filter(Boolean);
+  const restOf = pg => (pg.rest ? pg.rest() : pg.obj ? [] : els(pg, true)).filter(Boolean);
+  const layerOf = pg => els(pg, true);
+  const rectOf = (pg, el) => {
+    if (pg.objRect) { const r = pg.objRect(); if (r) return { cx: r.cx ?? innerWidth / 2, cy: r.y ?? r.cy, h: r.h, ox: 0, oy: 0 }; }
+    const q = el.getBoundingClientRect(); return { cx: q.left + q.width / 2, cy: q.top + q.height / 2, h: q.height || 1, ox: q.left, oy: q.top };
+  };
+  // un objet qui voyage : de sa place au repos (rest), il va en « to » (centre, hauteur), à l'opacité o
+  function fly(el, rest, to, o, anim, dur = DUR) {
+    el.style.transition = anim ? (reduced ? 'opacity .35s' : `translate ${dur}ms ${EASE}, scale ${dur}ms ${EASE}, opacity ${Math.round(dur * 0.7)}ms ease`) : 'none';
+    el.style.transformOrigin = `${(rest.cx - rest.ox).toFixed(1)}px ${(rest.cy - rest.oy).toFixed(1)}px`;
+    if (!reduced) {
+      const dx = to.cx - rest.cx, dy = to.cy - rest.cy, k = to.h / rest.h;
+      el.style.translate = Math.abs(dx) + Math.abs(dy) > 0.05 ? `${dx.toFixed(1)}px ${dy.toFixed(1)}px` : '';
+      el.style.scale = Math.abs(k - 1) > 1e-4 ? k.toFixed(4) : '';
+    }
+    el.style.opacity = o === 1 ? '' : String(o);
+  }
+  const fadeTo = (el, o, ms, delay = 0) => { el.style.transition = `opacity ${ms}ms ease ${delay}ms`; el.style.opacity = o === 1 ? '' : String(o); };
+  const clearAll = el => { clearT(el); el.style.opacity = ''; };
+  const sideOp = () => (mobile() ? 0.38 : 0.42);
   // ---- aller à une page voisine (d : ±1, ±2, ±3) ----
+  // Un seul espace : l'aperçu de la page voisine EST son objet — au départ, l'objet réel de la page prend exactement sa
+  // place (même taille, même pâleur : on ne voit pas l'échange) puis vient au centre ; l'objet du centre va à la place
+  // du voisin opposé, où son aperçu le relaie. Le reste des pages s'efface et paraît sur place.
   async function go(d, opt = {}) {
     if (busy || !d) return;
-    const target = ring(cur + d), dir = Math.sign(d), fromId = ring(cur).id, from = pages[fromId];
+    const target = ring(cur + d), dir = Math.sign(d), fromId = ring(cur).id, from = pages[fromId] || {};
     count('nav/' + target.id);
     const inDoc = !!(pages[target.id] || MOUNTABLE[target.id]);
     busy = true;
-    const dd = D(), sc = sideScale(), c0 = objC(), steps = Math.abs(d);
+    const steps = Math.abs(d);
+    // la page d'arrivée est prête avant que rien ne bouge (montée maintenant si besoin)
+    const pg = inDoc ? await ensure(target.id) : null;
+    if (inDoc && !pg) { busy = false; location.href = url(target); return; }
+    const dd = D(), hS = sideH(), op = sideOp();
+    // l'aperçu vers lequel on va : sa place exacte à l'écran (il a pu suivre le doigt)
+    const sTo = sides[dir < 0 ? 0 : 1], sOpp = sides[dir < 0 ? 1 : 0];
+    const sr = sTo.getBoundingClientRect(), fromSide = { cx: sr.left + sr.width / 2, cy: sr.top + sr.height / 2, h: sr.height || hS };
     // le fil coulisse : le nom suivant vient au centre
     if (centers[C + d] != null) setX(centers[C + d], true);
     items.forEach((a, i) => { const k = i - C - d; a.classList.toggle('cur', k === 0); a.classList.remove('far', 'd2', 'd3'); if (Math.abs(k) > 1) a.classList.add('far', 'd' + Math.min(3, Math.abs(k))); });
-    // l'objet du centre va à la place du voisin opposé (en rapetissant), et s'efface en arrivant
-    const out = els(from || {}, true);
-    // (ce qui suivait le doigt sans faire partie de ce qui part — la description, le texte d'une page — : il garde son
-    // décalage le temps de sortir, puis le perd ; sinon, au retour, il restait décalé)
-    const outDrag = els(from || {}, false).filter(el => !out.includes(el));
-    for (const el of out) put(el, -dir * dd * steps, sc, 0, c0.y, true);
-    from?.leave?.();
-    // les objets voisins se décalent d'autant : celui vers qui l'on va vient au centre (et grandit), l'autre sort
-    sides.forEach((s, k) => {
-      const sd = k ? 1 : -1, toward = sd === dir;
-      s.style.transition = reduced ? 'opacity .35s' : `translate ${DUR}ms ${EASE}, scale ${DUR}ms ${EASE}, opacity ${Math.round(DUR * (toward ? 0.55 : 0.5))}ms ease`;
-      s.style.transformOrigin = '50% 50%';
-      if (!reduced) { s.style.translate = `${(-dir * dd * steps).toFixed(1)}px 0`; if (toward) s.style.scale = (1 / sc).toFixed(3); }
-      s.style.opacity = '0';
-    });
+
+    // ---- ce qui part ----
+    const outLayer = layerOf(from), outObj = objOf(from), outRest = restOf(from);
+    const outDrag = els(from, false).filter(el => !outLayer.includes(el) && !outObj.includes(el));
+    from.leave?.();
+    for (const el of outRest) fadeTo(el, 0, 260);
+    for (const el of outDrag) fadeTo(el, 0, 260);
     if (!inDoc) {
-      // une page que le document ne sait pas monter : on y va
+      for (const el of outObj) fadeTo(el, 0, 400);
+      sTo.style.transition = 'opacity .4s'; sTo.style.opacity = '0'; sOpp.style.opacity = '0';
       try { sessionStorage.setItem(K_NAV, JSON.stringify({ to: target.id, dir, at: Date.now() })); } catch { /* */ }
-      setTimeout(() => { location.href = url(target); }, DUR * 0.8);
+      setTimeout(() => { location.href = url(target); }, 420);
       return;
     }
-    const pg = await ensure(target.id);
-    if (!pg) { busy = false; location.href = url(target); return; }
     cur = mod(cur + d, PAGES.length);
-    // l'objet de la page suivante part de la place du voisin (petit, pâle) et vient au centre
-    const inn = els(pg, true), c1 = objC();
-    for (const el of els(pg, false)) if (!inn.includes(el)) clearT(el);
-    for (const el of inn) { el.style.visibility = ''; put(el, dir * dd * steps, sc, 0.4, c1.y, false); }
-    void document.body.offsetWidth;
-    for (const el of inn) put(el, 0, 1, 1, c1.y, true);
+    // la place où l'objet qui part devient un voisin : de l'autre côté, à la taille et à la pâleur d'un aperçu
+    const c1 = objC(), toSide = { cx: innerWidth / 2 - dir * dd * steps, cy: c1.y, h: hS };
+    for (const el of outObj) {
+      // (sa place au repos ; une scène plein écran : celle de son objet ; un objet qui a suivi le doigt part d'où il est)
+      const r = from.objRect ? rectOf(from, el) : (() => { const q = el.getBoundingClientRect(); return { cx: q.left + q.width / 2, cy: q.top + q.height / 2, h: q.height || 1, ox: q.left, oy: q.top }; })();
+      if (!from.objRect) { el.style.translate = ''; el.style.scale = ''; }
+      fly(el, r, toSide, op, true);
+    }
+    // l'autre voisin sort de l'autre côté, du même pas
+    sOpp.style.transition = reduced ? 'opacity .35s' : `translate ${DUR}ms ${EASE}, opacity ${Math.round(DUR * 0.5)}ms ease`;
+    if (!reduced) sOpp.style.translate = `${(-dir * dd * steps).toFixed(1)}px 0`;
+    sOpp.style.opacity = '0';
+
+    // ---- ce qui arrive ----
+    const inLayer = layerOf(pg), inObj = objOf(pg), inRest = restOf(pg);
+    for (const el of els(pg, false)) if (!inObj.includes(el)) clearT(el);
+    for (const el of inLayer) { el.style.visibility = ''; clearAll(el); }
+    for (const el of inRest) { el.style.transition = 'none'; el.style.opacity = '0'; }
     pg.back?.();
-    // (en application, depuis l'écran d'accueil : l'adresse reste la même — sinon l'iPhone affiche la barre d'adresse)
+    const inRects = inObj.map(el => { clearAll(el); return rectOf(pg, el); });
+    // l'objet réel remplace son aperçu, à la même place (l'aperçu disparaît dans la même image)
+    inObj.forEach((el, i) => fly(el, inRects[i], fromSide, op, false));
+    sTo.style.transition = 'none'; sTo.style.opacity = '0';
+    void document.body.offsetWidth;
+    inObj.forEach((el, i) => fly(el, inRects[i], { cx: inRects[i].cx, cy: inRects[i].cy, h: inRects[i].h }, 1, true));
+    for (const el of inRest) fadeTo(el, 1, 520, inObj.length ? 300 : 120);
+
     if (!opt.pop) try { history.pushState({ sgPage: target.id }, '', STANDALONE ? location.href : url(target)); } catch { /* */ }
     setTimeout(() => {
-      for (const el of out) { el.style.visibility = 'hidden'; clearT(el); }
-      for (const el of outDrag) clearT(el);
-      for (const el of inn) { el.style.transition = 'none'; el.style.transformOrigin = ''; }
-      if (from && from.transient) delete pages[fromId];
-      // les nouveaux voisins se posent à leur place, en fondu
-      for (const s of sides) { s.style.transition = 'none'; s.style.translate = ''; s.style.scale = ''; s.style.opacity = ''; }
+      for (const el of outLayer) { el.style.visibility = 'hidden'; }
+      for (const el of [...outLayer, ...outObj, ...outRest, ...outDrag]) clearAll(el);
+      for (const el of inObj) { el.style.transition = 'none'; el.style.transformOrigin = ''; el.style.translate = ''; el.style.scale = ''; }
+      for (const el of inRest) { el.style.transition = ''; }
+      if (from.transient) delete pages[fromId];
+      // les nouveaux voisins : celui qu'on vient de quitter est déjà là (son objet y est arrivé) ; l'autre paraît en fondu
       build(); setSides(); layout();
+      sides.forEach((s, k) => {
+        const back = (k ? 1 : -1) === -dir;
+        s.style.translate = ''; s.style.scale = '';
+        s.style.transition = back ? 'none' : 'opacity .8s ease';
+        s.style.opacity = '';
+      });
       busy = false; tick();
-    }, DUR + 40);
+    }, DUR + 30);
   }
   // aller à une page par son nom (le chemin le plus court sur la boucle)
   function goTo(id) { const t = idx(id); if (t < 0) return; let d = mod(t - cur, PAGES.length); if (d > PAGES.length / 2) d -= PAGES.length; if (d) go(d); }
@@ -364,12 +415,17 @@ export function installNav(opts) {
     const move = (x, y) => {
       if (x0 == null) return;
       const dx = x - x0, dy = y - y0;
-      if (horiz == null && Math.hypot(dx, dy) > 10) horiz = Math.abs(dx) > 1.3 * Math.abs(dy);
+      if (horiz == null && Math.hypot(dx, dy) > 10) {
+        horiz = Math.abs(dx) > 1.3 * Math.abs(dy);
+        // (on fait glisser une page, on ne sélectionne pas son texte)
+        if (horiz) { try { getSelection().removeAllRanges(); } catch { /* */ } document.documentElement.style.userSelect = document.documentElement.style.webkitUserSelect = 'none'; }
+      }
       if (horiz) follow(dx);
     };
     const end = (x, y, e) => {
       if (x0 == null) return;
       const dx = x - x0, dy = y - y0, dt = performance.now() - t0, v = dx / Math.max(1, dt); x0 = null;
+      document.documentElement.style.userSelect = document.documentElement.style.webkitUserSelect = '';
       if (horiz) { release(dx, v); return; }
       if (horiz == null && Math.hypot(dx, dy) < 10 && dt < 350 && tapEdge(x) && e && e.cancelable) e.preventDefault();
     };
