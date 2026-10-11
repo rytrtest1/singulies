@@ -19,7 +19,7 @@ await page.waitForTimeout(6000);
 // la position de chaque texte qu'on peut voir (et ses décalages résiduels)
 const probe = () => page.evaluate(() => {
   const r = s => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), e.style.translate || '-', getComputedStyle(e).visibility]; };
-  return { cap: r('.of-cap'), go: r('.of-go'), canvas: r('canvas.sc-c'), lettre: r('.pg-lettre .lt'), livres: r('.pg-livres .lt'), page: window.__nav?.page };
+  return { cap: r('.of-cap'), vit: r('.of-cap .of-vit'), go: r('.of-go'), canvas: r('canvas.sc-c'), lettre: r('.pg-lettre .lt'), livres: r('.pg-livres .lt'), page: window.__nav?.page };
 });
 const drag = async (x0, x1) => { const y = 300; await page.mouse.move(x0, y); await page.mouse.down(); for (let i = 1; i <= 12; i++) { await page.mouse.move(x0 + (x1 - x0) * i / 12, y); await page.waitForTimeout(16); } await page.mouse.up(); await page.waitForTimeout(1300); };
 const p0 = await probe(); console.log('départ', JSON.stringify(p0));
@@ -31,11 +31,11 @@ for (let k = 1; k <= 3; k++) {
   await drag(70, 330);   // vers la droite : retour
   const p = await probe(); console.log(k, 'retour', JSON.stringify(p));
   await page.screenshot({ path: `${dir}/${k}-retour.png` });
-  const same = JSON.stringify([p.cap, p.go, p.canvas]) === JSON.stringify([p0.cap, p0.go, p0.canvas]);
+  const same = JSON.stringify([p.cap, p.vit, p.go, p.canvas]) === JSON.stringify([p0.cap, p0.vit, p0.go, p0.canvas]);
   console.log(k, same ? 'IDENTIQUE au départ' : 'DIFFERENT du départ');
 }
 // et dans l'autre sens : la page de gauche, retour
 await drag(70, 330); console.log('à gauche', JSON.stringify(await probe())); await page.screenshot({ path: `${dir}/4-gauche.png` });
 await drag(330, 70); const p = await probe(); console.log('retour', JSON.stringify(p)); await page.screenshot({ path: `${dir}/4-retour.png` });
-console.log(JSON.stringify([p.cap, p.go, p.canvas]) === JSON.stringify([p0.cap, p0.go, p0.canvas]) ? 'IDENTIQUE au départ' : 'DIFFERENT du départ');
+console.log(JSON.stringify([p.cap, p.vit, p.go, p.canvas]) === JSON.stringify([p0.cap, p0.vit, p0.go, p0.canvas]) ? 'IDENTIQUE au départ' : 'DIFFERENT du départ');
 await browser.close(); server.httpServer.close();

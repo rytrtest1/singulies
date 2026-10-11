@@ -21,6 +21,7 @@ export const PAGES = [
   { id: 'lettre', label: 'UN POEME PAR MOIS', href: 'lettre.html', img: 'simple/enveloppe-dos.jpg' },
 ];
 const K_NAV = 'sg.nav';
+const STANDALONE = (() => { try { return !!navigator.standalone || matchMedia('(display-mode: standalone)').matches; } catch { return false; } })();
 const mod = (i, n) => ((i % n) + n) % n;
 const ring = i => PAGES[mod(i, PAGES.length)];
 const idx = id => PAGES.findIndex(p => p.id === id);
@@ -66,11 +67,12 @@ const CSS = `
 .nv-shade.b { bottom: 0; height: calc(96px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 0, #060606 48%, rgba(6,6,6,0)); }
 .nv-shade.on { opacity: 1; }
 /* les objets des pages voisines, posés dans le même espace (left, translate : nav.js) */
-.nv-side { position: fixed; z-index: 19; left: 0; top: var(--nv-cy, 42%); height: var(--nv-sh, 32vh); display: block; transform: translateY(-50%);
+.nv-side { position: absolute; left: 0; top: var(--nv-cy, 42%); height: var(--nv-sh, 32vh); display: block; transform: translateY(-50%);
   opacity: 0; pointer-events: none; transition: opacity .8s ease; -webkit-tap-highlight-color: transparent; }
 .nv-side img { display: block; height: 100%; width: auto; pointer-events: none; }
-.nv.on.side ~ .nv-side { opacity: var(--nv-so, .42); pointer-events: auto; cursor: pointer; }
-.nv.on.side ~ .nv-side:hover { opacity: .75; }
+.nv-sides { position: fixed; inset: 0; z-index: 19; overflow: hidden; pointer-events: none; }
+.nv-sides.on .nv-side { opacity: var(--nv-so, .42); pointer-events: auto; cursor: pointer; }
+.nv-sides.on .nv-side:hover { opacity: .75; }
 @media (prefers-reduced-motion: reduce) { .nv-track.anim { transition-duration: .01s; } }
 `;
 
@@ -127,7 +129,9 @@ export function installNav(opts) {
     return a;
   });
   const setSides = () => sides.forEach((a, k) => { const p = ring(cur + (k ? 1 : -1)); a.href = url(p); a.setAttribute('aria-label', p.label.toLowerCase()); const s = new URL(base + p.img, document.baseURI).href; if (a.firstChild.src !== s) a.firstChild.src = s; });
-  document.body.append(shadeT, shadeB, root, foot, ...sides);
+  // (les voisins dans un cadre de la taille de l'écran : rien ne dépasse, la page ne peut pas glisser de côté)
+  const sideBox = document.createElement('div'); sideBox.className = 'nv-sides'; sideBox.append(...sides);
+  document.body.append(shadeT, shadeB, root, foot, sideBox);
   build(); setSides();
 
   // ---- mise en page : le nom courant au centre ; le fil cousu entre chaque nom, et jusqu'aux bords ----
@@ -223,6 +227,7 @@ export function installNav(opts) {
     if (on !== shown) { shown = on; root.classList.toggle('on', on); if (on) layout(); }
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
     root.classList.toggle('side', side && !solo);
+    sideBox.classList.toggle('on', shown && side && !solo);
     root.classList.toggle('solo', solo);
     shadeT.classList.toggle('on', sh && on); shadeB.classList.toggle('on', sh && f);
     if (side) place();
@@ -297,7 +302,8 @@ export function installNav(opts) {
     void document.body.offsetWidth;
     for (const el of inn) put(el, 0, 1, 1, c1.y, true);
     pg.back?.();
-    if (!opt.pop) try { history.pushState({ sgPage: target.id }, '', url(target)); } catch { /* */ }
+    // (en application, depuis l'écran d'accueil : l'adresse reste la même — sinon l'iPhone affiche la barre d'adresse)
+    if (!opt.pop) try { history.pushState({ sgPage: target.id }, '', STANDALONE ? location.href : url(target)); } catch { /* */ }
     setTimeout(() => {
       for (const el of out) { el.style.visibility = 'hidden'; clearT(el); }
       for (const el of outDrag) clearT(el);

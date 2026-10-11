@@ -598,6 +598,8 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     root.classList.toggle('env-ready', !!e.canPost);
   };
   // (pour le bandeau des pages) l'objet de la page : la scène (ou la feuille dessinée) et sa description
-  const stage = () => [sceneCv() || root.querySelector('.of-sheet'), root.querySelector('.of-cap')];
+  // (11/10) la description suit le doigt par son contenu, jamais par le bloc collant lui-même (.of-cap, sticky) : Safari
+  // repositionne mal un élément collant qu'on a décalé puis remis — le texte restait décalé après un aller-retour
+  const stage = () => [sceneCv() || root.querySelector('.of-sheet'), root.querySelector('.of-cap .of-vit'), root.querySelector('.of-cap .of-down')];
   return { root, shown, hide, onEnvelope, stage, storyLen, get top() { return root.scrollTop; } };
 }

@@ -1,6 +1,7 @@
 /* « un poème par mois » (11/10) : une page du même monde — le noir, l'enveloppe, la machine (SG Machine) pour ce qui
    est écrit, EB Garamond pour ce qui flotte (titre, signe). Liste d'attente tant qu'il n'y a pas de paiement. */
-html, body { margin: 0; background: #060606; -webkit-text-size-adjust: 100%; }
+html, body { margin: 0; background: #060606; -webkit-text-size-adjust: 100%; overflow: hidden; overscroll-behavior: none; }
+body { position: fixed; inset: 0; width: 100%; }
 /* (11/10) la page est une couche (.ltp) : seule (lettre.html) ou posée dans la page du poème (src/nav/pages.js) */
 .ltp { position: fixed; inset: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   font: 15px/1.85 'SG Machine', 'Courier New', monospace; color: rgb(214, 214, 214); -webkit-tap-highlight-color: transparent; touch-action: pan-y pinch-zoom; }
