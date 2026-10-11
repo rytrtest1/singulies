@@ -3,7 +3,7 @@
 import { count } from '../app/count.js';
 
 const HTML = `<main class="lt">
-  <img class="lt-env lt-book" src="BASElivres/couverture.jpg" alt="La couverture de Pensées poétiques, d’Eternel : noire, un cadre fin, le titre en capitales." width="900" height="1440">
+  <img class="lt-env lt-book" src="BASElivres/livre.jpg" alt="Le livre Pensées poétiques, d’Eternel : une couverture noire, un cadre fin, le titre en capitales." width="1000" height="1300">
   <h1 class="lt-h">pensées poétiques</h1>
   <p class="lt-sub">mon recueil</p>
   <div class="lt-txt">

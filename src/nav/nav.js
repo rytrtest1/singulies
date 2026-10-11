@@ -16,7 +16,7 @@ import { count } from '../app/count.js';
 
 export const PAGES = [
   { id: 'poeme', label: 'UN PRENOM UN POEME', href: 'alt.html', img: 'exemples/julie.jpg' },
-  { id: 'livres', label: 'MES LIVRES', href: 'livres.html', img: 'livres/couverture.jpg' },
+  { id: 'livres', label: 'MES LIVRES', href: 'livres.html', img: 'livres/livre.jpg' },
   { id: 'jeu', label: 'LE JEU', href: 'jeu.html', img: 'simple/portail-jeu.jpg' },
   { id: 'lettre', label: 'UN POEME PAR MOIS', href: 'lettre.html', img: 'simple/enveloppe-dos.jpg' },
 ];
