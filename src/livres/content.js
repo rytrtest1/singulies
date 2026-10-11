@@ -20,6 +20,7 @@ export function buildLivres(host, base = './') {
   // (11/10) le livre en direct, par le moteur des cartes : il respire comme le reste ; l'image reste dessous (aperçu,
   // sans WebGL2)
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  import('./book3d.js').then(m => m.mountBook(main.querySelector('.lt-book'), base, { reduced })).catch(() => {});
+  const box = main.querySelector('.lt-book');
+  import('./book3d.js').then(m => m.mountBook(box, base, { reduced })).then(r => { if (!r) box.classList.add('flat'); }).catch(() => box.classList.add('flat'));
   return { main };
 }

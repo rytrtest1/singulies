@@ -15,10 +15,10 @@ import { paintThread } from '../alt/stitch.js';
 import { count } from '../app/count.js';
 
 export const PAGES = [
-  { id: 'poeme', label: 'UN PRENOM UN POEME', href: 'alt.html', img: 'exemples/julie.jpg' },
-  { id: 'livres', label: 'MES LIVRES', href: 'livres.html', img: 'livres/livre.jpg' },
-  { id: 'jeu', label: 'LE JEU', href: 'jeu.html', img: 'simple/portail-jeu.jpg' },
-  { id: 'lettre', label: 'UN POEME PAR MOIS', href: 'lettre.html', img: 'simple/enveloppe-dos.jpg' },
+  { id: 'poeme', label: 'UN PRENOM UN POEME', href: 'alt.html' },
+  { id: 'livres', label: 'MES LIVRES', href: 'livres.html' },
+  { id: 'jeu', label: 'LE JEU', href: 'jeu.html' },
+  { id: 'lettre', label: 'UN POEME PAR MOIS', href: 'lettre.html' },
 ];
 const K_NAV = 'sg.nav';
 const STANDALONE = (() => { try { return !!navigator.standalone || matchMedia('(display-mode: standalone)').matches; } catch { return false; } })();
@@ -66,13 +66,6 @@ const CSS = `
 .nv-shade.t { top: 0; height: calc(104px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 52%, rgba(6,6,6,0)); }
 .nv-shade.b { bottom: 0; height: calc(96px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 0, #060606 48%, rgba(6,6,6,0)); }
 .nv-shade.on { opacity: 1; }
-/* les objets des pages voisines, posés dans le même espace (left, translate : nav.js) */
-.nv-side { position: absolute; left: 0; top: var(--nv-cy, 42%); height: var(--nv-sh, 32vh); display: block; transform: translateY(-50%);
-  opacity: 0; pointer-events: none; transition: opacity .8s ease; -webkit-tap-highlight-color: transparent; }
-.nv-side img { display: block; height: 100%; width: auto; pointer-events: none; }
-.nv-sides { position: fixed; inset: 0; z-index: 19; overflow: hidden; pointer-events: none; }
-.nv-sides.on .nv-side { opacity: var(--nv-so, .42); pointer-events: auto; cursor: pointer; }
-.nv-sides.on .nv-side:hover { opacity: .75; }
 @media (prefers-reduced-motion: reduce) { .nv-track.anim { transition-duration: .01s; } }
 `;
 
@@ -122,18 +115,10 @@ export function installNav(opts) {
       return a;
     });
   }
-  const sides = [-1, 1].map(d => {
-    const a = document.createElement('a'); a.className = 'nv-side ' + (d < 0 ? 'l' : 'r');
-    const im = new Image(); im.alt = ''; im.decoding = 'async'; a.appendChild(im);
-    im.addEventListener('load', () => place());
-    a.addEventListener('click', e => { e.preventDefault(); go(d); });
-    return a;
-  });
-  const setSides = () => sides.forEach((a, k) => { const p = ring(cur + (k ? 1 : -1)); a.href = url(p); a.setAttribute('aria-label', p.label.toLowerCase()); const s = new URL(base + p.img, document.baseURI).href; if (a.firstChild.src !== s) a.firstChild.src = s; });
-  // (les voisins dans un cadre de la taille de l'écran : rien ne dépasse, la page ne peut pas glisser de côté)
-  const sideBox = document.createElement('div'); sideBox.className = 'nv-sides'; sideBox.append(...sides);
-  document.body.append(shadeT, shadeB, root, foot, sideBox);
-  build(); setSides();
+  // (12/10, Maxence) plus d'aperçus des pages voisines (des images fixes qui paraissaient sur d'autres écrans) : quand on
+  // glisse, seuls le bandeau et la page en cours bougent ; la page d'arrivée entre de l'autre côté
+  document.body.append(shadeT, shadeB, root, foot);
+  build();
 
   // ---- mise en page : le nom courant au centre ; le fil cousu entre chaque nom, et jusqu'aux bords ----
   let centers = [], boxes = [];
@@ -153,7 +138,6 @@ export function installNav(opts) {
     th.width = Math.round(w * k); th.height = 44 * k; th.style.width = w + 'px'; th.style.height = '44px';
     const fw = innerWidth, fh = 34, d = dpr();
     fcv.width = Math.round(fw * d); fcv.height = fh * d; fcv.style.width = fw + 'px'; fcv.style.height = fh + 'px';
-    place();
     paint(performance.now() / 1000);
   }
   // ---- les deux fils respirent : l'affaissement de chaque bout change très lentement (6 à 9 s), sans jamais se répéter
@@ -190,27 +174,12 @@ export function installNav(opts) {
   };
   const wake = () => { if (!raf && !reduced) raf = requestAnimationFrame(loop); };
 
-  // ---- l'espace commun : D = la distance entre l'objet du centre et ceux des côtés (les voisins sont posés à ±D) ----
   let shown = false, footOn = false, busy = false;
   const atHome = () => cur === home;
   const pgOf = id => pages[id] || {};
   const objC = () => { const pg = pgOf(ring(cur).id), c = (pg.center && pg.center()) || (atHome() && opts.center && opts.center()) || null; return c || { y: innerHeight * 0.45, h: innerHeight * 0.5 }; };
-  const sideH = () => Math.min(objC().h * (mobile() ? 0.78 : 0.62), innerHeight * (mobile() ? 0.36 : 0.34));
-  const sideW = s => { const im = s.firstChild; return im.naturalWidth ? sideH() * im.naturalWidth / im.naturalHeight : sideH() * 0.72; };
-  const D = () => { const w = Math.max(sideW(sides[0]), sideW(sides[1])); return mobile() ? innerWidth / 2 + w / 2 - 18 : Math.max(300, innerWidth * 0.22) + w / 2; };
-  const sideScale = () => sideH() / Math.max(1, objC().h);
-  function place() {
-    const c = objC(), h = sideH(), dd = D();
-    sides.forEach((s, k) => {
-      const dir = k ? 1 : -1, w = sideW(s);
-      s.style.setProperty('--nv-cy', c.y + 'px'); s.style.setProperty('--nv-sh', h + 'px');
-      s.style.left = (innerWidth / 2 + dir * dd - w / 2).toFixed(1) + 'px';
-      s.style.setProperty('--nv-so', mobile() ? '.38' : '.42');
-      // ordinateur : le bord extérieur se perd dans le noir
-      const m = mobile() ? 'none' : `linear-gradient(to ${dir < 0 ? 'left' : 'right'}, #000 40%, transparent)`;
-      s.style.webkitMaskImage = m; s.style.maskImage = m;
-    });
-  }
+  // la distance dont une page glisse en partant (et d'où la suivante arrive)
+  const S = () => Math.min(innerWidth * 0.42, 340);
   const ro = new ResizeObserver(layout); ro.observe(track);
   addEventListener('resize', layout);
   document.fonts && document.fonts.ready.then(layout);
@@ -221,17 +190,13 @@ export function installNav(opts) {
     if (busy) return;
     const pg = pgOf(ring(cur).id);
     const on = atHome() ? !!opts.show?.() : true;
-    const side = on && (atHome() ? !!(opts.side ? opts.side() : true) : !!(pg.side ? pg.side() : true));
     const solo = on && atHome() && !!opts.solo?.();
     const f = atHome() ? !!opts.foot?.() : pg.foot !== false;
     const sh = atHome() ? !!opts.shade?.() : !!pg.foot;
     if (on !== shown) { shown = on; root.classList.toggle('on', on); if (on) layout(); }
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
-    root.classList.toggle('side', side && !solo);
-    sideBox.classList.toggle('on', shown && side && !solo);
     root.classList.toggle('solo', solo);
     shadeT.classList.toggle('on', sh && on); shadeB.classList.toggle('on', sh && f);
-    if (side) place();
     if (shown || footOn) wake();
   }
   setInterval(tick, 200); tick();
@@ -268,72 +233,38 @@ export function installNav(opts) {
   const objOf = pg => (pg.obj ? pg.obj() : []).filter(Boolean);
   const restOf = pg => (pg.rest ? pg.rest() : pg.obj ? [] : els(pg, true)).filter(Boolean);
   const layerOf = pg => els(pg, true);
-  const rectOf = (pg, el) => {
-    if (pg.objRect) { const r = pg.objRect(); if (r) return { cx: r.cx ?? innerWidth / 2, cy: r.y ?? r.cy, h: r.h, ox: 0, oy: 0 }; }
-    const q = el.getBoundingClientRect(); return { cx: q.left + q.width / 2, cy: q.top + q.height / 2, h: q.height || 1, ox: q.left, oy: q.top };
-  };
-  // un objet qui voyage : de sa place au repos (rest), il va en « to » (centre, hauteur), à l'opacité o
-  function fly(el, rest, to, o, anim, dur = DUR) {
-    el.style.transition = anim ? (reduced ? 'opacity .35s' : `translate ${dur}ms ${EASE}, scale ${dur}ms ${EASE}, opacity ${Math.round(dur * 0.7)}ms ease`) : 'none';
-    el.style.transformOrigin = `${(rest.cx - rest.ox).toFixed(1)}px ${(rest.cy - rest.oy).toFixed(1)}px`;
-    if (!reduced) {
-      const dx = to.cx - rest.cx, dy = to.cy - rest.cy, k = to.h / rest.h;
-      el.style.translate = Math.abs(dx) + Math.abs(dy) > 0.05 ? `${dx.toFixed(1)}px ${dy.toFixed(1)}px` : '';
-      el.style.scale = Math.abs(k - 1) > 1e-4 ? k.toFixed(4) : '';
-    }
-    el.style.opacity = o === 1 ? '' : String(o);
-  }
   const fadeTo = (el, o, ms, delay = 0) => { el.style.transition = `opacity ${ms}ms ease ${delay}ms`; el.style.opacity = o === 1 ? '' : String(o); };
   const clearAll = el => { clearT(el); el.style.opacity = ''; };
-  const sideOp = () => (mobile() ? 0.38 : 0.42);
   // ---- aller à une page voisine (d : ±1, ±2, ±3) ----
-  // Un seul espace : l'aperçu de la page voisine EST son objet — au départ, l'objet réel de la page prend exactement sa
-  // place (même taille, même pâleur : on ne voit pas l'échange) puis vient au centre ; l'objet du centre va à la place
-  // du voisin opposé, où son aperçu le relaie. Le reste des pages s'efface et paraît sur place.
+  // (12/10) la page en cours glisse du côté d'où l'on part et s'efface ; la page d'arrivée entre de l'autre côté, en
+  // fondu ; le fil du bandeau coulisse avec elles. Rien d'autre ne paraît à l'écran (plus d'aperçus).
   async function go(d, opt = {}) {
     if (busy || !d) return;
     const target = ring(cur + d), dir = Math.sign(d), fromId = ring(cur).id, from = pages[fromId] || {};
     count('nav/' + target.id);
     const inDoc = !!(pages[target.id] || MOUNTABLE[target.id]);
     busy = true;
-    const steps = Math.abs(d);
     // la page d'arrivée est prête avant que rien ne bouge (montée maintenant si besoin)
     const pg = inDoc ? await ensure(target.id) : null;
     if (inDoc && !pg) { busy = false; location.href = url(target); return; }
-    const dd = D(), hS = sideH(), op = sideOp();
-    // l'aperçu vers lequel on va : sa place exacte à l'écran (il a pu suivre le doigt)
-    const sTo = sides[dir < 0 ? 0 : 1], sOpp = sides[dir < 0 ? 1 : 0];
-    const sr = sTo.getBoundingClientRect(), fromSide = { cx: sr.left + sr.width / 2, cy: sr.top + sr.height / 2, h: sr.height || hS };
     // le fil coulisse : le nom suivant vient au centre
     if (centers[C + d] != null) setX(centers[C + d], true);
     items.forEach((a, i) => { const k = i - C - d; a.classList.toggle('cur', k === 0); a.classList.remove('far', 'd2', 'd3'); if (Math.abs(k) > 1) a.classList.add('far', 'd' + Math.min(3, Math.abs(k))); });
 
-    // ---- ce qui part ----
+    // ---- ce qui part (un objet qui a suivi le doigt part d'où il est) ----
+    const s = S(), c0 = objC();
     const outLayer = layerOf(from), outObj = objOf(from), outRest = restOf(from);
     const outDrag = els(from, false).filter(el => !outLayer.includes(el) && !outObj.includes(el));
     from.leave?.();
     for (const el of outRest) fadeTo(el, 0, 260);
-    for (const el of outDrag) fadeTo(el, 0, 260);
+    for (const el of outObj) put(el, -dir * s, 1, 0, c0.y, true);
+    for (const el of outDrag) put(el, -dir * s, 1, 0, c0.y, true);
     if (!inDoc) {
-      for (const el of outObj) fadeTo(el, 0, 400);
-      sTo.style.transition = 'opacity .4s'; sTo.style.opacity = '0'; sOpp.style.opacity = '0';
       try { sessionStorage.setItem(K_NAV, JSON.stringify({ to: target.id, dir, at: Date.now() })); } catch { /* */ }
       setTimeout(() => { location.href = url(target); }, 420);
       return;
     }
     cur = mod(cur + d, PAGES.length);
-    // la place où l'objet qui part devient un voisin : de l'autre côté, à la taille et à la pâleur d'un aperçu
-    const c1 = objC(), toSide = { cx: innerWidth / 2 - dir * dd * steps, cy: c1.y, h: hS };
-    for (const el of outObj) {
-      // (sa place au repos ; une scène plein écran : celle de son objet ; un objet qui a suivi le doigt part d'où il est)
-      const r = from.objRect ? rectOf(from, el) : (() => { const q = el.getBoundingClientRect(); return { cx: q.left + q.width / 2, cy: q.top + q.height / 2, h: q.height || 1, ox: q.left, oy: q.top }; })();
-      if (!from.objRect) { el.style.translate = ''; el.style.scale = ''; }
-      fly(el, r, toSide, op, true);
-    }
-    // l'autre voisin sort de l'autre côté, du même pas
-    sOpp.style.transition = reduced ? 'opacity .35s' : `translate ${DUR}ms ${EASE}, opacity ${Math.round(DUR * 0.5)}ms ease`;
-    if (!reduced) sOpp.style.translate = `${(-dir * dd * steps).toFixed(1)}px 0`;
-    sOpp.style.opacity = '0';
 
     // ---- ce qui arrive ----
     const inLayer = layerOf(pg), inObj = objOf(pg), inRest = restOf(pg);
@@ -341,13 +272,11 @@ export function installNav(opts) {
     for (const el of inLayer) { el.style.visibility = ''; clearAll(el); }
     for (const el of inRest) { el.style.transition = 'none'; el.style.opacity = '0'; }
     pg.back?.();
-    const inRects = inObj.map(el => { clearAll(el); return rectOf(pg, el); });
-    // l'objet réel remplace son aperçu, à la même place (l'aperçu disparaît dans la même image)
-    inObj.forEach((el, i) => fly(el, inRects[i], fromSide, op, false));
-    sTo.style.transition = 'none'; sTo.style.opacity = '0';
+    const c1 = objC();
+    for (const el of inObj) put(el, dir * s, 1, 0, c1.y, false);
     void document.body.offsetWidth;
-    inObj.forEach((el, i) => fly(el, inRects[i], { cx: inRects[i].cx, cy: inRects[i].cy, h: inRects[i].h }, 1, true));
-    for (const el of inRest) fadeTo(el, 1, 520, inObj.length ? 300 : 120);
+    for (const el of inObj) put(el, 0, 1, 1, c1.y, true);
+    for (const el of inRest) fadeTo(el, 1, 520, inObj.length ? 260 : 120);
 
     if (!opt.pop) try { history.pushState({ sgPage: target.id }, '', STANDALONE ? location.href : url(target)); } catch { /* */ }
     setTimeout(() => {
@@ -356,14 +285,7 @@ export function installNav(opts) {
       for (const el of inObj) { el.style.transition = 'none'; el.style.transformOrigin = ''; el.style.translate = ''; el.style.scale = ''; }
       for (const el of inRest) { el.style.transition = ''; }
       if (from.transient) delete pages[fromId];
-      // les nouveaux voisins : celui qu'on vient de quitter est déjà là (son objet y est arrivé) ; l'autre paraît en fondu
-      build(); setSides(); layout();
-      sides.forEach((s, k) => {
-        const back = (k ? 1 : -1) === -dir;
-        s.style.translate = ''; s.style.scale = '';
-        s.style.transition = back ? 'none' : 'opacity .8s ease';
-        s.style.opacity = '';
-      });
+      build(); layout();
       busy = false; tick();
     }, DUR + 30);
   }
@@ -393,7 +315,6 @@ export function installNav(opts) {
     if (!e.persisted || !busy) return;
     busy = false;
     for (const el of els(pgOf(ring(cur).id), true)) { el.style.transition = 'none'; el.style.translate = ''; el.style.scale = ''; el.style.opacity = ''; el.style.visibility = ''; }
-    for (const s of sides) { s.style.transition = 'none'; s.style.translate = ''; s.style.scale = ''; s.style.opacity = ''; }
     build(); layout(); tick();
   });
 
@@ -406,14 +327,11 @@ export function installNav(opts) {
       const pg = pgOf(ring(cur).id), c = objC();
       for (const s of els(pg, false)) put(s, dx, 1, 1, c.y, false);
       setX(centers[C] - dx / Math.max(innerWidth, 1) * ((centers[C + 1] - centers[C - 1]) / 2 || 200), false);
-      // les voisins viennent avec le doigt, du même pas (le même espace)
-      for (const s of sides) { s.style.transition = 'none'; s.style.translate = `${dx.toFixed(1)}px 0`; }
     };
     const release = (dx, v) => {
       if (Math.abs(dx) > Math.min(90, innerWidth * 0.22) || (Math.abs(dx) > 30 && Math.abs(v) > 0.45)) { go(dx < 0 ? 1 : -1); return; }
       const pg = pgOf(ring(cur).id), c = objC();
       for (const s of els(pg, false)) put(s, 0, 1, 1, c.y, true);
-      for (const s of sides) { s.style.transition = 'translate .45s cubic-bezier(.2,.7,.3,1)'; s.style.translate = ''; }
       setX(centers[C], true);
     };
     const start = (x, y) => { if (busy || !shown || !mine()) return; x0 = x; y0 = y; t0 = performance.now(); horiz = null; };
@@ -444,11 +362,11 @@ export function installNav(opts) {
     el.addEventListener('pointerup', e => { if (e.pointerType === 'mouse') end(e.clientX, e.clientY, null); });
   }
 
-  // ---- l'arrivée par rechargement : l'objet entre de la place du voisin d'où l'on vient ----
+  // ---- l'arrivée par rechargement : la page entre du côté d'où l'on vient ----
   function enter(list) {
     if (!arrived) return;
-    const c = objC(), dd = D(), sc = sideScale(), l = list.filter(Boolean);
-    for (const el of l) put(el, arrived * dd, sc, 0.4, c.y, false);
+    const c = objC(), l = list.filter(Boolean);
+    for (const el of l) put(el, arrived * S(), 1, 0, c.y, false);
     void document.body.offsetWidth;
     for (const el of l) put(el, 0, 1, 1, c.y, true);
   }
@@ -464,7 +382,6 @@ export function installNav(opts) {
       if (busy || i >= k.length) return;
       const [dx, ms] = k[i++];
       for (const el of list) { put(el, dx, 1, 1, c.y, false); el.style.transition = `translate ${ms}ms ${EASE}`; }
-      for (const s of sides) { s.style.transition = `translate ${ms}ms ${EASE}, opacity .8s`; s.style.translate = dx ? `${dx}px 0` : ''; }
       setX(centers[C] - dx * 0.6, true);
       if (i < k.length) setTimeout(stepN, ms + (i === 2 ? 260 : 80));
     };

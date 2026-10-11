@@ -40,6 +40,7 @@ a.lt-go { display: table; text-decoration: none; }
 /* (le livre rendu en 3D par le moteur : livre-rendu.html → tools/livre-shot.mjs ; son fond est celui de la page) */
 .lt-book { width: min(78%, 360px); margin-bottom: 0; }
 .lt-book { position: relative; }
-.lt-book img { display: block; width: 100%; height: auto; }
-.lt-book-c { position: absolute; inset: 0; width: 100%; height: 100%; visibility: hidden; }
-.lt-book-c.on { visibility: visible; }
+.lt-book img { display: block; width: 100%; height: auto; visibility: hidden; }   /* (12/10) jamais d'image fixe : elle ne sert que sans WebGL2 (.flat) */
+.lt-book.flat img { visibility: visible; }
+.lt-book-c { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .6s ease; }
+.lt-book-c.on { opacity: 1; }
