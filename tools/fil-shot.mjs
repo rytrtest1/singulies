@@ -1,4 +1,4 @@
-// Le fil sous RECEVOIR (alt.html, 11/10) : de près, au repos puis pendant qu'il coulisse (flèche « suivant »).
+// Les soulignements cousus (alt.html, 11/10) : RECEVOIR (et la description qui glisse quand on passe à l'étape suivante).
 // node tools/fil-shot.mjs → captures/fil/*.png (téléphone, ×3) — version figée (l'autre session modifie les fichiers)
 import { build, preview } from 'vite';
 import { chromium } from 'playwright';

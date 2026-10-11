@@ -31,7 +31,7 @@
 .of.over .of-poem { min-height: 3.4em; }
 /* la légende colle à la feuille ; la suite commence sous le bandeau (le premier écran semble fini) */
 .of.over .of-poem { margin-top: -22px; }
-.of.over .of-rest { margin-top: calc(var(--inset, 212px) + 24px); }
+.of.over .of-rest { margin-top: calc(var(--inset, 212px) + 24px); }   /* (après .of-story) */
 /* (10/10) le poème original, tapé sous la feuille (ses premières lignes dépassent au-dessus du bandeau) */
 .of.over .of-poem { background: #060606; box-shadow: 0 0 0 100vmax #060606; clip-path: inset(0 -100vmax -1px); padding-top: 10px; }
 .of-poem { text-align: center; min-height: 1.7em; line-height: 1.7; color: #d6d2ca; letter-spacing: .02em; }
@@ -250,18 +250,19 @@
 /* (10/10) le bandeau : ce qu'on reçoit, RECEVOIR, puis le prix dessous */
 .of-bar .of-vit { order: 1; }
 .of-bar .of-go, .of-bar .of-bar-r { order: 2; }
-.of-bar .of-fil-host { order: 3; }
 .of-bar .of-price { order: 4; }
 .of-bar .of-down { order: 5; }
 .of-bar { gap: 6px; }
 .of-bar .of-go { margin-top: 2px; }
 
-/* (11/10) le fil : il souligne RECEVOIR, tendu d'un bord à l'autre de l'écran (fil.js) — il remplace le filet */
+/* (11/10) les soulignements : des bouts de fil cousus (stitch.js) — plus de filets ni de traits */
 .of-bar .of-go::after { display: none; }
-.of-fil-host { align-self: stretch; position: relative; height: 26px; margin: -22px -16px -8px; pointer-events: none; opacity: 0; transition: opacity 1s ease .3s; }
-.of.bar-on .of-fil-host { opacity: 1; }
-.of-fil { display: block; }
-.of.env .of-fil-host, .of.paying .of-fil-host { opacity: 0; }
+.of-tabs a[aria-current]::after { display: none; }
+.of-foot a { position: relative; display: inline-block; border-bottom: 0; }
+.of-stitch { display: block; }
+.of.env .of-bar .of-stitch, .of.paying .of-bar .of-stitch { opacity: 0; }
+/* l'histoire : un espace transparent sous la scène, qu'on fait défiler (étape par étape) avant les autres poèmes */
+.of-story { pointer-events: none; }
 /* la description glisse (l'ancienne part, la nouvelle arrive) */
 .of-vit-t { position: relative; }
 .of-vit-t > i { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; font-style: normal;

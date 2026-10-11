@@ -40,6 +40,15 @@ async function playStep(k, d = 1) {
 }
 await page.screenshot({ path: `${dir}/etape-0.png` });
 for (let k = 1; k <= 3; k++) await playStep(k);
+// le défilement : retour en haut (la feuille), puis une étape par cran de défilement
+await page.evaluate(() => document.getElementById('offre').scrollTo({ top: 0 })); await page.waitForTimeout(6000);
+const stepPx = await page.evaluate(() => Math.round(innerHeight * 0.42));
+for (let k = 1; k <= 3; k++) {
+  await page.evaluate(y => document.getElementById('offre').scrollTo({ top: y }), k * stepPx); await page.waitForTimeout(6500);
+  await page.screenshot({ path: `${dir}/defile-${k}.png` });
+  console.log('défilement', k, JSON.stringify(await vs()), await page.evaluate(() => document.querySelector('.of-vit-t').getAttribute('aria-label')));
+}
+await page.evaluate(() => document.getElementById('offre').scrollTo({ top: 0 })); await page.waitForTimeout(1500);
 if (BACK) {
   await playStep(2, -1);
   await page.click('.of-bar .of-go');   // RECEVOIR depuis la guirlande : la feuille revient, puis l'enveloppe

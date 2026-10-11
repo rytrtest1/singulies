@@ -5,7 +5,7 @@ import './offre.css';
 import { acrostic } from '../basique/basique.js';
 import { mountExemples } from './exemples.js';
 import { count } from '../app/count.js';
-import { createFil } from './fil.js';
+import { stitch } from './stitch.js';
 import { PRIX, STRIPE, STRIPE_PK, PAIEMENT_URL, PHOTOS, FEUILLE_PHOTO, LIENS, SHEET_INSET, RESERVATION } from './config.js';
 
 const Q = new URLSearchParams(location.search);
@@ -27,7 +27,7 @@ const OBJETS = [
   { id: 'feuille', txt: 'l’exemplaire unique de ton poème, tapé à la machine à écrire' },
   { id: 'carte', txt: 'la question du jeu SINGULIES, tirée au hasard' },
   { id: 'enveloppe', txt: 'le tout scellé à la cire' },
-  { id: 'fil', txt: 'une carte vierge pour m’écrire ton prénom à la main, et un fil noir… pour relier les SINGULIES' },
+  { id: 'mystere', txt: 'une carte mystère et un fil… pour rester liés' },
 ];
 const CHEV = d => `<svg viewBox="0 0 24 24" width="16" height="16"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>`;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -366,7 +366,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     <button class="of-back" type="button" aria-label="Changer le prénom">${BACK_SVG}</button>
     <nav class="of-tabs" aria-label="Le site"><a aria-current="page">POEME</a><a href="${esc(LIENS.jeu)}">JEU</a><a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">LIVRES</a></nav>
     <main>
-      ${over ? '<div class="of-hole" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
+      ${over ? '<div class="of-hole" aria-hidden="true"></div><div class="of-story" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
       <button class="of-down" type="button" aria-label="D’autres prénoms, d’autres poèmes"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 9.5 L12 15.5 L18 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></button>
       <div class="of-rest">
       <section class="of-ex" aria-label="D’autres poèmes"><h2 class="of-h">d’autres prénoms, d’autres poèmes</h2><div class="of-ex-host"></div></section>
@@ -376,7 +376,6 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
       <button class="of-go" type="button">RECEVOIR</button>
-      <div class="of-fil-host"></div>
       <div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
         <button class="of-vit-a" type="button" data-d="-1" aria-label="Précédent">${CHEV('M14.5 6 L8.5 12 L14.5 18')}</button>
         <p class="of-vit-t" aria-live="polite"></p>
@@ -404,14 +403,20 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   }
 
   mountExemples(root.querySelector('.of-ex-host'));
-  // ---- la vitrine (10/10) : jouée dans la scène (envelope.vitrine) ; sans elle (pas de WebGL2), seulement les mots ----
-  const txt = root.querySelector('.of-vit-t'), hole = root.querySelector('.of-hole');
+  // ---- la vitrine (11/10) : jouée dans la scène (envelope.vitrine) — rien ne bouge tout seul. On avance d'une étape en
+  // faisant défiler la page (la scène reste en place pendant ce temps : un espace transparent sous elle, .of-story ; puis
+  // les autres poèmes montent et la feuille avec eux) ou avec les flèches ; on recule pareil, à tout moment, et tout se
+  // rejoue dans l'ordre. Sans la scène (pas de WebGL2) : seulement les mots.
+  const txt = root.querySelector('.of-vit-t'), hole = root.querySelector('.of-hole'), story = root.querySelector('.of-story');
   const vit = envelope && envelope.vitrine ? envelope.vitrine : null;
   const busyMode = () => root.classList.contains('paying') || root.classList.contains('env');
-  let cur = -1, auto = true, timer = 0, poll = 0, typing = 0;
-  // (11/10) la description glisse (de droite à gauche quand on avance) : l'ancienne part d'un côté, la nouvelle arrive de
-  // l'autre ; le fil, dessous, coulisse avec elle (fil.js) — les descriptions y sont comme enfilées
-  const fil = createFil(root.querySelector('.of-fil-host'), { reduced: matchMedia('(prefers-reduced-motion: reduce)').matches });
+  const N = OBJETS.length;
+  const STEP = () => Math.round(innerHeight * 0.42);                       // défilement par étape (px)
+  const storyLen = () => (vit && story ? (N - 1) * STEP() : 0);
+  const sizeStory = () => { if (story) story.style.height = storyLen() + 'px'; };
+  sizeStory(); addEventListener('resize', sizeStory);
+  let cur = -1;
+  // la description glisse (de droite à gauche quand on avance) : l'ancienne part d'un côté, la nouvelle arrive de l'autre
   const slideTxt = (s, dir = 1) => {
     txt.setAttribute('aria-label', s);
     for (const old of txt.querySelectorAll('i:not(.out)')) {
@@ -422,41 +427,33 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     box.style.transform = `translateX(${dir * 46}px)`; box.style.opacity = '0';
     txt.appendChild(box); void box.offsetWidth;
     box.style.transform = ''; box.style.opacity = '';
-    fil.pull(dir);
   };
   // les petits mots restent avec le suivant (jamais « à » seul en fin de ligne)
   const nbsp = s => { const r = /(^|[\s\u00a0])(à|a|de|du|la|le|un|et|y|me|ton|pour|au) /gi, f = x => x.replace(r, (m, a, w) => a + w + '\u00a0'); return f(f(s)); };
-  // un saut (de tout l'envoi à la feuille, ou l'inverse) : la scène s'efface un instant, puis reprend là
+  // revenir à la feuille d'un coup, sans qu'on voie le saut (RECEVOIR depuis une autre étape)
   const sceneCv = () => envelope && envelope.canvas;
   const fadeJump = (k, then) => {
     const c = sceneCv(); if (!c || !vit) { then && then(); return; }
     c.style.transition = 'opacity .3s ease'; c.style.opacity = '0';
-    setTimeout(() => { vit.jump(k); then && then(); setTimeout(() => { c.style.opacity = '1'; }, 60); }, 320);
+    setTimeout(() => { vit.jump(k); cur = k; slideTxt(nbsp(OBJETS[k].txt), -1); then && then(); setTimeout(() => { c.style.opacity = '1'; }, 60); }, 320);
   };
-  const show = (k, dir = 1) => {
-    k = (k + OBJETS.length) % OBJETS.length;
+  const show = k => {
+    k = Math.max(0, Math.min(N - 1, k));
     if (k === cur) return;
-    const prev = cur; cur = k;
-    clearTimeout(timer); clearInterval(poll);
-    slideTxt(nbsp(OBJETS[k].txt), prev < 0 ? 1 : dir);
-    if (vit) { if (prev >= 0 && Math.abs(k - prev) > 1) fadeJump(k); else vit.go(k); }
-    if (!auto) return;
-    // en tour automatique : l'étape jouée, on la laisse voir, puis la suivante
-    const hold = k === 0 ? 4200 : 2400;
-    if (!vit) { timer = setTimeout(() => step(1), hold + 2500); return; }
-    poll = setInterval(() => {
-      const st = vit.state();
-      if (!st || st.arrived) { clearInterval(poll); timer = setTimeout(() => step(1), hold); }
-    }, 200);
+    const dir = cur < 0 || k > cur ? 1 : -1; cur = k;
+    slideTxt(nbsp(OBJETS[k].txt), dir);
+    if (vit) vit.go(k);
+    root.classList.toggle('vit-last', k === N - 1);
   };
-  const step = d => {
+  // les flèches, le glissé : on va à l'étape voulue en faisant défiler (le défilement fait le reste)
+  const goStep = k => {
+    k = Math.max(0, Math.min(N - 1, k));
     if (busyMode()) return;
-    if (auto && d > 0 && cur === OBJETS.length - 1) { auto = false; return; }   // un tour : on reste sur la dernière
-    show(cur + d, d);
+    count('alt/vitrine');
+    show(k);
+    if (vit && story) root.scrollTo({ top: k * STEP(), behavior: 'smooth' });
   };
-  const manual = d => { auto = false; clearTimeout(timer); clearInterval(poll); count('alt/vitrine'); step(d); };
-  root.querySelectorAll('.of-vit-a').forEach(b => b.addEventListener('click', () => manual(+b.dataset.d)));
-  // glisser l'objet (ou la description) de côté
+  root.querySelectorAll('.of-vit-a').forEach(b => b.addEventListener('click', () => goStep(cur + +b.dataset.d)));
   for (const z of [hole, root.querySelector('.of-vit')]) {
     if (!z) continue;
     let x0 = null, y0 = 0;
@@ -464,35 +461,43 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     z.addEventListener('pointerup', e => {
       if (x0 == null) return;
       const dx = e.clientX - x0, dy = e.clientY - y0; x0 = null;
-      if (Math.abs(dx) > 40 && Math.abs(dx) > 1.6 * Math.abs(dy)) manual(dx < 0 ? 1 : -1);
+      if (Math.abs(dx) > 40 && Math.abs(dx) > 1.6 * Math.abs(dy)) goStep(cur + (dx < 0 ? 1 : -1));
     });
     z.addEventListener('pointercancel', () => { x0 = null; });
   }
-  // la vitrine se met de côté pendant l'enveloppe et le paiement : la feuille, en direct
-  const toSheet = () => { auto = false; clearTimeout(timer); clearInterval(poll); if (cur !== 0) { cur = 0; slideTxt(nbsp(OBJETS[0].txt), -1); } };
-  new MutationObserver(() => { if (busyMode()) toSheet(); }).observe(root, { attributes: true, attributeFilter: ['class'] });
+  // pendant l'enveloppe et le paiement : la feuille
+  new MutationObserver(() => { if (busyMode() && cur !== 0) { cur = 0; slideTxt(nbsp(OBJETS[0].txt), -1); } }).observe(root, { attributes: true, attributeFilter: ['class'] });
   setTimeout(() => show(0), over ? 700 : 900);
   // (10/10) une page qui semble finie : la feuille, sa légende, le bandeau ; si rien ne se passe, une petite flèche
-  // invite à descendre vers les autres poèmes
+  // invite à descendre (la suite de l'histoire, puis les autres poèmes)
   const down = root.querySelector('.of-down');
-  root.querySelector('.of-bar').appendChild(down);   // (10/10) tout en bas, sous le prix : elle invite à descendre, sans pointer COMMANDER
+  root.querySelector('.of-bar').appendChild(down);
   setTimeout(() => { if (root.scrollTop < 30 && !busyMode()) down.classList.add('on'); }, over ? 5200 : 6000);
-  down.addEventListener('click', () => { const ex = root.querySelector('.of-ex'); root.scrollTo({ top: root.scrollTop + ex.getBoundingClientRect().top - 40, behavior: 'smooth' }); });
-  // en descendant, la feuille remonte avec la page (comme si on faisait défiler une vraie page)
+  down.addEventListener('click', () => {
+    if (vit && story && cur < N - 1) { goStep(cur + 1); return; }
+    const ex = root.querySelector('.of-ex'); root.scrollTo({ top: root.scrollTop + ex.getBoundingClientRect().top - 40, behavior: 'smooth' });
+  });
+  // en descendant : d'abord l'histoire (la scène reste en place), puis la feuille remonte avec la page
   const cv = () => document.querySelector('canvas.sc-c');
   let sRaf = 0;
   root.addEventListener('scroll', () => {
     if (root.scrollTop > 30) down.classList.remove('on');
     if (!over || sRaf) return;
     sRaf = requestAnimationFrame(() => {
-      sRaf = 0; const c = cv();
-      if (!c || root.classList.contains('paying')) return;
+      sRaf = 0;
+      if (root.classList.contains('paying') || busyMode()) return;
+      const y = root.scrollTop, L = storyLen();
+      if (vit && story) show(Math.round(Math.min(y, L) / STEP()));
+      const c = cv(); if (!c) return;
       c.style.transition = 'none'; c.style.transformOrigin = '50% 0';
-      c.style.transform = root.scrollTop > 0 ? `translateY(${(-root.scrollTop).toFixed(1)}px)` : '';
+      const off = Math.max(0, y - L);
+      c.style.transform = off > 0 ? `translateY(${(-off).toFixed(1)}px)` : '';
     });
   }, { passive: true });
   // en faisant défiler : une ombre en haut, sous la flèche retour (elle ne passe plus sur le texte)
-  root.addEventListener('scroll', () => root.classList.toggle('scrolled', root.scrollTop > 24), { passive: true });
+  root.addEventListener('scroll', () => root.classList.toggle('scrolled', root.scrollTop > storyLen() + 24), { passive: true });
+  // (11/10) tout ce qui est souligné l'est par un bout de fil noir, cousu (stitch.js)
+  for (const el of [root.querySelector('.of-bar .of-go'), root.querySelector('.of-tabs a[aria-current]'), root.querySelector('.of-foot a')]) if (el) stitch(el, { seed: el.textContent.length * 13 });
 
   // gestes
   // l'enveloppe (10/10) : ouverte, la page s'efface sur elle ; adresse complète → le bandeau du paiement
@@ -516,7 +521,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   // l'enveloppe vient après, avec la cérémonie (l'adresse connue s'y tape seule, sinon on l'y écrit)
   go.addEventListener('click', () => {
     const st = vit && vit.state();
-    if (st && (st.vt > 0 || st.target > 0)) fadeJump(0, () => pay(name)); else pay(name);
+    if (st && (st.vt > 0 || st.target > 0)) { root.scrollTo({ top: 0 }); fadeJump(0, () => pay(name)); } else pay(name);
   });
   barWalletSetup(root, name);
   addEventListener('keydown', e => { if (e.key === 'Escape' && root.isConnected) back(); });
