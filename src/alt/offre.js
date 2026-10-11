@@ -22,11 +22,12 @@ const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o));
 // (src/vitrine/vitrine.js) : une seule histoire qui s'enchaîne, de sa feuille à tout l'envoi posé à plat. Dessous, la
 // description (flèches de part et d'autre, ou glisser l'objet), RECEVOIR, le prix. Quatre étapes, la vue ne bouge pas,
 // un fil noir les relie (Maxence 11/10) ; un tour tout seul, il s'arrête sur la dernière ; dès qu'on touche aux flèches, plus de défilé automatique.
+// (11/10, Maxence) le cachet de cire AVANT la carte mystère ; les coupures de lignes sont choisies (\n)
 const OBJETS = [
-  { id: 'feuille', txt: 'l’exemplaire unique de ton poème, tapé à la machine à écrire' },
-  { id: 'carte', txt: 'la question du jeu SINGULIES, tirée au hasard' },
-  { id: 'mystere', txt: 'une carte mystère et un fil… pour rester liés' },
+  { id: 'feuille', txt: 'l’exemplaire unique de ton poème,\ntapé à la machine à écrire' },
+  { id: 'carte', txt: 'la question du jeu SINGULIES,\ntirée au hasard' },
   { id: 'cachet', txt: 'le tout scellé à la cire' },
+  { id: 'mystere', txt: 'une carte mystère et un fil…\npour rester liés' },
 ];
 const CHEV = d => `<svg viewBox="0 0 24 24" width="16" height="16"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>`;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -374,12 +375,13 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
       ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
       <div class="of-rest">
       <section class="of-ex" aria-label="D’autres prénoms, d’autres poèmes"><div class="of-ex-host"></div></section>
+      <button class="of-contact" type="button">écris-moi</button>
       </div>
     </main>
     <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
       <button class="of-go" type="button">RECEVOIR</button>
-      <div class="of-price"><b>${esc(PRIX)}</b><br>tout compris</div>
+      <div class="of-price"><b>${esc(PRIX)}</b> tout compris</div>
     </div>`;
   document.body.appendChild(root);
   document.body.classList.add('of-open');
@@ -420,7 +422,8 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   const sizeStory = () => {
     if (!story) return;
     story.style.height = storyLen() + 'px';
-    if (vit && !story.children.length) for (let i = 0; i < N; i++) { const m = document.createElement('i'); m.className = 'of-snap'; story.appendChild(m); }
+    // (pas de repère à la fin de l'histoire : la page continue librement vers les autres prénoms, au doigt comme à la molette)
+    if (vit && !story.children.length) for (let i = 0; i < N - 1; i++) { const m = document.createElement('i'); m.className = 'of-snap'; story.appendChild(m); }
     [...story.children].forEach((m, i) => { m.style.top = (keyY(i) - story.offsetTop) + 'px'; });
   };
   sizeStory(); addEventListener('resize', sizeStory);
@@ -495,13 +498,11 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   {
     const z = root.querySelector('.of-vit');
     let x0 = null, y0 = 0;
-    z.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; }, { passive: true });
-    z.addEventListener('pointerup', e => {
-      if (x0 == null) return;
-      const dx = e.clientX - x0, dy = e.clientY - y0; x0 = null;
-      if (Math.abs(dx) > 40 && Math.abs(dx) > 1.6 * Math.abs(dy)) goStep(dx < 0 ? 1 : -1);
-    });
-    z.addEventListener('pointercancel', () => { x0 = null; });
+    const end = (x, y) => { if (x0 == null) return; const dx = x - x0, dy = y - y0; x0 = null; if (Math.abs(dx) > 34 && Math.abs(dx) > 1.4 * Math.abs(dy)) goStep(dx < 0 ? 1 : -1); };
+    z.addEventListener('touchstart', e => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
+    z.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t) end(t.clientX, t.clientY); }, { passive: true });
+    z.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') { x0 = e.clientX; y0 = e.clientY; } }, { passive: true });
+    z.addEventListener('pointerup', e => { if (e.pointerType === 'mouse') end(e.clientX, e.clientY); });
   }
   if (nav && hole) nav.swipe(hole, 'poeme');
   // (téléphone, une fois) l'objet esquisse le geste vers la page voisine
@@ -523,18 +524,6 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     if (root.scrollTop >= storyLen() - 2 || p > N - 1.02) { toRest(); return; }
     goStep(1);
   });
-  // (11/10) après la dernière étape, la page ne reste pas entre deux : un petit geste vers le bas mène aux autres
-  // prénoms, un petit geste vers le haut ramène à la dernière étape (à la fin du défilement)
-  let lastY = 0, dirY = 0, endT = 0;
-  const settle = () => {
-    if (drive || busyMode() || !(vit && story)) return;
-    const y = root.scrollTop, L = storyLen(), E = exTop();
-    if (y > L + 12 && y < E - 12) driveTo(dirY >= 0 ? E : L, Math.max(innerHeight * 1.4, 700));
-  };
-  root.addEventListener('scroll', () => {
-    const y = root.scrollTop; if (Math.abs(y - lastY) > 1) dirY = Math.sign(y - lastY); lastY = y;
-    clearTimeout(endT); endT = setTimeout(settle, 160);
-  }, { passive: true });
   // en descendant : d'abord l'histoire (la scène reste en place), puis la feuille remonte avec la page
   const cv = () => document.querySelector('canvas.sc-c');
   let sRaf = 0;
@@ -560,6 +549,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   root.addEventListener('scroll', () => root.classList.toggle('scrolled', root.scrollTop > storyLen() + 24), { passive: true });
   // (11/10) tout ce qui est souligné l'est par un bout de fil noir, cousu (stitch.js)
   stitch(root.querySelector('.of-bar .of-go'), { seed: 'RECEVOIR'.length * 13 });
+  root.querySelector('.of-contact').addEventListener('click', () => import('../menu/contact.js').then(m => m.openContact({ base: './', name })));
 
   // gestes
   // l'enveloppe (10/10) : ouverte, la page s'efface sur elle ; adresse complète → le bandeau du paiement

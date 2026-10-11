@@ -192,7 +192,7 @@ export async function mountCards(opts) {
   function openSheet() {
     answer.blur();
     sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced, hold: !!opts.hold && !paid,
-      fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, insetBottom: !paid ? opts.insetBottom : null, insetTop: !paid ? opts.insetTop : null, sheetZoom: !paid ? opts.sheetZoom : null,
+      fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, insetBottom: !paid ? opts.insetBottom : null, insetTop: !paid ? opts.insetTop : null, placed: !paid && !!opts.placed, sheetZoom: !paid ? opts.sheetZoom : null,
       vitrine: !!opts.vitrine && !paid, base,
       // payé : l'adresse connue (panneau, portefeuille) se tape seule sur l'enveloppe ; sinon on l'y écrit, puis POSTER
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.'); },
@@ -440,6 +440,9 @@ export async function mountCards(opts) {
     // (10/10, alt) la vitrine, jouée dans la scène de la feuille
     vitrine: { go: k => sheet?.vitrine?.go(k), jump: k => sheet?.vitrine?.jump(k), scrub: p => sheet?.vitrine?.scrub(p), state: () => sheet?.vitrine?.state() || null } };
 
+  // (11/10, alt) les lettres sont déjà dans la colonne (venues de l'accueil) : la scène des cartes ne dessine jamais le
+  // prénom en haut, pas même un instant
+  if (opts.placed && opts.sheetOnly) scene.hideName(true);
   function start() {
     if (started) return; started = true;
     scene.start(now());

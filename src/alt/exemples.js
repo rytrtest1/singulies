@@ -54,9 +54,8 @@ function sheetHtml(ex) {
 }
 
 // (11/10, Maxence) le défilé : sans fin (après le dernier, le premier revient, dans les deux sens), au doigt, à la souris
-// ou en touchant un voisin ; le poème doit se lire : toucher la feuille du milieu s'en approche (le bloc du poème remplit
-// la largeur, la frappe se lit), toucher encore ou glisser = la feuille entière. Celle du milieu grande et nette, les
-// voisines plus petites et en fondu.
+// ou en touchant un voisin ; le poème doit se lire : toucher la feuille du milieu l'ouvre en presque plein écran.
+// Celle du milieu grande et nette, les voisines plus petites et en fondu.
 export function mountExemples(host) {
   const srcs = ACROSTICHES.length ? ACROSTICHES : EXEMPLES.map(ex => 'exemples/' + ex.vers.filter(Boolean).map(v => v[0]).join('').toLowerCase() + '.jpg');
   const N = srcs.length;
@@ -95,33 +94,66 @@ export function mountExemples(host) {
       const x = p * w * 0.86, sc = 1 - 0.16 * Math.min(1, d);
       s.f.style.transition = smooth ? 'transform .5s cubic-bezier(.2,.7,.3,1), opacity .5s' : 'none';
       s.f.style.transform = `translateX(${(x - w / 2).toFixed(1)}px) scale(${sc.toFixed(3)})`;
-      s.f.style.opacity = reading && s.k !== 0 ? '0' : (1 - 0.6 * Math.min(1, d)).toFixed(3);
+      s.f.style.opacity = (1 - 0.6 * Math.min(1, d)).toFixed(3);
       s.f.style.zIndex = String(10 - Math.round(d * 2));
       s.f.classList.toggle('mid', s.k === 0 && Math.abs(off) < 0.5);
     }
   }
   // aller d'une place (±1) : on glisse, puis on recentre sans que rien ne bouge (les images changent de place)
   function step(d) {
-    if (reading) read(false);
     off = -d; place(true);
     clearTimeout(anim);
     anim = setTimeout(() => { center = mod(center + d); off = 0; assign(); place(false); }, 500);
   }
-  // lire : la feuille du milieu s'approche de son poème (le bloc du poème, centré, à 39 % de la hauteur)
+  // lire (11/10, Maxence) : la feuille touchée s'ouvre en presque plein écran, entière — entre le bandeau du haut et
+  // SINGULIES en bas —, la frappe se lit ; elle grandit depuis sa place et y retourne (toucher, glisser, Échap)
+  let box = null;
   function read(on) {
-    reading = on;
-    const mid = slots[2].f;
-    mid.classList.toggle('read', on);
-    host.classList.toggle('reading', on);
+    const mid = slots[2].f, im = mid.querySelector('img');
+    if (on && (!im || box)) return;
+    if (!on) { box?.close(); return; }
+    reading = true;
+    const r = im.getBoundingClientRect();
+    const top = 52 + safe('top'), bot = 38 + safe('bottom'), H = innerHeight - top - bot, W = innerWidth;
+    // la feuille occupe ≈ 90 % de la largeur de l'image : on laisse les bords noirs déborder un peu
+    let w = Math.min(W / 0.9, H * 900 / 1240), h = w * 1240 / 900;
+    if (h > H) { h = H; w = h * 900 / 1240; }
+    const x = (W - w) / 2, y = top + (H - h) / 2;
+    const veil = document.createElement('div'); veil.className = 'ex-veil';
+    veil.style.top = top + 'px'; veil.style.bottom = bot + 'px';
+    const big = im.cloneNode(); big.className = 'ex-big'; big.alt = im.alt;
+    Object.assign(big.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    document.body.append(veil, big);
+    void big.offsetWidth;
+    veil.classList.add('on');
+    Object.assign(big.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
+    mid.style.visibility = 'hidden';
+    const close = () => {
+      if (!box) return;
+      box = null; reading = false;
+      const r2 = im.getBoundingClientRect();
+      veil.classList.remove('on');
+      Object.assign(big.style, { left: r2.left + 'px', top: r2.top + 'px', width: r2.width + 'px', height: r2.height + 'px' });
+      setTimeout(() => { mid.style.visibility = ''; big.remove(); veil.remove(); removeEventListener('keydown', esc); }, 520);
+      place(true);
+    };
+    const esc = e => { if (e.key === 'Escape') close(); };
+    addEventListener('keydown', esc);
+    for (const el of [veil, big]) el.addEventListener('click', close);
+    let sx = null;
+    big.addEventListener('touchstart', e => { sx = e.touches.length === 1 ? e.touches[0].clientX : null; }, { passive: true });
+    big.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (sx != null && t && Math.abs(t.clientX - sx) > 40) close(); }, { passive: true });
+    box = { close };
     place(true);
   }
+  const safe = side => { const d = document.createElement('div'); d.style.cssText = `position:fixed;width:1px;height:env(safe-area-inset-${side});visibility:hidden`; document.body.appendChild(d); const v = d.offsetHeight || 0; d.remove(); return v; };
   // le doigt / la souris
   let x0 = null, y0 = 0, t0 = 0, horiz = null, moved = false;
   const start = (x, y) => { x0 = x; y0 = y; t0 = performance.now(); horiz = null; moved = false; };
   const move = (x, y) => {
     if (x0 == null) return;
     const dx = x - x0, dy = y - y0;
-    if (horiz == null && Math.hypot(dx, dy) > 8) { horiz = Math.abs(dx) > 1.2 * Math.abs(dy); if (horiz && reading) read(false); }
+    if (horiz == null && Math.hypot(dx, dy) > 8) horiz = Math.abs(dx) > 1.2 * Math.abs(dy);
     if (horiz) { moved = true; off = Math.max(-1.2, Math.min(1.2, dx / (w * 0.86))); place(false); }
   };
   const end = (x, target) => {
@@ -136,7 +168,7 @@ export function mountExemples(host) {
     // un toucher : sur un voisin, il vient au milieu ; sur celui du milieu, on lit (ou on revient à la feuille entière)
     const slot = slots.find(s => s.f.contains(target));
     if (!slot) return;
-    if (slot.k === 0) read(!reading); else step(Math.sign(slot.k));
+    if (slot.k === 0) read(true); else step(Math.sign(slot.k));
   };
   ringEl.addEventListener('touchstart', e => { if (e.touches.length === 1) start(e.touches[0].clientX, e.touches[0].clientY); else x0 = null; }, { passive: true });
   ringEl.addEventListener('touchmove', e => { if (e.touches.length === 1) move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });

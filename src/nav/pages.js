@@ -19,7 +19,9 @@ export async function mountPage(id, { base = './', reduced = false, nav }) {
     const { main } = (id === 'lettre' ? m.buildLettre : m.buildLivres)(host, base);
     main.classList.add('on');
     nav.swipe(host, id);
+    const obj = main.querySelector('.lt-env');
     return { stage: () => [main], all: () => [host], foot: true, side: () => host.scrollTop < 40,
+      center: () => { const r = obj.getBoundingClientRect(); return r.height ? { y: r.top + r.height / 2, h: r.height } : null; },
       back: () => { host.scrollTop = 0; } };
   }
   if (id === 'jeu') {
@@ -32,6 +34,7 @@ export async function mountPage(id, { base = './', reduced = false, nav }) {
     j.root.style.visibility = 'hidden';
     nav.swipe(j.root, 'jeu');
     return { stage: () => [j.root], all: () => [j.root], foot: false, side: () => false, transient: true,
+      center: () => ({ y: innerHeight * 0.42, h: Math.min(innerWidth * 0.8, 420) * 52 / 87 }),
       leave: () => { gone = true; setTimeout(() => j.leave(), 650); } };
   }
   return null;

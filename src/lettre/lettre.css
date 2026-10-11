@@ -35,3 +35,10 @@ html, body { margin: 0; background: #060606; -webkit-text-size-adjust: 100%; }
 /* (11/10) mes livres : le lien vers le recueil (le signe du site), la carte « mes livres » en tête */
 a.lt-go { display: table; text-decoration: none; }
 .lt-card { width: min(70%, 340px); border-radius: 3px; }
+
+/* (11/10) mes livres : la couverture de Pensées poétiques, comme un livre posé (un noir de papier, une ombre douce) */
+.lt-book { width: min(52%, 250px); border-radius: 1px 3px 3px 1px; box-shadow: 0 18px 40px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.5), inset 3px 0 6px rgba(0,0,0,.35); }
+/* écris-moi : en bas de chaque page (le message sur une carte vierge, src/menu/contact.js) */
+.lt-contact { display: block; margin: 46px auto 0; padding: 10px 14px; border: 0; background: none; cursor: pointer; font: 500 14px/1 'SG Garamond', Georgia, serif;
+  color: #ece8e0; opacity: .5; letter-spacing: .04em; }
+.lt-contact:hover, .lt-contact:focus-visible { opacity: .85; outline: none; }

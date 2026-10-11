@@ -82,6 +82,37 @@ function blendM(a, b, u, off = [0, 0, 0]) {
 }
 
 // opts : { card (renderer), nameR, look, from (snapshot de la scène des cartes), seed, reduced, on: { order, back } }
+// (11/10, Maxence) où chaque lettre du prénom se posera dans la colonne de la feuille (alt, sans carte posée dessus),
+// en px écran, la vue au repos sur la feuille — sans créer la scène : l'accueil y fait dériver les lettres directement,
+// au lieu de monter le prénom puis de le faire redescendre. m : { adv(ch) (em), capHeight (em) } (même police que les
+// lettres en relief) ; o : { insetTop(), insetBottom(), sheetZoom(W, H) } (comme la scène). Rend, pour chaque lettre
+// (espaces exclues) : { ch, x, y (ligne de base, origine de chasse), fs (em en hauteur), fsx (em en largeur) }.
+export function columnTargets(name, W, H, m, o = {}) {
+  const chars = [...name], n = chars.length;
+  const lead = n > 1 ? Math.min(10.5, 148 / (n - 1)) : 10.5;
+  const cap = Math.min(6.4, lead * 0.6), emT = cap / m.capHeight;
+  const baseOf = k => ((n - 1) / 2 - k) * lead - cap / 2;
+  const W_COL = Math.max(0, ...chars.filter(c => c !== ' ').map(c => m.adv(c))) * emT, COL_C = COL_X + W_COL / 2;
+  const letX = ch => COL_C - m.adv(ch) * emT / 2;
+  // la vue A (frameAbove) : la feuille entière au-dessus de la réserve du bas, sous le bandeau, un peu plus petite
+  const ins = Math.min(H * 0.45, Math.max(0, o.insetBottom ? o.insetBottom() : 0));
+  const top = Math.min(H * 0.2, Math.max(0, o.insetTop ? o.insetTop() : 0)), z = o.sheetZoom ? o.sheetZoom(W, H) : 1;
+  const y0 = -SHEET.h / 2 - 8, y1 = SHEET.h / 2 + 4, He = H - ins - top;
+  const Hw0 = Math.max((y1 - y0) * 1.1, Math.max(SHEET.w * 1.1, SHEET.w * 1.08) * He / W), Hw = Hw0 / z * H / He;
+  const cx = 0, cy = (y0 + y1) / 2 + (top + He / 2 - H / 2) * Hw / H, D = Hw / (2 * TF);
+  const eye = [cx, cy - D * Math.sin(TILT), D * Math.cos(TILT)];
+  const vp = M4.mul(M4.perspective(FOV, W / H, D * 0.25, D * 3), M4.lookAt(eye, [cx, cy, 0], [0, 1, 0]));
+  const zz = SHEET.t / 2 + 1.0;
+  const P = (x, y) => { const w = vp[3] * x + vp[7] * y + vp[11] * zz + vp[15]; return [((vp[0] * x + vp[4] * y + vp[8] * zz + vp[12]) / w * 0.5 + 0.5) * W, (0.5 - (vp[1] * x + vp[5] * y + vp[9] * zz + vp[13]) / w * 0.5) * H]; };
+  const out = [];
+  chars.forEach((ch, k) => {
+    if (ch === ' ') return;
+    const x = letX(ch), b = baseOf(k), a = P(x, b), up = P(x, b + emT), rt = P(x + emT, b);
+    out.push({ ch, x: a[0], y: a[1], fs: a[1] - up[1], fsx: rt[0] - a[0] });
+  });
+  return out;
+}
+
 export function createSheetScene(gl, opts) {
   const { card, nameR, look: L, from, on = {} } = opts;
   const reduced = !!opts.reduced;
@@ -94,6 +125,7 @@ export function createSheetScene(gl, opts) {
   card.addShape('sheet', { ...SHEET, fine: P_LOGO ? [10, 10, 0.25, 0, LOGO_Y] : null });
   card.addShape('env', { ...ENV, fine: null });
   card.addShape('envBack', { ...ENV, h: ENV_BACK_H, fine: null });
+  card.addShape('envBackV', { ...ENV, fine: null });      // (vitrine) le dos à la hauteur de la face, ouvert en V
   card.addShape('flap', { ...ENV, h: FLAP_H, fine: null });
   // le cachet de cire argenté (06/10) : un disque bombé, le logo frappé en creux
   const SD = sealDraw(rnd);                                  // ce cachet-ci (forme tirée une fois)
@@ -170,7 +202,8 @@ export function createSheetScene(gl, opts) {
   const SY = nameBot - 14 - SHEET.h / 2;
   const EC_Y = SY - 156;                                    // l'enveloppe : sa poche juste sous la feuille (pivotée)
   const flyers = [];
-  { let k = 0; chars.forEach((ch, i) => { if (ch === ' ' || !starts[i]) return; flyers.push({ i, ch, at: FLY_AT + k * FLY_GAP + rnd.range(-0.05, 0.06), dur: FLY_T * rnd.range(0.92, 1.1), side: rnd.range(24, 34), lift: rnd.range(6, 12), g0: from.glow[i] ?? 0.9, k: 0.8 + 0.2 * rnd(), dec: 1.4 + 1.2 * rnd() }); k++; }); }
+  const PLACED = !!opts.placed;   // (11/10) alt : les lettres sont venues de l'accueil directement à leur place dans la colonne
+  { let k = 0; chars.forEach((ch, i) => { if (ch === ' ' || (!starts[i] && !PLACED)) return; flyers.push({ i, ch, at: PLACED ? 0.35 + k * 0.11 : FLY_AT + k * FLY_GAP + rnd.range(-0.05, 0.06), dur: PLACED ? 0.01 : FLY_T * rnd.range(0.92, 1.1), side: rnd.range(24, 34), lift: rnd.range(6, 12), g0: from.glow[i] ?? 0.9, k: 0.8 + 0.2 * rnd(), dec: 1.4 + 1.2 * rnd() }); k++; }); }
   const landAll = flyers.length ? Math.max(...flyers.map(f => f.at + f.dur)) : FLY_AT;
   const READ_AT = landAll + 0.9, READ_GAP = 0.2;            // la lumière parcourt la colonne
   const CURSOR_AT = READ_AT + flyers.length * READ_GAP * 0.6 + 0.4;
@@ -280,7 +313,7 @@ export function createSheetScene(gl, opts) {
   const EC = { x: 0, y: EC_Y, z: ENV_Z };
   const envClock = t => !env ? 0 : env.back ? Math.max(0, env.back.e0 - (t - env.back.t0) * 2.2 / SLOW) : (t - env.t0) / SLOW;
   // (10/10, alt) la vitrine : ce qu'il y a dans l'envoi, joué ici même, de la feuille de la personne (src/vitrine)
-  const VIT = HOLD && opts.vitrine ? createVitrine({ gl, card, rnd, PRENOM, SY, EC, SHEET, C_POSE, C_IN, reduced, top: from.top || null, base: opts.base || './', sigY: SIG.y }) : null;
+  const VIT = HOLD && opts.vitrine ? createVitrine({ gl, card, rnd, PRENOM, SY, EC, SHEET, C_POSE, C_IN, reduced, top: from.top || null, base: opts.base || './', sigY: SIG.y, insets: () => [opts.insetTop ? opts.insetTop() : 0, opts.insetBottom ? opts.insetBottom() : 0] }) : null;
   let vOcc = null;
   // (11/10, Maxence) les lignes à écrire, à droite des lettres : un fil noir cousu (le même fil partout) — il sort de la
   // feuille à gauche, court jusqu'à la marge, y rentre ; il se coud à mesure que chaque lettre se pose
@@ -381,8 +414,8 @@ export function createSheetScene(gl, opts) {
     if (direct) direct.pu += ((direct.postT >= 0 ? 1 : 0) - direct.pu) * Math.min(1, dt * 1.1);
 
     // caméra : de celle des cartes à la feuille (τ), puis feuille ↔ commande (s), puis l'enveloppe
-    const ci = reduced ? sstep(0, 0.6, tu) : ease(clamp01(tu / CAM_T));
-    const fB = frames.B, an = sstep(landAll - 0.5, landAll + 1.9, tu);
+    const ci = PLACED ? 1 : reduced ? sstep(0, 0.6, tu) : ease(clamp01(tu / CAM_T));
+    const fB = frames.B, an = PLACED ? 1 : sstep(landAll - 0.5, landAll + 1.9, tu);
     const fA = { cx: lerp(frames.AN.cx, frames.A.cx, an), cy: lerp(frames.AN.cy, frames.A.cy, an), D: Math.exp(lerp(Math.log(frames.AN.D), Math.log(frames.A.D), an)) };
     const es = ease(s);
     let cxT = lerp(fA.cx, fB.cx, es), cyT = lerp(fA.cy, fB.cy, es), lD = lerp(Math.log(fA.D), Math.log(fB.D), es);
@@ -467,7 +500,9 @@ export function createSheetScene(gl, opts) {
     // elle pivote (paysage), descend sous le bord de la poche et s'y glisse ----
     const sIn = reduced ? sstep(SHEET_IN[0], SHEET_IN[0] + 0.8, tu) : ease(span(SHEET_IN, tu));
     const Gs = group(0, SY, 0.7, 1 - sL, 0.45 * live, t);
-    let Msheet = M4.mul(T(0, -70 * (1 - sIn), -60 * (1 - sIn)), M4.mul(Gs, T(0, SY, 0)));
+    // (alt, lettres déjà posées) la feuille apparaît sous elles, à sa place, en fondu (elle ne vient pas du fond)
+    const sPos = PLACED ? 1 : sIn;
+    let Msheet = M4.mul(T(0, -70 * (1 - sPos), -60 * (1 - sPos)), M4.mul(Gs, T(0, SY, 0)));
     const uR = inEnv ? ease(span(E.rot, ev)) : 0, uS = inEnv ? ease(span(E.slide, ev)) : 0, uD = inEnv ? ease(span(E.drop, ev)) : 0;
     if (inEnv && ev >= E.slide[1]) Msheet = M4.mul(Menv, M4.mul(T(0, -2, 0.6), M4.model(0, 0, Math.PI / 2)));
     else if (uR > 0) {
@@ -476,9 +511,11 @@ export function createSheetScene(gl, opts) {
       Msheet = M4.mul(M4.mul(T(0, lerp(SY, EC.y - 2, uS), lerp(lerp(0, 3, uR), EC.z + 0.6, uD)), Rm), M4.model(0, 0, Math.PI / 2 * uR));
     }
     const VS = V && !env ? V.sheetState() : null;
+    const Mbase = Msheet;
     if (VS && VS.M) Msheet = VS.M;
+    if (VS && VS.rel) Msheet = M4.mul(Mbase, VS.rel);       // (vitrine) la feuille dans l'enveloppe, qui tourne avec elle
     // vitrine : l'enveloppe posée sur la feuille (repère de la feuille : elle penche avec elle, rien ne la traverse)
-    if (VE && VE.rel) { Menv = M4.mul(Msheet, VE.rel); lastMenv = Menv; }
+    if (VE && VE.rel) { Menv = M4.mul(Mbase, VE.rel); lastMenv = Menv; }
     const sheetFade = VS && VS.fade != null ? VS.fade : 1;
     lastMsheet = Msheet;
     const dimS = 1 - L.unfocusDim * sL;
@@ -592,9 +629,10 @@ export function createSheetScene(gl, opts) {
       if (hideInside) break;
       const u = reduced ? (tu > f.at ? 1 : 0) : clamp01((tu - f.at) / f.dur);
       const end = M4.mul(Msheet, M4.mul(T(letX(f.ch), baseOf(f.i), SHEET.t / 2 + zL), S(emT)));
-      const start = M4.mul(starts[f.i], S(from.em));
+      const start = starts[f.i] ? M4.mul(starts[f.i], S(from.em)) : end;
       let M;
-      if (u <= 0) M = start;
+      if (PLACED) M = end;
+      else if (u <= 0) M = start;
       else if (u >= 1) M = end;
       else {
         // départ doux, arrivée franche ; elle descend à droite de la colonne, puis glisse dans sa ligne par la droite
@@ -623,7 +661,8 @@ export function createSheetScene(gl, opts) {
       // le cachet posé : son ombre de contact sur ce qu'il recouvre (rabat, dos, rabat du bas ; repère de chacun)
       const uSe0 = P_LOGO ? span(PO.seal, pp) : 0, aoK = SEAL_SHAPE.ao * sstep(0.6, 1, uSe0), sy = ENV.h / 2 - FLAP_H + 7;
       const aoOf = y => aoK > 0 ? [0, y, SEAL_D / 2, aoK] : null, pq = sealPQ();
-      card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...EP.back, ...(VE && VE.noBot ? { triB: [0, 0, 0, 0] } : {}), fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy + (ENV.h - ENV_BACK_H) / 2), sealQ: pq.sealQ });
+      if (VE && VE.vNotch) card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.6)), lod: 'envBackV', ...EP.back, pillow: [EP.back.pillow[0], 0, 1, 1], triB: [0, 0, 0, 0], clip: [2, ENV.h / 2, VE.vNotch, ENV.w / 2], fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy), sealQ: pq.sealQ });
+      else card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...EP.back, ...(VE && VE.noBot ? { triB: [0, 0, 0, 0] } : {}), fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy + (ENV.h - ENV_BACK_H) / 2), sealQ: pq.sealQ });
       if (!(VE && VE.noBot)) card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', ...EP.bot, fade: envFade, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2], ao: aoOf(sy), sealQ: pq.sealQ });
       const th = Math.PI * uFlap, hz = (1.9 + (VE ? VE.flapDz : 0)) * uFlap;   // (vitrine : le rabat se ferme sur la carte vierge)
       const Mf = M4.mul(Menv, M4.mul(M4.mul(T(0, ENV.h / 2, hz), M4.model(th, 0, 0)), T(0, FLAP_H / 2, 0)));

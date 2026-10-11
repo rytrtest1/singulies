@@ -311,11 +311,32 @@
 /* (11/10) les autres poèmes : un défilé sans fin ; toucher celle du milieu = lire (on s'approche du poème) */
 .ex-ring { position: relative; margin: 8px 0 0; overflow: visible; touch-action: pan-y pinch-zoom; user-select: none; -webkit-user-select: none; cursor: grab; }
 .ex-slot { position: absolute; left: 50%; top: 0; margin: 0; transform-origin: 50% 50%; will-change: transform, opacity; }
-.ex-slot img { display: block; width: 100%; height: auto; pointer-events: none; transition: transform .7s cubic-bezier(.2,.7,.3,1); transform-origin: 50% 39%; }
+.ex-slot img { display: block; width: 100%; height: auto; pointer-events: none; }
 .ex-slot.mid { cursor: zoom-in; }
-.ex-slot.read { cursor: zoom-out; }
-.ex-slot.read img { transform: scale(1.85); }
 .of-ex { overflow: hidden; padding-bottom: 40px; }
 .of-cap .of-vit { order: 1; } .of-cap .of-down { order: 2; }
 .of-cap { transition: opacity .4s ease; }
 .of.past .of-cap { opacity: 0; pointer-events: none; }
+
+/* (11/10) la description : deux lignes choisies, posées en bas de leur place (les points toujours à la même distance
+   du texte) ; le prix sur une ligne ; SINGULIES et son fil sous le bandeau (nav.js) */
+.of-cap .of-vit-t > i { white-space: pre-line; align-items: flex-end; padding-bottom: 2px; }
+.of-cap .of-vit-t { height: 3.1em; }
+.of-dots { margin-top: 4px; }
+.of-bar { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
+.of-bar .of-price { font-size: 12.5px; }
+.of-bar .of-price b { font-size: 13.5px; }
+.of-contact { display: block; margin: 8px auto 0; padding: 10px 14px; border: 0; background: none; cursor: pointer; font: 500 14px/1 'SG Garamond', Georgia, serif;
+  color: #ece8e0; opacity: .5; letter-spacing: .04em; }
+.of-contact:hover, .of-contact:focus-visible { opacity: .85; outline: none; }
+
+/* lire un poème : la feuille entière, presque plein écran (entre le bandeau et SINGULIES) */
+.ex-veil { position: fixed; left: 0; right: 0; z-index: 24; background: #060606; opacity: 0; transition: opacity .45s ease; cursor: zoom-out; }
+.ex-veil.on { opacity: 1; }
+.ex-big { position: fixed; z-index: 25; display: block; object-fit: contain; cursor: zoom-out; touch-action: pinch-zoom;
+  transition: left .5s cubic-bezier(.2,.7,.3,1), top .5s cubic-bezier(.2,.7,.3,1), width .5s cubic-bezier(.2,.7,.3,1), height .5s cubic-bezier(.2,.7,.3,1); }
+
+/* (11/10) le bandeau du bas paraît en fondu, à sa place (il glissait de tout en bas et passait sur SINGULIES) */
+.of-bar { transform: translateY(14px); opacity: 0; transition: transform .8s cubic-bezier(.2,.7,.3,1), opacity .8s ease; }
+.of.bar-on .of-bar { transform: none; opacity: 1; }
+.of.paying .of-bar, .of.env:not(.env-ready) .of-bar { transform: translateY(14px); opacity: 0; }

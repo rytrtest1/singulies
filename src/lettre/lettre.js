@@ -10,7 +10,7 @@ const host = document.querySelector('.ltp');
 const { main } = buildLettre(host, './');
 menuFonts('./').finally(() => requestAnimationFrame(() => requestAnimationFrame(() => main.classList.add('on'))));
 installCount('lettre');
-const nav = installNav({ current: 'lettre', base: './', host: { stage: () => [main], all: () => [host] },
+const nav = installNav({ current: 'lettre', base: './', host: { stage: () => [main], all: () => [host], center: () => { const r = main.querySelector('.lt-env').getBoundingClientRect(); return r.height ? { y: r.top + r.height / 2, h: r.height } : null; } },
   show: () => true, foot: () => true, shade: () => true, side: () => host.scrollTop < 40,
   center: () => { const im = main.querySelector('.lt-env').getBoundingClientRect(); return { y: im.top + im.height / 2, h: Math.max(160, innerHeight * 0.36) }; } });
 nav?.enter([host]);

@@ -400,7 +400,14 @@ float triSh(vec2 e, vec4 T) {
 float clipRim = 0.0;
 void main() {
   if (uSeal.x > 0.5 && uSealF.x < 1.0 && length(vMM) > sealRe(vMM) * sealS()) discard;   // la cire n'a pas encore coulé jusque-là
-  if (uClip.x > 0.5) {
+  if (uClip.x > 1.5) {
+    // (11/10) le dos d'une enveloppe, ouvert en V sous le rabat (comme une vraie) : on retire le V (pointe en bas, à
+    // uClip.z sous le bord haut uClip.y, ouvert sur toute la largeur 2·uClip.w) ; l'arête coupée accroche la lumière
+    float k = uClip.z / uClip.w, yv = uClip.y - uClip.z + k * abs(vMM.x);
+    float d = (vMM.y - yv) / sqrt(1.0 + k * k);
+    if (d > 0.0) discard;
+    clipRim = smoothstep(-0.45, 0.0, d);
+  } else if (uClip.x > 0.5) {
     // triangle à pointe adoucie : bords droits, pointe arrondie (≈ 5 mm)
     float yy = vMM.y - uClip.y, ax = abs(vMM.x), k = uClip.w / uClip.z;
     float d = (ax + k * yy - uClip.w) / sqrt(1.0 + k * k);

@@ -34,6 +34,7 @@ const PAGE = document.documentElement.dataset.page || '';
 const ALT = PAGE === 'alt';
 const offerModule = () => import('./alt/offre.js');
 import { SHEET_INSET, LIENS } from './alt/config.js';
+import { columnTargets } from './sheet/sheet.js';
 import { installNav } from './nav/nav.js';
 // la marge du bas de l'écran (barre de l'iPhone), en px
 let safeB = null;
@@ -42,6 +43,13 @@ let safeT = null;
 const safeTop = () => { if (safeT == null) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;top:0;width:1px;height:env(safe-area-inset-top);visibility:hidden'; document.body.appendChild(d); safeT = d.offsetHeight || 0; d.remove(); } return safeT; };
 // (11/10) la réserve du bandeau des pages, en haut (px, sans la marge du haut de l'iPhone)
 const NAV_TOP = 46;
+const SHEET_ZOOM = (W, H) => (W < H ? 0.8 : 0.86);
+// (11/10, Maxence) alt : le prénom ne monte plus puis ne redescend plus — ses lettres dérivent directement vers la place
+// qu'elles prendront dans la colonne de la feuille, et les lettres des autres prénoms qui les rechargent encore les
+// suivent ; la feuille apparaît ensuite sous elles. Une dérive lente, en courbe douce, chaque lettre un peu après la
+// précédente ; elles rapetissent en route jusqu'à la taille de la colonne.
+const DRIFT_AT = 0.5, DRIFT_T = 2.4, DRIFT_GAP = 0.03;
+const clamp01 = u => Math.min(1, Math.max(0, u));
 // (10/10) payé ici, page rechargée PENDANT la cérémonie : merci.html la reprend (la commande est gardée) — une seule fois,
 // et seulement dans les 20 minutes (Maxence 11/10 : après une réservation, alt.html renvoyait toujours vers merci.html)
 if (ALT) {
@@ -272,7 +280,7 @@ function loadCards(name) {
   cards = cardsModule.then(({ mountCards }) => mountCards({
     name, base: './', onExit: exitCards, hidden: true, firstQ: jeuQ,
     // version alternative : la feuille seule, tout de suite, qui reste ; l'offre se pose dessus quand le curseur respire
-    ...(ALT ? { insetBottom: () => SHEET_INSET + safeBottom(), insetTop: () => NAV_TOP + safeTop(), sheetZoom: (W, H) => (W < H ? 0.8 : 0.86), sheetFast: 1.8, noTopCard: true, vitrine: true, payInstead: true, onEnvelope: e => offerObj?.onEnvelope?.(e), sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
+    ...(ALT ? { insetBottom: () => SHEET_INSET + safeBottom(), insetTop: () => NAV_TOP + safeTop(), sheetZoom: SHEET_ZOOM, placed: !CFG.reduced, sheetFast: 1.8, noTopCard: true, vitrine: true, payInstead: true, onEnvelope: e => offerObj?.onEnvelope?.(e), sheetOnly: true, hold: true, onSheetReady: () => showOffer(true) } : {}),
     onEnd: () => {}, onDone: () => (S.paid ? finishPaid() : backToStart()),
   })).then((m) => {
     if (!m) throw new Error('webgl2');
@@ -291,12 +299,12 @@ function backToStart() {
 // retour depuis le paquet : l'accueil, prénom confirmé (comme un visiteur qui revient)
 function exitCards() { clearValidated(); location.reload(); }
 // fondu enchaîné : la scène des cartes dessine le même prénom, au même endroit, dans le même gris
-function handoff() {
+function handoff(started = false) {
   const m = cardsReady;
   S.handT = S.t;
   m.canvas.style.transition = `opacity ${S.trans == null ? 1.2 : HANDOFF}s ease`;
   m.canvas.style.pointerEvents = 'auto';
-  m.start();
+  if (!started) m.start();
   requestAnimationFrame(() => { m.canvas.style.opacity = '1'; });
   emitValidated(S.validatedName, S.trans == null);
 }
@@ -621,23 +629,69 @@ function frame(ts) {
       });
       window.__sg.plan = plan;
     }
-    if (T >= plan.tEnd) loadCards(S.validatedName.toUpperCase());   // tout est arrivé, le champ est éteint
+    const DRIFT = ALT && !CFG.reduced;
+    // (alt) la dérive vers la colonne : elle part pendant que les dernières lettres rechargent le prénom
+    if (DRIFT && !S.colT) {
+      const ct = columnTargets(S.validatedName.toUpperCase(), S.w, S.h, { adv: ch => atlas.glyphs[ch]?.adv ?? 0.6, capHeight: atlas.capHeight },
+        { insetTop: () => NAV_TOP + safeTop(), insetBottom: () => SHEET_INSET + safeBottom(), sheetZoom: SHEET_ZOOM });
+      S.colT = ct.length === here.length ? ct : 'non';
+    }
+    const drifting = DRIFT && Array.isArray(S.colT);
+    if (drifting && S.driftT == null && T >= plan.tEnd * DRIFT_AT) S.driftT = S.t;
+    const driftEnd = drifting && S.driftT != null ? S.driftT + DRIFT_GAP * (here.length - 1) + DRIFT_T : Infinity;
+    // la scène des cartes se prépare quand tout est arrivé et que rien ne bouge (les lettres posées, le champ éteint)
+    if (T >= plan.tEnd && (!drifting || S.t >= driftEnd)) loadCards(S.validatedName.toUpperCase());
+    if (drifting && S.handT == null && S.t >= driftEnd + 0.05) {
+      if (cardsReady === 'failed') { S.trans = null; plan = null; validate(); return; }
+      // la scène part d'abord, invisible ; on ne passe la main qu'une fois la feuille là (sinon une image noire)
+      if (cardsReady) {
+        if (S.cStart == null) { S.cStart = S.t; cardsReady.start(); }
+        if (cardsReady.sheet && S.t - S.cStart > 0.12) handoff(true);
+      }
+    }
     const restAt = plan.tEnd + (CFG.reduced ? 0.1 : ALT ? 0.15 : REST);
-    if (S.riseT == null && T >= restAt) {
+    if (!drifting && S.riseT == null && T >= restAt) {
       if (cardsReady === 'failed') { S.trans = null; plan = null; validate(); return; }   // pas de cartes : la version simple (image suivante)
       else if (cardsReady) { S.riseT = S.t; S.targets = cardsReady.nameTargets(S.w, S.h); }
     }
     const rise = CFG.reduced ? 0.9 : RISE / ALT_K;
     if (S.riseT != null && S.handT == null && S.t >= S.riseT + rise) handoff();
     if (S.handT != null && S.t - S.handT > HANDOFF + 0.15) { enterScene(); return; }
+    if (drifting && S.driftT != null) {
+      // le mot pivote d'un quart de tour en devenant colonne (la première lettre monte en haut, la dernière descend),
+      // ses lettres restent droites et se resserrent ; son centre glisse en douce courbe jusqu'à celui de la colonne.
+      // Personne ne croise personne. À l'arrivée, chaque lettre est exactement à sa place sur la feuille.
+      const tg = S.colT, n = here.length;
+      const ctr = a => { let x = 0, y = 0; for (const p of a) { x += p.x; y += p.y; } return { x: x / a.length, y: y / a.length }; };
+      const c0 = ctr(here), c1 = ctr(tg);
+      const sRow = Math.hypot(here[n - 1].x - here[0].x, here[n - 1].y - here[0].y) || 1;
+      const sCol = Math.hypot(tg[n - 1].x - tg[0].x, tg[n - 1].y - tg[0].y) || 1, sk = sCol / sRow;
+      const rot = (v, a) => ({ x: v.x * Math.cos(a) - v.y * Math.sin(a), y: v.x * Math.sin(a) + v.y * Math.cos(a) });
+      const DX = c1.x - c0.x, DY = c1.y - c0.y, DD = Math.hypot(DX, DY) || 1, bowC = DD * 0.18;
+      place = here.map((p, i) => {
+        const u = clamp01((S.t - S.driftT - DRIFT_GAP * i) / DRIFT_T);
+        const e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;      // départ et arrivée doux
+        const r = { x: p.x - c0.x, y: p.y - c0.y }, r1 = rot(r, Math.PI / 2);
+        const t1 = { x: tg[i].x - c1.x - r1.x * sk, y: tg[i].y - c1.y - r1.y * sk };   // le petit écart propre à chaque lettre
+        const rr = rot(r, Math.PI / 2 * e), k = 1 + (sk - 1) * e;
+        const bow = Math.sin(Math.PI * e) * bowC;                                      // le centre : une courbe douce
+        const x = c0.x + DX * e + (-DY / DD) * bow + rr.x * k + t1.x * e, y = c0.y + DY * e + (DX / DD) * bow + rr.y * k + t1.y * e;
+        const q = tg[i];
+        return { ch: p.ch, x, y, fs: p.fs + (q.fs - p.fs) * e, fsx: p.fs + ((q.fsx || q.fs) - p.fs) * e };
+      });
+      const du = clamp01((S.t - S.driftT) / (DRIFT_GAP * (n - 1) + DRIFT_T));
+      vig = 1 - smT(0, 1, du);
+    }
     if (!CFG.reduced) {
       const cap = atlas.capHeight;
       R = plan.mode === 'energie'
         ? energyFrame(plan, T, { name: here, capHeight: cap, ecx: (ch) => { const g = atlas.glyphs[ch]; return g ? (g.x0 + g.x1) / 2 : 0.3; },
           src: (fl) => { const p = field.letterScreen(fl.w, fl.i, focal, vx, vy), g = atlas.glyphs[fl.w.chars[fl.i]];
             return { x: p.x + (g.x0 + g.x1) / 2 * p.fs, y: p.y - 0.5 * cap * p.fs, fs: p.fs, blur: sigmaPx(focal, Math.max(0.5, p.z)) }; } })
-        : rechargeFrame(plan, T, { world: field.letterWorld, cam: field.cam, f: focal, vx, vy, name: here, capHeight: cap });
+        : rechargeFrame(plan, T, { world: field.letterWorld, cam: field.cam, f: focal, vx, vy, name: place, capHeight: cap });
       bright = R.bright;
+      // (alt) en dérivant, le prénom prend la clarté qu'il aura sur la feuille
+      if (drifting && S.driftT != null) { const g = smT(0, 1, clamp01((S.t - S.driftT) / (DRIFT_T + 0.4))); bright = bright.map(b => b + (NAME_GRAY - b) * g); }
     } else bright = here.map(() => 1);
     const tg = S.targets && S.targets.length === here.length ? S.targets : null;
     if (S.riseT != null) {
@@ -973,7 +1027,8 @@ if (ALT) {
       back: () => { if (S.portal) { S.portal = false; if (S.phase === 'input' && booted && !rafId && !document.hidden) { last = 0; rafId = requestAnimationFrame(frame); } } },
     },
     show: () => booted && !S.paid && !document.querySelector('.of.paying, .of.env'),
-    foot: () => booted && onNames() && !S.paid,
+    // (11/10, Maxence) SINGULIES et son fil sur toutes les pages : les prénoms, la feuille (sous RECEVOIR)
+    foot: () => booted && !S.paid && !document.querySelector('.of.paying, .of.env'),
     shade: () => booted && onNames(),
     solo: () => !!offerObj && offerObj.top > offerObj.storyLen() + 40,
     side: () => !!document.querySelector('#offre.on.bar-on') && (!offerObj || offerObj.top < 30),

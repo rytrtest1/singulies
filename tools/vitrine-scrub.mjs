@@ -16,7 +16,7 @@ await page.waitForTimeout(9000);
 await page.mouse.click(187, 406); await page.keyboard.type('CLEMENCE', { delay: 100 }); await page.keyboard.press('Enter');
 await page.waitForFunction(() => document.querySelector('#offre.bar-on'), null, { timeout: 40000 });
 await page.waitForTimeout(2500);
-const L = await page.evaluate(() => Math.round(innerHeight * 0.42) * 3);
+const L = await page.evaluate(() => { const k = window.__sg.cards.vitrine.state().keys; return Math.round(k[k.length - 1] * innerHeight * 0.18); });
 for (let i = 0; i <= STEPS; i++) {
   await page.evaluate(y => { const o = document.getElementById('offre'); o.style.scrollSnapType = 'none'; o.scrollTo({ top: y }); }, Math.round(L * i / STEPS));
   await page.waitForTimeout(700);
