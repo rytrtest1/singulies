@@ -483,12 +483,8 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     driveTo(y, PXS() * (back ? (k === 0 && cur === N - 1 ? 2.2 : 1.5) : 1));
   };
   root.querySelectorAll('.of-dot').forEach(b => b.addEventListener('click', () => goTo(+b.dataset.k)));
-  // (11/10) une seule grammaire : vertical = avancer dans la page (les étapes suivent le défilement), horizontal = la
-  // page voisine (glisser l'objet, nav.js) — plus de glissé de côté sur la description
-  if (nav && hole) nav.swipe(hole, 'poeme');
-  if (nav) { const cap = root.querySelector('.of-cap'); if (cap) nav.swipe(cap, 'poeme'); }
-  // (téléphone, une fois) l'objet esquisse le geste vers la page voisine
-  if (nav) setTimeout(() => { if (innerWidth < 760 && root.scrollTop < 30 && !busyMode()) nav.nudge(); }, over ? 3600 : 4200);
+  // (11/10) une seule grammaire : vertical = avancer dans la page (les étapes suivent le défilement) ; les pages : les
+  // flèches du bandeau (12/10 : plus de glissé pour changer de page, nav.js)
   // pendant l'enveloppe et le paiement : la feuille
   new MutationObserver(() => { if (busyMode() && cur !== 0) { cur = 0; slideTxt(nbsp(OBJETS[0].txt), -1); } }).observe(root, { attributes: true, attributeFilter: ['class'] });
   setTimeout(() => show(0), over ? 700 : 900);

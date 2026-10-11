@@ -20,7 +20,7 @@ export const PAGES = [
   { id: 'jeu', label: 'LE JEU', href: 'jeu.html' },
   { id: 'lettre', label: 'UN POEME PAR MOIS', href: 'lettre.html' },
 ];
-const K_NAV = 'sg.nav';
+const K_NAV = 'sg.nav', K_REVEAL = 'sg.nav.reveal';
 const STANDALONE = (() => { try { return !!navigator.standalone || matchMedia('(display-mode: standalone)').matches; } catch { return false; } })();
 const mod = (i, n) => ((i % n) + n) % n;
 const ring = i => PAGES[mod(i, PAGES.length)];
@@ -36,8 +36,10 @@ const CSS = `
   opacity: 0; transition: opacity .7s ease; }
 .nv.on { opacity: 1; }
 .nv-in { position: absolute; left: 0; right: 0; bottom: 0; height: 44px; overflow: hidden;
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--nv-m, 22%), #000 calc(100% - var(--nv-m, 22%)), transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0, #000 var(--nv-m, 22%), #000 calc(100% - var(--nv-m, 22%)), transparent 100%); }
+  -webkit-mask-image: linear-gradient(to right, transparent var(--nv-a, 0px), #000 calc(var(--nv-a, 0px) + var(--nv-m, 22%)), #000 calc(100% - var(--nv-a, 0px) - var(--nv-m, 22%)), transparent calc(100% - var(--nv-a, 0px)));
+  mask-image: linear-gradient(to right, transparent var(--nv-a, 0px), #000 calc(var(--nv-a, 0px) + var(--nv-m, 22%)), #000 calc(100% - var(--nv-a, 0px) - var(--nv-m, 22%)), transparent calc(100% - var(--nv-a, 0px))); }
+/* (12/10) avec les flèches : les noms s'effacent avant elles (jamais une flèche sur un nom) */
+.nv.ar { --nv-a: 40px; }
 .nv-track { position: absolute; left: 50%; top: 0; height: 44px; display: flex; align-items: center; gap: var(--nv-gap, 34px); white-space: nowrap;
   will-change: transform; }
 .nv-track.anim { transition: transform ${DUR}ms ${EASE}; }
@@ -66,6 +68,18 @@ const CSS = `
 .nv-shade.t { top: 0; height: calc(104px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 52%, rgba(6,6,6,0)); }
 .nv-shade.b { bottom: 0; height: calc(96px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 0, #060606 48%, rgba(6,6,6,0)); }
 .nv-shade.on { opacity: 1; }
+/* (12/10) les flèches des pages, aux deux bouts du bandeau : à droite la page suivante, à gauche la précédente */
+.nv-ar { position: absolute; bottom: 0; width: 44px; height: 44px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; -webkit-tap-highlight-color: transparent;
+  transition: opacity .7s ease, translate .7s ${EASE}; }
+.nv-ar.l { left: max(4px, env(safe-area-inset-left)); translate: 6px 0; }
+.nv-ar.r { right: max(4px, env(safe-area-inset-right)); translate: -6px 0; }
+.nv-ar svg { width: 9px; height: 16px; overflow: visible; }
+.nv-ar path { fill: none; stroke: #ece8e0; stroke-width: 1.15; stroke-linecap: round; stroke-linejoin: round; }
+.nv.on .nv-ar.in { opacity: .55; pointer-events: auto; translate: 0 0; }
+.nv.on .nv-ar.in:hover, .nv.on .nv-ar.in:focus-visible { opacity: .9; outline: none; }
+.nv.on .nv-ar.in.go.l { translate: -3px 0; } .nv.on .nv-ar.in.go.r { translate: 3px 0; }
+.nv.solo .nv-ar { opacity: 0 !important; pointer-events: none !important; }
 @media (prefers-reduced-motion: reduce) { .nv-track.anim { transition-duration: .01s; } }
 `;
 
@@ -117,6 +131,14 @@ export function installNav(opts) {
   }
   // (12/10, Maxence) plus d'aperçus des pages voisines (des images fixes qui paraissaient sur d'autres écrans) : quand on
   // glisse, seuls le bandeau et la page en cours bougent ; la page d'arrivée entre de l'autre côté
+  const arrow = d => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'nv-ar ' + (d < 0 ? 'l' : 'r');
+    b.innerHTML = `<svg viewBox="0 0 9 16" aria-hidden="true"><path d="${d < 0 ? 'M8 1 L1 8 L8 15' : 'M1 1 L8 8 L1 15'}"/></svg>`;
+    b.addEventListener('click', () => { stopReveal(); go(d); });
+    root.appendChild(b);
+    return b;
+  };
+  const arL = arrow(-1), arR = arrow(1);
   document.body.append(shadeT, shadeB, root, foot);
   build();
 
@@ -196,6 +218,10 @@ export function installNav(opts) {
     if (on !== shown) { shown = on; root.classList.toggle('on', on); if (on) layout(); }
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
     root.classList.toggle('solo', solo);
+    if (on && !arrowsOn && !revealing) {
+      if (!atHome() || !opts.ready) showArrows();
+      else if (opts.ready()) { let done = false; try { done = !!sessionStorage.getItem(K_REVEAL); } catch { /* */ } if (done || reduced || (opts.quiet && !opts.quiet())) showArrows(); else reveal(); }
+    }
     shadeT.classList.toggle('on', sh && on); shadeB.classList.toggle('on', sh && f);
     if (shown || footOn) wake();
   }
@@ -240,6 +266,7 @@ export function installNav(opts) {
   // fondu ; le fil du bandeau coulisse avec elles. Rien d'autre ne paraît à l'écran (plus d'aperçus).
   async function go(d, opt = {}) {
     if (busy || !d) return;
+    stopReveal();
     const target = ring(cur + d), dir = Math.sign(d), fromId = ring(cur).id, from = pages[fromId] || {};
     count('nav/' + target.id);
     const inDoc = !!(pages[target.id] || MOUNTABLE[target.id]);
@@ -318,51 +345,39 @@ export function installNav(opts) {
     build(); layout(); tick();
   });
 
-  // ---- l'objet suit le doigt (glisser horizontalement) = la page voisine (11/10 : plus de toucher des bords — toucher
-  //      veut dire agir sur ce qu'on touche, jamais une zone invisible) ----
-  function swipe(el, page = null) {
-    let x0 = null, y0 = 0, t0 = 0, horiz = null;
-    const mine = () => (page ? ring(cur).id === page : true);
-    const follow = dx => {
-      const pg = pgOf(ring(cur).id), c = objC();
-      for (const s of els(pg, false)) put(s, dx, 1, 1, c.y, false);
-      setX(centers[C] - dx / Math.max(innerWidth, 1) * ((centers[C + 1] - centers[C - 1]) / 2 || 200), false);
+  // ---- (12/10, Maxence) plus de glissé pour changer de page : deux flèches. Après l'intro de la page des prénoms, une
+  //      fois par visite, la flèche de droite paraît et le bandeau glisse pour montrer ce qu'il y a à droite, puis celle
+  //      de gauche, et il montre la gauche (« UN POEME PAR MOIS » : qu'on ait envie d'y aller) ; puis il revient. Le
+  //      moindre geste arrête la démonstration (les deux flèches restent). ----
+  let arrowsOn = false, revealing = false, rvT = [];
+  function showArrows() { arrowsOn = true; root.classList.add('ar'); arL.classList.add('in'); arR.classList.add('in'); }
+  function stopReveal() {
+    if (!revealing) return;
+    revealing = false; rvT.forEach(clearTimeout); rvT = [];
+    arL.classList.remove('go'); arR.classList.remove('go');
+    removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true);
+    if (!busy) setX(centers[C], true);
+    showArrows();
+  }
+  function reveal() {
+    revealing = true; root.classList.add('ar');
+    try { sessionStorage.setItem(K_REVEAL, '1'); } catch { /* */ }
+    addEventListener('pointerdown', stopReveal, true); addEventListener('keydown', stopReveal, true);
+    const at = (ms, f) => rvT.push(setTimeout(() => { if (revealing && !busy) f(); }, ms));
+    // jusqu'où glisser : le voisin lisible en entier, juste avant le fondu du bord (flèche + marge du masque)
+    const shift = d => {
+      const A = 40 + (mobile() ? 0.12 : 0.07) * innerWidth + 8, bx = boxes[C + d];
+      if (!bx) return 0;
+      return d > 0 ? Math.max(0, bx.r - innerWidth / 2 + A - centers[C]) : Math.min(0, innerWidth / 2 + bx.l - A - centers[C]);
     };
-    const release = (dx, v) => {
-      if (Math.abs(dx) > Math.min(90, innerWidth * 0.22) || (Math.abs(dx) > 30 && Math.abs(v) > 0.45)) { go(dx < 0 ? 1 : -1); return; }
-      const pg = pgOf(ring(cur).id), c = objC();
-      for (const s of els(pg, false)) put(s, 0, 1, 1, c.y, true);
-      setX(centers[C], true);
-    };
-    const start = (x, y) => { if (busy || !shown || !mine()) return; x0 = x; y0 = y; t0 = performance.now(); horiz = null; };
-    const move = (x, y) => {
-      if (x0 == null) return;
-      const dx = x - x0, dy = y - y0;
-      if (horiz == null && Math.hypot(dx, dy) > 10) {
-        horiz = Math.abs(dx) > 1.3 * Math.abs(dy);
-        // (on fait glisser une page, on ne sélectionne pas son texte)
-        if (horiz) { try { getSelection().removeAllRanges(); } catch { /* */ } document.documentElement.style.userSelect = document.documentElement.style.webkitUserSelect = 'none'; }
-      }
-      if (horiz) follow(dx);
-    };
-    const end = x => {
-      if (x0 == null) return;
-      const dx = x - x0, v = dx / Math.max(1, performance.now() - t0); x0 = null;
-      document.documentElement.style.userSelect = document.documentElement.style.webkitUserSelect = '';
-      if (horiz) release(dx, v);
-    };
-    // au doigt : les événements tactiles (plus sûrs que les pointeurs sur iPhone quand la page défile verticalement)
-    el.addEventListener('touchstart', e => { if (e.touches.length === 1) start(e.touches[0].clientX, e.touches[0].clientY, e.target); else x0 = null; }, { passive: true });
-    el.addEventListener('touchmove', e => { if (x0 != null && e.touches.length === 1) move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-    el.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t) end(t.clientX, t.clientY, e); });
-    el.addEventListener('touchcancel', () => { if (x0 != null && horiz) release(0, 0); x0 = null; }, { passive: true });
-    // à la souris
-    el.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button === 0) start(e.clientX, e.clientY, e.target); }, { passive: true });
-    el.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') move(e.clientX, e.clientY); }, { passive: true });
-    el.addEventListener('pointerup', e => { if (e.pointerType === 'mouse') end(e.clientX, e.clientY, null); });
+    at(0, () => { arR.classList.add('in', 'go'); setX(centers[C] + shift(1), true); });
+    at(DUR + 1300, () => { arR.classList.remove('go'); setX(centers[C], true); });
+    at(2 * DUR + 1700, () => { arL.classList.add('in', 'go'); setX(centers[C] + shift(-1), true); });
+    at(3 * DUR + 3500, () => { arL.classList.remove('go'); setX(centers[C], true); });
+    at(4 * DUR + 3600, () => { revealing = false; removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true); showArrows(); });
   }
 
-  // ---- l'arrivée par rechargement : la page entre du côté d'où l'on vient ----
+  // ---- l'arrivée par rechargement  // ---- l'arrivée par rechargement : la page entre du côté d'où l'on vient ----
   function enter(list) {
     if (!arrived) return;
     const c = objC(), l = list.filter(Boolean);
@@ -370,24 +385,7 @@ export function installNav(opts) {
     void document.body.offsetWidth;
     for (const el of l) put(el, 0, 1, 1, c.y, true);
   }
-  // ---- une seule fois (téléphone) : l'objet esquisse le geste — vers la droite d'abord, puis vers la gauche (« … PAR
-  //      MOIS » se montre en dernier) ----
-  function nudge() {
-    try { if (sessionStorage.getItem('sg.nav.nudge')) return; sessionStorage.setItem('sg.nav.nudge', '1'); } catch { /* */ }
-    if (reduced || busy) return;
-    const list = els(pgOf(ring(cur).id), false), c = objC();
-    const k = [[-30, 460], [0, 520], [30, 460], [0, 560]];
-    let i = 0;
-    const stepN = () => {
-      if (busy || i >= k.length) return;
-      const [dx, ms] = k[i++];
-      for (const el of list) { put(el, dx, 1, 1, c.y, false); el.style.transition = `translate ${ms}ms ${EASE}`; }
-      setX(centers[C] - dx * 0.6, true);
-      if (i < k.length) setTimeout(stepN, ms + (i === 2 ? 260 : 80));
-    };
-    stepN();
-  }
-  const api = { go, goTo, swipe, enter, nudge, layout, get arrived() { return arrived; }, get busy() { return busy; }, get page() { return ring(cur).id; },
+  const api = { go, goTo, enter, layout, get arrived() { return arrived; }, get busy() { return busy; }, get page() { return ring(cur).id; },
     home: () => goTo(opts.current) };
   return api;
 }

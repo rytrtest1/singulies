@@ -14,4 +14,3 @@ const nav = installNav({ current: 'lettre', base: './', host: { stage: () => [ma
   show: () => true, foot: () => true, shade: () => true, side: () => host.scrollTop < 40,
   center: () => { const im = main.querySelector('.lt-env').getBoundingClientRect(); return { y: im.top + im.height / 2, h: Math.max(160, innerHeight * 0.36) }; } });
 nav?.enter([host]);
-if (nav) nav.swipe(host, 'lettre');

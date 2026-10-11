@@ -1038,14 +1038,17 @@ if (ALT) {
     // (11/10, Maxence) SINGULIES et son fil sur toutes les pages : les prénoms, la feuille (sous RECEVOIR)
     foot: () => booted && !S.paid && !document.querySelector('.of.paying, .of.env'),
     shade: () => booted && onNames(),
+    // (12/10) les flèches des pages paraissent une fois l'intro finie (ETERNEL tapé puis effacé) ; la démonstration
+    // (le bandeau montre la droite puis la gauche) seulement si l'on n'a encore rien écrit
+    ready: () => booted && (!ALT || !!S.introOff || S.phase !== 'input'),
+    quiet: () => !model.text && S.phase === 'input' && S.trans == null,
     solo: () => !!offerObj && offerObj.top > offerObj.storyLen() + 40,
     side: () => !!document.querySelector('#offre.on.bar-on') && (!offerObj || offerObj.top < 30),
     center: () => { const top = NAV_TOP + safeTop(), bot = innerHeight - SHEET_INSET - safeBottom(); return { y: (top + bot) / 2, h: (bot - top) * 0.82 }; },
   });
-  // venue par le fil (rechargement) : le champ entre du côté d'où l'on vient ; glisser le champ = la page voisine
+  // venue par le fil (rechargement) : le champ entre du côté d'où l'on vient
   nav?.enter([canvas]);
   window.__nav = nav;   // (essais)
-  if (nav) nav.swipe(canvas, 'poeme');
 }
 if (PAGE === 'jeu') {
   const st = document.createElement('style'); st.textContent = '#jeu .jeu-back { display: none !important; }'; document.head.appendChild(st);

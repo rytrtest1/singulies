@@ -18,7 +18,6 @@ export async function mountPage(id, { base = './', reduced = false, nav }) {
     const m = id === 'lettre' ? await import('../lettre/content.js') : await import('../livres/content.js');
     const { main } = (id === 'lettre' ? m.buildLettre : m.buildLivres)(host, base);
     main.classList.add('on');
-    nav.swipe(host, id);
     const obj = main.querySelector('.lt-env'), others = () => [...main.children].filter(e => e !== obj);
     // l'objet (l'enveloppe, le livre) voyage ; le reste de la page paraît sur place
     return { stage: () => [obj, ...others()], all: () => [host], obj: () => [obj], rest: others, foot: true, side: () => host.scrollTop < 40,
