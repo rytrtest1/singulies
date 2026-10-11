@@ -194,6 +194,7 @@ export function createSheetScene(gl, opts) {
   // la signature (09/10, Maxence : « comme à la machine, c'est ce que je fais ») : - ETERNEL -, calée à gauche sur la
   // colonne, juste sous la dernière ligne de l'acrostiche (10/10 : on signe le poème), tapée frappe par frappe une fois les lignes
   // tracées. Encre propre à la feuille (face lue = face 0 : inkBack), 8 px/mm, mise à jour par zone.
+  const SIG_ON = false;
   const SIG = { text: '- ETERNEL -', px: 8, ch: 0.085 };
   SIG.x = COL_X;
   SIG.y = baseOf(nLines - 1) - Math.max(lead * 1.6, 14);   // (10/10, Maxence) un peu d'air entre le poème et la signature
@@ -525,7 +526,8 @@ export function createSheetScene(gl, opts) {
       quads.env = screenQuad(Menv, ENV.w, ENV.h);
     } else quads.env = null;
     // la signature : frappe par frappe (le retour la défait) ; la texture n'est créée qu'au moment de taper
-    { const n = sigCount(tu); if (n !== sigN && (sigTex || n > 0)) renderSig(n); }
+    // (11/10, Maxence) plus de signature : trop petite pour se lire, inutile (SIG_ON pour la remettre)
+    if (SIG_ON) { const n = sigCount(tu); if (n !== sigN && (sigTex || n > 0)) renderSig(n); }
     if (sIn > 0.004 && !hideInside) card.draw(vp, eye, P, { model: Msheet, lod: 'sheet', fade: sIn * sheetFade, shade: dimS, occ: C?.occ || vOcc || null, ...sheetV,
       ...(sigTex ? { inkBack: sigTex, inkRG: true } : {}),
       warp: sheetV.warp.map(x => x * (1 - uR)),

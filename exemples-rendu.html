@@ -7,11 +7,11 @@
 <style>
   @font-face { font-family: 'SG Garamond'; src: url(./fonts/EBGaramond-500.woff2) format('woff2'); font-weight: 500; }
   html, body { margin: 0; background: #060606; }
-  #c { display: block; width: 900px; height: 1240px; }
+  #c { display: block; width: 1350px; height: 1860px; }
 </style>
 </head>
 <body>
-<canvas id="c" width="900" height="1240"></canvas>
+<canvas id="c" width="1350" height="1860"></canvas>
 <script type="module">
   // Les poèmes d'exemple de alt.html, rendus une fois par le vrai moteur (tools/exemples-shot.mjs les enregistre dans
   // public/exemples/) : la feuille A5 noire, le prénom en colonne (lettres en relief, comme la feuille de la personne),
@@ -60,8 +60,7 @@
     const full = new OffscreenCanvas(Math.round(SHEET.w * PX), Math.round(SHEET.h * PX)), fx = full.getContext('2d');
     fx.fillStyle = '#000'; fx.fillRect(0, 0, full.width, full.height);
     rests.forEach((r, i) => typeLines(fx, PX * k, [r], (SHEET.w / 2 + x0) / k, (SHEET.h / 2 - baseOf(i)) / k, 0, seed * 31 + i * 7, 1, '#fff'));
-    const sigY = baseOf(n - 1) - Math.max(lead * 1.6, 14);
-    typeLines(fx, PX, ['- ETERNEL -'], SHEET.w / 2 + colX, SHEET.h / 2 - sigY, 0, 4049, 1, '#fff');
+    // (11/10) plus de signature (comme la feuille de la personne)
     const sheetInk = card.makeInk(full, true);
 
     // la carte : une question au hasard, côté question, posée en bas de la feuille comme dans le parcours

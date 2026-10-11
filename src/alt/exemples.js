@@ -49,40 +49,103 @@ function sheetHtml(ex) {
   const fs = Math.min(3.2, 78 / (long * 0.6), 68 / ((ex.vers.length + 2) * 1.95));   // (le haut à 22, la carte dès 98 : cqw)
   const lines = ex.vers.map(v => v ? `<div class="ex-l"><b>${esc(v[0])}</b><span>${esc(v.slice(1))}</span></div>` : '<div class="ex-l ex-gap">&nbsp;</div>').join('');
   const dos = new URL('simple/dos.jpg', document.baseURI).href;
-  return `<div class="sheet ex-sheet"><div class="ex-poem" style="font-size:${fs.toFixed(2)}cqw">${lines}<div class="ex-sig">- ETERNEL -</div></div>
+  return `<div class="sheet ex-sheet"><div class="ex-poem" style="font-size:${fs.toFixed(2)}cqw">${lines}</div>
     <div class="ex-card ex-dos" style="background-image:url('${dos}')"></div></div>`;
 }
 
+// (11/10, Maxence) le défilé : sans fin (après le dernier, le premier revient, dans les deux sens), au doigt, à la souris
+// ou en touchant un voisin ; le poème doit se lire : toucher la feuille du milieu s'en approche (le bloc du poème remplit
+// la largeur, la frappe se lit), toucher encore ou glisser = la feuille entière. Celle du milieu grande et nette, les
+// voisines plus petites et en fondu.
 export function mountExemples(host) {
-  // des photos de poèmes envoyés, s'il y en a ; sinon les poèmes réels, posés sur la feuille dessinée
-  const img = src => `<img class="ex-photo ex-rendu" src="${esc(new URL(src, document.baseURI).href)}" alt="Un acrostiche tapé à la machine sur une feuille noire, signé Eternel" loading="lazy" decoding="async">`;
-  const slidesHtml = ACROSTICHES.length
-    ? ACROSTICHES.map(src => `<figure class="ex-slide">${img(src)}</figure>`).join('')
-    : EXEMPLES.map((ex, i) => `<figure class="ex-slide" data-i="${i}">${img('exemples/' + ex.vers.map(v => v[0]).join('').toLowerCase() + '.jpg')}</figure>`).join('');
-  host.innerHTML = `<div class="ex-track">${slidesHtml}</div>`;
-  // une image absente : la feuille dessinée
-  host.querySelectorAll('figure[data-i] img').forEach(im => { im.onerror = () => { im.parentElement.innerHTML = sheetHtml(EXEMPLES[+im.parentElement.dataset.i]); }; });
-  const track = host.querySelector('.ex-track'), slides = [...track.children];
-  // le milieu grand et net, les voisins plus petits et en fondu (selon la distance au centre)
-  const look = () => {
-    const c = track.scrollLeft + track.clientWidth / 2;
-    for (const s of slides) {
-      const m = s.offsetLeft - track.offsetLeft + s.offsetWidth / 2, d = Math.min(1, Math.abs(m - c) / s.offsetWidth);
-      s.style.transform = `scale(${(1 - 0.16 * d).toFixed(3)})`;
-      s.style.opacity = (1 - 0.6 * d).toFixed(3);
+  const srcs = ACROSTICHES.length ? ACROSTICHES : EXEMPLES.map(ex => 'exemples/' + ex.vers.filter(Boolean).map(v => v[0]).join('').toLowerCase() + '.jpg');
+  const N = srcs.length;
+  if (!N) return;
+  const url = src => new URL(src, document.baseURI).href;
+  host.innerHTML = '<div class="ex-ring"></div>';
+  const ringEl = host.firstChild;
+  // cinq places (−2 … 2) : chacune montre l'exemple (centre + place) modulo N
+  const slots = [-2, -1, 0, 1, 2].map(k => {
+    const f = document.createElement('figure'); f.className = 'ex-slot';
+    const im = new Image(); im.decoding = 'async'; im.alt = ''; im.draggable = false;
+    im.onerror = () => { const i = +f.dataset.i; if (!ACROSTICHES.length && EXEMPLES[i]) { im.remove(); f.insertAdjacentHTML('beforeend', sheetHtml(EXEMPLES[i])); } };
+    f.appendChild(im); ringEl.appendChild(f);
+    return { f, im, k };
+  });
+  const mod = i => ((i % N) + N) % N;
+  let center = 1, off = 0, reading = false, anim = 0;   // off : décalage en places (le doigt), centre : l'exemple au milieu
+  const label = i => { const ex = EXEMPLES[i]; return ex ? 'Acrostiche de ' + ex.vers.filter(Boolean).map(v => v[0]).join('') + ', tapé à la machine sur une feuille noire' : 'Un acrostiche tapé à la machine'; };
+  function assign() {
+    for (const s of slots) {
+      const i = mod(center + s.k);
+      if (s.f.dataset.i !== String(i)) { s.f.dataset.i = i; const im = s.f.querySelector('img'); if (im) { im.src = url(srcs[i]); im.alt = label(i); } }
     }
+  }
+  let w = 280;
+  function layout() {
+    const W = host.clientWidth || innerWidth;
+    w = Math.round(Math.min(W * 0.72, 340));
+    ringEl.style.height = Math.round(w * 1240 / 900) + 'px';
+    for (const s of slots) s.f.style.width = w + 'px';
+    place(false);
+  }
+  function place(smooth) {
+    for (const s of slots) {
+      const p = s.k + off, d = Math.min(1.6, Math.abs(p));
+      const x = p * w * 0.86, sc = 1 - 0.16 * Math.min(1, d);
+      s.f.style.transition = smooth ? 'transform .5s cubic-bezier(.2,.7,.3,1), opacity .5s' : 'none';
+      s.f.style.transform = `translateX(${(x - w / 2).toFixed(1)}px) scale(${sc.toFixed(3)})`;
+      s.f.style.opacity = reading && s.k !== 0 ? '0' : (1 - 0.6 * Math.min(1, d)).toFixed(3);
+      s.f.style.zIndex = String(10 - Math.round(d * 2));
+      s.f.classList.toggle('mid', s.k === 0 && Math.abs(off) < 0.5);
+    }
+  }
+  // aller d'une place (±1) : on glisse, puis on recentre sans que rien ne bouge (les images changent de place)
+  function step(d) {
+    if (reading) read(false);
+    off = -d; place(true);
+    clearTimeout(anim);
+    anim = setTimeout(() => { center = mod(center + d); off = 0; assign(); place(false); }, 500);
+  }
+  // lire : la feuille du milieu s'approche de son poème (le bloc du poème, centré, à 39 % de la hauteur)
+  function read(on) {
+    reading = on;
+    const mid = slots[2].f;
+    mid.classList.toggle('read', on);
+    host.classList.toggle('reading', on);
+    place(true);
+  }
+  // le doigt / la souris
+  let x0 = null, y0 = 0, t0 = 0, horiz = null, moved = false;
+  const start = (x, y) => { x0 = x; y0 = y; t0 = performance.now(); horiz = null; moved = false; };
+  const move = (x, y) => {
+    if (x0 == null) return;
+    const dx = x - x0, dy = y - y0;
+    if (horiz == null && Math.hypot(dx, dy) > 8) { horiz = Math.abs(dx) > 1.2 * Math.abs(dy); if (horiz && reading) read(false); }
+    if (horiz) { moved = true; off = Math.max(-1.2, Math.min(1.2, dx / (w * 0.86))); place(false); }
   };
-  // largeur : 72 % de la bande (320 px au plus), centrée — les voisins dépassent de chaque côté
-  const size = () => {
-    const W = track.clientWidth, w = Math.round(Math.min(W * 0.72, 320));
-    for (const s of slides) s.style.flexBasis = w + 'px';
-    track.style.paddingLeft = track.style.paddingRight = Math.round((W - w) / 2) + 'px';
-    look();
+  const end = (x, target) => {
+    if (x0 == null) return;
+    const dx = x - x0, v = dx / Math.max(1, performance.now() - t0); x0 = null;
+    if (horiz) {
+      if (Math.abs(dx) > w * 0.22 || Math.abs(v) > 0.4) step(dx < 0 ? 1 : -1);
+      else { off = 0; place(true); }
+      return;
+    }
+    if (moved) return;
+    // un toucher : sur un voisin, il vient au milieu ; sur celui du milieu, on lit (ou on revient à la feuille entière)
+    const slot = slots.find(s => s.f.contains(target));
+    if (!slot) return;
+    if (slot.k === 0) read(!reading); else step(Math.sign(slot.k));
   };
-  track.addEventListener('scroll', () => requestAnimationFrame(look), { passive: true });
-  addEventListener('resize', size);
-  size();
-  // départ sur le deuxième : on voit qu'il y en a de chaque côté
-  setTimeout(() => { const s = slides[1]; if (s) track.scrollLeft = s.offsetLeft - track.offsetLeft + s.offsetWidth / 2 - track.clientWidth / 2; look(); }, 50);
-  look();
+  ringEl.addEventListener('touchstart', e => { if (e.touches.length === 1) start(e.touches[0].clientX, e.touches[0].clientY); else x0 = null; }, { passive: true });
+  ringEl.addEventListener('touchmove', e => { if (e.touches.length === 1) move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+  ringEl.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t) end(t.clientX, document.elementFromPoint(t.clientX, t.clientY)); }, { passive: true });
+  ringEl.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') start(e.clientX, e.clientY); });
+  ringEl.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') move(e.clientX, e.clientY); });
+  ringEl.addEventListener('pointerup', e => { if (e.pointerType === 'mouse') end(e.clientX, e.target); });
+  addEventListener('keydown', e => { if (!host.isConnected || !host.getBoundingClientRect().top || host.getBoundingClientRect().top > innerHeight * 0.6) return; if (e.key === 'ArrowLeft') step(-1); else if (e.key === 'ArrowRight') step(1); });
+  addEventListener('resize', layout);
+  assign(); layout();
+  return { step, read };
 }

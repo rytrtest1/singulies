@@ -6,17 +6,22 @@
 function rng(seed) { let s = seed >>> 0 || 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 
 // le fil cousu entre ha et hb (px), à la hauteur y0, dans un contexte 2D déjà réglé (aussi : le bandeau des pages, nav.js)
-export function paintThread(x, ha, hb, y0, seed = 7, TH = 1.25) {
+// o : { sag (px, l'affaissement au milieu), sag2 (px, une légère ondulation en S), holes ([début, fin] : un trou à ce
+// bout — sans trou, le fil vient de plus loin, du bord de l'écran) }
+export function paintThread(x, ha, hb, y0, seed = 7, TH = 1.25, o = {}) {
+  const sag = o.sag ?? 0.45, sag2 = o.sag2 ?? 0, holes = o.holes || [true, true];
   const R = rng(seed);
   // le chemin : à peine affaissé, à peine irrégulier
   const P = [];
-  for (let px = ha; px <= hb + 0.01; px += 1) { const u = (px - ha) / (hb - ha); P.push([px, y0 + 0.45 * Math.sin(Math.PI * u) + 0.12 * Math.sin(px * 0.41 + seed)]); }
+  for (let px = ha; px <= hb + 0.01; px += 1) { const u = (px - ha) / (hb - ha); P.push([px, y0 + sag * Math.sin(Math.PI * u) + sag2 * Math.sin(2 * Math.PI * u) + 0.12 * Math.sin(px * 0.41 + seed)]); }
   x.lineCap = 'round'; x.lineJoin = 'round';
   const line = (dyy, col, wd, a = 0, b = P.length) => { x.beginPath(); for (let i = a; i < b; i++) (i > a ? x.lineTo : x.moveTo).call(x, P[i][0], P[i][1] + dyy); x.strokeStyle = col; x.lineWidth = wd; x.stroke(); };
   // ombre portée très douce, le corps, le modelé (haut éclairé, bas plus sombre)
   line(0.9, 'rgba(0,0,0,.5)', TH + 1.4);
-  line(0, 'rgb(28,27,25)', TH, 2, P.length - 2);
-  line(0, 'rgb(18,17,16)', TH * 0.7, 0, 3); line(0, 'rgb(18,17,16)', TH * 0.7, P.length - 3, P.length);   // il plonge : plus fin, plus sombre
+  const a0 = holes[0] ? 2 : 0, b0 = holes[1] ? P.length - 2 : P.length;
+  line(0, 'rgb(28,27,25)', TH, a0, b0);
+  if (holes[0]) line(0, 'rgb(18,17,16)', TH * 0.7, 0, 3);
+  if (holes[1]) line(0, 'rgb(18,17,16)', TH * 0.7, P.length - 3, P.length);   // il plonge : plus fin, plus sombre
   line(-TH * 0.2, 'rgba(120,116,108,.24)', TH * 0.42, 2, P.length - 2);
   line(TH * 0.3, 'rgba(0,0,0,.35)', TH * 0.3, 2, P.length - 2);
   // la torsion : de fins reflets en biais, irréguliers
@@ -36,7 +41,8 @@ export function paintThread(x, ha, hb, y0, seed = 7, TH = 1.25) {
     x.strokeStyle = `rgba(125,120,112,${(0.1 + 0.15 * R()).toFixed(3)})`; x.lineWidth = 0.35; x.stroke();
   }
   // les deux trous : le fil y rentre (le noir du trou, un liseré de lumière sur le bord bas, côté opposé à la lampe)
-  for (const hx of [ha, hb]) {
+  for (const hx of [holes[0] ? ha : null, holes[1] ? hb : null]) {
+    if (hx == null) continue;
     const hy = y0 + 0.1;
     x.beginPath(); x.ellipse(hx, hy, 1.15, 0.85, 0, 0, Math.PI * 2); x.fillStyle = 'rgb(2,2,2)'; x.fill();
     x.beginPath(); x.ellipse(hx, hy, 1.25, 0.95, 0, 0.15 * Math.PI, 0.85 * Math.PI); x.strokeStyle = 'rgba(130,126,118,.28)'; x.lineWidth = 0.4; x.stroke();

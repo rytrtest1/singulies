@@ -80,11 +80,20 @@ export function createVitrine(o) {
   // (qui reste au même point) jusqu'à se coucher
   const ENV_Z = -0.2, SEAL_L = (ENV.h / 2 - FLAP_H + 7) * ENV_K, PIV = [SEAL_L, 0];
   const rzOf = () => -Math.PI / 2 * (1 - ease(span(1.9, 3.1, r2())));
-  function envRel() {
-    const rz = rzOf(), us = ease(span(0.6, 1.8, r2()));
-    const cx = PIV[0] + SEAL_L * Math.sin(rz), cy = PIV[1] - SEAL_L * Math.cos(rz);   // centre = pivot − R(rz)·(0, SEAL_L)
-    return M4.mul(M4.mul(T(cx - (ENV.h * ENV_K + 40) * (1 - us), cy, ENV_Z), M4.model(0, 0, rz)), S(ENV_K));
+  // (11/10, Maxence : « tout doit être bien centré ») : pendant qu'elle tourne, elle glisse aussi jusqu'au centre — couchée,
+  // elle est au milieu de la vue (le cachet n'est plus un point fixe, il se déplace un peu avec elle)
+  const landU = () => ease(span(1.9, 3.1, r2()));
+  function envCenter() {
+    const rz = rzOf(), us = ease(span(0.6, 1.8, r2())), u = landU();
+    const cx = PIV[0] + SEAL_L * Math.sin(rz) - u * SEAL_L, cy = PIV[1] - SEAL_L * Math.cos(rz) + u * SEAL_L;   // centre = pivot − R(rz)·(0, SEAL_L), recentré
+    return [cx - (ENV.h * ENV_K + 40) * (1 - us), cy];
   }
+  function envRel() {
+    const [cx, cy] = envCenter();
+    return M4.mul(M4.mul(T(cx, cy, ENV_Z), M4.model(0, 0, rzOf())), S(ENV_K));
+  }
+  // le cachet, là où il est (repère de la feuille) : centre + R(rz)·(0, SEAL_L)
+  function sealAt() { const [cx, cy] = envCenter(), rz = rzOf(); return [cx - SEAL_L * Math.sin(rz), cy + SEAL_L * Math.cos(rz)]; }
   // le rabat se referme (fin de l'étape 2), puis la cire et le cachet (étape 3)
   // (11/10) la cire n'arrive qu'à l'étape 3 (« le tout scellé à la cire ») : l'étape 2 s'arrête rabat fermé, cire absente ;
   // à l'étape 3, la vue s'approche, puis la cire et le cachet à leur allure réelle
@@ -131,12 +140,17 @@ export function createVitrine(o) {
     const lg = c => ({ cx: c.cx, cy: c.cy, lD: Math.log(c.D) });
     const mixC = (a, b, u) => ({ cx: lerp(a.cx, b.cx, u), cy: lerp(a.cy, b.cy, u), lD: lerp(a.lD, b.lD, u) });
     let c = lg(f.A);
-    if (vt > K[2]) c = mixC(c, lg(frameFor(SY + PIV[1] - 44, SY + PIV[1] + 44, PIV[0] - 48, PIV[0] + 48, 96, W, H)), ease(span(0, 1.1, r3())));
+    // couchée, l'enveloppe (217 mm) est plus large que la feuille : la vue recule juste assez pour qu'elle tienne (92 %
+    // de la largeur), en gardant son centre à la même place à l'écran
+    const need = ENV.w * ENV_K / 0.92 * H / W, kz = Math.max(1, need / (f.A.Hw || need)), u = vt > K[1] ? landU() : 0;
+    if (kz > 1 && u > 0) { const kk = 1 + (kz - 1) * u; c = { cx: c.cx, cy: SY + (f.A.cy - SY) * kk, lD: c.lD + Math.log(kk) }; }
+    if (vt > K[2]) { const [sx, sy] = sealAt(); c = mixC(c, lg(frameFor(SY + sy - 44, SY + sy + 44, sx - 48, sx + 48, 96, W, H)), ease(span(0, 1.1, r3()))); }
     return Number.isFinite(c.cx + c.cy + c.lD) ? c : null;
   }
   function focus() {
     if (!on() || vt <= K[1] + 0.6) return null;
-    return { x: PIV[0], y: SY + PIV[1], envW: sstep(0.6, 2.0, r2()) };
+    const [sx, sy] = sealAt();
+    return { x: sx, y: SY + sy, envW: sstep(0.6, 2.0, r2()) };
   }
 
   // ---- dessin de ce qui est propre à la vitrine ----

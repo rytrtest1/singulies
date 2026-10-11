@@ -8,7 +8,7 @@ export function lundiSuivant(d = new Date()) {
 }
 // (10/10) la feuille se cadre au-dessus de ce qui viendra sous elle : RECEVOIR, la description, le prix (px, sans la
 // marge du bas de l'iPhone)
-export const SHEET_INSET = 188;
+export const SHEET_INSET = 206;
 export const ENVOI = lundiSuivant();   // (plus affiché : voir DELAI)
 // (10/10) aucun délai affiché (Maxence) ; s'il revient : « je le tape et le poste sous 3 jours »
 export const DELAI = '';

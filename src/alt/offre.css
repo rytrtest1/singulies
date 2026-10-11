@@ -289,3 +289,33 @@
 .of:not(.over) .of-cap { margin-top: 10px; }
 .of.env .of-cap, .of.paying .of-cap { opacity: 0; pointer-events: none; }
 .of-bar .of-price { font-size: 13px; }
+
+/* (11/10, Maxence) sous l'objet : la description, des points (une étape chacun), la petite flèche ; le bandeau : RECEVOIR,
+   puis le prix sur deux lignes ; plus de @e.t.ernel ni de titre au-dessus des autres poèmes */
+.of-cap { height: 104px; flex-direction: column; justify-content: flex-start; }
+.of-cap .of-vit { flex-direction: column; gap: 2px; }
+.of-cap .of-vit-t { height: 3.3em; width: min(calc(100% - 32px), 360px); }
+.of-dots { display: flex; justify-content: center; gap: 0; height: 22px; }
+.of-dot { width: 22px; height: 22px; padding: 0; margin: 0; border: 0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
+.of-dot i { display: block; width: 4px; height: 4px; border-radius: 50%; background: #ece8e0; opacity: .22; transition: opacity .4s, transform .4s; }
+.of-dot.on i { opacity: .75; transform: scale(1.15); }
+.of-dot:hover i { opacity: .55; }
+.of-cap .of-down { position: static; display: block; width: 44px; height: 26px; margin: 0 auto; padding: 0; background: none; border: 0; color: #fff; opacity: 0; pointer-events: none; transition: opacity 1s; }
+.of-cap .of-down.on { opacity: .5; pointer-events: auto; animation: of-bob 2.6s ease-in-out infinite; }
+.of.over .of-rest { margin-top: calc(var(--inset, 212px) - 80px); }
+.of-bar { gap: 4px; padding-top: 18px; }
+.of-bar .of-price { line-height: 1.35; font-size: 12.5px; color: #6a655d; }
+.of-bar .of-price b { font-size: 14px; }
+.of-ex { margin-top: 0; padding-top: 0; }
+
+/* (11/10) les autres poèmes : un défilé sans fin ; toucher celle du milieu = lire (on s'approche du poème) */
+.ex-ring { position: relative; margin: 8px 0 0; overflow: visible; touch-action: pan-y pinch-zoom; user-select: none; -webkit-user-select: none; cursor: grab; }
+.ex-slot { position: absolute; left: 50%; top: 0; margin: 0; transform-origin: 50% 50%; will-change: transform, opacity; }
+.ex-slot img { display: block; width: 100%; height: auto; pointer-events: none; transition: transform .7s cubic-bezier(.2,.7,.3,1); transform-origin: 50% 39%; }
+.ex-slot.mid { cursor: zoom-in; }
+.ex-slot.read { cursor: zoom-out; }
+.ex-slot.read img { transform: scale(1.85); }
+.of-ex { overflow: hidden; padding-bottom: 40px; }
+.of-cap .of-vit { order: 1; } .of-cap .of-down { order: 2; }
+.of-cap { transition: opacity .4s ease; }
+.of.past .of-cap { opacity: 0; pointer-events: none; }

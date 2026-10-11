@@ -362,28 +362,24 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   const root = document.createElement('div');
   root.id = 'offre'; root.className = 'of' + (over ? ' over' : '');
   root.style.setProperty('--inset', SHEET_INSET + 'px');
+  // (11/10, Maxence) sous l'objet : sa description, des points (une étape chacun, au lieu des flèches), la petite
+  // flèche qui fait descendre la page ; puis RECEVOIR et le prix (deux lignes)
+  const CAP = `<div class="of-cap"><div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
+        <p class="of-vit-t" aria-live="polite"></p>
+        <div class="of-dots">${OBJETS.map((o, i) => `<button class="of-dot" type="button" data-k="${i}" aria-label="${esc(o.txt)}"><i></i></button>`).join('')}</div>
+      </div><button class="of-down" type="button" aria-label="Descendre"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 9.5 L12 15.5 L18 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></button></div>`;
   root.innerHTML = `
     <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
     <main>
-      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"></div><div class="of-cap"><div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
-        <button class="of-vit-a" type="button" data-d="-1" aria-label="Précédent">${CHEV('M14.5 6 L8.5 12 L14.5 18')}</button>
-        <p class="of-vit-t" aria-live="polite"></p>
-        <button class="of-vit-a" type="button" data-d="1" aria-label="Suivant">${CHEV('M9.5 6 L15.5 12 L9.5 18')}</button>
-      </div></div><div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div><div class="of-cap"><div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
-        <button class="of-vit-a" type="button" data-d="-1" aria-label="Précédent">${CHEV('M14.5 6 L8.5 12 L14.5 18')}</button>
-        <p class="of-vit-t" aria-live="polite"></p>
-        <button class="of-vit-a" type="button" data-d="1" aria-label="Suivant">${CHEV('M9.5 6 L15.5 12 L9.5 18')}</button>
-      </div></div>`}
-      <button class="of-down" type="button" aria-label="D’autres prénoms, d’autres poèmes"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 9.5 L12 15.5 L18 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></button>
+      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
       <div class="of-rest">
-      <section class="of-ex" aria-label="D’autres poèmes"><h2 class="of-h">d’autres prénoms, d’autres poèmes</h2><div class="of-ex-host"></div></section>
-      <p class="of-foot"><a href="${esc(LIENS.instagram)}" target="_blank" rel="noopener">@e.t.ernel</a></p>
+      <section class="of-ex" aria-label="D’autres prénoms, d’autres poèmes"><div class="of-ex-host"></div></section>
       </div>
     </main>
     <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
       <button class="of-go" type="button">RECEVOIR</button>
-      <div class="of-price"><b>${esc(PRIX)}</b><i>/</i>tout compris</div>
+      <div class="of-price"><b>${esc(PRIX)}</b><br>tout compris</div>
     </div>`;
   document.body.appendChild(root);
   document.body.classList.add('of-open');
@@ -457,6 +453,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     const dir = cur < 0 || k > cur ? 1 : -1; cur = k;
     slideTxt(nbsp(OBJETS[k].txt), dir);
     root.classList.toggle('vit-last', k === N - 1);
+    root.querySelectorAll('.of-dot').forEach((b, i) => b.classList.toggle('on', i === k));
   };
   // les flèches : la page défile jusqu'à l'étape voulue À L'ALLURE DE L'ÉTAPE (1 × en avançant, 1,5 × en reculant) ;
   // depuis la dernière, la flèche de droite rembobine tout, un peu plus vite (2,2 ×). Un geste (molette, doigt) l'arrête.
@@ -485,7 +482,15 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     const k = Math.max(0, Math.min(N - 1, d > 0 ? Math.floor(p + 0.02) + 1 : Math.ceil(p - 0.02) - 1));
     driveTo(keyY(k), PXS() * (d > 0 ? 1 : 1.5));
   };
-  root.querySelectorAll('.of-vit-a').forEach(b => b.addEventListener('click', () => goStep(+b.dataset.d)));
+  // un point = une étape : la page y défile, à l'allure de chaque étape traversée
+  const goTo = k => {
+    if (busyMode()) return;
+    count('alt/vitrine');
+    if (!(vit && story)) { show(k); return; }
+    const y = keyY(k), back = y < root.scrollTop;
+    driveTo(y, PXS() * (back ? (k === 0 && cur === N - 1 ? 2.2 : 1.5) : 1));
+  };
+  root.querySelectorAll('.of-dot').forEach(b => b.addEventListener('click', () => goTo(+b.dataset.k)));
   // glisser la description = l'étape suivante / précédente ; glisser l'objet = la page voisine (le bandeau, nav.js)
   {
     const z = root.querySelector('.of-vit');
@@ -498,53 +503,63 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     });
     z.addEventListener('pointercancel', () => { x0 = null; });
   }
-  if (nav && hole) nav.swipe(hole);
+  if (nav && hole) nav.swipe(hole, 'poeme');
   // (téléphone, une fois) l'objet esquisse le geste vers la page voisine
   if (nav) setTimeout(() => { if (innerWidth < 760 && root.scrollTop < 30 && !busyMode()) nav.nudge(); }, over ? 3600 : 4200);
   // pendant l'enveloppe et le paiement : la feuille
   new MutationObserver(() => { if (busyMode() && cur !== 0) { cur = 0; slideTxt(nbsp(OBJETS[0].txt), -1); } }).observe(root, { attributes: true, attributeFilter: ['class'] });
   setTimeout(() => show(0), over ? 700 : 900);
-  // (10/10) une page qui semble finie : la feuille, sa légende, le bandeau ; si rien ne se passe, une petite flèche
-  // invite à descendre ; (11/10) elle mène directement aux autres prénoms, sans dérouler l'histoire (la scène s'efface
-  // le temps du saut et se retrouve à la fin de l'histoire, là où la page est)
+  // (11/10, Maxence) la petite flèche, sous la description : la page descend, du même défilement — l'étape suivante, à
+  // son allure ; après la dernière, les autres prénoms (la suite de la page). Jamais un saut.
   const down = root.querySelector('.of-down');
-  root.querySelector('.of-bar').appendChild(down);
-  setTimeout(() => { down.dataset.shown = '1'; if (root.scrollTop < storyLen() + 30 && !busyMode()) down.classList.add('on'); }, over ? 5200 : 6000);
+  // (le haut des autres prénoms, juste sous le bandeau : la position dans la page, indépendante du défilement en cours)
+  const exTop = () => { const r = root.querySelector('.of-rest'); return r ? r.offsetTop - 50 : storyLen(); };
+  const toRest = () => { count('alt/autres'); driveTo(exTop(), Math.max(innerHeight * 1.4, 700)); };
+  setTimeout(() => { down.dataset.shown = '1'; if (!busyMode()) down.classList.add('on'); }, over ? 1800 : 2400);
   down.addEventListener('click', () => {
-    stopDrive();
-    const ex = root.querySelector('.of-ex'), y = root.scrollTop + ex.getBoundingClientRect().top - 40;
-    const c = sceneCv(), cap = root.querySelector('.of-cap');
-    if (!(vit && story) || !c || root.scrollTop >= storyLen()) { root.scrollTo({ top: y, behavior: 'smooth' }); return; }
-    count('alt/autres');
-    for (const e of [c, cap]) { e.style.transition = 'opacity .28s ease'; e.style.opacity = '0'; }
-    setTimeout(() => {
-      root.style.scrollSnapType = 'none'; root.scrollTop = y; vit.jump(N - 1); show(N - 1);
-      setTimeout(() => { root.style.scrollSnapType = ''; for (const e of [c, cap]) { e.style.transition = 'opacity .6s ease'; e.style.opacity = ''; } }, 80);
-    }, 300);
+    if (busyMode()) return;
+    if (!(vit && story)) { toRest(); return; }
+    const p = pOf(root.scrollTop);
+    if (root.scrollTop >= storyLen() - 2 || p > N - 1.02) { toRest(); return; }
+    goStep(1);
   });
+  // (11/10) après la dernière étape, la page ne reste pas entre deux : un petit geste vers le bas mène aux autres
+  // prénoms, un petit geste vers le haut ramène à la dernière étape (à la fin du défilement)
+  let lastY = 0, dirY = 0, endT = 0;
+  const settle = () => {
+    if (drive || busyMode() || !(vit && story)) return;
+    const y = root.scrollTop, L = storyLen(), E = exTop();
+    if (y > L + 12 && y < E - 12) driveTo(dirY >= 0 ? E : L, Math.max(innerHeight * 1.4, 700));
+  };
+  root.addEventListener('scroll', () => {
+    const y = root.scrollTop; if (Math.abs(y - lastY) > 1) dirY = Math.sign(y - lastY); lastY = y;
+    clearTimeout(endT); endT = setTimeout(settle, 160);
+  }, { passive: true });
   // en descendant : d'abord l'histoire (la scène reste en place), puis la feuille remonte avec la page
   const cv = () => document.querySelector('canvas.sc-c');
   let sRaf = 0;
   root.addEventListener('scroll', () => {
-    // (la flèche reste tant qu'on n'est pas aux autres prénoms : elle y mène directement)
-    if (root.scrollTop > storyLen() + 30) down.classList.remove('on'); else if (down.dataset.shown) down.classList.add('on');
     if (!over || sRaf) return;
     sRaf = requestAnimationFrame(() => {
       sRaf = 0;
       if (root.classList.contains('paying') || busyMode()) return;
       const y = root.scrollTop, L = storyLen();
+      // (passé l'histoire : la description et ses points s'effacent, ils ne restent pas sous le bandeau)
+      root.classList.toggle('past', y > L + 30);
       // l'histoire suit le doigt : on descend, elle avance ; on remonte, elle rembobine (tout de suite)
       if (vit && story) { const p = pOf(Math.min(y, L)); vit.scrub(p); show(Math.round(p)); }
       const c = cv(); if (!c) return;
       c.style.transition = 'none'; c.style.transformOrigin = '50% 0';
       const off = Math.max(0, y - L);
       c.style.transform = off > 0 ? `translateY(${(-off).toFixed(1)}px)` : '';
+      // (11/10) en montant, l'objet s'efface : aux autres prénoms, il ne reste qu'eux sous le bandeau
+      c.style.opacity = off > 0 ? Math.max(0, 1 - off / (innerHeight * 0.5)).toFixed(3) : '';
     });
   }, { passive: true });
   // en faisant défiler : une ombre en haut, sous la flèche retour (elle ne passe plus sur le texte)
   root.addEventListener('scroll', () => root.classList.toggle('scrolled', root.scrollTop > storyLen() + 24), { passive: true });
   // (11/10) tout ce qui est souligné l'est par un bout de fil noir, cousu (stitch.js)
-  for (const el of [root.querySelector('.of-bar .of-go'), root.querySelector('.of-foot a')]) if (el) stitch(el, { seed: el.textContent.length * 13 });
+  stitch(root.querySelector('.of-bar .of-go'), { seed: 'RECEVOIR'.length * 13 });
 
   // gestes
   // l'enveloppe (10/10) : ouverte, la page s'efface sur elle ; adresse complète → le bandeau du paiement

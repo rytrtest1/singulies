@@ -8,7 +8,7 @@ const PORT = 5197;
 const server = await createServer({ server: { port: PORT, strictPort: true, host: 'localhost' }, logLevel: 'error' });
 await server.listen();
 const browser = await chromium.launch({ headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
-const page = await browser.newPage({ viewport: { width: 900, height: 1240 } });
+const page = await browser.newPage({ viewport: { width: 1350, height: 1860 } });
 page.setDefaultTimeout(300000);
 page.on('pageerror', e => console.error('page', e));
 page.on('console', m => { if (m.type() === 'error') console.error('console', m.text()); });

@@ -9,7 +9,7 @@ import { getGL } from './gl/gl.js';
 import { buildAtlas } from './gl/atlas.js';
 import { createRenderer } from './render/renderer.js';
 import { layoutName } from './name/layout.js';
-import { loadState, saveValidated, clearStored, clearValidated } from './app/storage.js';
+import { loadState, saveValidated, clearStored, clearValidated, sessionName, saveSessionName } from './app/storage.js';
 import { installSend, settled, setOrder, send } from './app/send.js';
 import { installCount, count } from './app/count.js';
 import { createField, MODES } from './field/field.js';
@@ -124,6 +124,8 @@ if (P.get('auto') !== '0') {
 
 // ---------- état ----------
 const stored = loadState();
+// (11/10) alt.html : le prénom tapé dans cette visite est déjà écrit au rechargement (il se tape tout seul, puis la suite)
+if (ALT && !stored.name && !stored.validated) { const n = sessionName(); if (n) stored.name = n; }
 const model = new NameModel(stored.validated ?? stored.name ?? '');
 const S = {
   phase: stored.validated ? 'scene' : 'input',   // input | scene (cartes) ; sans WebGL2 : leaving | black
@@ -248,6 +250,7 @@ function startTransition() {
   const shown = displayCase(finalName(model.text), CFG.caseMode);
   S.trans = S.t; S.confirmed = true; S.validatedName = shown;
   saveValidated(shown);                     // un rechargement (même pendant la transition) mène aux cartes
+  if (ALT) saveSessionName(shown);
   input.blur(); input.classList.add('rest'); input.readOnly = true;
   wheel?.enable(false); voice?.stop();
   nextEl.classList.remove('on');
@@ -955,23 +958,34 @@ installSend();   // la demande part par email quand l'enveloppe est postée (ou 
 // vient d'arriver par le fil : il s'efface dès qu'on écrit) ; sur la feuille, sauf pendant l'enveloppe et le paiement.
 let nav = null;
 if (ALT) {
+  // (11/10, Maxence) le bandeau dès la page des prénoms ; en bas, SINGULIES sur son fil (seulement là : sur la feuille,
+  // le bas est à RECEVOIR) ; les prénoms du champ s'effacent avant d'y passer. Caché pendant le paiement, l'enveloppe et
+  // la cérémonie. Plus bas que l'histoire (les autres poèmes) : seulement UN PRENOM UN POEME.
+  const ofEl = () => document.querySelector('#offre.on');
+  const onNames = () => S.phase === 'input' && !ofEl();
   nav = installNav({
     current: 'poeme', base: './',
-    show: () => {
-      if (nav && nav.arrived && S.phase === 'input' && S.trans == null && !S.typed && !model.text) return true;
-      const of = document.querySelector('#offre.on.bar-on');
-      return !!of && !of.matches('.paying, .env') && (!offerObj || offerObj.top < offerObj.storyLen() + 40);
+    host: {
+      stage: () => (offerObj ? offerObj.stage() : [canvas, fallbackEl]),
+      all: () => (offerObj ? [offerObj.stage()[0], offerObj.root].filter((e, i) => !(i === 0 && e && offerObj.root.contains(e))) : [canvas, fallbackEl]),
+      // ailleurs : le champ s'arrête (comme sous un menu), il reprend au retour
+      leave: () => { input.blur(); if (onNames()) { S.portal = true; setTimeout(() => { if (S.portal && S.phase === 'input') { cancelAnimationFrame(rafId); rafId = 0; } }, 700); } },
+      back: () => { if (S.portal) { S.portal = false; if (S.phase === 'input' && booted && !rafId && !document.hidden) { last = 0; rafId = requestAnimationFrame(frame); } } },
     },
+    show: () => booted && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    foot: () => booted && onNames() && !S.paid,
+    shade: () => booted && onNames(),
+    solo: () => !!offerObj && offerObj.top > offerObj.storyLen() + 40,
     side: () => !!document.querySelector('#offre.on.bar-on') && (!offerObj || offerObj.top < 30),
-    stage: () => (offerObj ? offerObj.stage() : [canvas, fallbackEl]),
     center: () => { const top = NAV_TOP + safeTop(), bot = innerHeight - SHEET_INSET - safeBottom(); return { y: (top + bot) / 2, h: (bot - top) * 0.82 }; },
   });
-  // venue par le fil : le champ entre du côté d'où l'on vient
+  // venue par le fil (rechargement) : le champ entre du côté d'où l'on vient ; glisser le champ = la page voisine
   nav?.enter([canvas]);
+  if (nav) nav.swipe(canvas, 'poeme');
 }
 if (PAGE === 'jeu') {
   const st = document.createElement('style'); st.textContent = '#jeu .jeu-back { display: none !important; }'; document.head.appendChild(st);
-  installNav({ current: 'jeu', base: './', show: () => !!document.querySelector('#jeu.on'), side: () => false,
-    stage: () => [document.querySelector('#jeu')] });
+  const jr = () => document.querySelector('#jeu');
+  installNav({ current: 'jeu', base: './', host: { stage: () => [jr()], all: () => [jr()] }, show: () => !!document.querySelector('#jeu.on'), side: () => false });
 }
 boot();

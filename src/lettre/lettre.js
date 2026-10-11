@@ -1,42 +1,17 @@
-// « un poème par mois » (11/10) : la page de la correspondance des singuliers. En attendant le SIRET (et donc
-// l'abonnement Stripe), une liste d'attente : l'email part chez Maxence (sendNote, modèle des demandes), rien n'est
-// débité. L'email déjà connu (donné ailleurs sur le site) est déjà écrit. Retour : la page d'avant, sinon l'accueil.
-import { sendNote } from '../app/send.js';
-import { knownEmail, EMAIL_RE } from '../app/storage.js';
-import { installCount, count } from '../app/count.js';
+// « un poème par mois », page seule (lettre.html, lien direct) : le contenu (content.js) et le bandeau des pages
+// (src/nav/nav.js) ; les pages voisines s'y montent sans rechargement, sauf le poème (alt.html).
+import './lettre.css';
+import { installCount } from '../app/count.js';
 import { menuFonts } from '../menu/menu.js';
 import { installNav } from '../nav/nav.js';
+import { buildLettre } from './content.js';
 
-const main = document.querySelector('.lt');
+const host = document.querySelector('.ltp');
+const { main } = buildLettre(host, './');
 menuFonts('./').finally(() => requestAnimationFrame(() => requestAnimationFrame(() => main.classList.add('on'))));
 installCount('lettre');
-
-// (11/10) plus de flèche retour : le bandeau des pages, en haut, relié par le fil (src/nav/nav.js)
-const nav = installNav({ current: 'lettre', base: './', show: () => true, side: () => scrollY < 40, stage: () => [main],
+const nav = installNav({ current: 'lettre', base: './', host: { stage: () => [main], all: () => [host] },
+  show: () => true, foot: () => true, shade: () => true, side: () => host.scrollTop < 40,
   center: () => { const im = main.querySelector('.lt-env').getBoundingClientRect(); return { y: im.top + im.height / 2, h: Math.max(160, innerHeight * 0.36) }; } });
-nav?.enter([main]);
-if (nav) nav.swipe(main);
-
-const form = document.querySelector('.lt-wait'), mail = form.querySelector('.lt-mail'), trap = form.querySelector('.lt-trap');
-const go = form.querySelector('.lt-go'), done = document.querySelector('.lt-done');
-const known = knownEmail();
-if (known) mail.value = known;
-const check = () => go.classList.toggle('on', EMAIL_RE.test(mail.value.trim()));
-mail.addEventListener('input', check); check();
-
-let sent = false;
-form.addEventListener('submit', e => {
-  e.preventDefault();
-  if (sent || !go.classList.contains('on')) return;
-  sent = true;
-  if (!trap.value) sendNote({ kind: 'club', email: mail.value.trim() });
-  count('lettre/reservee');
-  mail.blur();
-  form.classList.add('sent');
-  // « c'est noté. » tapé à la machine
-  const msg = 'c’est noté.\nje t’écris pour la première lettre.';
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let i = 0;
-  const strike = () => { if (i <= msg.length) { done.textContent = msg.slice(0, i++); setTimeout(strike, reduced ? 0 : 55 + Math.random() * 90); } };
-  strike();
-});
+nav?.enter([host]);
+if (nav) nav.swipe(host, 'lettre');

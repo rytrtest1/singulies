@@ -619,7 +619,9 @@ export function mountSimpleFlow(opts) {
     nm.style.transition = 'opacity 1.2s'; R.later(() => { nm.style.opacity = '0'; }, 400 + Math.max(0, li - 1) * 270 + 300);
     // la signature, frappe par frappe, une fois les lignes tracées ; puis l'enveloppe (jamais moins de 3 s après le dernier geste)
     const sigAt = REDUCED ? 300 : 400 + Math.max(0, li - 1) * 270 + 1350 + 120 + 550 + 500;
-    R.later(() => { sig = el('div', 'sp-type', root); layoutSheet(); typeInto(sig, '- ETERNEL -', { later: R.later }); }, sigAt);
+    // (11/10, Maxence) plus de signature sur la feuille
+    // (l'élément reste, vide : il marque la feuille posée)
+    R.later(() => { sig = el('div', 'sp-type', root); layoutSheet(); }, sigAt);
     const lab = name + ' : ton prénom en colonne, une lettre par ligne du poème, ' + chars.filter(c => c !== ' ').join(', ') + '.';
     R.say(lab);
     const ready = sigAt + 11 * 85 + 1800;

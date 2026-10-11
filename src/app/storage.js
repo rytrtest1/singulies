@@ -16,6 +16,10 @@ export function saveValidated(name) {
   if (!ON) return;
   set(localStorage, K_NAME, name); set(sessionStorage, K_VALID, name);
 }
+// (11/10, Maxence) alt.html : le prénom tapé est retenu le temps de la visite (l'onglet) — rechargé, il est déjà écrit
+const K_SESSION = 'singulies.prenom';
+export function sessionName() { return get(sessionStorage, K_SESSION); }
+export function saveSessionName(n) { set(sessionStorage, K_SESSION, n || null); }
 // retour depuis les cartes : le prénom reste mémorisé (confirmé), seule la suite est oubliée
 export function clearValidated() { set(sessionStorage, K_VALID, null); }
 export function clearStored() { set(localStorage, K_NAME, null); set(sessionStorage, K_VALID, null); }
