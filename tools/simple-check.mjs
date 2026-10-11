@@ -36,9 +36,6 @@ const out = {};
   await page.screenshot({ path: 'captures/simple-check/jeu-bientot.png' });
   await page.click('.sp-jeu .sp-back'); await page.waitForTimeout(1500);
   out.jeu = { back: await page.evaluate(() => !document.querySelector('.sp-jeu') && document.querySelector('.sp-portal').classList.contains('on')), errs };
-  // le lien d'attente du portail (la lettre) : la carte se retourne
-  await page.click('button[aria-label="une lettre chez toi, chaque mois"]'); await page.waitForTimeout(1000);
-  await page.screenshot({ path: 'captures/simple-check/portail-bientot.png' });
   await browser.close();
 }
 { // 3. question partagée (jeu?q=…), version simple : la carte réponse, PARTAGER une fois écrit

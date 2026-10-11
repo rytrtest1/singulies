@@ -41,7 +41,7 @@ const box = await page.evaluate(() => { const r = document.querySelector('.ex-sl
 await page.mouse.click(box.x, box.y); await page.waitForTimeout(900); await shot('lire');
 await page.mouse.click(box.x, box.y); await page.waitForTimeout(700);
 const order = [];
-for (let i = 0; i < 5; i++) { await page.mouse.click(vp.width - 12, box.y); await page.waitForTimeout(650); order.push(await page.evaluate(() => document.querySelector('.ex-slot.mid')?.dataset.i)); }
+for (let i = 0; i < 5; i++) { await page.mouse.click(await page.evaluate(() => { const r = document.querySelector('.ex-slot.mid').nextElementSibling.getBoundingClientRect(); return Math.min(innerWidth - 12, r.left + 30); }), box.y); await page.waitForTimeout(650); order.push(await page.evaluate(() => document.querySelector('.ex-slot.mid')?.dataset.i)); }
 console.log('défilé sans fin (à droite)', order.join(' '));
 // remonter, puis la page voisine (sans rechargement)
 await page.evaluate(() => { const o = document.getElementById('offre'); o.style.scrollSnapType = 'none'; o.scrollTo({ top: 0 }); });

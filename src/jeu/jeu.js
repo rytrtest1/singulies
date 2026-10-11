@@ -137,6 +137,8 @@ export async function mountJeu(opts = {}) {
   }
 
   // ---- gestes : comme les questions du poème ----
+  // (écouteurs posés sur la fenêtre : coupés quand la page est démontée — sinon chaque visite y laissait sa scène)
+  const ac = new AbortController(), off = { signal: ac.signal };
   let down = null;
   canvas.addEventListener('pointerdown', e => {
     // toucher : pas d'événements souris simulés derrière (leur « mousedown » retirait le focus du champ de la réponse :
@@ -159,7 +161,7 @@ export async function mountJeu(opts = {}) {
     const r = scene.cardRect(); if (!r) return;
     const x = e.clientX, y = e.clientY, ox = x < r.left ? x - r.left : x > r.right ? x - r.right : 0, oy = y < r.top ? y - r.top : y > r.bottom ? y - r.bottom : 0;
     ptr.x = Math.max(-1, Math.min(1, ox / (innerWidth * 0.3))); ptr.y = Math.max(-1, Math.min(1, -oy / (innerHeight * 0.3)));
-  });
+  }, off);
   canvas.addEventListener('pointerup', e => {
     scene.setPress(null); if (e.pointerType !== 'mouse') scene.setHover(null);
     if (!down) return;
@@ -180,16 +182,16 @@ export async function mountJeu(opts = {}) {
   ta.addEventListener('focus', () => { if (answering && !scene.state().writing) scene.startWriting(); });
   ta.addEventListener('blur', () => scene.stopWriting());
   // iPhone : le focus repris au lâcher du doigt tant qu'on écrit (comme la scène des cartes)
-  addEventListener('touchend', () => { if (visible && answering && scene.state().writing && document.activeElement !== ta) ta.focus({ preventScroll: true }); }, { passive: true });
+  addEventListener('touchend', () => { if (visible && answering && scene.state().writing && document.activeElement !== ta) ta.focus({ preventScroll: true }); }, { passive: true, signal: ac.signal });
   // ordinateur : une touche de lettre donne la frappe à la carte réponse
   addEventListener('keydown', e => {
     if (!visible || !answering || document.activeElement === ta || e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
     if (scene.startWriting()) { ta.value = scene.state().active?.text || ''; ta.focus({ preventScroll: true }); }
-  });
+  }, off);
   // clavier du téléphone : la carte remonte dans la partie visible
   const vv = window.visualViewport;
   const onVV = () => { kbPx = vv ? Math.max(0, innerHeight - vv.height) : 0; scene.setKeyboard(kbPx); };
-  vv?.addEventListener('resize', onVV);
+  vv?.addEventListener('resize', onVV, off);
   function stopAnswering() {
     answering = false; ta.blur(); ta.disabled = true; scene.setJeuWrite(false); scene.setKeyboard(0);
   }
@@ -237,11 +239,11 @@ export async function mountJeu(opts = {}) {
     visible = false; ta.blur(); vv?.removeEventListener('resize', onVV);
     root.style.transition = 'opacity .55s ease'; root.classList.remove('on');
     opts.onBack?.();
-    setTimeout(() => { cancelAnimationFrame(raf); raf = 0; root.remove(); try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* */ } }, 650);
+    setTimeout(() => { cancelAnimationFrame(raf); raf = 0; root.remove(); ac.abort(); try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* */ } }, 650);
   }
   backEl.addEventListener('click', leave);
-  addEventListener('keydown', function esc(e) { if (!document.body.contains(root)) { removeEventListener('keydown', esc); return; } if (visible && e.key === 'Escape') leave(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelAnimationFrame(raf); raf = 0; } else if (visible && !raf) { last = 0; raf = requestAnimationFrame(frame); } });
+  addEventListener('keydown', e => { if (visible && e.key === 'Escape') leave(); }, off);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelAnimationFrame(raf); raf = 0; } else if (visible && !raf) { last = 0; raf = requestAnimationFrame(frame); } }, off);
   window.__jeu = { scene, ta, now };          // essais
   return { root, leave, reveal, scene, now, takeOver, get on() { return taken && !going; } };
 }

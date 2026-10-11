@@ -361,3 +361,10 @@ Voir « Point de reprise » en tête de fichier.
 ## 11/10 — ménage du code (aucun changement visible)
 - Code mort retiré (détail : CLAUDE.md « Ménage du 11/10 ») ; documents de travail → `docs/` ; `vite.config.js` : pages publiées groupées (mêmes 17).
 - Vérifié : `vite build` OK ; Vitest 45/45 ; `node tools/alt-paid-check.mjs reserve` : parcours complet (RECEVOIR → cérémonie → adresse → POSTER → email → TERMINER → « c'est noté ») identique à avant le ménage (la même 404 existait déjà avant) ; alt.html, lettre.html, livres.html, index.html chargés sans erreur.
+
+## 11/10 — chasse aux problèmes
+- **Stockage bloqué** (cookies bloqués, certains navigateurs intégrés) : `storage.js` nommait `localStorage` hors du `try` → alt.html restait bloqué au prénom (l'offre ne venait jamais), lettre.html plantait. Corrigé (lu dans le try) ; vérifié avec un navigateur qui refuse le stockage : avant ✗, après ✓ (alt, lettre, livres, index, jeu).
+- **Autres poèmes, au doigt** : toucher la feuille du milieu ouvrait la lecture puis la refermait aussitôt (le « click » simulé après le toucher tombait sur la grande feuille posée sous le doigt). Corrigé (`preventDefault` au touchend traité, exemples.js) ; flèches du clavier ignorées pendant la lecture. Vérifié : ouverte à 0,1 / 0,6 / 1,5 s, un second toucher la referme.
+- **Le jeu par le bandeau** : chaque visite laissait ses écouteurs (et sa scène) accrochés à la fenêtre ; coupés au démontage (`AbortController`, jeu.js). Vérifié : 3 allers-retours, page démontée à chaque fois, 0 erreur.
+- Outils remis à jour (ils testaient des choses retirées) : `alt-check` (paiement d'essai, adresse, TERMINER), `simple-check` (plus de carte « bientôt »), `nav-check pc` (touche le poème voisin).
+- Passés sans erreur : 19 pages chargées (téléphone + ordinateur) ; `alt-paid-check` (payé, réservé) ; `alt-check moi|offrir` jusqu'à « c'est noté » ; `nav-check` (+ pc) ; `swipe-check` ; `simple-check` ; `jeu-check` ; `back-check` ; `pages-check` ; Vitest 45/45.

@@ -169,14 +169,17 @@ export function mountExemples(host) {
     const slot = slots.find(s => s.f.contains(target));
     if (!slot) return;
     if (slot.k === 0) read(true); else step(Math.sign(slot.k));
+    return true;
   };
   ringEl.addEventListener('touchstart', e => { if (e.touches.length === 1) start(e.touches[0].clientX, e.touches[0].clientY); else x0 = null; }, { passive: true });
   ringEl.addEventListener('touchmove', e => { if (e.touches.length === 1) move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-  ringEl.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t) end(t.clientX, document.elementFromPoint(t.clientX, t.clientY)); }, { passive: true });
+  // (un toucher traité ici n'est pas suivi du « click » simulé : il tombait sur la grande feuille, posée sous le doigt,
+  // et la refermait aussitôt)
+  ringEl.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t && end(t.clientX, document.elementFromPoint(t.clientX, t.clientY)) && e.cancelable) e.preventDefault(); });
   ringEl.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') start(e.clientX, e.clientY); });
   ringEl.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') move(e.clientX, e.clientY); });
   ringEl.addEventListener('pointerup', e => { if (e.pointerType === 'mouse') end(e.clientX, e.target); });
-  addEventListener('keydown', e => { if (!host.isConnected || !host.getBoundingClientRect().top || host.getBoundingClientRect().top > innerHeight * 0.6) return; if (e.key === 'ArrowLeft') step(-1); else if (e.key === 'ArrowRight') step(1); });
+  addEventListener('keydown', e => { if (reading || !host.isConnected || !host.getBoundingClientRect().top || host.getBoundingClientRect().top > innerHeight * 0.6) return; if (e.key === 'ArrowLeft') step(-1); else if (e.key === 'ArrowRight') step(1); });
   addEventListener('resize', layout);
   assign(); layout();
   return { step, read };

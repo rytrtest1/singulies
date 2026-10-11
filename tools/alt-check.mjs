@@ -12,7 +12,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 const errs = []; page.on('pageerror', e => errs.push(String(e))); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
 const shot = n => page.screenshot({ path: `captures/alt-${FOR}-${n}.png` });
 const out = {};
-await page.goto(`http://localhost:${PORT}/alt.html?envoi=0&seed=3`);
+await page.goto(`http://localhost:${PORT}/alt.html?envoi=0&seed=3&paiement=faux`);
 await page.evaluate(() => { localStorage.removeItem('singulies.order'); });
 await page.waitForTimeout(6800); await shot('1-indice');
 await page.waitForTimeout(4200); await shot('2-curseur');
@@ -30,6 +30,8 @@ await page.click('.of-bar .of-go');
 await page.waitForTimeout(1200);
 if (FOR === 'offrir') await page.click('[data-for="offrir"]');
 await page.fill('.of-pay .of-pin[type=email]', 'essai@exemple.fr');
+// l'adresse (faux formulaire) : sans elle, l'enveloppe la demande à la fin
+for (const [i, v] of ['Léa Martin', '3 rue Haute', '75011', 'Paris'].entries()) await page.locator('.of-pay .of-addr .of-fake-in').nth(i).fill(v);
 await shot('5-paiement');
 await page.click('.of-pay-go');
 if (FOR === 'offrir') {
@@ -44,7 +46,10 @@ out.url = page.url();
 await page.keyboard.type('la mer en hiver', { delay: 40 });
 await page.keyboard.press('Enter');
 await page.waitForTimeout(9000); await shot('9-feuille');
-await page.waitForSelector('.mc h1', { timeout: 60000 }).catch(() => { out.fin = 'pas de fin'; });
+// l'email (déjà donné) se tape seul sur la tranche de l'enveloppe ; TERMINER
+await page.waitForFunction(() => [...document.querySelectorAll('.sc-pass')].some(e => e.textContent === 'TERMINER' && e.classList.contains('on')), null, { timeout: 60000 }).catch(() => {});
+await page.evaluate(() => [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'TERMINER')?.click());
+await page.waitForSelector('.mc h1', { timeout: 30000 }).catch(() => { out.fin = 'pas de fin'; });
 await page.waitForTimeout(1500); await shot('10-fin');
 out.fin = out.fin || await page.evaluate(() => document.querySelector('.mc p')?.textContent);
 out.order = await page.evaluate(() => JSON.parse(localStorage.getItem('singulies.order') || 'null'));
