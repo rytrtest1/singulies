@@ -26,8 +26,8 @@ const BACK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5
 const OBJETS = [
   { id: 'feuille', txt: 'l’exemplaire unique de ton poème, tapé à la machine à écrire' },
   { id: 'carte', txt: 'la question du jeu SINGULIES, tirée au hasard' },
-  { id: 'enveloppe', txt: 'le tout scellé à la cire' },
   { id: 'mystere', txt: 'une carte mystère et un fil… pour rester liés' },
+  { id: 'cachet', txt: 'le tout scellé à la cire' },
 ];
 const CHEV = d => `<svg viewBox="0 0 24 24" width="16" height="16"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>`;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -366,7 +366,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     <button class="of-back" type="button" aria-label="Changer le prénom">${BACK_SVG}</button>
     <nav class="of-tabs" aria-label="Le site"><a aria-current="page">POEME</a><a href="${esc(LIENS.jeu)}">JEU</a><a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">LIVRES</a></nav>
     <main>
-      ${over ? '<div class="of-hole" aria-hidden="true"></div><div class="of-story" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
+      ${over ? '<div class="of-hole" aria-hidden="true"></div><div class="of-story" aria-hidden="true"></div><div class="of-edges" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
       <button class="of-down" type="button" aria-label="D’autres prénoms, d’autres poèmes"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 9.5 L12 15.5 L18 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></button>
       <div class="of-rest">
       <section class="of-ex" aria-label="D’autres poèmes"><h2 class="of-h">d’autres prénoms, d’autres poèmes</h2><div class="of-ex-host"></div></section>
@@ -413,7 +413,13 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   const N = OBJETS.length;
   const STEP = () => Math.round(innerHeight * 0.42);                       // défilement par étape (px)
   const storyLen = () => (vit && story ? (N - 1) * STEP() : 0);
-  const sizeStory = () => { if (story) story.style.height = storyLen() + 'px'; };
+  // (des repères d'arrêt : la page se pose doucement sur chaque étape — scroll-snap)
+  const sizeStory = () => {
+    if (!story) return;
+    story.style.height = storyLen() + 'px';
+    if (vit && !story.children.length) for (let i = 0; i < N; i++) { const m = document.createElement('i'); m.className = 'of-snap'; story.appendChild(m); }
+    [...story.children].forEach((m, i) => { m.style.top = (i * STEP() - (hole ? hole.offsetHeight : 0)) + 'px'; });
+  };
   sizeStory(); addEventListener('resize', sizeStory);
   let cur = -1;
   // la description glisse (de droite à gauche quand on avance) : l'ancienne part d'un côté, la nouvelle arrive de l'autre
@@ -437,21 +443,20 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     c.style.transition = 'opacity .3s ease'; c.style.opacity = '0';
     setTimeout(() => { vit.jump(k); cur = k; slideTxt(nbsp(OBJETS[k].txt), -1); then && then(); setTimeout(() => { c.style.opacity = '1'; }, 60); }, 320);
   };
+  // la description de l'étape k (le défilement, lui, mène l'animation : scrub)
   const show = k => {
     k = Math.max(0, Math.min(N - 1, k));
     if (k === cur) return;
     const dir = cur < 0 || k > cur ? 1 : -1; cur = k;
     slideTxt(nbsp(OBJETS[k].txt), dir);
-    if (vit) vit.go(k);
     root.classList.toggle('vit-last', k === N - 1);
   };
-  // les flèches, le glissé : on va à l'étape voulue en faisant défiler (le défilement fait le reste)
+  // les flèches, le glissé : on fait défiler jusqu'à l'étape voulue (le défilement fait le reste)
   const goStep = k => {
     k = Math.max(0, Math.min(N - 1, k));
     if (busyMode()) return;
     count('alt/vitrine');
-    show(k);
-    if (vit && story) root.scrollTo({ top: k * STEP(), behavior: 'smooth' });
+    if (vit && story) root.scrollTo({ top: k * STEP(), behavior: 'smooth' }); else show(k);
   };
   root.querySelectorAll('.of-vit-a').forEach(b => b.addEventListener('click', () => goStep(cur + +b.dataset.d)));
   for (const z of [hole, root.querySelector('.of-vit')]) {
@@ -487,7 +492,8 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
       sRaf = 0;
       if (root.classList.contains('paying') || busyMode()) return;
       const y = root.scrollTop, L = storyLen();
-      if (vit && story) show(Math.round(Math.min(y, L) / STEP()));
+      // l'histoire suit le doigt : on descend, elle avance ; on remonte, elle rembobine (tout de suite)
+      if (vit && story) { const p = Math.min(y, L) / STEP(); vit.scrub(p); show(Math.round(p)); }
       const c = cv(); if (!c) return;
       c.style.transition = 'none'; c.style.transformOrigin = '50% 0';
       const off = Math.max(0, y - L);

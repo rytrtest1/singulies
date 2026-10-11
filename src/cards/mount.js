@@ -438,7 +438,7 @@ export async function mountCards(opts) {
     // (10/10, alt) COMMANDER : la feuille se glisse dans l'enveloppe (on y tape l'adresse) ; retour : elle en ressort
     openEnvelope: () => { if (sheet) sheet.showOrders(); }, envBack: () => { if (sheet && sheet.state().env) sheet.back(now()); },
     // (10/10, alt) la vitrine, jouée dans la scène de la feuille
-    vitrine: { go: k => sheet?.vitrine?.go(k), jump: k => sheet?.vitrine?.jump(k), state: () => sheet?.vitrine?.state() || null } };
+    vitrine: { go: k => sheet?.vitrine?.go(k), jump: k => sheet?.vitrine?.jump(k), scrub: p => sheet?.vitrine?.scrub(p), state: () => sheet?.vitrine?.state() || null } };
 
   function start() {
     if (started) return; started = true;

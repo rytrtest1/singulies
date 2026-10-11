@@ -268,3 +268,13 @@
 .of-vit-t > i { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; font-style: normal;
   transition: transform .75s cubic-bezier(.2,.7,.3,1) .16s, opacity .55s ease .2s; }
 .of-vit-t > i.out { transition: transform .45s cubic-bezier(.5,0,.8,.4), opacity .22s ease; }
+
+/* (11/10) la page se pose doucement sur chaque étape de l'histoire (repères dans .of-story) */
+.of.over { scroll-snap-type: y proximity; }
+.of-story { position: relative; }
+.of-snap { position: absolute; left: 0; width: 1px; height: 1px; scroll-snap-align: start; }
+/* (11/10) une délimitation claire du site : un fondu vers le noir en haut et sur les côtés (comme celui du bas) */
+.of-edges { position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(to bottom, #060606 0, rgba(6,6,6,.85) calc(env(safe-area-inset-top) + 34px), rgba(6,6,6,0) calc(env(safe-area-inset-top) + 78px)),
+    linear-gradient(to right, #060606 0, rgba(6,6,6,0) 20px), linear-gradient(to left, #060606 0, rgba(6,6,6,0) 20px); }
+.of.paying .of-edges, .of.env .of-edges { opacity: .6; }
