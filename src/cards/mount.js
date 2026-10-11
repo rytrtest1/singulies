@@ -435,8 +435,6 @@ export async function mountCards(opts) {
 
   let started = false;
   const api = { afterPay, scene, canvas, gl, now, started: () => started, frames: 0, start, nameTargets: (W, H) => scene.nameTargets(name, W, H),
-    // (10/10, alt) COMMANDER : la feuille se glisse dans l'enveloppe (on y tape l'adresse) ; retour : elle en ressort
-    openEnvelope: () => { if (sheet) sheet.showOrders(); }, envBack: () => { if (sheet && sheet.state().env) sheet.back(now()); },
     // (10/10, alt) la vitrine, jouée dans la scène de la feuille
     vitrine: { go: k => sheet?.vitrine?.go(k), jump: k => sheet?.vitrine?.jump(k), scrub: p => sheet?.vitrine?.scrub(p), state: () => sheet?.vitrine?.state() || null } };
 
@@ -477,12 +475,7 @@ export async function mountCards(opts) {
         }
         if (es) syncFields(); else envSynced = false;   // remplissage automatique sans événement (Safari)
         giveEl.classList.remove('on');
-        // (10/10, alt) payInstead : pas de POSTER — la page met son paiement à la place ; elle suit l'enveloppe
-        if (opts.payInstead && !paid) {
-          postEl.classList.remove('on');
-          const k = es ? (es.canPost && ar ? 'ready:' + JSON.stringify(es.fields) : 'open') : (api.envKey ? 'closed' : '');
-          if (k !== api.envKey) { api.envKey = k === 'closed' ? '' : k; opts.onEnvelope?.(es ? { canPost: !!(es.canPost && ar), fields: { ...es.fields } } : { closed: true }); }
-        } else postEl.classList.toggle('on', !!(es && es.canPost && ar));
+        postEl.classList.toggle('on', !!(es && es.canPost && ar));
         if (es && postEl.textContent !== es.sign) postEl.textContent = es.sign;
         // posé sur l'enveloppe, sous l'adresse : il la suit (caméra, inclinaison, clavier), à son échelle
         const sa = es && sheet.signAt();
@@ -492,7 +485,6 @@ export async function mountCards(opts) {
           Object.assign(postEl.style, { left: sa.x + 'px', top: Math.min(sa.y + 14, kbTop - 50) + 'px' });
         }
         if (mail) placeMail();
-        const ss = sheet.state();
         const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
         sheet.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
         placeHits();

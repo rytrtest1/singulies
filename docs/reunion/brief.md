@@ -28,4 +28,4 @@ Ses défauts pour le grand public : on ne comprend pas qu'on peut acheter, aucun
 - Marché : poètes à la machine vendent surtout par fiche produit + paiement direct (30–60 $ bas, ~100 $ milieu, 300 $ haut de gamme) ; aucun francophone connu ne vend en ligne.
 
 ## Fichiers utiles (facultatif)
-`C:\Users\maxen\Documents\Claude Code\SINGULIES_WEB\` : `REUNION-BASIQUE.md` (réunion précédente), `captures\simple\*.png` (site actuel), `captures\basique\*.png` (les 3 essais simples), `src\cards\questions.json` (les 73 questions).
+`C:\Users\maxen\Documents\Claude Code\SINGULIES_WEB\` : `docs/REUNION-BASIQUE.md` (réunion précédente), `captures\simple\*.png` (site actuel), `captures\basique\*.png` (les 3 essais simples), `src\cards\questions.json` (les 73 questions).

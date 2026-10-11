@@ -7,10 +7,6 @@
 .of main { max-width: 460px; margin: 0 auto; padding: max(54px, calc(env(safe-area-inset-top) + 44px)) 16px calc(150px + env(safe-area-inset-bottom)); }
 .of [hidden] { display: none !important; }
 
-.of-back { position: fixed; z-index: 2; left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top));
-  width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0;
-  background: none; border: 0; color: #fff; opacity: .62; cursor: pointer; }
-.of-back:hover { opacity: .85; }
 .of-shade { position: fixed; z-index: 1; left: 0; right: 0; top: 0; height: calc(64px + env(safe-area-inset-top)); pointer-events: none;
   background: linear-gradient(to bottom, #060606 55%, rgba(6,6,6,0)); opacity: 0; transition: opacity .35s; }
 .of.scrolled .of-shade { opacity: 1; }
@@ -21,67 +17,34 @@
 .of-sheet .ac-row b { font-family: 'SG Machine', 'Courier New', monospace; font-weight: 700; color: #e2e2e2; text-shadow: 0 0 .6px rgba(255,255,255,.5); }
 .of-sheet .ac-row { animation: of-frappe .2s both ease-out; }
 @keyframes of-frappe { from { opacity: 0; transform: translateY(-.08em) scale(1.06); filter: blur(.6px); } }
-.of-note { font: 14px/1.6 'SG Machine', 'Courier New', monospace; color: #9a958c; text-align: center; margin: 14px 0 0; }
 
 /* par-dessus la vraie feuille (scène des cartes, en dessous) : le premier écran est transparent, la note en bas ;
    en faisant défiler, la suite (opaque) monte sur la feuille */
 .of.over { background: transparent; }
 .of.over main { padding-top: 0; }
 .of.over .of-hole { position: relative; height: calc(100svh - var(--inset, 212px) - env(safe-area-inset-bottom)); touch-action: pan-y pinch-zoom; }   /* --inset = SHEET_INSET (config.js) */
-.of.over .of-poem { min-height: 3.4em; }
 /* la légende colle à la feuille ; la suite commence sous le bandeau (le premier écran semble fini) */
-.of.over .of-poem { margin-top: -22px; }
 .of.over .of-rest { margin-top: calc(var(--inset, 212px) + 24px); }   /* (après .of-story) */
-/* (10/10) le poème original, tapé sous la feuille (ses premières lignes dépassent au-dessus du bandeau) */
-.of.over .of-poem { background: #060606; box-shadow: 0 0 0 100vmax #060606; clip-path: inset(0 -100vmax -1px); padding-top: 10px; }
-.of-poem { text-align: center; min-height: 1.7em; line-height: 1.7; color: #d6d2ca; letter-spacing: .02em; }
 /* la petite flèche vers les autres poèmes (si rien ne se passe) */
 .of-down { display: block; margin: 0 auto; width: 44px; height: 40px; padding: 0; background: none; border: 0; color: #fff; opacity: 0;
   pointer-events: none; transition: opacity 1s; cursor: pointer; }
 .of-down.on { opacity: .55; pointer-events: auto; animation: of-bob 2.6s ease-in-out infinite; }
 @keyframes of-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
 .of.over .of-down { background: transparent; }
-/* le menu, discret, en haut à droite */
-.of-menu { position: fixed; z-index: 4; right: max(6px, env(safe-area-inset-right)); top: max(6px, env(safe-area-inset-top)); display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; }
-.of-menu-b, .of-menu.open .of-menu-l { pointer-events: auto; }
-.of-menu-b { width: 44px; height: 44px; padding: 0; background: none; border: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; opacity: .62; }
-.of-menu-b i { display: block; width: 18px; height: 1px; background: #fff; transition: transform .35s; }
-.of-menu.open .of-menu-b i:first-child { transform: translateY(3.5px) rotate(45deg); }
-.of-menu.open .of-menu-b i:last-child { transform: translateY(-3.5px) rotate(-45deg); }
-.of-menu-l { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; padding: 0 14px 0 0; opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity .35s, transform .35s; }
-.of-menu.open .of-menu-l { opacity: 1; pointer-events: auto; transform: none; }
-.of-menu-l a { padding: 8px 0; font: 500 14px/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; color: #ece8e0; text-decoration: none; opacity: .8; }
-.of.paying .of-menu, .of.env .of-menu { opacity: 0; pointer-events: none; }
-.of.over .of-note { margin: 0; padding: 0 0 18px; }
-.of-note span { color: #77726a; }
-.of.over .of-after { display: none; }   /* la carte face cachée le dit */
 /* toute la suite d'un seul fond (blocs séparés : la feuille se voyait entre eux, en bandes grises) */
 .of.over .of-rest { position: relative; background: #060606; box-shadow: 0 0 0 100vmax #060606; clip-path: inset(0 -100vmax -100vmax); padding-bottom: 1px; }
 .of-rest > :first-child { margin-top: 0; }
-.of.over .of-vrai { margin-top: 0; padding-top: 30px; }
 /* d'autres poèmes : en défilé façon story (milieu grand, voisins plus petits en fondu — exemples.js) */
 .of-ex { margin: 22px -16px 0; padding-top: 8px; }
-.of-h { font: 500 15px/1.4 'SG Garamond', Georgia, serif; color: #9a958c; text-align: center; margin: 0 0 12px; }
-.ex-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; touch-action: pan-x pan-y pinch-zoom;
-  padding: 6px 0; }
-.ex-track::-webkit-scrollbar { display: none; }
-.ex-slide { flex: 0 0 72%; scroll-snap-align: center; margin: 0; transform-origin: center; will-change: transform, opacity; }
 .ex-sheet { box-shadow: 0 6px 18px rgba(0,0,0,.55); }
-.ex-photo { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 2px; background: #0d0d0c; }
-.ex-photo.ex-rendu { aspect-ratio: 900 / 1240; object-fit: contain; background: #060606; }
 .ex-sheet .ex-poem { position: absolute; left: 13cqw; right: 7cqw; top: 22cqw; font: 3.2cqw/1.95 'SG Machine', 'Courier New', monospace; color: #d6d6d6; }
 .ex-l { white-space: nowrap; }
 .ex-l b { font: 500 5.2cqw/1 'SG Garamond', Georgia, serif; color: #e8e8e8; }
 .ex-l span { text-shadow: 0 0 .4px rgba(255,255,255,.4); }
-.ex-sig { margin-top: 3cqw; font-size: 2.9cqw; color: #bdbdbd; }
 .ex-l.ex-gap { height: 1.95em; }
 .ex-card { position: absolute; left: 50%; bottom: 7cqw; width: 64cqw; aspect-ratio: 610 / 360; transform: translateX(-50%) rotate(-2deg);
   background: #000 center / 118% 122% no-repeat; border-radius: 2.4cqw; box-shadow: 0 1.2cqw 3cqw rgba(0,0,0,.65); }
-.of-ex-note { font-size: 14px; color: #77726a; text-align: center; margin: 10px 16px 0; }
 /* les vraies photos : on glisse de l'une à l'autre */
-.of-vrai { margin: 30px -16px 0; }
-.of-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; touch-action: pan-x pan-y pinch-zoom; }
-.of-track::-webkit-scrollbar { display: none; }
 .of-slide { flex: 0 0 100%; scroll-snap-align: center; margin: 0; padding: 0 16px; box-sizing: border-box; }
 .of-img { position: relative; aspect-ratio: 4 / 5; background: #0d0d0c; border-radius: 2px; overflow: hidden; }
 .of-img img, .of-img video { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -93,15 +56,6 @@
 .of-dots i { width: 5px; height: 5px; border-radius: 50%; background: #fff; opacity: .2; transition: opacity .3s; }
 .of-dots i.on { opacity: .7; }
 
-.of-what { list-style: none; padding: 0; margin: 30px 0 0; font-size: 16px; color: #c4bfb5; }
-.of-what li { padding: 11px 0; border-top: 1px solid #222120; }
-.of-what li:last-child { border-bottom: 1px solid #222120; }
-.of-after { margin: 22px 0 0; color: #c4bfb5; font-size: 16px; }
-.of-legal { margin: 18px 0 0; font-size: 13px; color: #77726a; }
-.of-gift { margin: 22px 0 0; font-size: 15px; color: #9a958c; }
-.of-link { background: none; border: 0; padding: 0; font: inherit; color: #d6d2ca; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: #5b554b; cursor: pointer; }
-.of-foot { margin: 34px 0 0; text-align: center; font-size: 14px; color: #6c675e; }
-.of-foot a { color: inherit; text-decoration: none; border-bottom: 1px solid #333; }
 
 /* la barre du prix : toujours en vue, après l'acrostiche */
 .of-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 14px;
@@ -148,13 +102,6 @@
 .of-fake-apple { display: block; width: 100%; height: 48px; border: 0; border-radius: 4px; background: #fff; color: #000; font: 600 17px/48px -apple-system, system-ui, sans-serif; cursor: pointer; }
 /* pendant le paiement : la note et la barre du prix s'effacent (le bandeau, c'est le paiement) */
 .of.paying .of-bar { transform: translateY(110%); }
-/* (10/10) l'enveloppe : la page s'efface sur elle (on y tape l'adresse) ; le bandeau revient quand l'adresse est complète */
-.of.env .of-note, .of.env .of-rest { opacity: 0; pointer-events: none; transition: opacity .4s; }
-.of.env { overflow: hidden; pointer-events: none; }
-.of.env .of-back, .of.env.env-ready .of-bar { pointer-events: auto; }
-.of.env:not(.env-ready) .of-bar { transform: translateY(110%); }
-.of.env .of-shade { opacity: 0; }
-.of.paying .of-note, .of.paying .of-back { opacity: 0; pointer-events: none; transition: opacity .4s; }
 .of-pay-title b { display: block; font: 500 26px/1.2 'SG Garamond', Georgia, serif; letter-spacing: .3em; padding-left: .3em; color: #f1ede6; margin-bottom: 4px; }
 .of-pay-title span { display: block; color: #c4bfb5; }
 .of-pay-title .of-pay-p { font-size: 14px; color: #8f897f; margin-top: 2px; }
@@ -235,18 +182,8 @@
 .of-vit-t { flex: 1; margin: 0; height: 4.65em; display: flex; align-items: center; justify-content: center;
   font: min(13px, 3.45vw)/1.55 'SG Machine', 'Courier New', monospace; color: #cfcac1; text-align: center; letter-spacing: .01em; }
 .of-vit-t > i { font-style: normal; display: block; }
-.of-vit-a { flex: none; width: 34px; height: 44px; padding: 0; border: 0; background: none; color: #fff; opacity: .42; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: opacity .3s; }
-.of-vit-a:hover, .of-vit-a:focus-visible { opacity: .8; outline: none; }
-.of.env .of-vit, .of.paying .of-vit { display: none; }
+.of.paying .of-vit { display: none; }
 
-/* (10/10, Maxence) le site en onglets, en haut, au centre (au lieu du menu à deux traits sur le côté) : ce qu'on regarde
-   (POEME) plus clair, souligné d'un filet ; les autres pages à côté */
-.of-tabs { position: fixed; z-index: 4; top: max(6px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; gap: 6px; height: 44px; align-items: center; transition: opacity .4s; }
-.of-tabs a { position: relative; padding: 14px 10px; font: 500 12px/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; padding-right: calc(10px - .3em); color: #ece8e0; opacity: .5; text-decoration: none; }
-.of-tabs a[aria-current] { opacity: .9; }
-.of-tabs a[aria-current]::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 8px; height: 1px; background: rgba(236, 232, 224, .45); }
-.of-tabs a:not([aria-current]):hover, .of-tabs a:not([aria-current]):focus-visible { opacity: .8; outline: none; }
-.of.paying .of-tabs, .of.env .of-tabs { opacity: 0; pointer-events: none; }
 /* (10/10) le bandeau : ce qu'on reçoit, RECEVOIR, puis le prix dessous */
 .of-bar .of-vit { order: 1; }
 .of-bar .of-go, .of-bar .of-bar-r { order: 2; }
@@ -257,10 +194,8 @@
 
 /* (11/10) les soulignements : des bouts de fil cousus (stitch.js) — plus de filets ni de traits */
 .of-bar .of-go::after { display: none; }
-.of-tabs a[aria-current]::after { display: none; }
-.of-foot a { position: relative; display: inline-block; border-bottom: 0; }
 .of-stitch { display: block; }
-.of.env .of-bar .of-stitch, .of.paying .of-bar .of-stitch { opacity: 0; }
+.of.paying .of-bar .of-stitch { opacity: 0; }
 /* l'histoire : un espace transparent sous la scène, qu'on fait défiler (étape par étape) avant les autres poèmes */
 .of-story { pointer-events: none; }
 /* la description glisse (l'ancienne part, la nouvelle arrive) */
@@ -277,7 +212,7 @@
 .of-edges { position: fixed; inset: 0; z-index: 1; pointer-events: none;
   background: linear-gradient(to bottom, #060606 0, rgba(6,6,6,.85) calc(env(safe-area-inset-top) + 34px), rgba(6,6,6,0) calc(env(safe-area-inset-top) + 78px)),
     linear-gradient(to right, #060606 0, rgba(6,6,6,0) 20px), linear-gradient(to left, #060606 0, rgba(6,6,6,0) 20px); }
-.of.paying .of-edges, .of.env .of-edges { opacity: .6; }
+.of.paying .of-edges { opacity: .6; }
 
 /* (11/10, Maxence) la description de l'objet n'est plus dans le bandeau du bas : elle est sous l'objet, et reste avec lui
    pendant l'histoire (collante jusqu'à la fin de .of-stage, puis elle monte avec la feuille) ; le bandeau : RECEVOIR, le
@@ -287,7 +222,7 @@
 .of.over .of-cap { position: sticky; top: calc(100svh - var(--inset, 212px) - env(safe-area-inset-bottom)); margin: 0 -16px; }
 .of.over .of-rest { margin-top: calc(var(--inset, 212px) - 40px); z-index: 1; }
 .of:not(.over) .of-cap { margin-top: 10px; }
-.of.env .of-cap, .of.paying .of-cap { opacity: 0; pointer-events: none; }
+.of.paying .of-cap { opacity: 0; pointer-events: none; }
 .of-bar .of-price { font-size: 13px; }
 
 /* (11/10, Maxence) sous l'objet : la description, des points (une étape chacun), la petite flèche ; le bandeau : RECEVOIR,
@@ -326,9 +261,6 @@
 .of-bar { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
 .of-bar .of-price { font-size: 12.5px; }
 .of-bar .of-price b { font-size: 13.5px; }
-.of-contact { display: block; margin: 8px auto 0; padding: 10px 14px; border: 0; background: none; cursor: pointer; font: 500 14px/1 'SG Garamond', Georgia, serif;
-  color: #ece8e0; opacity: .5; letter-spacing: .04em; }
-.of-contact:hover, .of-contact:focus-visible { opacity: .85; outline: none; }
 
 /* lire un poème : la feuille entière, presque plein écran (entre le bandeau et SINGULIES) */
 .ex-veil { position: fixed; left: 0; right: 0; z-index: 24; background: #060606; opacity: 0; transition: opacity .45s ease; cursor: zoom-out; }
@@ -339,4 +271,4 @@
 /* (11/10) le bandeau du bas paraît en fondu, à sa place (il glissait de tout en bas et passait sur SINGULIES) */
 .of-bar { transform: translateY(14px); opacity: 0; transition: transform .8s cubic-bezier(.2,.7,.3,1), opacity .8s ease; }
 .of.bar-on .of-bar { transform: none; opacity: 1; }
-.of.paying .of-bar, .of.env:not(.env-ready) .of-bar { transform: translateY(14px); opacity: 0; }
+.of.paying .of-bar { transform: translateY(14px); opacity: 0; }

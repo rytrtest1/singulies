@@ -5,7 +5,7 @@
 // Toucher la feuille, la carte ou l'enveloppe : on s'en approche ; toucher la carte de près : elle se retourne ;
 // toucher ailleurs : l'ensemble.
 import { createCardRenderer, M4, CARD } from '../cards/cardRenderer.js';
-import { loadTypeFont, makeInkMap, makeAnswerInk, TYPE } from '../cards/ink.js';
+import { loadTypeFont, makeInkMap, makeAnswerInk } from '../cards/ink.js';
 import { createNameRelief } from '../cards/nameRelief.js';
 import { LOOK } from '../cards/scene.js';
 import { SHEET, ENV, LOGO_Y, LOGO_K, COL_X, C_POSE, addressInk } from '../sheet/sheet.js';

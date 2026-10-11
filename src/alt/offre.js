@@ -6,7 +6,7 @@ import { acrostic } from '../basique/basique.js';
 import { mountExemples } from './exemples.js';
 import { count } from '../app/count.js';
 import { stitch } from './stitch.js';
-import { PRIX, STRIPE, STRIPE_PK, PAIEMENT_URL, PHOTOS, FEUILLE_PHOTO, LIENS, SHEET_INSET, RESERVATION } from './config.js';
+import { PRIX, STRIPE, STRIPE_PK, PAIEMENT_URL, FEUILLE_PHOTO, SHEET_INSET, RESERVATION } from './config.js';
 
 const Q = new URLSearchParams(location.search);
 const TEST = Q.get('test') !== '0';
@@ -29,7 +29,6 @@ const OBJETS = [
   { id: 'cachet', txt: 'le tout scellé à la cire' },
   { id: 'mystere', txt: 'une carte mystère et un fil…\npour rester liés' },
 ];
-const CHEV = d => `<svg viewBox="0 0 24 24" width="16" height="16"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>`;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // le paiement : le prénom part dans client_reference_id (A–Z, chiffres, - et _), et reste ici pour merci.html
@@ -80,7 +79,6 @@ function appearance() {
 }
 // (10/10) payer depuis le bandeau : il grandit vers le haut (jamais plein écran) et la feuille — le prénom — reste
 // visible au-dessus : la scène remonte et se réduit pour tenir dans ce qui reste (la feuille occupe ≈ 21–79 % de la hauteur)
-const SHEET_Y0 = 0.21, SHEET_Y1 = 0.79;
 function liftSheet(on, panelEl) {
   const cv = document.querySelector('canvas.sc-c');
   const of = document.getElementById('offre');
@@ -131,9 +129,6 @@ function ensureRef(name) {
 }
 // payé : la suite ici même si la page sait enchaîner, sinon merci.html
 let closePanel = () => {};
-let envAddr = null;   // (10/10) l'adresse tapée sur l'enveloppe : { prenom, nom, rue, cplt, ville, cp }
-const stripeAddr = f => ({ name: [f.prenom, f.nom].filter(Boolean).join(' ').trim(),
-  address: { line1: f.rue || '', line2: f.cplt || '', city: f.ville || '', postal_code: f.cp || '', country: 'FR' } });
 // (10/10) payé par Apple Pay / Google Pay : l'adresse et l'email viennent du portefeuille — ils iront sur l'enveloppe,
 // tapés tout seuls après la cérémonie, puis l'email dans le champ de la fin
 function walletOut(ev, r) {
@@ -149,7 +144,7 @@ function sessionAddr(r) {
   return a.line1 && a.city && a.postal_code ? { address: { prenom: nm[0] || '', nom: nm.slice(1).join(' '), rue: a.line1, cplt: a.line2 || '', ville: a.city, cp: a.postal_code } } : {};
 }
 function paidHere(name, ref, extra = {}) {
-  const o = { ...(readOrder() || {}), name, ref, paid: true, ...(envAddr ? { address: envAddr } : {}), ...extra };
+  const o = { ...(readOrder() || {}), name, ref, paid: true, ...extra };
   saveOrder(o);
   count('alt/paye');
   if (!onPaidHere) { location.href = merciUrl(extra.reserve ? { reserve: '1' } : extra.simule ? { simule: '1' } : {}); return; }
@@ -196,7 +191,6 @@ function barWalletSetup(root, name) {
 }
 
 function openPanel(name, ref) {
-  if (panel && !!panel.env !== !!envAddr) { panel.root.remove(); panel.veil.remove(); panel = null; }
   if (panel) { panel.root.classList.add('on'); panel.veil.classList.add('on'); requestAnimationFrame(() => liftSheet(true, panel.root)); return; }
   const fake = Q.get('paiement') === 'faux' || !(STRIPE_PK && PAIEMENT_URL);   // ?paiement=faux : toujours le faux formulaire
   const veil = document.createElement('div'); veil.className = 'of-pay-veil';
@@ -219,7 +213,7 @@ function openPanel(name, ref) {
       <p class="of-pay-legal">${fake ? 'paiement d’essai : rien n’est débité.<br>' : ''}paiement sécurisé par stripe.<br>un prénom, un poème : fait pour une personne, il ne peut être ni repris ni échangé.</p>
     </div>`;
   document.body.append(veil, root);
-  panel = { root, veil, env: !!envAddr };
+  panel = { root, veil };
   const close = () => { root.classList.remove('on'); veil.classList.remove('on'); liftSheet(false); };
   closePanel = close;
   veil.addEventListener('click', close);
@@ -248,8 +242,7 @@ function openPanel(name, ref) {
     expressHost.innerHTML = '<button type="button" class="of-fake-apple">Payer avec Apple Pay</button>';
     expressHost.querySelector('button').addEventListener('click', () => paidNow({ simule: true }));
     orEl.hidden = false;
-    if (envAddr) addrHost.closest('.of-pf').hidden = true;   // l'adresse est sur l'enveloppe
-    else addrHost.innerHTML = ['prénom et nom', 'adresse', 'code postal', 'ville'].map(l => `<input class="of-pin of-fake-in" placeholder="${l}" aria-label="${l}">`).join('');
+    addrHost.innerHTML = ['prénom et nom', 'adresse', 'code postal', 'ville'].map(l => `<input class="of-pin of-fake-in" placeholder="${l}" aria-label="${l}">`).join('');
     pmHost.innerHTML = `<div class="of-fake-tabs"><span class="on">carte</span><span>apple pay</span><span>paypal</span></div>
       <input class="of-pin of-fake-in" placeholder="numéro de carte" aria-label="numéro de carte" inputmode="numeric">`;
     const upd = () => { go.disabled = !mailOk(mail.value); };
@@ -285,9 +278,7 @@ function openPanel(name, ref) {
         if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
       });
     } catch (e) { console.warn('portefeuille (panneau)', e); }   // jamais au détriment de la carte
-    // l'adresse : déjà tapée sur l'enveloppe → elle part chez Stripe (pas de second formulaire) ; sinon ses champs
-    if (envAddr) { addrHost.closest('.of-pf').hidden = true; actions.updateShippingAddress?.(stripeAddr(envAddr)); }
-    else checkout.createShippingAddressElement().mount(addrHost);
+    checkout.createShippingAddressElement().mount(addrHost);
     checkout.createPaymentElement().mount(pmHost);
     let busy = false;
     const upd = () => { go.disabled = busy || !mailOk(mail.value); };
@@ -298,7 +289,6 @@ function openPanel(name, ref) {
       busy = true; upd(); msg('');
       // (10/10) sans redirection quand c'est possible (carte, Apple Pay, Google Pay) : la suite se joue ici ; sinon
       // (3-D Secure, PayPal…) Stripe ramène vers merci.html
-      if (envAddr) await actions.updateShippingAddress?.(stripeAddr(envAddr));
       const r = await actions.confirm({ email: mail.value.trim(), redirect: 'if_required' });
       if (r && r.type === 'success') { paidNow({ session: r.session?.id || '', email: mail.value.trim(), ...sessionAddr(r) }); return; }
       if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
@@ -355,10 +345,10 @@ function slide(p) {
   return fig;
 }
 
-// opts : { name (capitales), onBack(), over (la vraie feuille est dessous, dans la scène des cartes), onPaid(order),
-//          envelope : { open(), back() } (la scène sait glisser la feuille dans l'enveloppe ; alors COMMANDER y mène) }
+// opts : { name (capitales), over (la vraie feuille est dessous, dans la scène des cartes), onPaid(order),
+//          scene : { vitrine, canvas } (la scène des cartes : la vitrine s'y joue) }
 // nav : le bandeau des pages (src/nav/nav.js) — glisser l'objet mène aux pages voisines
-export function mountOffer({ name, onBack, over = false, onPaid = null, envelope = null, nav = null }) {
+export function mountOffer({ name, over = false, onPaid = null, scene = null, nav = null }) {
   onPaidHere = onPaid;
   const root = document.createElement('div');
   root.id = 'offre'; root.className = 'of' + (over ? ' over' : '');
@@ -407,8 +397,8 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   // les autres poèmes montent et la feuille avec eux) ou avec les flèches ; on recule pareil, à tout moment, et tout se
   // rejoue dans l'ordre. Sans la scène (pas de WebGL2) : seulement les mots.
   const txt = root.querySelector('.of-vit-t'), hole = root.querySelector('.of-hole'), story = root.querySelector('.of-story');
-  const vit = envelope && envelope.vitrine ? envelope.vitrine : null;
-  const busyMode = () => root.classList.contains('paying') || root.classList.contains('env');
+  const vit = scene && scene.vitrine ? scene.vitrine : null;
+  const busyMode = () => root.classList.contains('paying');
   const N = OBJETS.length;
   // (11/10, Maxence) le défilement EST le temps : chaque étape a une longueur de page proportionnelle à sa durée réelle
   // (la carte 1,8 s, l'enveloppe et la carte mystère 7 s, le cachet 2,4 s) — aucune partie en accéléré
@@ -442,7 +432,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   // les petits mots restent avec le suivant (jamais « à » seul en fin de ligne)
   const nbsp = s => { const r = /(^|[\s\u00a0])(à|a|de|du|la|le|un|et|y|me|ton|pour|au) /gi, f = x => x.replace(r, (m, a, w) => a + w + '\u00a0'); return f(f(s)); };
   // revenir à la feuille d'un coup, sans qu'on voie le saut (RECEVOIR depuis une autre étape)
-  const sceneCv = () => envelope && envelope.canvas;
+  const sceneCv = () => scene && scene.canvas;
   const fadeJump = (k, then) => {
     const c = sceneCv(); if (!c || !vit) { then && then(); return; }
     c.style.transition = 'opacity .3s ease'; c.style.opacity = '0';
@@ -550,22 +540,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   stitch(root.querySelector('.of-bar .of-go'), { seed: 'RECEVOIR'.length * 13 });
 
   // gestes
-  // l'enveloppe (10/10) : ouverte, la page s'efface sur elle ; adresse complète → le bandeau du paiement
-  let inEnv = false;
   const go = root.querySelector('.of-go');
-  const enterEnv = () => {
-    inEnv = true; envAddr = null; count('alt/enveloppe');
-    root.classList.add('env'); root.classList.remove('env-ready');
-    root.scrollTo({ top: 0, behavior: 'smooth' });
-    go.textContent = RESERVE ? 'RESERVER' : 'PAYER';
-    const st = vit && vit.state();
-    if (st && (st.vt > 0 || st.target > 0)) fadeJump(0, () => envelope.open()); else envelope.open();
-  };
-  const leaveEnv = () => { inEnv = false; envAddr = null; root.classList.remove('env', 'env-ready'); go.textContent = 'RECEVOIR'; };
-  const back = () => {
-    if (inEnv) { closePanel(); envelope.back(); leaveEnv(); return; }
-    count('alt/retour'); onBack?.();
-  };
   // (10/10, Maxence) RECEVOIR : directement le paiement (ou la réservation) — plus d'adresse sur l'enveloppe avant ;
   // l'enveloppe vient après, avec la cérémonie (l'adresse connue s'y tape seule, sinon on l'y écrit)
   go.addEventListener('click', () => {
@@ -573,8 +548,6 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     if (st && (st.vt > 0 || st.target > 0)) { root.scrollTo({ top: 0 }); fadeJump(0, () => pay(name)); } else pay(name);
   });
   barWalletSetup(root, name);
-  // (11/10) plus de retour au prénom (on peut toujours recharger la page) ; Échap défait seulement l'enveloppe
-  addEventListener('keydown', e => { if (e.key === 'Escape' && root.isConnected && inEnv) back(); });
 
   // l'entrée : la couche se pose sur le prénom seul, puis l'acrostiche se tape, puis la barre du prix
   count('alt/offre');
@@ -590,16 +563,9 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
     setTimeout(() => { root.classList.remove('on'); root.style.pointerEvents = 'none'; }, 350);
     setTimeout(() => { root.remove(); document.body.classList.remove('of-open'); panel?.root.remove(); panel?.veil.remove(); panel = null; }, 1400);
   };
-  // la scène dit où en est l'enveloppe : ouverte (on y écrit), adresse complète (on peut payer), refermée
-  const onEnvelope = e => {
-    if (!inEnv) return;
-    if (e.closed) { leaveEnv(); return; }
-    envAddr = e.canPost ? e.fields : null;
-    root.classList.toggle('env-ready', !!e.canPost);
-  };
   // (pour le bandeau des pages) l'objet de la page : la scène (ou la feuille dessinée) et sa description
   // (11/10) la description suit le doigt par son contenu, jamais par le bloc collant lui-même (.of-cap, sticky) : Safari
   // repositionne mal un élément collant qu'on a décalé puis remis — le texte restait décalé après un aller-retour
   const stage = () => [sceneCv() || root.querySelector('.of-sheet'), root.querySelector('.of-cap .of-vit'), root.querySelector('.of-cap .of-down')];
-  return { root, shown, hide, onEnvelope, stage, storyLen, get top() { return root.scrollTop; } };
+  return { root, shown, hide, stage, storyLen, get top() { return root.scrollTop; } };
 }

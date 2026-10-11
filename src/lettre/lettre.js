@@ -2,13 +2,13 @@
 // (src/nav/nav.js) ; les pages voisines s'y montent sans rechargement, sauf le poème (alt.html).
 import './lettre.css';
 import { installCount } from '../app/count.js';
-import { menuFonts } from '../menu/menu.js';
+import { siteFonts } from '../app/fonts.js';
 import { installNav } from '../nav/nav.js';
 import { buildLettre } from './content.js';
 
 const host = document.querySelector('.ltp');
 const { main } = buildLettre(host, './');
-menuFonts('./').finally(() => requestAnimationFrame(() => requestAnimationFrame(() => main.classList.add('on'))));
+siteFonts('./').finally(() => requestAnimationFrame(() => requestAnimationFrame(() => main.classList.add('on'))));
 installCount('lettre');
 const nav = installNav({ current: 'lettre', base: './', host: { stage: () => [main.querySelector('.lt-env'), ...[...main.children].filter(e => !e.classList.contains('lt-env'))], all: () => [host], obj: () => [main.querySelector('.lt-env')], rest: () => [...main.children].filter(e => !e.classList.contains('lt-env')), center: () => { const r = main.querySelector('.lt-env').getBoundingClientRect(); return r.height ? { y: r.top + r.height / 2, h: r.height } : null; } },
   show: () => true, foot: () => true, shade: () => true, side: () => host.scrollTop < 40,

@@ -2,7 +2,7 @@
 // Chacune rend { stage() (l'objet : il suit le doigt), all() (ce qui part et entre sur le côté), foot (SINGULIES en
 // bas), side() (les objets voisins), leave(), back(), transient (démontée une fois quittée) }.
 import '../lettre/lettre.css';
-import { menuFonts } from '../menu/menu.js';
+import { siteFonts } from '../app/fonts.js';
 
 function layer(cls) {
   const host = document.createElement('div'); host.className = 'ltp pg ' + cls;
@@ -12,7 +12,7 @@ function layer(cls) {
 }
 
 export async function mountPage(id, { base = './', reduced = false, nav }) {
-  await menuFonts(base);
+  await siteFonts(base);
   if (id === 'lettre' || id === 'livres') {
     const host = layer('pg-' + id);
     const m = id === 'lettre' ? await import('../lettre/content.js') : await import('../livres/content.js');

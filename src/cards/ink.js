@@ -189,7 +189,6 @@ export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null, margin
   const PX = INK_PXMM, W = Math.round(CARD.w * PX), H = Math.round(CARD.h * PX);
   const cv = new OffscreenCanvas(W, H), cx = cv.getContext('2d');
   cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
-  const r0 = createRng(seed);
   // bloc de 3 lignes centré, au même endroit sur toutes les cartes (marge d'une ligne pleine centrée)
   const lead = CTYPE.lead, y0 = CARD.h / 2 - lead + 1.2;
   const lines = answerLines(text, answerMax(margin));
@@ -233,60 +232,6 @@ export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null, margin
   const hinted = !!(hint && !text);
   if (hinted) cursor.x = hintLine(cx, PX, hint, margin, y0, CARD.w - 2 * Math.min(margin, 9)) - 0.35;
   return { canvas: cv, lines, cursor, hidden: first, count: lines.length, hinted };
-}
-
-// Réponse tapée directement sur la carte, sous la question : même marge, un interligne exactement après la
-// dernière ligne de la question, même inclinaison de la carte dans la machine. Si la réponse dépasse le bas
-// de la carte, tout le texte monte d'un interligne (le papier avance) : les premières lignes sortent par le haut.
-export function makeQAInk(question, answer, seed = 1) {
-  const q = makeInkMap(question, seed);
-  const PX = INK_PXMM, W = q.canvas.width, H = q.canvas.height;
-  const lines = answer ? answerLines(answer) : [''];
-  const qLast = q.y0 + (q.lines.length - 1) * q.lead;
-  const base = k => qLast + (k + 1) * q.lead;
-  const limit = CARD.h - 5.5;
-  const scroll = Math.max(0, Math.ceil((base(lines.length - 1) - limit) / q.lead - 1e-6)) * q.lead;
-  const cv = new OffscreenCanvas(W, H), cx = cv.getContext('2d');
-  cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
-  cx.drawImage(q.canvas, 0, -scroll * PX);
-  cx.save();
-  cx.translate(q.margin * PX, (q.y0 - scroll) * PX); cx.rotate(q.tilt); cx.translate(-q.margin * PX, -(q.y0 - scroll) * PX);
-  cx.globalCompositeOperation = 'lighter';
-  const fontPx = CTYPE.size * PX;
-  const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
-  const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;
-  let idx = 0;
-  lines.forEach((line, li) => {
-    const b = base(li) - scroll;
-    if (b > -4) [...line].forEach((ch, ci) => {
-      const r = createRng((seed * 7919 + (idx + ci) * 104729 + 31) >>> 0);
-      const g = () => { let s = 0; for (let i = 0; i < 4; i++) s += r(); return (s - 2) / 0.58; };
-      if (ch === ' ') return;
-      const x = q.margin + ci * CTYPE.pitch + g() * 0.06, y = b + g() * 0.09;
-      const press = Math.min(1, Math.max(0.5, 0.82 + g() * 0.14)), rot = g() * 0.5 * Math.PI / 180;
-      gx.setTransform(1, 0, 0, 1, 0, 0); gx.globalCompositeOperation = 'source-over';
-      gx.clearRect(0, 0, glyph.width, glyph.height);
-      gx.font = `${fontPx}px "${FAMILY}"`; gx.fillStyle = '#fff';
-      gx.translate(ox, oyB); gx.scale(CTYPE.xScale, CTYPE.yScale);
-      gx.fillText(ch, 0, 0);
-      gx.setTransform(1, 0, 0, 1, 0, 0);
-      if (r() < 0.4) {
-        const a = r() * Math.PI * 2, rr = glyph.width * 0.6;
-        const gr = gx.createLinearGradient(glyph.width / 2 - Math.cos(a) * rr, glyph.height / 2 - Math.sin(a) * rr, glyph.width / 2 + Math.cos(a) * rr, glyph.height / 2 + Math.sin(a) * rr);
-        gr.addColorStop(0, `rgba(255,255,255,${r.range(0.5, 0.9)})`); gr.addColorStop(1, 'rgba(255,255,255,1)');
-        gx.globalCompositeOperation = 'destination-in'; gx.fillStyle = gr; gx.fillRect(0, 0, glyph.width, glyph.height);
-      }
-      cx.save(); cx.translate(x * PX, y * PX); cx.rotate(rot); cx.globalAlpha = press;
-      cx.drawImage(glyph, -ox, -oyB); cx.restore();
-    });
-    idx += line.length + 1;
-  });
-  cx.restore();
-  const last = lines[lines.length - 1];
-  // curseur (mm depuis le coin haut-gauche de la face lue), sur la ligne en cours, dans l'inclinaison de la carte
-  const cxm = q.margin + last.length * CTYPE.pitch - 0.35, cym = base(lines.length - 1) - scroll;
-  const dy = (cxm - q.margin) * Math.sin(q.tilt);
-  return { canvas: cv, cursor: { x: cxm, y: cym + dy }, scroll, lines };
 }
 
 // Bande d'écriture : la carte réponse ne dépasse sous la question que d'une ligne ; la ligne en cours est

@@ -285,7 +285,7 @@ Voir « Point de reprise » en tête de fichier.
 - Vérifié (Chromium, GPU Intel, `tools/env-shot.mjs`) : lignes, pivot sans traversée, cachet lisible à l'endroit, enchaînement des champs (POSTER au 6e champ rempli). Unitaires 45/45. **Non vérifié** : e2e, iPhone (clavier qui passe du textarea au champ d'adresse, remplissage automatique), envoi réel de la confirmation.
 
 ## 07–08/10 (nuit) — revue de l'audit GPT
-- Revue complète : `REVUE-AUDIT.md` (retenu / corrigé / écarté, risques non vus, propositions de langage, questions).
+- Revue complète : `docs/REVUE-AUDIT.md` (retenu / corrigé / écarté, risques non vus, propositions de langage, questions).
 - Publié : la toute fin (prénom + « je l'écris à la machine, / puis il part chez toi. », état réseau), aperçu du lien (og.jpg rendu par le moteur), texte pour lecteurs d'écran, noscript, noindex des pages d'essai, confidentialité exacte, porte Instagram sans WebGL2.
 - Vérifié (Chromium) : `captures/fin/` (390×844, 1280×800, prénom long, en direct, sans réseau, sans WebGL). Unitaires 45/45. Non vérifié : iPhone, Instagram, e2e.
 - En attente de Maxence : mots de la fin, « pour te dire quand il part », sens de « en direct », reprise après interruption, quota / domaines EmailJS.
@@ -303,14 +303,14 @@ Voir « Point de reprise » en tête de fichier.
 - **08/10 (7)** : iPhone de Maxence : plus de portail, champ seul, puis « ton téléphone n'arrive pas… » — non reproduit (Chromium, émulation iPhone : tout s'affiche). Hypothèse : WebGL refusé par Safari pour le site (blocage après plantage du processus graphique / trop de contextes). Fait : l'encre de l'enveloppe réutilise sa texture (plus 7 Mo neufs par frappe), `?diag=1` écrit la raison sous le message.
 - **08/10 (8)** : iPhone X (iOS 16) : portail et cartes plantaient — OffscreenCanvas absent avant Safari 16.4 / peu sûr vers WebGL avant 17. `src/app/compat.js` (importé par cardRenderer) : sous Safari < 17, OffscreenCanvas = simple <canvas> ; `releaseCanvas` rend la mémoire des grandes toiles jetées à chaque frappe. Vérifié (Chromium, agent iOS 16.7) : portail, cartes, enveloppe. Page d'essai : `?reponse=` prend la carte réponse elle-même sur téléphone. Confirmé par Maxence sur iPhone X.
 
-## 09/10 — décisions de la revue de l'audit, codées (détail : fin de REVUE-AUDIT.md)
+## 09/10 — décisions de la revue de l'audit, codées (détail : fin de docs/REVUE-AUDIT.md)
 - (1) noms : ETERNEL partout (onglet, vignettes, pages), SINGULIES = le jeu / le label ; carte du jeu *commander* ; fin : COMMANDER ; lien de demande sans adresse ni contact ; une demande ne part jamais deux fois (empreinte 24 h) ; emails : logo SS + SINGULIES en pied, récapitulatif « ton prénom m'est bien arrivé. / je l'écris à la machine, / puis il part chez toi. » ; ancienne phrase de fin retirée.
 - (2) prénom au-dessus du champ de l'email ; invitation « Léa nom » (src/text/accents.js) ; coin corné après les deux esquisses ; signature « - ETERNEL - » sur la feuille ; envelope.js (tableau des durées `chain`) + typewriter.js ; rabat ouvert pendant l'adresse, POSTER = tampon → retournement → rabat → cachet → tranche ; pointe du rabat sans épaulement.
 - (3) à-coups : question suivante, encre de l'enveloppe, coup de tampon préparés à l'avance.
 - (4) lecteur d'écran (le champ de réponse porte la question) ; **version simple** de bout en bout (src/simple/simple.js, public/simple/, `?simple=1` / `?simple=suite`).
 - (5) pages /poeme et /jeu + vignettes (og.jpg, og-poeme.jpg, og-jeu.jpg) ; l'adresse suit.
 - (6) compteur anonyme (src/app/count.js) : **inactif** tant que `COUNTER = null` (compte GoatCounter à créer par Maxence).
-- (7) TEST-5-PERSONNES.md.
+- (7) docs/TEST-5-PERSONNES.md.
 - Vérifié (Chromium, GPU Intel ou sans 3D) : captures/enveloppe, captures/simple(-pc), captures/simple-check, tools/pages-check.mjs, tools/sr-check.mjs ; unitaires 45/45. **Non vérifié** : iPhone / Android réels, Instagram, e2e.
 
 ## 09/10 — cachet et enveloppe (session dédiée)
@@ -324,7 +324,7 @@ Voir « Point de reprise » en tête de fichier.
 ## 09/10 (soir, fin) — version simple du jeu v2
 - `mountSimpleJeu` refait comme le jeu 3D : PARTAGER (place fixe, après le temps de lire), COMMANDER en bas (« BIENTÔT »), glisser à gauche / à droite, question partagée (`jeu?q=`) avec carte réponse, PARTAGER une fois écrit, puis le jeu seul. `main.js` lui passe `firstQ` / `answer`.
 - Vérifié (Chromium sans 3D, 390×844, `tools/simple-check.mjs`) : PARTAGER + COMMANDER affichés, retour au portail, question partagée (PARTAGER absent puis présent après « la mer »), aucune erreur. Unitaires OK.
-- Vignettes og régénérées : identiques (déjà à jour). TEST-5-PERSONNES.md : mention du mode test.
+- Vignettes og régénérées : identiques (déjà à jour). docs/TEST-5-PERSONNES.md : mention du mode test.
 
 ## 09/10 (soir) — lisibilité (retours du test à 5)
 - Cartes : texte ×1,15 (CTYPE), encre inkAlb 0,85 → mesuré (tools/luminance.mjs, SwiftShader 390×844) : encre p99,5 = 132 (avant ≈ 75–100), max 172, prénom 173, papier 16. Signes : 0,62 / survol 0,85, 14 px.
@@ -357,3 +357,7 @@ Voir « Point de reprise » en tête de fichier.
 - Vérifié (Playwright, 390×844, `tools/menu-check.mjs` et `simple`) : signe visible sur le champ et sur la feuille, caché pendant la frappe ; menu ouvert ; « un prénom, un poème » ramène à la page ; contact ouvert ; Échap ferme sans toucher à la page ; 0 erreur. Vitest 45/45.
 - Non vérifié : iPhone réel (clavier sur la carte de contact, navigateur d'Instagram), réception réelle des emails (essais en `?envoi=0`).
 - Reste : abonnement payant (SIRET), vignette `og` propre à la lettre, menu sur `index.html` / `poeme.html` (le portail y est déjà l'accueil).
+
+## 11/10 — ménage du code (aucun changement visible)
+- Code mort retiré (détail : CLAUDE.md « Ménage du 11/10 ») ; documents de travail → `docs/` ; `vite.config.js` : pages publiées groupées (mêmes 17).
+- Vérifié : `vite build` OK ; Vitest 45/45 ; `node tools/alt-paid-check.mjs reserve` : parcours complet (RECEVOIR → cérémonie → adresse → POSTER → email → TERMINER → « c'est noté ») identique à avant le ménage (la même 404 existait déjà avant) ; alt.html, lettre.html, livres.html, index.html chargés sans erreur.
