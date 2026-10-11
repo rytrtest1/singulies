@@ -537,12 +537,14 @@ const addBoost = (v) => { if (!CFG.reduced && !S.portal) S.boost = Math.max(-11,
 if (!CFG.wheel) {
   // molette vers le bas = avancer, vers le haut = reculer (un cran ≈ ±2,2 : un seul cran fait nettement reculer)
   window.addEventListener('wheel', (e) => addBoost(Math.max(-5, Math.min(5, e.deltaY * (e.deltaMode === 1 ? 1.4 : 0.045)))), { passive: true });
-  // doigt vers le bas = avancer, vers le haut = reculer (un seul doigt ; à deux, c'est le zoom)
+  // (11/10) doigt vers le haut = avancer, vers le bas = reculer — comme on fait défiler une page (et la molette vers le
+  // bas) : partout sur le site, pousser vers le haut fait avancer, tirer vers le bas fait remonter le temps (un seul
+  // doigt ; à deux, c'est le zoom)
   let ty = null;
   window.addEventListener('touchstart', (e) => { ty = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
   window.addEventListener('touchmove', (e) => {
     if (ty == null || e.touches.length !== 1) { ty = null; return; }
-    const y = e.touches[0].clientY; addBoost((y - ty) * 0.06); ty = y;
+    const y = e.touches[0].clientY; addBoost((ty - y) * 0.06); ty = y;
   }, { passive: true });
   window.addEventListener('touchend', () => { ty = null; }, { passive: true });
 }

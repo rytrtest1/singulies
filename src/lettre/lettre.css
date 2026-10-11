@@ -39,3 +39,7 @@ a.lt-go { display: table; text-decoration: none; }
 /* (11/10) mes livres : la couverture de Pensées poétiques, comme un livre posé (un noir de papier, une ombre douce) */
 /* (le livre rendu en 3D par le moteur : livre-rendu.html → tools/livre-shot.mjs ; son fond est celui de la page) */
 .lt-book { width: min(78%, 360px); margin-bottom: 0; }
+.lt-book { position: relative; }
+.lt-book img { display: block; width: 100%; height: auto; }
+.lt-book-c { position: absolute; inset: 0; width: 100%; height: 100%; visibility: hidden; }
+.lt-book-c.on { visibility: visible; }

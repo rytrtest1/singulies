@@ -33,7 +33,8 @@ export async function mountPage(id, { base = './', reduced = false, nav }) {
     const j = await mountJeu({ base, reduced, onBack: () => { if (!gone) nav.home(); } });
     if (!j) return null;
     j.root.style.visibility = 'hidden';
-    nav.swipe(j.root, 'jeu');
+    // (11/10) pas de glissé de page sur le jeu : glisser la question = une autre question (on change de page par le
+    // bandeau, ← → n'y changent pas de page non plus)
     const jc = () => ({ y: innerHeight * 0.42, h: Math.min(innerWidth * 0.8, 420) * 52 / 87 });
     return { stage: () => [j.root], all: () => [j.root], obj: () => [j.root], rest: () => [], objRect: () => { const c = jc(); return { cy: c.y, h: c.h }; }, foot: false, side: () => false, transient: true,
       center: jc,

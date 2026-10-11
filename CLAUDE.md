@@ -315,3 +315,10 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 - Retiré, car plus appelé nulle part : l'ancien passage « adresse sur l'enveloppe avant de payer » (`payInstead`, `onEnvelope`, `openEnvelope` / `envBack` de mount.js, `enterEnv` / `envAddr` dans offre.js — RECEVOIR mène directement au paiement) ; le menu à deux traits (`src/menu/menu.js`, `tools/menu-check.mjs`) ; dans `src/alt/config.js` : `lundiSuivant`, `ENVOI`, `DELAI`, `PHOTOS`, `LIENS` ; `makeQAInk` (ink.js), `pendingCount` (send.js) ; ≈ 60 règles CSS sans élément (offre.css : ancien menu, onglets, photos, « ce que tu reçois », enveloppe avant paiement ; lettre.css : contact, carte).
 - Polices des pages en DOM : `siteFonts` dans `src/app/fonts.js` (ex-`menuFonts`).
 - Gardés exprès, pas encore branchés : `src/menu/contact.js` (`openContact`), `src/vitrine/hand.js` (écritures à la main) ; le mode `menu` du portail (portal.js, simple.js).
+
+## Navigation, une seule grammaire (11/10 soir, Maxence)
+- **Vertical = avancer dans la page** (le temps, la profondeur, la suite) : doigt vers le haut / molette vers le bas = en avant, partout (champ de prénoms compris) ; reculer = le temps remonte. **Horizontal = la page voisine** (glisser l'objet ou sa description ; ← → sur ordinateur). **Toucher = agir sur ce qu'on touche** (plus de toucher des bords). Chaque signe visible a un seul sens : bandeau = pages, points = où j'en suis, flèche ↓ = descendre, fil cousu = « ça se touche ».
+- Exceptions : une série visible garde le glissé horizontal (la question du jeu, le défilé des autres poèmes) ; on y change de page par le bandeau.
+- **SINGULIES en bas = me contacter** (`openContact`).
+- **Le livre en direct** (`src/livres/book3d.js`, `uBook` / `uHinge` dans cardRenderer) : pages noires, il respire comme les cartes ; `livre.jpg` = son image au repos (`node tools/livre-shot.mjs`).
+

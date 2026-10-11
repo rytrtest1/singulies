@@ -104,8 +104,9 @@ export function installNav(opts) {
   inner.appendChild(track); root.appendChild(inner);
   const foot = document.createElement('div'); foot.className = 'nv-foot';
   const fcv = document.createElement('canvas'); fcv.setAttribute('aria-hidden', 'true');
-  const fsp = document.createElement('button'); fsp.type = 'button'; fsp.textContent = 'SINGULIES'; fsp.setAttribute('aria-label', 'SINGULIES, le jeu');
-  fsp.addEventListener('click', () => goTo('jeu'));
+  const fsp = document.createElement('button'); fsp.type = 'button'; fsp.textContent = 'SINGULIES'; fsp.setAttribute('aria-label', 'SINGULIES, me contacter');
+  // (11/10, Maxence) SINGULIES en bas = la signature du site, comme un pied de page : on y écrit (le jeu est dans le bandeau)
+  fsp.addEventListener('click', () => import('../menu/contact.js').then(m => m.openContact({ base: opts.base || './', reduced })));
   foot.append(fcv, fsp);
   const shadeT = document.createElement('div'), shadeB = document.createElement('div');
   shadeT.className = 'nv-shade t'; shadeB.className = 'nv-shade b';
@@ -376,6 +377,17 @@ export function installNav(opts) {
     let d = mod(t - cur, PAGES.length); if (d > PAGES.length / 2) d -= PAGES.length;
     go(d, { pop: true });
   });
+  // (ordinateur) ← → = la page voisine, comme glisser l'objet — sauf là où ← → parcourent une série visible (le
+  // défilé des autres poèmes, exemples.js) et sur le jeu (les questions) ; jamais pendant qu'on écrit
+  addEventListener('keydown', e => {
+    if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || busy || !shown) return;
+    const a = document.activeElement;
+    if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !a.readOnly && getComputedStyle(a).opacity !== '0') return;
+    if (ring(cur).id === 'jeu' || document.querySelector('.mn-ct')) return;
+    const r = document.querySelector('.ex-ring')?.getBoundingClientRect();
+    if (r && r.height && r.top < innerHeight * 0.6 && r.bottom > innerHeight * 0.4) return;
+    go(e.key === 'ArrowRight' ? 1 : -1);
+  });
   // revenu par le bouton retour après un rechargement (page rendue par le cache) : tout reprend sa place
   addEventListener('pageshow', e => {
     if (!e.persisted || !busy) return;
@@ -385,9 +397,10 @@ export function installNav(opts) {
     build(); layout(); tick();
   });
 
-  // ---- l'objet suit le doigt (glisser horizontalement), et toucher un bord de l'écran = la page voisine ----
+  // ---- l'objet suit le doigt (glisser horizontalement) = la page voisine (11/10 : plus de toucher des bords — toucher
+  //      veut dire agir sur ce qu'on touche, jamais une zone invisible) ----
   function swipe(el, page = null) {
-    let x0 = null, y0 = 0, t0 = 0, horiz = null, tgt = null;
+    let x0 = null, y0 = 0, t0 = 0, horiz = null;
     const mine = () => (page ? ring(cur).id === page : true);
     const follow = dx => {
       const pg = pgOf(ring(cur).id), c = objC();
@@ -403,15 +416,7 @@ export function installNav(opts) {
       for (const s of sides) { s.style.transition = 'translate .45s cubic-bezier(.2,.7,.3,1)'; s.style.translate = ''; }
       setX(centers[C], true);
     };
-    // (téléphone) un toucher bref près d'un bord de l'écran, hors bouton ou champ : la page voisine (comme une story)
-    const tapEdge = x => {
-      if (!mobile() || !tgt || !tgt.closest || tgt.closest('a, button, input, textarea, label, select, form, .of-bar, .of-cap')) return false;
-      const z = innerWidth * 0.2;
-      if (x < z) { go(-1); return true; }
-      if (x > innerWidth - z) { go(1); return true; }
-      return false;
-    };
-    const start = (x, y, t) => { if (busy || !shown || !mine()) return; x0 = x; y0 = y; t0 = performance.now(); horiz = null; tgt = t; };
+    const start = (x, y) => { if (busy || !shown || !mine()) return; x0 = x; y0 = y; t0 = performance.now(); horiz = null; };
     const move = (x, y) => {
       if (x0 == null) return;
       const dx = x - x0, dy = y - y0;
@@ -422,12 +427,11 @@ export function installNav(opts) {
       }
       if (horiz) follow(dx);
     };
-    const end = (x, y, e) => {
+    const end = x => {
       if (x0 == null) return;
-      const dx = x - x0, dy = y - y0, dt = performance.now() - t0, v = dx / Math.max(1, dt); x0 = null;
+      const dx = x - x0, v = dx / Math.max(1, performance.now() - t0); x0 = null;
       document.documentElement.style.userSelect = document.documentElement.style.webkitUserSelect = '';
-      if (horiz) { release(dx, v); return; }
-      if (horiz == null && Math.hypot(dx, dy) < 10 && dt < 350 && tapEdge(x) && e && e.cancelable) e.preventDefault();
+      if (horiz) release(dx, v);
     };
     // au doigt : les événements tactiles (plus sûrs que les pointeurs sur iPhone quand la page défile verticalement)
     el.addEventListener('touchstart', e => { if (e.touches.length === 1) start(e.touches[0].clientX, e.touches[0].clientY, e.target); else x0 = null; }, { passive: true });

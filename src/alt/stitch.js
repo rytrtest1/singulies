@@ -14,6 +14,7 @@ export function paintThread(x, ha, hb, y0, seed = 7, TH = 1.25, o = {}) {
   // le chemin : à peine affaissé, à peine irrégulier
   const P = [];
   for (let px = ha; px <= hb + 0.01; px += 1) { const u = (px - ha) / (hb - ha); P.push([px, y0 + sag * Math.sin(Math.PI * u) + sag2 * Math.sin(2 * Math.PI * u) + 0.12 * Math.sin(px * 0.41 + seed)]); }
+  if (P.length < 4) return;                       // (bout trop court pour un fil : rien — sinon P[-1] plantait le bandeau)
   x.lineCap = 'round'; x.lineJoin = 'round';
   const line = (dyy, col, wd, a = 0, b = P.length) => { x.beginPath(); for (let i = a; i < b; i++) (i > a ? x.lineTo : x.moveTo).call(x, P[i][0], P[i][1] + dyy); x.strokeStyle = col; x.lineWidth = wd; x.stroke(); };
   // ombre portée très douce, le corps, le modelé (haut éclairé, bas plus sombre)

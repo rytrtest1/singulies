@@ -6,63 +6,21 @@
 <title>Rendu du livre</title>
 <style>
   html, body { margin: 0; background: #060606; }
-  #c { display: block; width: 1000px; height: 1300px; }
+  #c { display: block; }
 </style>
 </head>
 <body>
 <canvas id="c" width="1000" height="1300"></canvas>
 <script type="module">
-  // Le livre d'Eternel, « Pensées poétiques », rendu une fois par le vrai moteur (tools/livre-shot.mjs l'enregistre dans
-  // public/livres/livre.jpg) : le même papier noir, la même lampe rasante que la feuille et les cartes — un livre broché
-  // posé à plat, la couverture vers nous (son encre blanche : le cadre fin, le titre, ETERNEL), le dos à gauche, la
-  // tranche des pages (un papier clair) qu'on voit en bas et à droite. 127 × 203 mm, 6,7 mm d'épaisseur (KDP).
-  import { createCardRenderer, M4 } from './src/cards/cardRenderer.js';
-  import { LOOK } from './src/cards/scene.js';
-
+  // Le livre d'Eternel au repos (t = 0), rendu par le moteur du livre en direct (src/livres/book3d.js) :
+  // tools/livre-shot.mjs l'enregistre dans public/livres/livre.jpg (l'aperçu du bandeau, l'image avant le direct).
+  import { createBook } from './src/livres/book3d.js';
   const canvas = document.getElementById('c');
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: true });
-  const card = await createCardRenderer(gl, './');
-  const BW = 127, BH = 203.2, BT = 6.7, CT = 0.55;            // le livre ; l'épaisseur de la couverture
-  card.addShape('cover', { w: BW, h: BH, r: 0.7, t: CT, fine: null });
-  card.addShape('block', { w: BW - 1.2, h: BH - 1.6, r: 0.3, t: BT - 2 * CT, fine: null });
-  card.addShape('spine', { w: BT, h: BH, r: 0.4, t: CT, fine: null });
-  const L = { ...LOOK };
-  const FOV = 26 * Math.PI / 180, TILT = 0.24, TF = Math.tan(FOV / 2);
-  const PX = 8;
-
-  // l'encre de la couverture : le dessin de KDP (blanc sur noir), à la taille de la face
-  const im = new Image(); im.src = './livres/couverture-encre.png'; await im.decode();
-  const ink = new OffscreenCanvas(Math.round(BW * PX), Math.round(BH * PX)), ix = ink.getContext('2d');
-  ix.fillStyle = '#000'; ix.fillRect(0, 0, ink.width, ink.height);
-  // (une couverture est imprimée, pas tapée : des traits pleins — les filets fins sont un peu épaissis pour le rendu)
-  ix.globalCompositeOperation = 'lighter';
-  for (const [dx, dy] of [[0, 0], [0.8, 0], [0, 0.8]]) ix.drawImage(im, dx, dy, ink.width, ink.height);
-  const coverInk = card.makeInk(ink, false);
-  // le dos : PENSÉES POÉTIQUES, de bas en haut… (sur la tranche gauche, vu presque de profil : on n'en voit qu'un trait)
-
-  function render() {
-    const W = canvas.width, H = canvas.height;
-    const rz = 0.035, rx = -0.24, ry = -0.36;                    // de trois quarts : on voit l'épaisseur, la tranche des pages
-    // cadrage : le livre entier (et sa tranche), vu presque de face, lampe rasante en haut à gauche
-    const y0 = -BH / 2 - 10, y1 = BH / 2 + 6;
-    const Hw = Math.max((y1 - y0) * 1.08, (BW + 30) * 1.08 * H / W), D = Hw / (2 * TF), cy = (y0 + y1) / 2;
-    const eye = [0, cy - D * Math.sin(TILT), D * Math.cos(TILT)];
-    const vp = M4.mul(M4.perspective(FOV, W / H, D * 0.25, D * 3), M4.lookAt(eye, [0, cy, 0], [0, 1, 0]));
-    const kf = 2.2, kk = Hw / 235 * kf, R = L.lightR0 * Hw * kf, Z = L.lightZ * kk, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R);
-    const az = L.lightAz, el = L.elBase;                       // la lampe : celle des cartes, rasante (jamais du côté du regard : le noir resterait gris)
-    const P = { ...L, lightPos: [Math.cos(az) * D0 * Math.cos(el), cy + Math.sin(az) * D0 * Math.cos(el), D0 * Math.sin(el)],
-      light: L.light * kk * kk * Math.sin(el0) / Math.sin(el), spotI: 0, inkWear: 0, inkVar: 0.08, inkPress: 0, inkPaper: 1.5, inkOrg: 0, inkThr: 0.2 };
-    gl.viewport(0, 0, W, H);
-    gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.DEPTH_TEST);
-    const Mb = M4.model(rx, ry, rz, 0, 0, -BT / 2);             // le livre (son centre)
-    const at = (x, y, z, ry = 0) => M4.mul(Mb, M4.model(0, ry, 0, x, y, z));
-    const paper = { seed: 31, paperXf: [0.8, -0.4, 0, 0], warp: [0, 0, 0], noLogo: true, paperTile: 0.6 * 87 / 0.7, paperLo: 0.4 };
-    // la quatrième de couverture (dessous), le bloc des pages (un papier clair, mat), la couverture, le dos
-    card.draw(vp, eye, P, { model: at(0, 0, CT / 2), lod: 'cover', ...paper, seed: 12 });
-    card.draw(vp, eye, { ...P, albedo: 0.5, inkAlb: 0 }, { model: at(0.5, 0, BT / 2), lod: 'block', ...paper, seed: 77, paperXf: [0, 0, Math.PI / 2, 0] });
-    card.draw(vp, eye, P, { model: at(0, 0, BT - CT / 2), lod: 'cover', ...paper, inkBack: coverInk });
-    card.draw(vp, eye, P, { model: at(-BW / 2 + CT / 2 - 0.05, 0, BT / 2, Math.PI / 2), lod: 'spine', ...paper, seed: 5 });
+  const book = await createBook(gl, './');
+  function render(W = 1000, H = 1300, t = 0, tilt = { x: 0, y: 0 }) {
+    canvas.width = W; canvas.height = H; canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    book.frame(W, H, t, tilt);
     gl.finish();
     return canvas.toDataURL('image/jpeg', 0.92);
   }

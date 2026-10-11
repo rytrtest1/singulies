@@ -1,9 +1,9 @@
 // « mes livres » (11/10) : une page du même monde, montée seule (livres.html) ou dans la page du poème (pages.js).
-// À compléter : la couverture du recueil, son titre, quelques lignes. Le lien mène au recueil sur Amazon.
+// Le livre en direct (book3d.js), son titre, quelques lignes. Le lien mène au recueil sur Amazon.
 import { count } from '../app/count.js';
 
 const HTML = `<main class="lt">
-  <img class="lt-env lt-book" src="BASElivres/livre.jpg" alt="Le livre Pensées poétiques, d’Eternel : une couverture noire, un cadre fin, le titre en capitales." width="1000" height="1300">
+  <div class="lt-env lt-book"><img src="BASElivres/livre.jpg" alt="Le livre Pensées poétiques, d’Eternel : une couverture noire, un cadre fin, le titre en capitales." width="1000" height="1300"></div>
   <h1 class="lt-h">pensées poétiques</h1>
   <p class="lt-sub">mon recueil</p>
   <div class="lt-txt">
@@ -17,5 +17,9 @@ export function buildLivres(host, base = './') {
   host.innerHTML = HTML.replace(/BASE/g, base);
   const main = host.querySelector('.lt');
   main.querySelector('.lt-link').addEventListener('click', () => count('livres/amazon'));
+  // (11/10) le livre en direct, par le moteur des cartes : il respire comme le reste ; l'image reste dessous (aperçu,
+  // sans WebGL2)
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  import('./book3d.js').then(m => m.mountBook(main.querySelector('.lt-book'), base, { reduced })).catch(() => {});
   return { main };
 }

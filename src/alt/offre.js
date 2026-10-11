@@ -483,17 +483,10 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     driveTo(y, PXS() * (back ? (k === 0 && cur === N - 1 ? 2.2 : 1.5) : 1));
   };
   root.querySelectorAll('.of-dot').forEach(b => b.addEventListener('click', () => goTo(+b.dataset.k)));
-  // glisser la description = l'étape suivante / précédente ; glisser l'objet = la page voisine (le bandeau, nav.js)
-  {
-    const z = root.querySelector('.of-vit');
-    let x0 = null, y0 = 0;
-    const end = (x, y) => { if (x0 == null) return; const dx = x - x0, dy = y - y0; x0 = null; if (Math.abs(dx) > 34 && Math.abs(dx) > 1.4 * Math.abs(dy)) goStep(dx < 0 ? 1 : -1); };
-    z.addEventListener('touchstart', e => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
-    z.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t) end(t.clientX, t.clientY); }, { passive: true });
-    z.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') { x0 = e.clientX; y0 = e.clientY; } }, { passive: true });
-    z.addEventListener('pointerup', e => { if (e.pointerType === 'mouse') end(e.clientX, e.clientY); });
-  }
+  // (11/10) une seule grammaire : vertical = avancer dans la page (les étapes suivent le défilement), horizontal = la
+  // page voisine (glisser l'objet, nav.js) — plus de glissé de côté sur la description
   if (nav && hole) nav.swipe(hole, 'poeme');
+  if (nav) { const cap = root.querySelector('.of-cap'); if (cap) nav.swipe(cap, 'poeme'); }
   // (téléphone, une fois) l'objet esquisse le geste vers la page voisine
   if (nav) setTimeout(() => { if (innerWidth < 760 && root.scrollTop < 30 && !busyMode()) nav.nudge(); }, over ? 3600 : 4200);
   // pendant l'enveloppe et le paiement : la feuille

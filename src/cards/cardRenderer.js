@@ -173,7 +173,7 @@ uniform vec4 uSealF;          // cachet : pose (0 → 1)
 uniform vec4 uSealV;          // cachet, tirage : phase du bord, phase du bourrelet, sens de l'inclinaison, peau de la cire (mm)
 uniform vec4 uSealR;          // cire : (bord translucide, diffusion, décentrage de l'empreinte x, y)
 uniform vec4 uSealP, uSealQ;   // cachet, réglages : (creux de l'empreinte, bourrelet, crête, anneau), (piqûres, cavité paroi, cavité bord, largeur de l'ombre de contact)
-${SEAL_GLSL}out vec3 vWorld, vT, vB, vN; out vec2 vMM; flat out int vFace;
+${SEAL_GLSL}out vec3 vWorld, vT, vB, vN; out vec2 vMM; out float vZ; flat out int vFace;
 // même profil que le shader de surface, pied un peu adouci (le maillage a un pas de 0,2 mm)
 float gaufrage(vec2 p) {
   if (uNoLogo > 0.5) return 0.0;
@@ -229,13 +229,15 @@ void main() {
   vec3 N = f == 0 ? Nu : f == 1 ? -Nu : normalize(vec3(aNor.xy, -dot(aNor.xy, vec2(dzx, dzy))));
   mat3 m = mat3(uModel);
   vec4 w = uModel * vec4(p, 1.0);
-  vWorld = w.xyz; vT = m * T; vB = m * B; vN = m * N; vMM = aPos.xy; vFace = f;
+  vWorld = w.xyz; vT = m * T; vB = m * B; vN = m * N; vMM = aPos.xy; vZ = aPos.z; vFace = f;
   gl_Position = uVP * w;
 }`;
 
 const FS = /* glsl */`#version 300 es
 precision highp float;
-in vec3 vWorld, vT, vB, vN; in vec2 vMM; flat in int vFace;
+in vec3 vWorld, vT, vB, vN; in vec2 vMM; in float vZ; flat in int vFace;
+uniform vec4 uBook;         // livre (11/10) : (épaisseur totale mm, épaisseur de la couverture, épaisseur d'une feuille, rayon du dos) ; 0 = carte
+uniform vec2 uHinge;        // livre : rainure de la charnière (distance au dos mm, profondeur)
 uniform sampler2D uPaper, uLogo, uInk, uInkBack;   // encre du recto (question) et du verso (réponse)
 uniform float uHasInkBack, uInkRG;   // uInkRG : la carte d'encre a un canal vert (encre pâle)
 uniform vec4 uCursor; uniform float uCursorFace;
@@ -428,10 +430,50 @@ void main() {
   if (vFace == 2) {                                    // tranche : cœur du carton, plus clair, fibreux
     float n1 = noise1(atan(vMM.y, vMM.x) * 180.0);
     float alb = uAlbedo * (uSeal.x > 0.5 ? 0.25 : 1.6 + 0.5 * n1);   // cachet : sa tranche est le pied de la cire, dans l'ombre
-    float NL = max(dot(Ng, L), 0.0);
+    vec3 nE = Ng; float rE = 0.35, sE = 0.25;
+    if (uBook.x > 0.0) {
+      // livre (11/10) : le dos (x = −w/2), que la couverture enveloppe, arrondi sur ses deux arêtes ; les trois autres
+      // côtés, massicotés ensemble : la couverture coupée (dessus, dessous), puis les feuilles noires une à une —
+      // chacune un peu plus ou moins claire, à peine de biais, un jour sombre entre deux, par cahiers ; les stries du
+      // massicot le long de la tranche. Feuilles plus fines qu'un pixel : leur moyenne (jamais de moirage).
+      vec3 Zw = normalize(cross(T, Bv));
+      float ht = 0.5 * uBook.x, az = abs(vZ), sz = vZ < 0.0 ? -1.0 : 1.0;
+      if (vMM.x < -0.5 * uCard.x + 0.3) {
+        float an = 1.45 * (1.0 - clamp((ht - az) / uBook.w, 0.0, 1.0));
+        nE = normalize(Ng * cos(an) + Zw * sz * sin(an));
+        alb = uAlbedo * (1.0 + 0.3 * (vnoise(vec2(vMM.y * 0.9, vZ * 2.0)) - 0.5));
+        rE = 0.5; sE = 0.6;
+      } else {
+        float al = vMM.x > 0.5 * uCard.x - 0.5 ? vMM.y : vMM.x, cz = ht - az;
+        if (cz < uBook.y) {
+          float an = 1.2 * (1.0 - clamp(cz / 0.22, 0.0, 1.0));
+          nE = normalize(Ng * cos(an) + Zw * sz * sin(an));
+          alb = uAlbedo * 1.9;
+          rE = 0.45; sE = 0.5;
+        } else {
+          // les feuilles ne sont pas des rayures régulières : des lignes à des hauteurs un peu inégales, qui ondulent
+          // à peine le long de la tranche ; trois échelles (cahiers ≈ 0,8 mm, groupes ≈ 0,25 mm, feuilles), chacune
+          // effacée quand elle devient plus fine qu'un pixel
+          float zw = vZ + 0.03 * sin(al * 0.21 + 1.3) + 0.02 * sin(al * 0.57);
+          float sf = (zw + ht - uBook.y) / uBook.z, id = floor(sf), fs = fract(sf);
+          float k = 1.0 - smoothstep(0.35, 0.9, fwidth(sf));
+          float k2 = 1.0 - smoothstep(0.35, 0.9, fwidth(zw * 4.0));
+          float r1 = fract(sin(id * 12.9898 + 4.1) * 43758.5453), r2 = fract(sin(id * 78.233 + 1.7) * 24634.6345);
+          float gap = mix(1.0, 0.5 + 0.5 * smoothstep(0.0, 0.25, fs) * smoothstep(1.0, 0.75, fs), k * (0.6 + 0.4 * r2));
+          float band = vnoise(vec2(zw * 1.25 + 3.0, al * 0.004));
+          float grp = vnoise(vec2(zw * 4.0 + 17.0, al * 0.01)) - 0.5;
+          float streak = vnoise(vec2(al * 0.08, zw * 6.0)) - 0.5;      // le massicot laisse des stries le long de la tranche
+          float fib = vnoise(vec2(al * 3.0, zw * 12.0)) - 0.5;          // fibres coupées
+          alb = uAlbedo * (0.95 + 0.5 * (band - 0.5) + 0.5 * k2 * grp + 0.35 * k * (r1 - 0.5) + 0.3 * streak + 0.25 * fib) * gap;
+          nE = normalize(Ng + Zw * (0.5 * k * (r2 - 0.5) + 0.35 * k2 * grp + 0.25 * (band - 0.5)));
+          rE = 0.6; sE = 0.3;
+        }
+      }
+    }
+    float NL = max(dot(nE, L), 0.0);
     vec3 He = normalize(L + V);
-    float specE = uSeal.x > 0.5 ? 0.0 : uSpec * D_GGX(max(dot(Ng, He), 0.0), 0.35) * 0.25;
-    col = vec3(alb * (irr * NL * occShadow(L, dist) + uEnv * env(Ng, L)) + irr * NL * specE);
+    float specE = uSeal.x > 0.5 ? 0.0 : uSpec * D_GGX(max(dot(nE, He), 0.0), rE) * sE;
+    col = vec3(alb * (irr * NL * occShadow(L, dist) + uEnv * env(nE, L)) + irr * NL * specE);
   } else {
     float s = vFace == 0 || uSeal.x > 0.5 ? 1.0 : -1.0;      // cachet : logo en relief
     if (uLogoK > 0.0 && uSeal.x < 0.5) s = vFace == 0 ? 1.0 - uLogoK : 2.0 * uLogoK - 1.0;
@@ -448,6 +490,8 @@ void main() {
     float fx = (paper(p + vec2(pe, 0.0)) - paper(p - vec2(pe, 0.0))) / (2.0 * pe);
     float fy = (paper(p + vec2(0.0, pe)) - paper(p - vec2(0.0, pe))) / (2.0 * pe);
     hx += uFiber * fx; hy += uFiber * fy;
+    // livre : la rainure de la charnière, à quelques millimètres du dos (la couverture y plie)
+    if (uBook.x > 0.0 && uHinge.y > 0.0) { float w = 0.6, u = (p.x - (-0.5 * uCard.x + uHinge.x)) / w; hx += uHinge.y * 2.0 * u / w * exp(-u * u); }
     // frappe : le caractère enfonce un peu le papier (creux doux sous l'encre)
     float ink = 0.0;
     if ((vFace == 1 && uHasInk > 0.5) || (vFace == 0 && uHasInkBack > 0.5)) {
@@ -526,6 +570,8 @@ void main() {
     float wr = uEdge * (0.10 + 0.10 * noise1(per * 1.3) + (length(qo) > 0.0 ? 0.08 : 0.0));
     float rim = smoothstep(-wr, 0.0, rr);
     n = normalize(n + (T * od.x + Bv * od.y) * rim * 1.8);
+    // livre : la couverture tourne autour du dos (arête arrondie)
+    if (uBook.x > 0.0) { float an = 1.45 * (1.0 - clamp((p.x + 0.5 * uCard.x) / uBook.w, 0.0, 1.0)); n = normalize(n * cos(an) - T * sin(an)); }
     // ombre propre, douce (la lampe a une taille) : marche vers la lampe dans le plan de la face
     vec2 Lt = vec2(dot(L, T), dot(L, Bv)); float Lz = dot(L, Ng);
     float h0 = height(p, s), sh = 1.0;
@@ -728,6 +774,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform4fv(u.uPaperXf, card.paperXf || [0, 0, 0, 0]);
     gl.uniform3fv(u.uWarp, card.warp || [0, 0, 0]);
     gl.uniform3fv(u.uCurl, card.curl || [0, 0, 0]);
+    gl.uniform4fv(u.uBook, card.book || [0, 0, 0, 0]); gl.uniform2fv(u.uHinge, card.hinge || [0, 0]);
     gl.uniform1f(u.uSeed, card.seed || 0);
     gl.uniform3fv(u.uLightPos, params.lightPos); gl.uniform3fv(u.uEye, eye);
     const oc = card.occ;
