@@ -19,6 +19,16 @@
         "5194"
       ],
       "port": 5194
+    },
+    {
+      "name": "singulies-menu",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5196"
+      ],
+      "port": 5196
     }
   ]
 }

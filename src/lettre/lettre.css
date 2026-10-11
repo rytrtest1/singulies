@@ -1,0 +1,38 @@
+/* « un poème par mois » (11/10) : une page du même monde — le noir, l'enveloppe, la machine (SG Machine) pour ce qui
+   est écrit, EB Garamond pour ce qui flotte (titre, signe). Liste d'attente tant qu'il n'y a pas de paiement. */
+html, body { margin: 0; background: #060606; color: rgb(214, 214, 214); -webkit-text-size-adjust: 100%; }
+body { font: 15px/1.85 'SG Machine', 'Courier New', monospace; -webkit-tap-highlight-color: transparent; }
+.lt { box-sizing: border-box; max-width: 560px; margin: 0 auto; padding: calc(64px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom)); text-align: center; }
+.lt > * { opacity: 0; transform: translateY(8px); transition: opacity 1.1s ease, transform 1.1s ease; }
+.lt.on > * { opacity: 1; transform: none; }
+.lt.on > :nth-child(2) { transition-delay: .25s; } .lt.on > :nth-child(3) { transition-delay: .4s; }
+.lt.on > :nth-child(4) { transition-delay: .6s; } .lt.on > :nth-child(n+5) { transition-delay: .8s; }
+.lt-env { display: block; width: min(86%, 420px); height: auto; margin: 0 auto 10px; }
+.lt-h { margin: 18px 0 0; font: 500 26px/1.2 'SG Garamond', Georgia, serif; letter-spacing: .04em; color: rgb(236, 236, 236); }
+.lt-sub { margin: 6px 0 30px; font: 500 16px/1.4 'SG Garamond', Georgia, serif; color: rgba(255, 255, 255, .5); }
+.lt-txt p { margin: 0 auto 16px; max-width: 34ch; }
+.lt-price { color: rgb(236, 236, 236); }
+.lt-wait { margin: 34px auto 0; padding-top: 28px; border-top: 1px solid rgba(255, 255, 255, .1); max-width: 34ch; }
+.lt-wait p { margin: 0 0 18px; }
+.lt-mail { display: block; width: min(300px, 100%); margin: 0 auto; box-sizing: border-box; text-align: center; font: 16px/1.5 'SG Machine', 'Courier New', monospace;
+  color: rgb(226, 226, 226); background: transparent; border: 0; border-bottom: 1px solid rgba(255, 255, 255, .3); border-radius: 0; padding: 4px 0;
+  outline: none; -webkit-appearance: none; caret-color: rgba(255, 255, 255, .75); }
+.lt-mail::placeholder { color: rgba(255, 255, 255, .28); }
+.lt-mail:-webkit-autofill, .lt-mail:autofill { -webkit-text-fill-color: rgb(226, 226, 226); -webkit-box-shadow: 0 0 0 1000px #060606 inset; }
+.lt-trap { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.lt-go { display: block; margin: 16px auto 0; height: 44px; padding: 0 16px 0 calc(16px + .45em); border: 0; background: transparent; cursor: pointer;
+  font: 500 14px/44px 'SG Garamond', Georgia, serif; letter-spacing: .45em; color: #fff; opacity: .25; transition: opacity .6s; pointer-events: none; }
+.lt-go.on { opacity: .62; pointer-events: auto; }
+.lt-go.on:hover, .lt-go.on:focus-visible { opacity: .9; outline: none; }
+.lt-note { margin: 4px 0 0 !important; font-size: 13px; color: rgba(255, 255, 255, .34); }
+.lt-wait.sent { display: none; }
+.lt-done { min-height: 1px; margin: 34px 0 0; white-space: pre-line; }
+.lt-foot { margin: 44px 0 0; font-size: 13px; }
+.lt-foot a { color: rgba(255, 255, 255, .4); text-decoration: none; }
+.lt-back { position: fixed; z-index: 2; left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center; margin: 0; padding: 0; border: 0; background: transparent; color: #fff; opacity: .62; cursor: pointer; }
+.lt-back:hover, .lt-back:focus-visible { opacity: .85; outline: none; }
+@media (prefers-reduced-motion: reduce) { .lt > * { transition: none; transform: none; } }
+/* la flèche retour reste lisible quand on fait défiler : un voile du noir de la page derrière elle */
+body::before { content: ''; position: fixed; z-index: 1; left: 0; right: 0; top: 0; height: calc(58px + env(safe-area-inset-top));
+  background: linear-gradient(#060606 55%, rgba(6, 6, 6, 0)); pointer-events: none; }

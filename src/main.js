@@ -33,7 +33,7 @@ const PAGE = document.documentElement.dataset.page || '';
 // COMMANDER) au lieu des cartes ; la question vient après le paiement (merci.html)
 const ALT = PAGE === 'alt';
 const offerModule = () => import('./alt/offre.js');
-import { SHEET_INSET } from './alt/config.js';
+import { SHEET_INSET, LIENS } from './alt/config.js';
 // la marge du bas de l'écran (barre de l'iPhone), en px
 let safeB = null;
 const safeBottom = () => { if (safeB == null) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;bottom:0;width:1px;height:env(safe-area-inset-bottom);visibility:hidden'; document.body.appendChild(d); safeB = d.offsetHeight || 0; d.remove(); } return safeB; };
@@ -944,4 +944,18 @@ window.__sg = { stats, model, S, CFG, get portal() { return portal; }, get atlas
 fpsMeter();      // ?fps=1 : images par seconde (essais de fluidité)
 installCount(PAGE);   // des totaux anonymes (GoatCounter rytrtest1 ; ?envoi=0 ou « Ne pas suivre » : rien)
 installSend();   // la demande part par email quand l'enveloppe est postée (ou « en direct »)
+
+// le menu (11/10) : alt.html, où l'on arrive directement sur le poème — un signe discret en haut à droite ouvre le
+// portail par-dessus la page (src/menu/menu.js) ; jamais pendant un geste (frappe, vol des lettres, enveloppe, paiement)
+if (ALT) import('./menu/menu.js').then(({ installMenu }) => installMenu({
+  base: './', reduced: CFG.reduced, simple: SIMPLE, links: { jeu: LIENS.jeu },
+  name: () => S.validatedName || finalName(model.text) || '',
+  canShow: () => booted && !S.portal && (
+    (S.phase === 'input' && S.trans == null && document.activeElement !== input && !(model.text && !S.confirmed))
+    // la page de la feuille (l'offre posée sur la scène des cartes, ou seule) : sauf pendant l'enveloppe et le paiement
+    || (!!document.querySelector('#offre.on') && !document.querySelector('.of.paying, .of.env'))),
+  // ouvert : le champ ne reçoit plus rien (S.portal) et s'arrête une fois couvert ; fermé : il reprend
+  onOpen: () => { S.portal = true; input.blur(); setTimeout(() => { if (S.portal && S.phase === 'input') { cancelAnimationFrame(rafId); rafId = 0; } }, 450); },
+  onClose: () => { S.portal = false; if (S.phase === 'input' && booted && !rafId && !document.hidden) { last = 0; rafId = requestAnimationFrame(frame); } },
+})).catch(e => console.warn('menu', e));
 boot();

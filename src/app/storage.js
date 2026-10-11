@@ -19,3 +19,10 @@ export function saveValidated(name) {
 // retour depuis les cartes : le prénom reste mémorisé (confirmé), seule la suite est oubliée
 export function clearValidated() { set(sessionStorage, K_VALID, null); }
 export function clearStored() { set(localStorage, K_NAME, null); set(sessionStorage, K_VALID, null); }
+
+// (11/10) l'email de la personne, dès qu'elle l'a donné quelque part (fin du poème, paiement, liste d'attente,
+// message) : on ne le redemande pas (me contacter, un poème par mois) ; rien d'autre n'est gardé
+const K_EMAIL = 'singulies.email';
+export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+export function knownEmail() { const e = get(localStorage, K_EMAIL); return e && EMAIL_RE.test(e) ? e : null; }
+export function rememberEmail(e) { if (e && EMAIL_RE.test(e.trim())) set(localStorage, K_EMAIL, e.trim()); }

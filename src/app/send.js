@@ -6,6 +6,7 @@ import QUESTIONS from '../cards/questions.json';
 import { encodeDemande } from '../demande/lien.js';
 import LETTERS from '../../public/email/l/tailles.json';
 import { STRIPE } from '../alt/config.js';
+import { rememberEmail } from './storage.js';
 
 export const EMAILJS = { service: 'service_8wqf489', template: 'template_cuh5tub', key: 'XreMhhJCN9l5J6V5J',   // identifiants publics (aucun secret)
   // confirmation envoyée à la personne (récapitulatif) : second modèle EmailJS, To = {{to_email}}
@@ -151,12 +152,32 @@ export function send(detail) {
   if (OFF) return;
   if (ORDER) detail = { ...detail, test: false, order: ORDER };
   if (seen(detail)) { console.warn('envoi : déjà partie'); return; }
+  rememberEmail(detail.email);
   const p = params(detail), items = [{ tpl: EMAILJS.template, p }];
   // le récapitulatif à la personne, si elle a donné son email
   // (mêmes paramètres que la demande : prénom, question, réponse, et en mode test le prix et les retours)
   if (EMAILJS.confirm && p.to_email) items.push({ tpl: EMAILJS.confirm, p });
   save([...load(), ...items]);
   flush();
+}
+
+// (11/10) un message du site (« me contacter ») ou une place réservée (« un poème par mois ») : le modèle des demandes
+// (aucun nouveau modèle EmailJS), « genre » dit ce que c'est ; le message à la place du texte, l'email en lien
+// d : { kind: 'message' | 'club', text?, email, name? } ; rend false si rien n'est parti (essais : ?envoi=0)
+const NOTE = { message: 'message du site (me contacter)', club: 'liste d’attente : un poème par mois' };
+export function sendNote(d) {
+  rememberEmail(d.email);
+  if (OFF) return false;
+  const p = params({ name: d.name || '', kind: 'note' });
+  Object.assign(p, {
+    genre: NOTE[d.kind] || d.kind, mode: NOTE[d.kind] || d.kind, prenom_html: p.prenom ? p.prenom_html : '', colonne_html: '',
+    texte_html: d.text ? '<div style="padding:0 0 40px;">' + textHtml(d.text) + '</div>' : '',
+    contact: d.email, contact_html: '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;"><span style="color:#8a8a8a;">' + esc(NOTE[d.kind] || d.kind) + '</span><br>' + contactLinks(d.email) + '</div>',
+    lien: 'mailto:' + d.email, to_email: '',   // (le bouton du mail : répondre)
+  });
+  save([...load(), { tpl: EMAILJS.template, p }]);
+  flush();
+  return true;
 }
 
 // la page : les demandes partent quand l'enveloppe est postée, ou quand on choisit « en direct »

@@ -46,6 +46,7 @@ const CSS = `
   overflow: hidden; touch-action: pinch-zoom; -webkit-tap-highlight-color: transparent; opacity: 0; transition: opacity .9s ease;
   font: 16px/1.6 'SG Machine', 'Courier New', monospace; -webkit-user-select: none; user-select: none; }
 .sp-root.on { opacity: 1; }
+.sp-root.sp-menu { transition-duration: .35s; }
 .sp-stage { position: absolute; inset: 0; perspective: 1600px; }
 .sp-card { position: absolute; left: 0; top: 0; transform-style: preserve-3d; will-change: transform; transition: opacity .6s ease; }
 .sp-card img { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden;
@@ -209,8 +210,11 @@ function typeInto(elm, text, { ch = 85, nl = 260, later = setTimeout } = {}) {
 // ===================================================================================================================
 // le portail : ETERNEL tapé, les quatre cartes données du haut vers le bas
 // opts : { onReady, onPoem, onJeu } — même interface que portal.js (show, hide)
+// opts.menu (11/10) : le portail sert de menu par-dessus une page ouverte — monté caché ; open() : ETERNEL déjà écrit,
+// les cartes montent vite, du haut vers le bas ; close() ; opts.links : liens propres au menu
 export function mountSimplePortal(opts = {}) {
-  const R = makeRoot('sp-portal');
+  const MENU = !!opts.menu, links = { ...LINKS, ...(opts.links || {}) };
+  const R = makeRoot('sp-portal' + (MENU ? ' sp-menu' : ''));
   const { root, stage, size } = R;
   const title = el('div', 'sp-title', root);
   for (const ch of 'ETERNEL') el('span', '', title).textContent = ch;
@@ -225,7 +229,7 @@ export function mountSimplePortal(opts = {}) {
     const { W, H } = size, portrait = W < H * 1.1;
     const fsT = clamp(26, 46, Math.min(W, 820) * 0.112);
     title.style.fontSize = fsT + 'px'; title.style.top = Math.round(H * 0.07) + 'px';
-    const top = H * 0.07 + fsT * 1.6, avail = H - top - H * 0.04;
+    const top = H * 0.07 + fsT * 1.6, avail = H - top - H * 0.04 - (MENU ? 44 : 0);   // (menu : « me contacter » dessous)
     let cw, pos;
     if (portrait) {
       // (09/10, soir) les trois cartes plus serrées ; le paquet entier, en bas, au milieu
@@ -245,23 +249,26 @@ export function mountSimplePortal(opts = {}) {
   R.onResize = layout;
   layout();
   // la donne : ETERNEL se tape, les cartes arrivent du fond, du haut vers le bas, chacune glisse sous la précédente
-  fonts().then(() => {
+  // (menu : ETERNEL déjà écrit, donne rapide)
+  const deal = () => fonts().then(() => {
     layout();
-    title.querySelectorAll('span').forEach((s, i) => R.later(() => s.classList.add('on'), REDUCED ? 0 : 200 + i * 140 + Math.random() * 60));
+    title.querySelectorAll('span').forEach((s, i) => { if (MENU) s.classList.add('on'); else R.later(() => s.classList.add('on'), REDUCED ? 0 : 200 + i * 140 + Math.random() * 60); });
+    const T0 = MENU ? 0 : 500, GAP = MENU ? 90 : 260, DUR = MENU ? 520 : 1100;
     cards.forEach((c, k) => {
-      setPose(c.c, { ...c.home, y: c.home.y + 60, s: 0.92 }); c.c.style.opacity = 0;
+      setPose(c.c, { ...c.home, y: c.home.y + (MENU ? 30 : 60), s: 0.92 }); c.c.style.opacity = 0;
       c.c.style.zIndex = String(10 - k);
-      R.later(() => { c.c.style.opacity = 1; move(c.c, c.home, { dur: 1100 }); }, REDUCED ? 0 : 500 + k * 260);
+      R.later(() => { c.c.style.opacity = 1; move(c.c, c.home, { dur: DUR }); }, REDUCED ? 0 : T0 + k * GAP);
     });
     placed = true;
-    R.later(() => opts.onReady?.(), REDUCED ? 100 : 500 + 4 * 260 + 1100);
+    R.later(() => opts.onReady?.(), REDUCED ? 100 : T0 + 4 * GAP + DUR);
   });
-  R.show();
+  if (MENU) { R.root.style.pointerEvents = 'none'; gone = true; }
+  else { deal(); R.show(); }
   function choose(c) {
     if (gone || c.busy) return;
-    if (c.id === 'poeme') { api.hide(); opts.onPoem?.(); return; }
-    if (c.id === 'jeu') { opts.onJeu?.(); return; }
-    const link = LINKS[c.id];
+    if (c.id === 'poeme') { if (!MENU) api.hide(); opts.onPoem?.(); return; }
+    if (c.id === 'jeu' && opts.onJeu) { opts.onJeu(); return; }
+    const link = links[c.id];
     if (link) { location.href = link; return; }
     // lien d'attente : la carte se retourne (« bientôt »), puis revient
     c.busy = true; c.flipped = true;
@@ -276,6 +283,9 @@ export function mountSimplePortal(opts = {}) {
   const api = {
     readyFired: false, simple: true,
     show() { gone = false; root.style.pointerEvents = ''; root.classList.add('on'); cards.forEach(c => { c.b.disabled = false; }); },
+    open() { R.clear(); deal(); api.show(); },
+    close() { api.hide(); },
+    back() { api.show(); },
     hide() { gone = true; root.classList.remove('on'); root.style.pointerEvents = 'none'; cards.forEach(c => { c.b.disabled = true; }); },
     remove: () => R.remove(),
   };

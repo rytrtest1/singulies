@@ -351,3 +351,9 @@ Voir « Point de reprise » en tête de fichier.
 - Vérifié (`node tools/alt-paid-check.mjs reserve`, 390×844) : bandeau « RÉSERVER / 30 € frais compris » (11/10 : « rien à payer maintenant » retiré), adresse tapée seule, email, TERMINER, fin « je t'écris pour le paiement… », aucune erreur ; le parcours payé (`alt-paid-check.mjs` sans argument) inchangé.
 - Non vérifié : vrai envoi EmailJS (essais en `?envoi=0`), iPhone réel. « pour moi / pour offrir » n'existe pas en réservation (il était dans le panneau de paiement).
 - Reste : obtenir le SIRET, créer le Payment Link Stripe (STRIPE), puis `RESERVATION = false`.
+
+## 11/10 — menu, contact, un poème par mois
+- Fait : portail en mode menu (3D + simple) ouvert par un signe en haut à droite sur `alt.html` (champ et page de la feuille), onglets de l'offre retirés ; « me contacter » (carte vierge, email demandé seulement s'il est inconnu, envoi EmailJS) ; email retenu localement ; page `lettre.html` (un poème par mois, liste d'attente) ; carte du portail renommée *un poème par mois / par la poste* (image simple régénérée : `portail-lettre.jpg`).
+- Vérifié (Playwright, 390×844, `tools/menu-check.mjs` et `simple`) : signe visible sur le champ et sur la feuille, caché pendant la frappe ; menu ouvert ; « un prénom, un poème » ramène à la page ; contact ouvert ; Échap ferme sans toucher à la page ; 0 erreur. Vitest 45/45.
+- Non vérifié : iPhone réel (clavier sur la carte de contact, navigateur d'Instagram), réception réelle des emails (essais en `?envoi=0`).
+- Reste : abonnement payant (SIRET), vignette `og` propre à la lettre, menu sur `index.html` / `poeme.html` (le portail y est déjà l'accueil).

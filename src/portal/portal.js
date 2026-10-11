@@ -38,6 +38,7 @@ const CSS = `
 #portal { position: fixed; inset: 0; z-index: 20; background: #060606; transition: opacity .8s ease; touch-action: pinch-zoom; }
 #portal.off { opacity: 0; pointer-events: none; }
 #portal.leaving { transition-delay: .55s; }
+#portal.menu { transition-duration: .35s; }
 #portal canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #portal .pt-sig { position: absolute; left: 0; right: 0; text-align: center; white-space: pre; pointer-events: none;
   font: 500 28px/1 'SG Garamond', serif; letter-spacing: .45em; padding-left: .45em; color: rgb(174,174,174); }
@@ -56,9 +57,12 @@ const lerpPose = (a, b, u) => ({ x: lerp(a.x, b.x, u), y: lerp(a.y, b.y, u), z: 
 // petit saut « touche-moi » (celui de la carte blanche)
 const hop = ph => 3.2 * sstep(0, 0.16, ph) * (1 - sstep(0.16, 0.45, ph)) + 1.1 * sstep(0.45, 0.57, ph) * (1 - sstep(0.57, 0.85, ph));
 
-// opts : { base, reduced, onPoem() (dans le geste : la page ouvre le clavier), onReady?(), onJeu?() (la page du jeu) }
+// opts : { base, reduced, onPoem() (dans le geste : la page ouvre le clavier), onReady?(), onJeu?() (la page du jeu),
+//   menu? (11/10 : le portail sert de menu, par-dessus une page déjà ouverte — monté caché, open() / close(), donne
+//   rapide sans retournements), links? (liens propres au menu, remplacent ceux d'items.js) }
 export async function mountPortal(opts = {}) {
-  const { base = './', reduced = false } = opts;
+  const { base = './', reduced = false, menu = false } = opts;
+  const links = { ...LINKS, ...(opts.links || {}) };
   if (!document.getElementById('pt-style')) {
     const st = document.createElement('style'); st.id = 'pt-style'; st.textContent = CSS; document.head.appendChild(st);
   }
@@ -66,6 +70,7 @@ export async function mountPortal(opts = {}) {
   const canvas = document.createElement('canvas'); canvas.setAttribute('aria-hidden', 'true');
   const sig = document.createElement('div'); sig.className = 'pt-sig'; sig.setAttribute('aria-label', SIG);
   root.append(canvas, sig);
+  if (menu) { root.classList.add('menu', 'off'); root.inert = true; }
   document.body.appendChild(root);
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true });
   if (!gl) { root.remove(); return null; }
@@ -96,9 +101,9 @@ export async function mountPortal(opts = {}) {
       if (i >= SIG.length) return;
       const s = document.createElement('span'); s.textContent = SIG[i++];
       sig.appendChild(s);
-      setTimeout(strike, reduced ? 0 : rnd.range(90, 190));
+      setTimeout(strike, reduced || menu ? 0 : rnd.range(90, 190));
     };
-    setTimeout(strike, reduced ? 0 : 250);
+    setTimeout(strike, reduced || menu ? 0 : 250);
   });
 
   // ---- cartes : papier, relief, encre (celles de la scène des cartes) ----
@@ -155,7 +160,8 @@ export async function mountPortal(opts = {}) {
     const asp = CARD.w / CARD.h, portrait = W < H * 1.1;
     // ETERNEL : capitales centrées à 11 % du haut, hauteur de capitale du prénom de la scène des cartes ; les cartes dessous
     const sigCap = Math.min(52, Math.max(26, 0.052 * H)) * 0.66;
-    const top = Math.max(H * (portrait ? 0.115 : 0.14), H * 0.11 + sigCap / 2 + H * 0.035), bot = H * 0.965;
+    // (menu) la place de « me contacter », sous le paquet
+    const top = Math.max(H * (portrait ? 0.115 : 0.14), H * 0.11 + sigCap / 2 + H * 0.035), bot = H * 0.965 - (menu ? 44 : 0);
     // les cartes à la taille de celles de la scène des questions (08/10) ; pour tenir dans l'écran, dans l'ordre :
     // moins d'écart avec le paquet (GAPD), le paquet qui sort un peu par le bas (DS : part visible), un peu plus de
     // recouvrement (OV) ; en dernier recours seulement, des cartes plus petites
@@ -255,9 +261,13 @@ export async function mountPortal(opts = {}) {
   // ---- états ----
   let deckGone = false, deckM = null, lastLight = null, paused = false, startT = 0, leaving = null, visible = true, raf = 0, last = 0, vp = null, eye = null, lastGesture = -99;
   let hoverIdx = -1, pressIdx = -1, focusIdx = JEU, snap = false;
+  // menu (11/10) : on l'a demandé, il ne fait pas attendre — chaque carte monte du fond déjà à sa place, l'une après
+  // l'autre (du haut vers le bas), sans retournement (≈ 0,9 s en tout)
+  const M_GAP = 0.1, M_T = 0.55;
+  const menuIn = (c, t) => clamp01((t - startT - RANK[c.i] * M_GAP) / M_T);
   const dealAt = c => startT + DEAL_AT + RANK[c.i] * DEAL_GAP;
-  const landed = (c, t) => reduced ? t - startT > 0.3 : t >= dealAt(c) + DEAL_T;
-  const dealEnd = () => startT + (reduced ? 0.6 : DEAL_AT + (ITEMS.length - 1) * DEAL_GAP + DEAL_T);
+  const landed = (c, t) => reduced ? t - startT > 0.3 : menu ? menuIn(c, t) >= 1 : t >= dealAt(c) + DEAL_T;
+  const dealEnd = () => startT + (reduced ? 0.6 : menu ? (ITEMS.length - 1) * M_GAP + M_T : DEAL_AT + (ITEMS.length - 1) * DEAL_GAP + DEAL_T);
 
   // retournement organique : la carte se soulève d'abord (assez haut pour ne rien toucher en tournant), tourne en
   // douceur avec un léger roulis, puis se repose ; turns = nombre de demi-tours
@@ -280,6 +290,7 @@ export async function mountPortal(opts = {}) {
       return { ...a, z: a.z + 46 * e, y: a.y + 6 * e, rx: a.rx - 0.08 * sw, rz: a.rz + 0.04 * sw };
     }
     if (reduced) return rest;
+    if (menu && !c.anim) { const e = ease(menuIn(c, t)); return { ...rest, y: rest.y - 8 * (1 - e), z: rest.z - 36 * (1 - e) }; }
     const td = t - dealAt(c);
     if (td < 0) return onDeckPose(c);
     if (td < DEAL_T) {                 // la donne (le tirage de la scène des cartes) : soulevée, retournée en l'air, posée
@@ -330,18 +341,20 @@ export async function mountPortal(opts = {}) {
     // (un lien sortant : le portail ne s'efface pas — dessous, il y a le champ, qui restait à l'écran pendant que la
     // page du lien charge, et au retour)
     const enter = (kind, fade = kind === 'into') => { leaving = { c, t0: t, kind, from: cards.map(k => poseOf(k, t)), M0: c.lastM, dEnd: fillDist(), target: null }; if (fade) root.classList.add('off', 'leaving'); root.inert = true; };
+    if (c.id === 'poeme' && menu) { opts.onPoem?.(); return; }   // (menu, sur la page du poème) : on y revient
     if (c.id === 'poeme') {
       enter('into');
       opts.onPoem?.();                  // dans le geste : la page ouvre le clavier
       setTimeout(() => { if (leaving && !leaving.rev) { visible = false; stop(); } }, (LEAVE_T + 0.2) * 1000);
       return;
     }
-    const url = LINKS[c.id];
+    const url = links[c.id];
     if (url) { enter('into', false); setTimeout(() => { location.href = url; }, reduced ? 0 : 1050); return; }
     // le jeu : sa page, dans le même monde (jeu/jeu.js) ; elle se fond par-dessus pendant que le paquet s'éloigne
     // (09/10) le paquet se hisse à la place principale pendant que le reste s'écarte ; la page du jeu prend le relais
     // sans coupure (elle se prépare, invisible, et vient se poser exactement sur lui)
     if (c.id === 'jeu' && opts.onJeu) { enter('deck'); opts.onJeu(); return; }
+    if (c.id === 'jeu' && url) { enter('into', false); setTimeout(() => { location.href = url; }, reduced ? 0 : 1050); return; }
     if (cards.some(k => k.anim)) return;          // une seule carte se retourne à la fois
     if (!soonInk) soonInk = inkOf('bientôt', c.v);
     c.anim = { t0: t, off: slideFor(c) };
@@ -477,7 +490,7 @@ export async function mountPortal(opts = {}) {
       return M4.mul(M4.mul(M4.model(0, 0, 0, px, py, 0), M4.model(rx, ry, 0)), M4.model(0, 0, 0, -px, -py, 0));   // la table : dans Gin
     };
     // arrivée : fondu depuis le fond + petite montée (le paquet de la scène des cartes) ; départ : recul et fondu
-    const intro = reduced ? sstep(0, 0.8, t - startT) : ease(clamp01((t - startT) / INTRO_T));
+    const intro = reduced ? sstep(0, 0.8, t - startT) : ease(clamp01((t - startT) / (menu ? 0.5 : INTRO_T)));
     if (leaving && leaving.rev && leaveT(t) <= leaving.t0) { leaving = null; root.inert = false; }   // rembobinée : à sa place
     const lu = leaving ? clamp01((leaveT(t) - leaving.t0) / LEAVE_T) : 0;
     const away = leaving ? ease(clamp01(lu / 0.75)) : 0;
@@ -513,7 +526,7 @@ export async function mountPortal(opts = {}) {
       }
       c.curlA += (curlOn - c.curlA) * (snap ? 1 : Math.min(1, dt * 1.5));
       p = { ...p, z: p.z + dz - 0.5 * c.press };   // s'enfonce à peine (jamais dans la carte dessous)
-      let fade = intro, G;
+      let fade = intro * (menu && !reduced && c.i !== JEU ? ease(menuIn(c, t)) : 1), G;
       if (onDeck || c.i === JEU) G = c === leaving?.c ? Gdeck0 : Gdeck;
       else G = M4.mul(Gin, group(s.x, s.y, c.bph, leaving ? 0 : c.w, c.bf));
       if (leaving) {
@@ -616,6 +629,13 @@ export async function mountPortal(opts = {}) {
       visible = true; lastGesture = t; hoverIdx = pressIdx = -1;
       root.classList.remove('off', 'leaving'); start();
     },
+    // menu (11/10) : la donne rapide par-dessus la page ; close() : il s'efface (rapide), la page revient dessous
+    open() { api.show(); },
+    close() {
+      if (leaving && !leaving.rev) return;
+      root.classList.add('off'); root.inert = true;
+      setTimeout(() => { if (root.classList.contains('off')) { visible = false; stop(); } }, 420);
+    },
     // une page posée par-dessus (le jeu) : le portail reste affiché dessous, immobile (jamais le champ de prénoms)
     pause() { paused = true; stop(); },
     hide() { visible = false; root.classList.add('off'); root.inert = true; stop(); },
@@ -638,6 +658,6 @@ export async function mountPortal(opts = {}) {
     state: () => ({ t: now() - startT, focus: ITEMS[focusIdx].id, dealt: now() >= dealEnd(), leaving: !!leaving }),
   };
   startT = now();
-  start();
+  if (menu) visible = false; else start();
   return api;
 }

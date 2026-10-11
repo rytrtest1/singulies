@@ -364,7 +364,7 @@ export function mountOffer({ name, onBack, over = false, onPaid = null, envelope
   root.style.setProperty('--inset', SHEET_INSET + 'px');
   root.innerHTML = `
     <button class="of-back" type="button" aria-label="Changer le prénom">${BACK_SVG}</button>
-    <nav class="of-tabs" aria-label="Le site"><a aria-current="page">POEME</a><a href="${esc(LIENS.jeu)}">JEU</a><a href="${esc(LIENS.livres)}" target="_blank" rel="noopener">LIVRES</a></nav>
+    <!-- (11/10) plus d'onglets : le menu (deux traits, en haut à droite) ouvre le portail par-dessus la page (src/menu/menu.js) -->
     <main>
       ${over ? '<div class="of-hole" aria-hidden="true"></div><div class="of-story" aria-hidden="true"></div><div class="of-edges" aria-hidden="true"></div>' : '<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>'}
       <button class="of-down" type="button" aria-label="D’autres prénoms, d’autres poèmes"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 9.5 L12 15.5 L18 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></button>
