@@ -1,4 +1,4 @@
-html, body { margin: 0; height: 100%; background: #000; overflow: hidden; overscroll-behavior: none; }
+html, body { margin: 0; height: 100%; background: #060606; overflow: hidden; overscroll-behavior: none; }
 /* le glisser d'un doigt appartient à la page (avancer / reculer) ; le zoom par pincement reste permis */
 html, body, #c { touch-action: pinch-zoom; }
 body { -webkit-tap-highlight-color: transparent; }

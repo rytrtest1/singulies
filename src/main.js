@@ -614,7 +614,10 @@ function frame(ts) {
 
   // ---------- transition vers les cartes ----------
   const T = S.trans != null ? S.t - S.trans : -1;
-  let R = null, place = here, bright = null, vig = 1, hook = null, camDY = 0;
+  // (11/10, Maxence : « homogénéiser ») alt : le fond du champ est le même noir uni que toutes les autres pages (6), sans
+  // vignette — elle assombrissait les bords jusqu'à 2 : sous le bandeau et SINGULIES (posés sur un noir de 6), deux
+  // bandes plus claires se voyaient, comme un cadre
+  let R = null, place = here, bright = null, vig = ALT ? 0 : 1, hook = null, camDY = 0;
   if (T >= 0) {
     const lsc = (w, i) => field.letterScreen(w, i, focal, vx, vy);
     if (!plan) {
@@ -679,8 +682,7 @@ function frame(ts) {
         const q = tg[i];
         return { ch: p.ch, x, y, fs: p.fs + (q.fs - p.fs) * e, fsx: p.fs + ((q.fsx || q.fs) - p.fs) * e };
       });
-      const du = clamp01((S.t - S.driftT) / (DRIFT_GAP * (n - 1) + DRIFT_T));
-      vig = 1 - smT(0, 1, du);
+      // (alt : le fond est déjà uni, sans vignette)
     }
     if (!CFG.reduced) {
       const cap = atlas.capHeight;
