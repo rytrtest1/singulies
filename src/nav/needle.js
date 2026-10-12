@@ -1,17 +1,19 @@
-// Les aiguilles du bandeau (12/10, Maxence) : à chaque bout, une aiguille piquée dans le fil — la pointe plongée dans un
-// trou, le chas vers les noms ; le fil du bandeau sort d'un trou, monte jusqu'au chas, le traverse, un bout pend. On la
-// reconnaît à ce qu'elle fait : elle ressort, replonge, tire le fil (et les noms avec lui).
-//   arrive()  : elle paraît, la pointe au-dessus du trou, et pique
-//   breathe() : un geste de couture au repos — la pointe ressort, elle replonge un peu plus loin (le fil se tend), revient
-//   stitch()  : un point complet (changer de page) — elle sort, replonge profond en tirant, revient
+// Les aiguilles du bandeau (12/10, Maxence) : à chaque bout, une aiguille enfilée, en biais, la pointe vers le bord (là
+// où l'on va) juste au-dessus d'un trou du bandeau ; le fil du bandeau sort d'un autre trou, monte jusqu'au chas, le
+// traverse, un bout pend. Au repos elle est entière (sa pointe la fait reconnaître) ; elle pique et ressort : on la
+// reconnaît à ce qu'elle fait, et ce geste tire le fil (et les noms avec lui).
+//   arrive()  : elle paraît, pique, ressort
+//   breathe() : un geste de couture au repos — elle pique (le fil se tend, le nom voisin vient un peu), ressort
+//   stitch()  : un point (changer de page) — elle pique profond en tirant, ressort
 //   tug(on)   : tirer et tenir (la démonstration), relâcher
 // Repère (côté droit ; le gauche en miroir) : un SVG de 84 × 44 px collé au bord, x = 84 au bord de l'écran.
 const NS = 'http://www.w3.org/2000/svg';
-const L = 44;                                // longueur de l'aiguille (px)
-const HOLE = { x: 64, y: 22 };               // le trou où elle pique (20 px du bord)
-export const THREAD_END = 30;                // x du trou d'où sort le fil du bandeau (54 px du bord : --nv-el / --nv-er)
-const ANG = 30 * Math.PI / 180;              // piquée en biais : la pointe vers le bas et le bord
-const REST = 11;                             // au repos : 11 px de l'aiguille sous le tissu
+const L = 36;                                // longueur de l'aiguille (px)
+const HOLE = { x: 70, y: 22 };               // le trou où elle pique (14 px du bord)
+export const THREAD_END = 26;                // x du trou d'où sort le fil du bandeau (58 px du bord : --nv-el / --nv-er)
+const ANG = 20 * Math.PI / 180;              // en biais : la pointe vers le bas et le bord
+const REST = -3;                             // au repos : la pointe 3 px au-dessus du trou (l'aiguille entière)
+const IN = 9;                                // piquée : 9 px sous le tissu
 const ease = u => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
 const easeOut = u => 1 - Math.pow(1 - u, 3);
 
@@ -29,9 +31,9 @@ export function createNeedle(side, { reduced = false, onClick } = {}) {
 <ellipse cx="${THREAD_END}" cy="${HOLE.y}" rx="1.1" ry=".85" fill="#020202"/>
 <ellipse cx="${HOLE.x}" cy="${HOLE.y}" rx="1.5" ry="1" fill="#020202"/>
 <g class="nd" clip-path="url(#${id}c)">
-<path d="M1.1 -1.45 Q-.6 0 1.1 1.45 L28 1.05 Q37 .6 ${L} 0 Q37 -.6 28 -1.05 Z" fill="url(#${id}m)"/>
-<path d="M1.1 -1.45 Q-.6 0 1.1 1.45 L28 1.05 Q37 .6 ${L} 0 Q37 -.6 28 -1.05 Z" fill="url(#${id}g)"/>
-<rect x="2.6" y="-.5" width="6.4" height="1" rx=".5" fill="#050505"/>
+<path d="M1.1 -1.5 Q-.6 0 1.1 1.5 L22 1.1 Q30 .62 ${L} 0 Q30 -.62 22 -1.1 Z" fill="url(#${id}m)"/>
+<path d="M1.1 -1.5 Q-.6 0 1.1 1.5 L22 1.1 Q30 .62 ${L} 0 Q30 -.62 22 -1.1 Z" fill="url(#${id}g)"/>
+<rect x="2.5" y="-.55" width="6" height="1.1" rx=".55" fill="#050505"/>
 </g>
 <g class="tail"><path class="u1" fill="none" stroke="rgb(30,29,27)" stroke-width="1.3" stroke-linecap="round"/><path class="u2" fill="none" stroke="rgba(120,116,108,.26)" stroke-width=".5" stroke-linecap="round"/></g>
 </svg>`;
@@ -48,7 +50,7 @@ export function createNeedle(side, { reduced = false, onClick } = {}) {
     nd.setAttribute('transform', `translate(${eye[0].toFixed(2)} ${eye[1].toFixed(2)}) rotate(${(ANG * 180 / Math.PI).toFixed(2)})`);
     clip.setAttribute('width', (Math.min(L + 8, L - Math.max(0, P.s) + 4)).toFixed(2));
     // le fil : du trou du bandeau au chas (un peu affaissé), puis le bout qui ressort de l'autre côté et pend
-    const ex = eye[0] + dir[0] * 5.8, ey = eye[1] + dir[1] * 5.8;
+    const ex = eye[0] + dir[0] * 5.5, ey = eye[1] + dir[1] * 5.5;
     const mx = (THREAD_END + ex) / 2, my = Math.max(HOLE.y, ey) + 1.2;
     const d = `M${THREAD_END} ${HOLE.y} Q${mx.toFixed(2)} ${my.toFixed(2)} ${ex.toFixed(2)} ${ey.toFixed(2)}`;
     t0.setAttribute('d', d); t0.setAttribute('transform', 'translate(0 .8)'); t1.setAttribute('d', d);
@@ -90,14 +92,15 @@ export function createNeedle(side, { reduced = false, onClick } = {}) {
     el: btn,
     get shown() { return P.a > 0.01; },
     show() { return play([{ s: REST, a: 1, t: 500 * R + 1 }]); },
-    hide() { return play([{ s: -14, a: 0, t: 300 }]); },
-    arrive() { return play([{ s: -14, a: 0, t: 1 }, { a: 1, t: 420 * R + 1, e: easeOut }, { s: REST, t: 520 * R + 1 }]); },
+    hide() { return play([{ s: -16, a: 0, t: 300 }]); },
+    arrive() { return play([{ s: -16, a: 0, t: 1 }, { a: 1, t: 420 * R + 1, e: easeOut }, { s: IN, t: 480 * R + 1 }, { s: REST, t: 520 * R + 1 }]); },
     // pull(on) : rappel quand le fil se tend / se détend (le nom voisin glisse de quelques pixels vers le centre)
     breathe(pull) {
       if (reduced) return Promise.resolve();
-      return play([{ s: -5, t: 650 }, { s: REST + 6, t: 380, at: () => pull && pull(true) }, { s: REST, t: 700, at: () => pull && pull(false) }]);
+      return play([{ s: -6, t: 420 }, { s: IN, t: 360, at: () => pull && pull(true) }, { s: REST, t: 760, at: () => pull && pull(false) }]);
     },
-    stitch() { return play([{ s: -16, t: 220 * R + 1 }, { s: REST + 12, t: 340 * R + 1 }, { s: REST, t: 420 * R + 1 }]); },
-    tug(on) { return play([{ s: on ? REST + 8 : REST, t: on ? 420 : 600 }]); },
+    stitch() { return play([{ s: -8, t: 160 * R + 1 }, { s: IN + 5, t: 280 * R + 1 }, { s: REST, t: 520 * R + 1 }]); },
+    // tirer (la démonstration) : elle pique et tire, tient, puis ressort
+    tug(on) { return play(on ? [{ s: -6, t: 300 }, { s: IN, t: 420 }] : [{ s: REST, t: 600 }]); },
   };
 }

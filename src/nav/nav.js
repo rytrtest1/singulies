@@ -48,7 +48,7 @@ const CSS = `
   -webkit-mask-image: linear-gradient(to right, transparent var(--nv-a, 0px), #000 calc(var(--nv-a, 0px) + var(--nv-m, 22%)), #000 calc(100% - var(--nv-a, 0px) - var(--nv-m, 22%)), transparent calc(100% - var(--nv-a, 0px)));
   mask-image: linear-gradient(to right, transparent var(--nv-a, 0px), #000 calc(var(--nv-a, 0px) + var(--nv-m, 22%)), #000 calc(100% - var(--nv-a, 0px) - var(--nv-m, 22%)), transparent calc(100% - var(--nv-a, 0px))); }
 /* (12/10) avec les flèches : les noms s'effacent avant elles (jamais une flèche sur un nom) */
-.nv.ar { --nv-a: 58px; }
+.nv.ar { --nv-a: 62px; }
 .nv-track { position: absolute; left: 50%; top: 0; height: 44px; display: flex; align-items: center; gap: var(--nv-gap, 34px); white-space: nowrap;
   will-change: transform; }
 .nv-track.anim { transition: transform ${DUR}ms ${EASE}; }
@@ -353,10 +353,10 @@ export function installNav(opts) {
   });
 
   // ---- (12/10, Maxence) les pages : deux aiguilles. Sur la page de la feuille (le bandeau est caché pendant les
-  //      prénoms), une fois par visite : l'aiguille de droite paraît, pique, tire — le bandeau montre le nom de droite en
-  //      entier (la page ne bouge pas) —, relâche ; puis celle de gauche (UN POEME PAR MOIS, tenu un peu plus). Le moindre
-  //      geste arrête la démonstration (les aiguilles restent). Au repos, de temps en temps, un geste de couture : la
-  //      pointe ressort, elle replonge en tirant, le nom voisin glisse de quelques pixels vers le centre. ----
+  //      prénoms), une fois par visite : l'aiguille de droite paraît (pique, ressort), pique et tire — le bandeau montre le
+  //      nom de droite en entier (la page ne bouge pas) —, ressort ; puis celle de gauche (UN POEME PAR MOIS, tenu un peu
+  //      plus). Le moindre geste arrête la démonstration. Au repos l'aiguille est entière, pointe visible ; de temps en
+  //      temps elle pique et ressort, le nom voisin glisse de quelques pixels vers le centre. ----
   let arrowsOn = false, revealing = false, rvT = [], breaths = 0, brT = 0;
   function showArrows() {
     arrowsOn = true; root.classList.add('ar', 'ndl', 'ndr');
@@ -390,18 +390,18 @@ export function installNav(opts) {
     const at = (ms, f) => rvT.push(setTimeout(() => { if (revealing && !busy) f(); }, ms));
     // jusqu'où glisser : le voisin lisible en entier, juste avant le fondu du bord (aiguille + marge du masque)
     const shift = d => {
-      const A = 58 + (mobile() ? 0.12 : 0.07) * innerWidth + 6, bx = boxes[C + d];
+      const A = 62 + (mobile() ? 0.12 : 0.07) * innerWidth + 6, bx = boxes[C + d];
       if (!bx) return 0;
       return d > 0 ? Math.max(0, bx.r - innerWidth / 2 + A - centers[C]) : Math.min(0, innerWidth / 2 + bx.l - A - centers[C]);
     };
     const side = (d, t0, hold) => {
       at(t0, () => { root.classList.add(d < 0 ? 'ndl' : 'ndr'); ndOf(d).el.classList.add('in'); ndOf(d).arrive(); });
-      at(t0 + 1250, () => { ndOf(d).tug(true); setX(centers[C] + shift(d), true); });
-      at(t0 + 1250 + DUR + hold, () => { ndOf(d).tug(false); setX(centers[C], true); });
+      at(t0 + 1600, () => { ndOf(d).tug(true); setX(centers[C] + shift(d), true); });
+      at(t0 + 1600 + DUR + hold, () => { ndOf(d).tug(false); setX(centers[C], true); });
     };
     side(1, 0, 1100);
-    side(-1, 1250 + 2 * DUR + 1100 + 700, 1600);
-    at(2 * (1250 + 2 * DUR) + 1100 + 700 + 1600 + 200, () => { revealing = false; removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true); showArrows(); });
+    side(-1, 1600 + 2 * DUR + 1100 + 700, 1600);
+    at(2 * (1600 + 2 * DUR) + 1100 + 700 + 1600 + 200, () => { revealing = false; removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true); showArrows(); });
   }
 
   // ---- l'arrivée par rechargement  // ---- l'arrivée par rechargement  // ---- l'arrivée par rechargement : la page entre du côté d'où l'on vient ----
