@@ -76,6 +76,7 @@ export const PO = chain([
   ['flap', 0.9, 0.1],        // le rabat se ferme
   ['seal', 1.5, -0.05],      // le cachet se fait sur la pointe (la vue s'en est approchée) : la cire est là, le sceau appuie, elle refroidit
   ['zoomOut', 1.0, 0.7],     // on le regarde un instant, puis la vue recule jusqu'à l'enveloppe entière (cadrage de la tranche)
+  ['myst', 4.0, 0.1],        // (12/10) la carte mystère arrive sous le cachet, le fil la noue (src/vitrine/mystery.js, MYST_T)
   ['tip', 1.2, 0.05],        // elle bascule jusqu'à ne plus montrer que sa tranche
   ['away', 1.4, 0.05],       // la tranche seule : elle avance dans la fente (rétrécit jusqu'à MAIL_W px)
 ]);

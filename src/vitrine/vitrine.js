@@ -17,7 +17,7 @@
 import { M4, CARD } from '../cards/cardRenderer.js';
 import { ENV, PO, FLAP_H, SEAL_OFF } from '../sheet/envelope.js';
 const CARD_S = Math.SQRT1_2, CW = CARD.w * CARD_S, CH = CARD.h * CARD_S;   // (12/10) la feuille est une A4 : la carte à sa taille (sheet.js)
-import { createThread, pathLen } from './thread.js';
+import { createMystery } from './mystery.js';
 
 const clamp01 = u => Math.min(1, Math.max(0, u));
 const sstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
@@ -39,11 +39,10 @@ const V_NOTCH = 50;                       // la profondeur du V du dos (mm, sous
 
 export function createVitrine(o) {
   const { gl, card, rnd, SY, SHEET, reduced } = o;
-  const thread = createThread(gl);
   const variant = () => ({ seed: rnd() * 100, paperXf: [rnd.range(-2.5, 2.5), rnd.range(-1.5, 1.5), rnd() < 0.5 ? 0 : Math.PI, 0],
     logoOff: [rnd.range(-0.15, 0.15), rnd.range(-0.15, 0.15)], warp: [rnd.range(0.05, 0.3), rnd.range(-0.18, 0.04), rnd.range(-0.1, 0.1)],
     jx: rnd.range(-0.6, 0.6), jy: rnd.range(-0.5, 0.5), jr: rnd.range(-0.015, 0.015) });
-  const vQ = o.top || variant(), vM = variant();
+  const vQ = o.top || variant();
 
   // ---- l'horloge : go(k) va à l'étape à son rythme ; scrub(p) suit le défilement (p : 0 → 3, en étapes ; la page donne
   //      à chaque étape une longueur proportionnelle à sa durée : le défilement est le temps) ----
@@ -110,41 +109,8 @@ export function createVitrine(o) {
     return Math.min(PO.seal[1] + 0.3, PO.seal[0] - 0.02 + (r - SEAL_AT));
   };
 
-  // ---- étape 3 : la carte mystère, sous le cachet, et le fil (repère de l'enveloppe sans son échelle : mm) ----
-  const SEAL_Y = ENV.h / 2 - FLAP_H + SEAL_OFF;                     // le cachet (sur la pointe du rabat)
-  const MY_Y = SEAL_Y - 12 - CH / 2;                     // la carte : juste sous le cachet
-  const BACK_Z = 1.6 + ENV.t / 2;                            // la surface du dos
-  // le dos bombé (l'enveloppe pleine) : nul sur les bords, ≈ 1,2 mm au centre
-  const bulgeAt = (x, y) => 1.2 * Math.max(0, 1 - (x / (ENV.w / 2)) ** 2) * Math.max(0, 1 - (y / (ENV.h / 2)) ** 2);
-  const CARD_Z = BACK_Z + bulgeAt(0, MY_Y) + 0.32;
-  function mysteryLocal() {
-    const u = easeOut(span(0.25, 1.45, r3()));
-    // (12/10, Maxence) elle arrive du bas, comme la carte question (elle ne passe jamais sur le cachet)
-    return M4.model(0, 0, -0.012, 0, lerp(MY_Y - 170, MY_Y, u), CARD_Z + 14 * (1 - u) * (1 - u));
-  }
-  // le fil : un seul, à deux bouts. Chacun sort d'un petit trou percé de l'intérieur (à 9 mm du bord gauche, du bord
-  // droit), court sur le dos, monte sur la carte, et ils se nouent au centre de la carte (une boucle de chaque côté, deux
-  // bouts qui pendent)
-  const HOLE_X = ENV.w / 2 - 9;
-  const onBack = (x, y, lift = 0.42) => [x, y, BACK_Z + bulgeAt(x, y) + lift];
-  const onCard = (x, y, lift = 0) => [x, y, CARD_Z + 0.6 + lift];
-  function strand(side) {
-    const sg = side, pts = [], y = MY_Y + 0.4 * sg;
-    // il sort du trou (d'abord sous la surface : il émerge)
-    pts.push([-sg * HOLE_X, y, BACK_Z - 0.4], [-sg * HOLE_X, y, BACK_Z + 0.1]);
-    for (let i = 1; i <= 24; i++) { const x = -sg * HOLE_X + sg * (HOLE_X - CW / 2 - 1.5) * i / 24; pts.push(onBack(x, y + 0.25 * Math.sin(i * 0.7 + side))); }
-    // il monte sur le bord de la carte
-    pts.push(onCard(-sg * (CW / 2 + 0.5), y, -0.3), onCard(-sg * (CW / 2 - 1.5), y));
-    for (let i = 1; i <= 12; i++) { const x = -sg * (CW / 2 - 1.5) + sg * (CW / 2 - 1.5 - 1.6) * i / 12; pts.push(onCard(x, y)); }
-    // le nœud : une boucle, puis le bout qui pend (un peu différent de chaque côté) — à la taille de la carte (A4)
-    const lp = [[-1.2, 0.8], [-6, 5.6], [-12.5, 5.4], [-15, 1], [-11, -1.8], [-3, -1.2], [0.8, 0.3]].map(([a, b]) => [a * CARD_S, b * CARD_S]);
-    for (const [a, b] of lp) pts.push(onCard(sg * a, y + b, 0.3));
-    const tail = (side > 0 ? [[-1.8, -4], [-4.2, -10], [-6.6, -17]] : [[-1.2, -4.2], [-2.8, -11], [-4.2, -18.5]]).map(([a, b]) => [a * CARD_S, b * CARD_S]);
-    for (const [a, b] of tail) pts.push(onCard(sg * a, y + b, 0.2));
-    return pts;
-  }
-  const STR = [strand(1), strand(-1)], STR_L = STR.map(pathLen);
-
+  // ---- étape 3 : la carte mystère, sous le cachet, et le fil (mystery.js : la même pose sur l'enveloppe envoyée) ----
+  const myst = createMystery(gl, card, variant);
   // ---- ce que sheet.js reprend : l'enveloppe (dans le repère de la feuille), la feuille, la caméra ----
   function envState() {
     if (!on() || vt <= K[1] + 0.6) return null;
@@ -187,24 +153,18 @@ export function createVitrine(o) {
     if (!on()) return { occ: null };
     let occ = null;
     // la carte question (elle suit la feuille, jusque dans l'enveloppe)
-    const Mq = M4.mul(M4.mul(Msheet, questionRel()), S(CARD_S));
-    card.draw(vp, eye, P, { model: Mq, lod: 'fine', ...vQ });
-    if (vt > 1.5 && vt < K[1] + 1.85) occ = { m: Mq, k: true };
-    if (Menv && vt > K[2] + 0.2) {
-      // (le repère de l'enveloppe sans son échelle : les mesures en mm)
-      const Me = M4.mul(Menv, S(1 / ENV_K));
-      const Mf = M4.mul(M4.mul(Me, mysteryLocal()), S(CARD_S));
-      card.draw(vp, eye, P, { model: M4.mul(Mf, M4.model(0, Math.PI, 0)), lod: 'fine', ...vM, logoK: 1 });
-      const g = span(1.35, 3.8, r3());
-      if (g > 0) {
-        const e = g < 0.5 ? 2 * g * g : 1 - Math.pow(-2 * g + 2, 2) / 2;
-        STR.forEach((pts, i) => thread.draw(vp, eye, P, pts.map(p => ap(Me, p)), 0.55, { upTo: STR_L[i] * e, pitch: 1.5 }));
-      }
+    // (après le paiement, o.noCard : la carte est celle de la personne, posée face visible — sheet.js la dessine)
+    if (!o.noCard) {
+      const Mq = M4.mul(M4.mul(Msheet, questionRel()), S(CARD_S));
+      card.draw(vp, eye, P, { model: Mq, lod: 'fine', ...vQ });
+      if (vt > 1.5 && vt < K[1] + 1.85) occ = { m: Mq, k: true };
     }
+    // (le repère de l'enveloppe sans son échelle : les mesures en mm)
+    if (Menv && vt > K[2] + 0.2) myst.draw(vp, eye, P, M4.mul(Menv, S(1 / ENV_K)), r3());
     return { occ };
   }
 
-  function free() { thread.free(); }
+  function free() { myst.free(); }
   const seek = v => { scrubbing = false; vt = target = Math.max(0, Math.min(VKEYS[VKEYS.length - 1], v)); };   // (essais : un instant précis)
   return { on, update, go, jump, scrub, seek, state: () => ({ vt, target, k, arrived: Math.abs(vt - target) < 1e-3, keys: VKEYS }), envState, sheetState, camera, focus, draw, free };
 }

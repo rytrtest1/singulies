@@ -42,6 +42,11 @@ const STACK = 12, PITCH = 0.15;
 const RETURN_T = 0.75;
 const DRAW_T = 1.5, DISCARD_T = 0.6, ANSWER_T = 1.1, MOVE_T = 0.9;
 const LINES = 3;                   // lignes visibles sur la carte réponse
+// (12/10, Maxence : « plutôt glisser vers la droite, plus logique, on inverse ») : la question jetée à DROITE = la
+// suivante, à gauche = la précédente (elle revient de la droite) — SW = −1 retourne toutes les directions d'origine
+const SW = -1;
+// le temps d'attente du site (IDLE_GO de l'accueil) : la carte blanche vient s'offrir après ce temps sans geste
+const IDLE_WAIT = 3.5;
 
 const clamp01 = u => Math.min(1, Math.max(0, u));
 const sstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
@@ -109,7 +114,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   }
   const FACE_Z = STACK * PITCH + 2.8;                // la carte réponse glisse entre la question et le paquet
   const UNDER_Z = FACE_Z - 1.4;
-  const deckPose = (i, v) => ({ x: v.jx, y: lay.yDeck + v.jy, z: i * PITCH, rx: 0, ry: 0, rz: v.jr });
+  // (12/10) le paquet peut être ailleurs qu'à sa place (deckDY) : au milieu de l'écran, quand il se mélange et attend
+  let deckDY = 0;
+  const deckPose = (i, v) => ({ x: v.jx, y: lay.yDeck + deckDY + v.jy, z: i * PITCH, rx: 0, ry: 0, rz: v.jr });
   const centerPose = (v, dx = 0) => ({ x: v.jx * 3 + 1.2 + dx, y: lay.yDeck + v.jy * 2 - 0.8, z: FACE_Z, rx: 0, ry: Math.PI, rz: v.jr * 1.5 + dx * 0.0015 });
   const answerPose = v => ({ x: v.jx, y: lay.yAns + v.jy, z: -0.8, rx: 0, ry: Math.PI, rz: v.jr });
   // carte blanche au repos : en bas de l'écran, son haut vers 82 % (le bas sort de l'écran, le texte au centre
@@ -146,11 +153,11 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       if (!hasPrev() || backHintDone) return 0;
       if (idle > 2.0) { backHintDone = true; return 0; }
       backHint = shape(idle);
-      return 7 * backHint;
+      return SW * 7 * backHint;
     }
     const k = Math.floor(idle / 7), ph = idle - 7 * k;
     if (k >= 2) return 0;
-    return -7 * shape(ph);                                  // gauche : la suivante
+    return SW * -7 * shape(ph);                             // (12/10) à droite : la suivante
   }
   const restPose = c => c === question ? centerPose(c.v, dragging ? dragX : hintX(lastT))
     : c === blank ? (c.place === 'up' ? { x: 1.2 + c.v.jx * 0.5, y: lay.yDeck - 0.8 + c.v.jy, z: FACE_Z, rx: 0, ry: Math.PI, rz: c.v.jr } : blankRest(c.v, c.out, bob(c)))
@@ -183,7 +190,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       p.z = b.z + 4 * (1 - sstep(0.6, 1, u)); return p;
     }
     if (c.anim === 'discard') {
-      const a = c.from, e = Math.pow(u, 1.8), s = c.dir || -1;
+      const a = c.from, e = Math.pow(u, 1.8), s = SW * (c.dir || -1);
       return { ...a, x: a.x + s * e * (lay.Ww / 2 + CARD.w * 1.2), y: a.y - 8 * u, z: a.z + 4 * sstep(0, 0.3, u), rz: a.rz + s * 0.3 * e };
     }
     if (c.anim === 'flip') {                          // la carte blanche se soulève, fait un tour sur elle-même, se pose
@@ -301,8 +308,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     emit('discard', { id: question.id });
     discards++;
     question = null;
-    if (dir > 0) bringBack(t + DISCARD_T * 0.25, cur - 1, -1);
-    else if (cur < seq.length - 1) bringBack(t + DISCARD_T * 0.25, cur + 1, 1);
+    if (dir > 0) bringBack(t + DISCARD_T * 0.25, cur - 1, SW * -1);
+    else if (cur < seq.length - 1) bringBack(t + DISCARD_T * 0.25, cur + 1, SW * 1);
     else { pendingDraw = t + DISCARD_T * 0.45; if (answer && answer.text) setAnswerText(''); emit('text', { text: '' }); }
     return true;
   }
@@ -316,7 +323,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     a.cursorMM = pre ? pre.cursorMM : makeStripInk('', Math.floor(v.seed * 1000) + 7, question.margin).cursor;
     return a;
   }
-  const HINT_ANSWER = 'réponds ici', HINT_BLANK = 'le thème de ton poème';   // (10/10 : était « ta réponse est le thème »)
+  const HINT_ANSWER = 'réponds ici', HINT_BLANK = 'dis-moi ce que tu veux';   // (12/10, Maxence)   // (10/10 : était « ta réponse est le thème »)
   function renderAnswer(c = act()) {
     if (!c) return;
     const sd = Math.floor(c.v.seed * 1000) + 7;
@@ -386,7 +393,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     return true;
   }
   // la carte blanche s'offre après une première question passée, tant qu'aucune réponse n'est validée
-  const choicesOn = () => !jeu && !ended && mode === 'q' && discards >= 1 && !(answer && answer.text && !writing && answer.place === 'below');
+  // (12/10, après le paiement) : ou bien, sans aucun geste depuis IDLE_WAIT s après que la question est posée
+  const idleBlank = () => !!shuf && shuf.done && question && !question.anim && !(answer && answer.text) && lastT - Math.max(question.landedAt, lastKeyT, lastGest) > IDLE_WAIT;
+  const choicesOn = () => !jeu && !ended && mode === 'q' && (discards >= 1 || idleBlank() || (shuf && shuf.blank)) && !(answer && answer.text && !writing && answer.place === 'below');
 
   // ---------- lumière (manière 1) + inclinaison de la carte en focus ----------
   const tilt = { x: 0, y: 0 }, ts = { x: 0, y: 0 };
@@ -455,6 +464,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function frame(t, dt, W, H) {
     lastT = t;
     layout(W, H);
+    const shufNow = stepShuffle(t);
     if (pendingDraw >= 0 && t >= pendingDraw) { pendingDraw = -1; drawNext(t); }
     if (blankAt >= 0 && t >= blankAt && blank) { blankAt = -1; takeBlank(t); }
     // la question suivante se prépare pendant qu'on lit celle-ci (09/10, à-coups sur iPhone X : sa frappe se faisait
@@ -621,6 +631,20 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       const v = stack[STACK - n + i], p = deckPose(i, v);
       p.z -= drop * PITCH;
       if (i === n - 1 && !ended && !reduced) p.z += lift('deck');
+      // (12/10) le mélange : la carte du dessus se soulève, sort de côté (dégagée du paquet), descend, revient dessous ;
+      // les autres montent d'un cran pendant qu'elle se glisse sous elles — rien ne traverse rien
+      if (shufNow && !reduced) {
+        const { u, side, out } = shufNow;
+        if (i === n - 1) {
+          const sx = side * out * (sstep(0.1, 0.45, u) - sstep(0.6, 0.95, u));
+          const up = 3 * sstep(0, 0.15, u) * (1 - sstep(0.45, 0.6, u));
+          const top = p.z, under = -PITCH * (1 - sstep(0.6, 1, u));
+          p.x += sx; p.z = lerp(top + up, under, sstep(0.45, 0.6, u)); p.rz += side * 0.06 * Math.sin(Math.PI * sstep(0.1, 0.95, u));
+        } else p.z += PITCH * sstep(0.6, 1, u);
+      } else if (shuf && !shuf.done && shuf.hop >= 0 && i === n - 1 && !reduced) {
+        const ph = shuf.hop % 1.2;
+        p.z += 3.2 * sstep(0, 0.16, ph) * (1 - sstep(0.16, 0.45, ph)) + 1.1 * sstep(0.45, 0.57, ph) * (1 - sstep(0.57, 0.85, ph));
+      }
       card.draw(vp, eye, P, { model: model(Gq, p), lod: i === n - 1 && drop < 0.5 ? 'fine' : 'coarse', shade: (0.55 + 0.45 * (i + 1) / n) * dimQ, fade: fadeD, occ: ended ? null : occQ, ...v });
     }
     for (const c of leaving) card.draw(vp, eye, P, { model: model(Gq, poseOf(c, t)), lod: 'fine', ink: c.ink, shade: dimQ, fade: fadeQ, ...c.v });
@@ -628,12 +652,13 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     // la précédente, prête d'avance (son encre) dès qu'elle existe : l'esquisse « revenir », et (09/10) quand on
     // glisse la question vers la droite, elle revient un peu du bord gauche, avec le doigt — on comprend ce qui va arriver
     if (hasPrev() && mode === 'q' && !ended && question && !question.anim && !peekQ && t - question.landedAt > 0.8) { const e = seq[cur - 1]; peekQ = inkQuestion(e.id, e.v); }
-    { const want = dragging && dragX > 0 && hasPrev() ? clamp01(dragX / (0.22 * lay.Ww)) : 0; dragPeek += (want - dragPeek) * Math.min(1, dt * 12); }
+    { const want = dragging && SW * dragX > 0 && hasPrev() ? clamp01(SW * dragX / (0.22 * lay.Ww)) : 0; dragPeek += (want - dragPeek) * Math.min(1, dt * 12); }
     if (peekQ && (ended || !question || seq[cur - 1]?.id !== peekQ.id) && backHint <= 0 && dragPeek < 0.001) { card.freeInk(peekQ.ink); peekQ = null; }
     if (peekQ && (backHint > 0.001 || dragPeek > 0.001) && fadeQ > 0.01) {
-      const rest = centerPose(peekQ.v), off = { ...rest, x: rest.x - (lay.Ww / 2 + CARD.w * 1.2), y: rest.y - 8, rz: rest.rz - 0.3 };
-      const show = { ...rest, x: -lay.Ww / 2 + 13 - CARD.w / 2, y: rest.y - 3, rz: rest.rz - 0.08 };
-      const k = Math.max(backHint, dragPeek), to = dragPeek > backHint ? { ...show, x: show.x + 16 * dragPeek, rz: show.rz + 0.04 * dragPeek, z: (show.z || 0) - 1.5 } : show;   // (sous la question : pas de chevauchement)
+      // (12/10 : au bord droit — la précédente revient de la droite)
+      const rest = centerPose(peekQ.v), off = { ...rest, x: rest.x + SW * (lay.Ww / 2 + CARD.w * 1.2), y: rest.y - 8, rz: rest.rz + SW * 0.3 };
+      const show = { ...rest, x: SW * (lay.Ww / 2 - 13 + CARD.w / 2), y: rest.y - 3, rz: rest.rz + SW * 0.08 };
+      const k = Math.max(backHint, dragPeek), to = dragPeek > backHint ? { ...show, x: show.x - SW * 16 * dragPeek, rz: show.rz - SW * 0.04 * dragPeek, z: (show.z || 0) - 1.5 } : show;   // (sous la question : pas de chevauchement)
       peekAt = lerpPose(off, to, k);
       card.draw(vp, eye, P, { model: model(Gq, peekAt), lod: 'fine', ink: peekQ.ink, shade: dimQ, fade: fadeQ, ...peekQ.v });
     } else peekAt = null;
@@ -747,7 +772,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // ---------- gestes ----------
   function tap(x, y, t) {
     if (ended) return { type: null };
+    lastGest = t;
     const h = hit(x, y);
+    if (shuf && !shuf.done) return h === 'deck' && drawFromShuffle(t) ? { type: 'pioche' } : { type: null };
     if (mode === 'free') {
       if (h === 'blank') return startWriting() ? { type: 'write' } : { type: null };
       return { type: null };
@@ -758,14 +785,19 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (h === 'deck' && question) return discard(t, -1) ? { type: 'discard' } : { type: null };
     return { type: null };
   }
-  function drag(dx) { if (question && !busy(question, lastT) && !ended && mode === 'q') { dragging = true; dragX = dx * lay.Ww / lay.W; } }
+  function drag(dx) {
+    if (shuf && !shuf.done) { dragging = true; return; }
+    if (question && !busy(question, lastT) && !ended && mode === 'q') { dragging = true; dragX = dx * lay.Ww / lay.W; }
+  }
   function release(dx, vx, t) {
+    lastGest = t;
     if (!dragging) return { type: null };
+    if (shuf && !shuf.done) { dragging = false; return Math.abs(dx) > 30 && drawFromShuffle(t) ? { type: 'pioche' } : { type: 'cancel' }; }
     const from = question ? poseOf(question, t) : null;
     dragging = false;
     const far = Math.abs(dx) > lay.W * 0.22 || Math.abs(vx) > 0.6;
     dragX = 0;
-    if (far) return discard(t, Math.sign(dx) || -1, from) ? { type: dx > 0 ? 'previous' : 'discard' } : { type: 'cancel' };
+    if (far) return discard(t, (SW * Math.sign(dx)) || -1, from) ? { type: SW * dx > 0 ? 'previous' : 'discard' } : { type: 'cancel' };
     return { type: 'cancel' };
   }
   function give(t) {
@@ -788,9 +820,41 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // (10/10, alt.html) payé : la feuille seule redevient la scène des cartes — le paquet arrive et tire (la carte face
   // cachée sur la feuille était celle du dessus), ou la carte blanche d'emblée (un poème offert, thème choisi)
   let blankAt = -1;
+  // (12/10, Maxence : « l'utilisateur a le temps et savoure maintenant ») après le paiement, le paquet ne tire plus
+  // tout seul : il vient au milieu de l'écran et se mélange (une carte sort du dessus, de côté, et revient dessous —
+  // jamais à travers les autres), il sautille de temps en temps ; le toucher, ou glisser, et il tire : la carte se
+  // retourne au-dessus, et le tout remonte à sa hauteur habituelle (la carte réponse, l'invitation à écrire)
+  let shuf = null, lastGest = 0;
+  const SH_T = 1.5;                                   // un mélange
   function resume(t, how = 'question') {
     sheetOnly = false;
-    if (how === 'blanche') { blankAt = t + 1.4; pendingDraw = -1; } else pendingDraw = t + 1.1;
+    if (how === 'blanche') { blankAt = t + 1.4; pendingDraw = -1; return; }
+    shuf = { t0: t + 1.2, done: false, k: 0, side: 1, moveT: -1 };
+    pendingDraw = -1;
+  }
+  function drawFromShuffle(t) {
+    if (!shuf || shuf.done || ended) return false;
+    shuf.done = true; shuf.moveT = t; shuf.cyc = null; lastGest = t;
+    pendingDraw = t;
+    emit('pioche', {});
+    return true;
+  }
+  // le paquet au milieu (et la carte qui se mélange) ; rend la pose de la carte du dessus en mouvement, ou null
+  function stepShuffle(t) {
+    const mid = (lay.yAns - lay.yDeck) / 2;
+    if (!shuf) { deckDY = 0; return null; }
+    if (shuf.done) { const u = ease(clamp01((t - shuf.moveT) / 1.3)); deckDY = mid * (1 - u); return null; }
+    deckDY = mid;
+    // deux mélanges, puis une pause où le paquet sautille (touche-moi), et ainsi de suite
+    const T = t - shuf.t0; if (T < 0) return null;
+    const PER = 2 * SH_T + 2.4, ph = T % PER, c = Math.floor(T / PER) * 2 + Math.min(1, Math.floor(ph / SH_T));
+    if (ph >= 2 * SH_T) { shuf.hop = ph - 2 * SH_T; return null; }
+    shuf.hop = -1;
+    const u = (ph % SH_T) / SH_T;
+    // un mélange fini : la carte passée dessous devient la dernière du paquet (on fait tourner le paquet)
+    if (shuf.k !== c) { if (shuf.k < c) { stack.unshift(stack.pop()); } shuf.k = c; }
+    const side = c % 2 ? -1 : 1, out = CARD.w + 5;
+    return { u, side, out };
   }
   function takeBlank(t) {
     if (ended || mode === 'free') return;
@@ -840,10 +904,10 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function setJeuWrite(on) { jw = jeu && !!on; if (!jw) writing = false; }
   function setBreath(x, y) { breath.x = x; breath.y = y; }
   return {
-    frame, tap, drag, release, give, pass, back, start, prepare, reopen, resume, snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer, setJeuWrite, drawAt, relayIn, relayOut, relaying: () => !!relay && !relay.fin,
+    frame, tap, drag, release, give, pass, back, start, prepare, reopen, resume, pioche: t => drawFromShuffle(t), snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer, setJeuWrite, drawAt, relayIn, relayOut, relaying: () => !!relay && !relay.fin,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
-    state: () => ({ freeFor: mode === 'free' ? lastT - freeT : 0, blankFor: blank && blank.appearT != null ? lastT - blank.appearT + 2.2 : 0, hasPrev: hasPrev(), idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false }),
+    state: () => ({ freeFor: mode === 'free' ? lastT - freeT : 0, blankFor: blank && blank.appearT != null ? lastT - blank.appearT + 2.2 : 0, hasPrev: hasPrev(), idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false, shuffling: !!shuf && !shuf.done }),
     look: L, layout: lay,
   };
 }

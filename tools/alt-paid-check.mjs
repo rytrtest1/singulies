@@ -6,17 +6,18 @@
 import { build, preview } from 'vite';
 import { chromium } from 'playwright';
 const PORT = 5196;
-const OUT = 'C:/Users/maxen/AppData/Local/Temp/claude/paid-dist';   // une version figée (l'autre session modifie les fichiers)
+const OUT = process.env.OUTDIR || 'C:/Users/maxen/AppData/Local/Temp/claude/paid-dist';   // une version figée (l'autre session modifie les fichiers)
 await build({ logLevel: 'error', build: { outDir: OUT, emptyOutDir: true } });
 const server = await preview({ build: { outDir: OUT }, preview: { port: PORT, strictPort: true, host: 'localhost' }, logLevel: 'error' });
-const browser = await chromium.launch({ headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
+const browser = await chromium.launch(process.env.SWIFT ? { headless: true, executablePath: '/opt/pw-browsers/chromium', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] } : { headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 page.setDefaultTimeout(90000);
 const errs = []; page.on('pageerror', e => errs.push(String(e))); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
-const shot = n => page.screenshot({ path: `captures/alt-paid-${n}.png` });
+const CAP = process.env.CAPDIR || 'captures';
+const shot = n => page.screenshot({ path: `${CAP}/alt-paid-${n}.png` });
 const out = {};
 const RES = process.argv[2] === 'reserve';
-await page.goto(`http://localhost:${PORT}/alt.html?envoi=0&seed=3${RES ? '' : '&paiement=faux'}`);
+await page.goto(`http://localhost:${PORT}/?envoi=0&seed=3${RES ? '' : '&paiement=faux'}`);
 await page.evaluate(() => { localStorage.removeItem('singulies.order'); });
 await page.waitForTimeout(9000);
 await page.mouse.click(195, 422);
@@ -28,6 +29,7 @@ out.barre = await page.evaluate(() => document.querySelector('.of-bar .of-go').t
 await page.click('.of-bar .of-go');                 // RECEVOIR : directement le paiement (ou la réservation)
 await page.waitForTimeout(1500);
 if (!RES) {
+  await page.waitForSelector('.of-pay .of-pin[type=email]');
   await shot('1-paiement');
   await page.fill('.of-pay .of-pin[type=email]', 'lea.martin@exemple.fr');
   const ins = await page.$$('.of-pay .of-addr input');
@@ -35,24 +37,33 @@ if (!RES) {
   await page.click('.of-pay-go');
 }
 out.order = await page.evaluate(() => JSON.parse(localStorage.getItem('singulies.order') || 'null'));
-await page.waitForTimeout(12000); await shot('2-question');
+// (12/10) le paquet se mélange au milieu et attend : on le touche (la pioche)
+await page.waitForTimeout(9000); await shot('2a-paquet');
+out.melange = await page.evaluate(() => window.__sg.cardsApi.scene.state().shuffling);
+await page.evaluate(() => window.__sg.cardsApi.scene.pioche(window.__sg.cardsApi.now()));
+await page.waitForTimeout(6000); await shot('2-question');
 await page.keyboard.type('la mer en hiver', { delay: 40 });
 await page.keyboard.press('Enter');
 // l'enveloppe : l'adresse se tape seule (paiement) ; réservation : on l'y écrit, puis POSTER
-await page.waitForFunction(() => window.__sg.cards?.sheet?.state().env?.write, null, { timeout: 120000 });
+await page.waitForTimeout(15000); await shot('2b-enveloppe');
+await page.waitForTimeout(8000); await shot('2c-arrivee');
+// (rendu logiciel lent : l'histoire mise au bout — le cachet, la carte mystère, le fil)
+if (process.env.SWIFT) { await page.evaluate(() => window.__sg.cardsApi.vitrine.seek(12.8)); await page.waitForTimeout(9000); await shot('2d-fil'); }
+await page.waitForFunction(() => window.__sg.cardsApi?.sheet?.state().env?.write, null, { timeout: 180000 });
 if (RES) {
-  await page.evaluate(() => window.__sg.cards.sheet.setFields({ nom: 'Martin', rue: '3 rue Haute', cplt: '', ville: 'Paris', cp: '75011' }));
+  await page.evaluate(() => window.__sg.cardsApi.sheet.setFields({ nom: 'Martin', rue: '3 rue Haute', cplt: '', ville: 'Paris', cp: '75011' }));
   await page.waitForTimeout(800); await shot('3-adresse-ecrite');
   await page.evaluate(() => [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER' && e.classList.contains('on'))?.click());
 } else {
-  await page.waitForFunction(() => (window.__sg.cards?.sheet?.state().env?.fields.rue || '').length > 3, null, { timeout: 60000 });
+  await page.waitForFunction(() => (window.__sg.cardsApi?.sheet?.state().env?.fields.rue || '').length > 3, null, { timeout: 60000 });
   await page.waitForTimeout(400); await shot('3-adresse-seule');
 }
-await page.waitForFunction(() => window.__sg.cards?.sheet?.state().env?.posted, null, { timeout: 60000 });
-out.fields = await page.evaluate(() => window.__sg.cards.sheet.state().env.fields);
-await page.waitForSelector('.sc-mail', { state: 'attached', timeout: 60000 });
+await page.waitForFunction(() => window.__sg.cardsApi?.sheet?.state().env?.posted, null, { timeout: process.env.SWIFT ? 300000 : 60000 });
+out.fields = await page.evaluate(() => window.__sg.cardsApi.sheet.state().env.fields);
+await page.waitForTimeout(4000); await shot('3b-postee');
+await page.waitForSelector('.sc-mail', { state: 'attached', timeout: process.env.SWIFT ? 400000 : 60000 });
 out.placeholderAvant = await page.evaluate(() => document.querySelector('.sc-mail').classList.contains('ready'));
-await page.waitForSelector('.sc-mail.ready', { timeout: 30000 });
+await page.waitForSelector('.sc-mail.ready', { timeout: process.env.SWIFT ? 200000 : 30000 });
 await page.waitForTimeout(2500); await shot('4-email');
 if (RES) { await page.click('.sc-mail input'); await page.keyboard.type('lea.martin@exemple.fr', { delay: 30 }); await page.waitForTimeout(600); }
 out.email = await page.evaluate(() => document.querySelector('.sc-mail input').value);

@@ -26,6 +26,7 @@ import {
 import { typeLines } from './typewriter.js';
 import { createVitrine } from '../vitrine/vitrine.js';
 import { createThread } from '../vitrine/thread.js';
+import { createMystery, MYST_T } from '../vitrine/mystery.js';
 // (d'autres modules importent ces noms depuis sheet.js)
 export { ENV, FIELDS, MAIL_W, addressInk, fieldsInk } from './envelope.js';
 
@@ -320,8 +321,16 @@ export function createSheetScene(gl, opts) {
   const EC = { x: 0, y: EC_Y, z: ENV_Z };
   const envClock = t => !env ? 0 : env.back ? Math.max(0, env.back.e0 - (t - env.back.t0) * 2.2 / SLOW) : (t - env.t0) / SLOW;
   // (10/10, alt) la vitrine : ce qu'il y a dans l'envoi, joué ici même, de la feuille de la personne (src/vitrine)
-  const VIT = HOLD && opts.vitrine ? createVitrine({ gl, card, rnd, PRENOM, SY, EC, SHEET, C_POSE, C_IN, reduced, top: from.top || null, base: opts.base || './', sigY: SIG.y, insets: () => [opts.insetTop ? opts.insetTop() : 0, opts.insetBottom ? opts.insetBottom() : 0] }) : null;
-  let vOcc = null;
+  // (12/10, Maxence) après le paiement, la réponse donnée : « on reprend la même scène que la page » — la vitrine se joue
+  // d'elle-même avec la carte de la personne, face visible (l'enveloppe arrive de côté, avale la feuille et la carte,
+  // le rabat, la cire, la carte mystère et le fil) ; puis l'enveloppe se retourne : l'adresse (tapée seule si on la
+  // connaît) ; POSTER (Entrée, OK) : elle se retourne encore (le cachet, la carte, le fil) et part par la tranche
+  const STORY = !!opts.story && ENVELOPE && !HOLD;
+  const story = { at: -1, arrived: -1, vc: null };
+  const VIT = (HOLD && opts.vitrine) || STORY ? createVitrine({ gl, card, rnd, PRENOM, SY, EC, SHEET, C_POSE, C_IN, reduced, noCard: STORY, top: from.top || null, base: opts.base || './', sigY: SIG.y, insets: () => [opts.insetTop ? opts.insetTop() : 0, opts.insetBottom ? opts.insetBottom() : 0] }) : null;
+  let vOcc = null, myst = null, menv0 = null;
+  const ENV_K_V = 0.95;                                        // (l'échelle de l'enveloppe de la vitrine : vitrine.js, ENV_K)
+  const storyMenv0 = () => menv0 || lastMenv;
   // (11/10, Maxence) les lignes à écrire, à droite des lettres : un fil noir cousu (le même fil partout) — il sort de la
   // feuille à gauche, court jusqu'à la marge, y rentre ; il se coud à mesure que chaque lettre se pose
   const fil = createThread(gl), FIL_R = 0.26;
@@ -382,13 +391,16 @@ export function createSheetScene(gl, opts) {
     const tu = tau(t);
     if (backing && tu <= 0 && !backing.fired) { backing.fired = true; emit('back', {}); }
     if (VIT) VIT.update(dt);
-    const V = VIT && VIT.on() ? VIT : null, VE = V && !env ? V.envState() : null;   // la vitrine : son enveloppe (sans adresse)
-    const ev = VE ? VE.ev : envClock(t);
+    const V = VIT && VIT.on() ? VIT : null, VE = V && (!env || STORY) ? V.envState() : null;   // la vitrine : son enveloppe (sans adresse)
+    const ev = VE && !env ? VE.ev : envClock(t);
     if (env && env.back && ev <= 0) closeEnv();
     const inEnv = !!env || !!VE;
     // envoyée : horloge propre, qui redescend au retour
     if (env) env.pp = Math.max(0, env.pp + (env.postT >= 0 ? 1 : -2.5) * dt / LENT);
-    const pp = VE ? VE.pp : env ? env.pp : 0, posting = isPosting();
+    // (histoire : posté, l'horloge de l'envoi reprend après la carte mystère — tout ce qui précède est déjà fait)
+    const ST_TURN = [PO.myst[1] - 1.3, PO.myst[1] - 0.1];
+    if (STORY && env && env.postT >= 0 && env.pp < ST_TURN[0]) env.pp = ST_TURN[0];
+    const pp = VE && env ? Math.max(VE.pp, env.pp) : VE ? VE.pp : env ? env.pp : 0, posting = isPosting();
     if (env && env.ink && !noAddr) {
       const sn = senderCount(ev);
       if (sn !== env.senderN) { env.senderN = sn; const r = senderInk(991, sn); card.updateInk(env.ink, r.canvas, r.x, r.y); releaseCanvas(r.canvas); }
@@ -409,7 +421,13 @@ export function createSheetScene(gl, opts) {
 
     if (!env && !backing && ENVELOPE && !HOLD && tu > CURSOR_AT + 0.3) prepareEnv();
     // passage automatique vers la commande : le curseur posé, et jamais moins de 3 s après le dernier geste
-    if (!backing && !HOLD && orderAt < 0 && tu > CURSOR_AT + 1.8 && t - lastGesture > 3) showOrders(t);
+    if (STORY) {
+      // la vitrine, d'elle-même ; arrivée au bout (le fil noué), l'enveloppe se retourne pour l'adresse
+      if (story.at < 0 && !backing && tu > CURSOR_AT + 1.2 && t - lastGesture > 2) { story.at = t; VIT.jump(1); VIT.go(3); }
+      const vs = story.at >= 0 ? VIT.state() : null;
+      if (vs && vs.arrived && vs.k === 3 && story.arrived < 0) story.arrived = t;
+      if (story.arrived >= 0 && !env && !backing && t - story.arrived > 1.2) { showOrders(t); if (env) env.t0 = t - E.flip[0] * SLOW; }
+    } else if (!backing && !HOLD && orderAt < 0 && tu > CURSOR_AT + 1.8 && t - lastGesture > 3) showOrders(t);
     if (backing) sT = 0;
     // ressort de la vue (feuille ↔ commande)
     { const w2 = reduced ? 30 : 2.4; svV += (w2 * w2 * (sT - sv) - 2 * w2 * svV) * dt; sv += svV * dt; }
@@ -443,7 +461,20 @@ export function createSheetScene(gl, opts) {
         cxT = lerp(cxT, EC.x, uz); cyT = lerp(cyT, sy, uz); lD = lerp(lD, Math.log(zD), uz); }
     }
     // la vitrine : sa propre vue (la feuille, l'enveloppe, la carte vierge, la guirlande, tout l'envoi)
-    { const vc = V && !env ? V.camera(frames, frameAbove, W, H) : null; if (vc) { cxT = vc.cx; cyT = vc.cy; lD = vc.lD; } }
+    { const vc = V && !env ? V.camera(frames, frameAbove, W, H) : null; if (vc) { cxT = vc.cx; cyT = vc.cy; lD = vc.lD; if (STORY) story.vc = vc; } }
+    if (STORY && env && story.vc && lastMenv) {
+      // l'adresse : de la vue de la vitrine à l'adresse (téléphone : de près ; ordinateur : l'enveloppe entière) ; postée :
+      // l'enveloppe entière, centrée (la tranche se cale ensuite sur le champ de l'email)
+      // (l'adresse, dans le repère de l'enveloppe non retournée : comme zoneRect, lastMenv × Ry(π) une fois retournée)
+      const Mf = storyMenv0(), ax = -ENV.w / 2 + ADDR.x + 15 * TYPE.pitch, ay = ENV.h / 2 - (ADDR.y - 6 + ENV.h + 16) / 2;
+      const a = apply(Mf, [ax, ay, 0]), cc = posOf(storyMenv0()), phone = W < H * 1.1;
+      const fa = phone ? { cx: a[0], cy: a[1], lD: Math.log(frames.F.D * ENV_K_V) } : { cx: cc[0], cy: cc[1], lD: Math.log(frames.P.D * ENV_K_V) };
+      const vis = 1 - kbPx / H; fa.cy -= (0.5 - (vis / 2 + 0.04)) * 2 * Math.exp(fa.lD) * TF * kb;
+      const fp = { cx: cc[0], cy: cc[1], lD: Math.log(frames.P.D * ENV_K_V) };
+      story.Dp = Math.exp(fp.lD); story.Hp = 2 * story.Dp * TF;
+      const u4 = ease(span([E.flip[0] + 0.2, E.flip[1] + 0.5], ev)), u3 = ease(span([ST_TURN[0] - 0.3, ST_TURN[1]], env.pp));
+      cxT = lerp(lerp(story.vc.cx, fa.cx, u4), fp.cx, u3); cyT = lerp(lerp(story.vc.cy, fa.cy, u4), fp.cy, u3); lD = lerp(lerp(story.vc.lD, fa.lD, u4), fp.lD, u3);
+    }
     // « en direct », clavier ouvert : la carte au milieu de la partie visible
     if (direct && !inEnv) { const vis = 1 - kbPx / H, oy = oPose(direct.o).y; cyT = lerp(cyT, oy - (0.5 - (vis / 2 + 0.04)) * frames.B.Hw, kb); }
     camS.cx = lerp(0, cxT, ci); camS.cy = lerp(from.cam.cy, cyT, ci); camS.D = Math.exp(lerp(Math.log(from.cam.D), lD, ci));
@@ -457,11 +488,13 @@ export function createSheetScene(gl, opts) {
     envW = uCam;
     const vf = V && !env ? V.focus() : null;
     if (vf) envW = vf.envW;
+    if (STORY && env) envW = 1;
     stepLight(dt, t);
     if (Number.isFinite(SEAL_SHAPE.lampAz)) { lamp.a = CAM_AZ + Math.PI + SEAL_SHAPE.lampAz; lamp.e = SEAL_SHAPE.lampEl; lamp.va = lamp.ve = 0; }   // réglages : lampe tenue
     let fy = SY + lerp(0, oTop - CARD.h, s), fxT = lerp(0, O_X, s);
     if (inEnv) { fy = lerp(fy, EC.y + 20, uCam); fxT = lerp(fxT, 0, uCam); }
     if (vf) { fy = vf.y; fxT = vf.x; }
+    if (STORY && env && lastMenv) { const cc = posOf(storyMenv0()); fy = cc[1]; fxT = cc[0]; }
     { const w2 = 1.8; for (const [k, v, tg] of [['x', 'vx', fxT], ['y', 'vy', fy]]) { ap[v] += (w2 * w2 * (tg - ap[k]) - 2 * w2 * ap[v]) * dt; ap[k] += ap[v] * dt; } }
     // l'enveloppe : la lampe est à la mesure de l'objet, pas de la vue (09/10 : elle reculait avec la caméra quand la
     // vue montrait l'enveloppe entière — lumière plate, papier délavé, cachet sans relief) ; même force reçue
@@ -480,8 +513,9 @@ export function createSheetScene(gl, opts) {
     let Menv = null;
     // (09/10 : le rabat reste ouvert pendant qu'on écrit l'adresse ; il se ferme après POSTER, horloge de l'envoi)
     const uI = inEnv ? ease(span(E.rise, ev)) : 0, uFlap = inEnv ? ease(span(PO.flap, pp)) : 0, uFlip = inEnv && !VE ? ease(span(E.flip, ev)) : 0;
+    const uFlipS = STORY && env ? ease(span(E.flip, ev)) : 0, uTurnS = STORY && env ? ease(span(ST_TURN, env.pp)) * (reduced ? 0 : 1) + (reduced && env.pp > ST_TURN[0] ? 1 : 0) : 0;
     const mv = reduced ? 0 : 1;
-    const uTurn = inEnv && !VE ? ease(span(PO.turn, pp)) * mv : 0, uTip = inEnv && !VE ? ease(span(PO.tip, pp)) * mv : 0;
+    const uTurn = inEnv && !VE ? ease(span(PO.turn, pp)) * mv : 0, uTip = inEnv && (!VE || STORY) ? ease(span(PO.tip, pp)) * mv : 0;
     if (inEnv) {
       const wr = sstep(E.write, E.write + 1.5, ev) * (1 - kb) * (1 - sstep(0, 0.6, pp));   // en écrivant : l'enveloppe s'incline et respire
       const G = M4.model(-ts.y * L.cardTilt * 0.5 * wr, ts.x * L.cardTilt * 0.5 * wr, 0);
@@ -510,8 +544,9 @@ export function createSheetScene(gl, opts) {
     // (alt, lettres déjà posées) la feuille apparaît sous elles, à sa place, en fondu (elle ne vient pas du fond)
     const sPos = PLACED ? 1 : sIn;
     let Msheet = M4.mul(T(0, -70 * (1 - sPos), -60 * (1 - sPos)), M4.mul(Gs, T(0, SY, 0)));
-    const uR = inEnv ? ease(span(E.rot, ev)) : 0, uS = inEnv ? ease(span(E.slide, ev)) : 0, uD = inEnv ? ease(span(E.drop, ev)) : 0;
-    if (inEnv && ev >= E.slide[1]) Msheet = M4.mul(Menv, M4.mul(T(0, -2, 0.6), M4.model(0, 0, Math.PI / 2)));
+    // (histoire : la feuille reste dans le repère de la vitrine — elle n'entre pas dans l'enveloppe du parcours)
+    const uR = inEnv && !STORY ? ease(span(E.rot, ev)) : 0, uS = inEnv ? ease(span(E.slide, ev)) : 0, uD = inEnv ? ease(span(E.drop, ev)) : 0;
+    if (inEnv && !STORY && ev >= E.slide[1]) Msheet = M4.mul(Menv, M4.mul(T(0, -2, 0.6), M4.model(0, 0, Math.PI / 2)));
     else if (uR > 0) {
       // pivote devant le devant de la poche (z + 3), puis, en paysage au-dessus de l'ouverture, passe derrière lui
       const Rm = lerpM(rotOf(Gs), T(0, 0, 0), uR);
@@ -522,14 +557,27 @@ export function createSheetScene(gl, opts) {
     if (VS && VS.M) Msheet = VS.M;
     if (VS && VS.rel) Msheet = M4.mul(Mbase, VS.rel);       // (vitrine) la feuille dans l'enveloppe, qui tourne avec elle
     // vitrine : l'enveloppe posée sur la feuille (repère de la feuille : elle penche avec elle, rien ne la traverse)
-    if (VE && VE.rel) { Menv = M4.mul(Mbase, VE.rel); lastMenv = Menv; }
+    if (VE && VE.rel) {
+      Menv = M4.mul(Mbase, VE.rel); menv0 = Menv;
+      if (STORY && env) {
+        // retournée (l'adresse), puis encore (le cachet) en partant ; elle se soulève un peu pour tourner ; puis elle
+        // bascule jusqu'à sa tranche et avance dans l'axe du regard (la fente), comme l'enveloppe du parcours
+        const c = posOf(Menv), fl = uFlipS + uTurnS;
+        const kAway = story.Hp ? Math.min(0.95, MAIL_W / (ENV.w * ENV_K_V * H / story.Hp)) : 0.6;
+        const far = (story.Dp || 600) * (1 / kAway - 1) * ease(span(PO.away, pp)) * mv;
+        const dir = (v => { const l = Math.hypot(...v) || 1; return v.map(x => x / l); })([c[0] - eye[0], c[1] - eye[1], c[2] - eye[2]]);
+        const lift = (30 * Math.sin(Math.PI * uFlipS) + 30 * Math.sin(Math.PI * uTurnS)) * mv;
+        Menv = M4.mul(T(dir[0] * far, dir[1] * far, lift + dir[2] * far), M4.mul(T(c[0], c[1], c[2]), M4.mul(M4.model(-(Math.PI / 2 - TILT) * uTip, 0, 0), M4.mul(T(-c[0], -c[1], -c[2]), M4.mul(Menv, M4.model(0, Math.PI * fl, 0))))));
+      }
+      lastMenv = Menv;
+    }
     const sheetFade = VS && VS.fade != null ? VS.fade : 1;
     lastMsheet = Msheet;
     const dimS = 1 - L.unfocusDim * sL;
-    const hideInside = (inEnv && ev > E.flip[0] + 0.9) || !!(VS && VS.hide);   // retournée : ce qui est dans la poche est caché
+    const hideInside = (inEnv && ev > E.flip[0] + (STORY ? 0.02 : 0.9)) || !!(VS && VS.hide);   // (histoire : fermée, cachetée — rien ne se voit plus dedans)   // retournée : ce qui est dans la poche est caché
     // ---- la carte ----
     let Mc = null;
-    const uC = inEnv ? ease(span(E.cIn, ev)) : 0;
+    const uC = inEnv && !STORY ? ease(span(E.cIn, ev)) : 0;
     if (C && C.faceDown) {
       // face cachée : elle glisse du bas sur la feuille une fois les lettres posées ; libérée (improvisation), elle
       // repart par où elle est venue
@@ -540,7 +588,7 @@ export function createSheetScene(gl, opts) {
       C.fade = sstep(0, 0.35, u) * (1 - sstep(0.3, 1, lv));
       C.occ = u > 0.9 && lv < 0.05 && !hideInside ? { m: Mc, k: true } : null;
     } else if (C) {
-      const rel = { x: lerp(C_POSE.x + C.v.jx, C_IN.x, uC), y: lerp(C_POSE.y + C.v.jy * 2, C_IN.y, uC), z: lerp(2.2, C_IN.z, uC) + 9 * Math.sin(Math.PI * uC), rz: lerp(C_POSE.rz, C_IN.rz, uC) };
+      const rel = { x: lerp(C_POSE.x + C.v.jx, C_IN.x, uC), y: lerp(C_POSE.y + C.v.jy * 2, C_IN.y, uC), z: lerp(STORY ? 0.45 : 2.2, C_IN.z, uC) + 9 * Math.sin(Math.PI * uC), rz: lerp(C_POSE.rz, C_IN.rz, uC) };   // (histoire : à plat sur la feuille, elle entre dans l'enveloppe avec elle)
       const target2 = M4.mul(Msheet, M4.model(0, 0, rel.rz, rel.x, rel.y, rel.z));
       const u = reduced ? sstep(CARD_MOVE[0], CARD_MOVE[0] + 0.5, tu) : span(CARD_MOVE, tu);
       const e = ease(u), sw = Math.sin(Math.PI * sstep(0.2, 0.8, u));
@@ -693,6 +741,12 @@ export function createSheetScene(gl, opts) {
       }
     }
     if (VIT && !env && !backing) { const r = VIT.draw(vp, eye, P, Msheet, Menv, t); vOcc = r.occ; } else vOcc = null;
+    // (12/10, Maxence) envoyée : la carte mystère et le fil, comme dans la vitrine — sous le cachet, avant qu'elle parte
+    if (env && Menv && envFade > 0.004 && (pp > PO.myst[0] || STORY)) {
+      if (!myst) myst = createMystery(gl, card, () => ({ ...pv(), noLogo: false, logoOff: [0, 0] }));
+      // (histoire : posée dans la vitrine — le repère de l'enveloppe sans son échelle)
+      myst.draw(vp, eye, P, STORY ? M4.mul(Menv, S(1 / ENV_K_V)) : Menv, STORY ? MYST_T : (pp - PO.myst[0]) * MYST_T / (PO.myst[1] - PO.myst[0]), envFade);
+    }
     // « en direct » envoyé : l'événement, une fois la carte partie
     if (direct && direct.postT >= 0 && !direct.sent && t - direct.postT > 1.7) {
       direct.sent = true;
@@ -732,7 +786,7 @@ export function createSheetScene(gl, opts) {
   const rectOf = q => { const xs = q.map(p => p[0]), ys = q.map(p => p[1]); return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) }; };
 
   function showOrders(t) {
-    if (VIT) VIT.jump(0);
+    if (VIT && !STORY) VIT.jump(0);
     // plus de commande (08/10) : directement l'enveloppe
     if ((noAddr || !ORDERS_ON) && ENVELOPE) {
       if (!env && !chosen) {

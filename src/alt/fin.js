@@ -19,19 +19,41 @@ export const leave = d => { d.classList.remove('on'); setTimeout(() => d.remove(
 // le prénom tel qu'on l'écrit dans une phrase : Léa → LEA dans le poème, mais « Lea » ici (capitale initiale)
 const said = n => String(n).toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 
-// la fin : c'est noté (rechargée : la même, pas une seconde demande)
+// la fin (12/10, Maxence) : le prénom, à sa taille de toujours ; « merci » ; ce que je fais maintenant ; la référence ;
+// ACCUEIL. En bas, le paquet du jeu (SINGULIES / le jeu, en direct : src/jeu/deck3d.js) invite à tirer une carte —
+// « pose une question à quelqu'un », un signe partager : la carte tirée, l'écran du jeu avec cette question.
+// (rechargée : la même, pas une seconde demande)
 export function finalScreen(order, home) {
   const n = esc(order.name), s = esc(said(order.name));
-  const line = order.lien ? `c’est noté. dès que ${s} aura répondu, je tape son poème et je le poste.`
-    : order.pour ? `merci. je tape ton poème et il arrive chez toi par la poste.`
-    : order.reserve ? `c’est noté. je t’écris pour le paiement, puis je tape ton poème et je le poste chez toi.`
-    : order.gift ? `c’est noté. je tape le poème de ${s} et je le poste.`
-    : `c’est noté. je tape ton poème et je le poste chez toi.`;
-  return screen(`<h1>${n}</h1><p>${line}</p>
-    ${order.pour ? '' : order.reserve ? '<p class="small">rien n’a été débité.</p>' : '<p class="small">stripe t’a envoyé le reçu par email.</p>'}
+  const line = order.lien ? `dès que ${s} aura répondu, je lis ses mots, écris son poème<br>et l’envoie par la poste.`
+    : order.reserve ? `je t’écris pour le paiement, puis je lis tes mots, écris ton poème<br>et l’envoie par la poste.`
+    : order.gift ? `je lis tes mots, écris son poème<br>et l’envoie par la poste.`
+    : `je lis tes mots, écris ton poème<br>et l’envoie par la poste.`;
+  const jeuUrl = id => { const u = new URL('./jeu', document.baseURI), k = new URLSearchParams(); if (id != null) k.set('q', id); u.search = k.toString(); return u.href; };
+  const d = screen(`<h1 class="mc-name">${n}</h1>
+    <p class="mc-merci">merci</p>
+    <p class="mc-line">${line}</p>
+    ${order.reserve ? '<p class="small">rien n’a été débité.</p>' : ''}
     ${order.ref ? `<div class="ref">réf. ${esc(order.ref)}</div>` : ''}
-    <p class="small" style="margin-top:26px"><a href="${esc(new URL('./jeu', document.baseURI).href)}">pose une de mes questions à quelqu’un</a></p>
-    ${home ? `<p class="small" style="margin-top:6px"><a href="${esc(home)}">retour</a></p>` : ''}`);
+    ${home ? `<a class="mc-sign" href="${esc(home)}">ACCUEIL</a>` : ''}
+    <div class="mc-jeu">
+      <div class="mc-deck" role="button" tabindex="0" aria-label="Tirer une carte du jeu SINGULIES"></div>
+      <div class="mc-jeu-row"><span class="mc-jeu-t">pose une question à quelqu’un</span>
+        <button class="mc-share" type="button" aria-label="Partager une question du jeu"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v10h14V11h-1" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+    </div>`);
+  d.classList.add('fin');
+  const sign = d.querySelector('.mc-sign');
+  if (sign) import('./stitch.js').then(m => m.stitch(sign, { seed: 'ACCUEIL'.length * 13 })).catch(() => {});
+  // le paquet en direct (sans WebGL2 : le signe et le lien suffisent)
+  const deckBox = d.querySelector('.mc-deck');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let deck = null;
+  const toJeu = id => { location.href = jeuUrl(id); };
+  import('../jeu/deck3d.js').then(m => m.mountDeck(deckBox, { base: new URL('./', document.baseURI).href, reduced, onDraw: toJeu })).then(r => { deck = r; if (!r) deckBox.classList.add('flat'); }).catch(() => deckBox.classList.add('flat'));
+  // partager : la carte se tire, puis l'écran du jeu (où PARTAGER envoie la question)
+  d.querySelector('.mc-share').addEventListener('click', () => { if (deck) deck.pull(); else toJeu(null); });
+  deckBox.addEventListener('click', () => { if (!deck) toJeu(null); });
+  return d;
 }
 
 // un poème offert, une fois payé : comment je l'écris ? → 'question' | 'lien' | 'blanche' | 'impro'

@@ -21,7 +21,7 @@ const CSS = `
 /* PASSER (sur la carte blanche, après quelques secondes sans frappe) : discret, placé par le script */
 .sc-pass { position: fixed; left: 0; right: 0; top: 85%; text-align: center; z-index: 13; cursor: pointer;
   opacity: 0; transition: opacity 1.2s; pointer-events: none;
-  font: 500 14px/44px 'SG Garamond', serif; letter-spacing: 0.4em; padding-left: 0.4em; color: #fff; }
+  font: 500 14px/44px 'SG Garamond', serif; letter-spacing: 0.45em; padding-left: 0.45em; color: #fff; }   /* (12/10 : le même interlettrage que tous les signes) */
 .sc-pass.on { opacity: .62; pointer-events: auto; }
 .sc-pass .sc-sub { display: block; margin-top: -12px; font-size: 13px; line-height: 1.2; letter-spacing: .04em; padding-left: 0; opacity: .55; }
 .sc-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); }
@@ -51,7 +51,7 @@ const CSS = `
 .sc-mail .sc-line { height: 1px; background: rgba(255,255,255,.3); }
 /* le prénom au-dessus du champ de l'email (09/10 : le fil de tout le parcours, jusqu'au bout) — comme partout */
 .sc-mail .sc-name { position: absolute; left: 50%; bottom: calc(100% + 30px); transform: translateX(-50%); white-space: pre; text-align: center;
-  font: 500 32px/1.25 'SG Garamond', Georgia, serif; letter-spacing: .45em; padding-left: .45em; color: rgb(174,174,174); pointer-events: none; }
+  font: 500 32px/1.25 'SG Garamond', Georgia, serif; letter-spacing: .45em; padding-left: .45em; color: rgb(251,251,251); pointer-events: none; }   /* (12/10 : la clarté du prénom partout, 0,986) */
 .sc-mail .sc-type { position: absolute; left: 0; right: 0; top: 0; padding: 0 0 5px; font: 16px/1.5 'SG Machine', 'Courier New', monospace;
   color: rgb(214,214,214); text-align: center; white-space: pre; pointer-events: none; overflow: visible; }
 .sc-mail .sc-type span { display: inline-block; }
@@ -140,7 +140,7 @@ export async function mountCards(opts) {
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');
   const giveEl = el('div', 'sc-sign', '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
   const passEl = el('div', 'sc-pass', 'PASSER<span class="sc-sub"></span>'); passEl.setAttribute('role', 'button');
-  const namePass = () => { passEl.setAttribute('aria-label', 'Passer : j’improvise à partir de ' + name); passEl.querySelector('.sc-sub').textContent = '(j’improvise à partir de ' + name + ')'; };
+  const namePass = () => { passEl.setAttribute('aria-label', 'Passer : j’improvise ton poème avec ' + name); passEl.querySelector('.sc-sub').textContent = '(j’improvise ton poème avec ' + name + ')'; };
   namePass();
   // l'enveloppe : POSTER (même signe que PASSER), dès que l'adresse a deux lignes, même clavier ouvert
   const postEl = el('div', 'sc-pass', 'POSTER'); postEl.setAttribute('role', 'button'); postEl.tabIndex = 0;
@@ -194,8 +194,11 @@ export async function mountCards(opts) {
   function openSheet() {
     answer.blur();
     sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced, hold: !!opts.hold && !paid,
-      fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, insetBottom: !paid ? opts.insetBottom : null, insetTop: !paid ? opts.insetTop : null, placed: !paid && !!opts.placed, landAt: !paid && landAt ? { at: landAt, now: now() } : null, sheetZoom: !paid ? opts.sheetZoom : null,
-      vitrine: !!opts.vitrine && !paid, base,
+      fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, placed: !paid && !!opts.placed, landAt: !paid && landAt ? { at: landAt, now: now() } : null,
+      // (12/10, Maxence) payé : la même scène que la page (même cadrage) ; la vitrine se joue d'elle-même avec la carte de
+      // la personne (story), puis l'enveloppe se retourne pour l'adresse
+      insetBottom: !paid || opts.vitrine ? opts.insetBottom : null, insetTop: !paid || opts.vitrine ? opts.insetTop : null, sheetZoom: !paid || opts.vitrine ? opts.sheetZoom : null,
+      vitrine: !!opts.vitrine && !paid, story: !!opts.vitrine && paid, base,
       // payé : l'adresse connue (panneau, portefeuille) se tape seule sur l'enveloppe ; sinon on l'y écrit, puis POSTER
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.'); },
         // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)
@@ -557,6 +560,9 @@ export async function mountCards(opts) {
     // enveloppe : Entrée = le champ suivant ; après le dernier, terminé
     if (sheet && sheet.state().env) {
       e.preventDefault();
+      // (12/10, Maxence) l'adresse complète : Entrée = poster ; sinon le champ suivant
+      const es = sheet.state().env;
+      if (es.canPost && !es.posted) { postEl.click(); return; }
       if (sheet.enter() === 'done') answer.blur();
       return;
     }
@@ -574,7 +580,13 @@ export async function mountCards(opts) {
   const closeKb = () => { if (!inputs.includes(document.activeElement)) { scene.stopWriting(); return; } quietBlur = true; try { answer.blur(); } finally { quietBlur = false; } };
   both('blur', e => {
     if (inputs.includes(e.relatedTarget)) return;
-    if (sheet) { sheet.stopWriting(); return; }
+    if (sheet) {
+      sheet.stopWriting();
+      // (12/10) « OK » du clavier (fermé sans toucher ailleurs), l'adresse complète : poster
+      const es = sheet.state().env;
+      if (es && es.canPost && !es.posted && !quietBlur && performance.now() - lastPD > 400) postEl.click();
+      return;
+    }
     if (quietBlur) { scene.stopWriting(); return; }       // fermé par nous (carte balayée) : jamais « la suite »
     const st = scene.state();
     if (st.writing && st.active && st.active.text && !st.ended && performance.now() - lastPD > 400 && give('clavier fermé')) return;
@@ -679,6 +691,7 @@ export async function mountCards(opts) {
   }
   // glisser vers le haut = envoyer : la réponse (scène des cartes), l'enveloppe ou la carte « en direct » (si prêtes)
   function flickUp() {
+    if (!sheet && scene.state().shuffling) { if (scene.pioche(now())) log('pioche (glissé)'); return; }
     if (sheet) { const es = sheet.state().env; if (es && es.canPost && !es.posted) postEl.click(); return; }
     give('glissé');
   }
