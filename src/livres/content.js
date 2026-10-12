@@ -7,9 +7,9 @@ import { BOOKS } from './book3d.js';
 
 // (les descriptions : deux à quatre lignes courtes, sans virgule en fin de ligne)
 const STEPS = [
-  { id: 'recueil', txt: 'mon recueil\nde l’ombre à la lumière\nune danse introspective entre âme et chair\nentre amour et trahison', href: 'https://www.amazon.fr/dp/B0DS8RF83H', price: '<b>9,90 €</b> sur amazon' },
+  { id: 'recueil', title: 'PENSEES POETIQUES', sub: 'mon recueil', txt: 'de l’ombre à la lumière\nune danse introspective entre âme et chair\nentre amour et trahison', href: 'https://www.amazon.fr/dp/B0DS8RF83H', price: '<b>9,90 €</b> sur amazon' },
   // (12/10, Maxence) tiré de sa présentation : « quoi de plus intime qu'un journal ?… »
-  { id: 'journal', txt: 'mon journal\nchaque pensée de chaque jour d’une année\ndu cœur gelé à la floraison sentimentale\nl’art exutoire dans la solitude noire', href: 'https://www.amazon.fr/dp/B0BYGNDTWB', price: '<b>18,99 €</b> sur amazon' },
+  { id: 'journal', title: 'JOURNAL', sub: 'mon journal', txt: 'chaque pensée de chaque jour d’une année\ndu cœur gelé à la floraison sentimentale\nl’art exutoire dans la solitude noire', href: 'https://www.amazon.fr/dp/B0BYGNDTWB', price: '<b>18,99 €</b> sur amazon' },
 ];
 
 export function buildLivres(host, base = './') {

@@ -197,8 +197,8 @@ export async function mountCards(opts) {
       fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, placed: !paid && !!opts.placed, landAt: !paid && landAt ? { at: landAt, now: now() } : null,
       // (12/10, Maxence) payé : la même scène que la page (même cadrage) ; la vitrine se joue d'elle-même avec la carte de
       // la personne (story), puis l'enveloppe se retourne pour l'adresse
-      insetBottom: !paid || opts.vitrine ? opts.insetBottom : null, insetTop: !paid || opts.vitrine ? opts.insetTop : null, sheetZoom: !paid || opts.vitrine ? opts.sheetZoom : null,
-      vitrine: !!opts.vitrine && !paid, story: !!opts.vitrine && paid, base,
+      insetBottom: !paid || opts.vitrine || opts.story ? opts.insetBottom : null, insetTop: !paid || opts.vitrine || opts.story ? opts.insetTop : null, sheetZoom: !paid || opts.vitrine || opts.story ? opts.sheetZoom : null,
+      vitrine: !!opts.vitrine && !paid, story: (!!opts.vitrine && paid) || !!opts.story, base,
       // payé : l'adresse connue (panneau, portefeuille) se tape seule sur l'enveloppe ; sinon on l'y écrit, puis POSTER
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.'); },
         // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)

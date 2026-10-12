@@ -23,6 +23,7 @@ export function buildStagePage(host, o) {
   host.innerHTML = `<main class="lt lt-st">
     <div class="lt-grab" role="img" aria-label="${esc(o.aspectLabel || '')}"></div>
     <div class="lt-cap">
+      ${o.steps.some(x => x.title) ? '<h1 class="lt-ti caps"></h1><p class="lt-su"></p>' : ''}
       <p class="lt-cap-t" aria-live="polite"></p>
       ${N > 1 ? `<div class="lt-dots">${o.steps.map((s, i) => `<button class="lt-dot" type="button" data-k="${i}" aria-label="${esc(s.txt.replace(/\n/g, ' '))}"><i></i></button>`).join('')}</div>
       <button class="lt-down" type="button" aria-label="La suite"><i class="lt-scroll"></i></button>` : ''}
@@ -58,6 +59,12 @@ export function buildStagePage(host, o) {
     if (j === k) return;
     k = j; pT = j;
     const s = o.steps[j];
+    // (12/10) le titre de l'objet (capitales, Garamond) et sa ligne dessous, au-dessus de la description
+    const ti = main.querySelector('.lt-ti'), su = main.querySelector('.lt-su');
+    if (ti && (ti.textContent !== (s.title || '') || su.textContent !== (s.sub || ''))) {
+      const put = () => { ti.textContent = s.title || ''; su.textContent = s.sub || ''; ti.style.opacity = su.style.opacity = ''; };
+      if (!ti.textContent || reduced) put(); else { ti.style.opacity = su.style.opacity = '0'; setTimeout(put, 260); }
+    }
     type(nbsp(s.txt));
     main.querySelectorAll('.lt-dot').forEach((b, i) => b.classList.toggle('on', i === j));
     pr.innerHTML = o.price ? o.price(j) : '';

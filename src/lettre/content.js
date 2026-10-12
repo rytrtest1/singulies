@@ -14,7 +14,7 @@ const STEPS = [
   'je l’écris une fois à la machine\nl’imprime et le glisse à la main\ndans une enveloppe noire',
   'avec une lettre au dos contenant\nmes pensées liées au poème\npendant sa création',
   'une personne tirée au sort\nrecevra l’original',
-].map(txt => ({ txt }));
+].map(txt => ({ txt, title: 'UN POEME PAR MOIS', sub: 'correspondance entre singuliés' }));
 
 const FORM = `<form class="lt-wait" novalidate autocomplete="on" hidden>
     <input class="lt-mail" type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="ton email" aria-label="ton email">

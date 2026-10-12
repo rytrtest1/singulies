@@ -3,6 +3,7 @@
 // pour.html (10/10) : la personne à qui l'on offre le poème ouvre le lien, tire sa carte et répond (?r=référence). La cérémonie : je tire une carte,
 // la personne répond (ou passe : j'improvise), la feuille, l'enveloppe qui se ferme et part seule (l'adresse est
 // dans Stripe). La demande part par email avec la référence de la commande (send.js, setOrder).
+import { insetTop, insetBottom, stageZoom } from '../app/stage.js';
 import './offre.css';
 import { norm } from '../basique/basique.js';
 import { installSend, setOrder, settled, send } from '../app/send.js';
@@ -116,12 +117,15 @@ async function ceremony(order, intro, how = 'question') {
     done();
   };
   const cards = wait(1300).then(() => import('../cards/mount.js')).then(({ mountCards }) => mountCards({ name, base: './', canvas, onDone: done,
+    // (12/10) la même cérémonie que dans la page : la vitrine se joue avec la carte, même cadrage
+    story: true, insetTop, insetBottom, sheetZoom: stageZoom,
     ...(how === 'impro' ? { sheetOnly: true } : {}),
     ...(FIN_MAIL ? { sheet: false, onEnd: d => { setTimeout(() => endMail(d), 1600); } } : { onEnd: () => {} }) }))
     .catch(e => { console.error(e); return null; });
   const [m] = await Promise.all([cards, Promise.race([wait(4200), new Promise(r => intro.addEventListener('click', r, { once: true }))])]);
   leave(intro);
-  if (m) { await wait(600); m.start(); if (how === 'blanche') m.scene.resume(m.now(), 'blanche'); canvas.classList.add('on'); window.__scene = m; return; }
+  if (m) { await wait(600); m.start(); if (how !== 'impro') m.scene.resume(m.now(), how === 'blanche' ? 'blanche' : 'question');   // (12/10) le paquet se mélange et attend qu'on pioche
+    canvas.classList.add('on'); window.__scene = m; return; }
   // sans WebGL2 : la même cérémonie en version simple
   const { mountSimpleFlow } = await import('../simple/simple.js');
   mountSimpleFlow({ name, onDone: done, onExit: () => {} });   // (la seconde fin n'existe pas en version simple : l'enveloppe)

@@ -105,3 +105,6 @@ a.lt-go { display: table; text-decoration: none; }
 .lt-st .lt-bar { z-index: 3; background: linear-gradient(to top, #060606 55%, rgba(6,6,6,0)); }
 .lt-st.flat .lt-grab { left: 50%; top: calc((46px + 100svh - 214px) / 2); width: 64vw; max-width: 380px; height: 46svh; transform: translate(-50%, -50%); background: center / contain no-repeat; }   /* sans WebGL2 : son image */
 .lt-st:not(.flat) > .lt-grab { background-image: none !important; }
+/* (12/10) le titre de l'objet et sa ligne, au-dessus de la description (comme avant les pages dans un même monde) */
+.lt-st .lt-ti { margin: 0; font: 500 19px/1.5 'SG Garamond', Georgia, serif; letter-spacing: .3em; margin-right: -.3em; color: rgb(236, 236, 236); transition: opacity .25s ease; }
+.lt-st .lt-su { margin: 2px 0 14px; font: 500 16px/1.4 'SG Garamond', Georgia, serif; color: rgba(255, 255, 255, .5); transition: opacity .25s ease; }
