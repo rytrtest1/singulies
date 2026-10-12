@@ -1036,6 +1036,10 @@ if (ALT) {
   // la cérémonie. Plus bas que l'histoire (les autres poèmes) : seulement UN PRENOM UN POEME.
   const ofEl = () => document.querySelector('#offre.on');
   const onNames = () => S.phase === 'input' && !ofEl();
+  // (12/10, Maxence) sur le portail des prénoms, le menu ne paraît qu'après un temps sans frappe (ETERNEL tapé et effacé,
+  // puis NAV_IDLE s sans toucher une touche) : celui qui cherche mes livres le trouve ; il repart dès qu'on écrit
+  const NAV_IDLE = 6;
+  const idleNames = () => onNames() && S.trans == null && !!S.introOff && S.t - Math.max(S.introEnd ?? S.t, S.keyAt ?? 0) > NAV_IDLE;
   let barAt = 0;
   nav = installNav({
     current: 'poeme', base: './',
@@ -1054,14 +1058,14 @@ if (ALT) {
     // autres pages et les aiguilles paraissent avec la feuille
     // (12/10, Maxence : « le portail d'entrée des singuliers ») sur la page des prénoms : rien en haut ni en bas, un
     // fondu au noir vers les bords ; le bandeau et SINGULIES paraissent avec la feuille
-    show: () => booted && !onNames() && !S.paid && !document.querySelector('.of.paying, .of.env'),
-    foot: () => booted && !onNames() && !S.paid && !document.querySelector('.of.paying, .of.env'),
-    shade: () => false,
+    show: () => booted && (!onNames() || idleNames()) && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    foot: () => booted && (!onNames() || idleNames()) && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    shade: () => booted && idleNames(),
     // (12/10) les aiguilles : sur la feuille, une fois l'offre posée (2,5 s après le bandeau du bas) ; la démonstration
     // seulement en haut de la page, sans paiement ni enveloppe
     ready: () => { const on = !!document.querySelector('#offre.on.bar-on'); if (!on) barAt = 0; else if (!barAt) barAt = performance.now(); return on && performance.now() - barAt > 2500; },
     quiet: () => !!offerObj && offerObj.top < 30 && !document.querySelector('.of.paying, .of.env'),
-    solo: () => (onNames() && !(window.__nav && window.__nav.wandered)) || (!!offerObj && offerObj.top > offerObj.storyLen() + 40),
+    solo: () => !!offerObj && offerObj.top > offerObj.storyLen() + 40,
     side: () => !!document.querySelector('#offre.on.bar-on') && (!offerObj || offerObj.top < 30),
     center: () => { const top = NAV_TOP + safeTop(), bot = innerHeight - SHEET_INSET - safeBottom(); return { y: (top + bot) / 2, h: (bot - top) * 0.82 }; },
   });
