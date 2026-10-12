@@ -45,3 +45,22 @@ a.lt-go { display: table; text-decoration: none; }
 .lt-book.flat img { visibility: visible; }
 .lt-book-c { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .6s ease; }
 .lt-book-c.on { opacity: 1; }
+
+/* (12/10, Maxence) une seule grammaire : le signe (LE LIRE, REJOINDRE) cousu, le prix dessous — comme RECEVOIR */
+.lt { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
+.lt-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
+  padding: 30px 16px calc(40px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 60%, rgba(6,6,6,0)); pointer-events: none; }
+.lt-sign { position: relative; display: inline-block; margin: 2px 0 0; border: 0; background: none; cursor: pointer; text-decoration: none; pointer-events: auto;
+  padding: 10px 2px 11px; padding-right: calc(2px - .45em); color: rgba(241, 237, 230, .92); font: 500 16px/1 'SG Garamond', Georgia, serif; letter-spacing: .45em;
+  -webkit-tap-highlight-color: transparent; }
+.lt-sign:hover, .lt-sign:focus-visible { color: #fff; outline: none; }
+.lt-pr { font: 12.5px/1.35 'SG Garamond', Georgia, serif; color: #6a655d; letter-spacing: .03em; }
+.lt-pr b { font-size: 14px; color: #a8a399; font-weight: 500; }
+.lt-bar.sent { opacity: 0; transition: opacity .6s; }
+.lt-bar.sent .lt-sign { pointer-events: none; }
+.lt-wait[hidden] { display: none; }
+/* l'enveloppe en direct (env3d.js) ; son image seulement sans WebGL2 */
+.lt-live { position: relative; width: min(86%, 420px); }
+.lt-live img { display: block; width: 100%; height: auto; visibility: hidden; }
+.lt-live.flat img { visibility: visible; }
+.lt-live .lt-book-c { position: absolute; inset: 0; width: 100%; height: 100%; }

@@ -66,10 +66,14 @@ export function mountExemples(host) {
   // cinq places (−2 … 2) : chacune montre l'exemple (centre + place) modulo N
   const slots = [-2, -1, 0, 1, 2].map(k => {
     const f = document.createElement('figure'); f.className = 'ex-slot';
+    // (12/10) la feuille dans son « objet » : il s'incline avec la main (souris, téléphone penché) et respire ; un reflet
+    // de lumière glisse dessus, du côté d'où vient la lampe
+    const o = document.createElement('div'); o.className = 'ex-obj';
     const im = new Image(); im.decoding = 'async'; im.alt = ''; im.draggable = false;
-    im.onerror = () => { const i = +f.dataset.i; if (!ACROSTICHES.length && EXEMPLES[i]) { im.remove(); f.insertAdjacentHTML('beforeend', sheetHtml(EXEMPLES[i])); } };
-    f.appendChild(im); ringEl.appendChild(f);
-    return { f, im, k };
+    im.onerror = () => { const i = +f.dataset.i; if (!ACROSTICHES.length && EXEMPLES[i]) { im.remove(); o.insertAdjacentHTML('afterbegin', sheetHtml(EXEMPLES[i])); } };
+    const sh = document.createElement('i'); sh.className = 'ex-sheen';
+    o.append(im, sh); f.appendChild(o); ringEl.appendChild(f);
+    return { f, im, o, sh, k };
   });
   const mod = i => ((i % N) + N) % N;
   let center = 1, off = 0, reading = false, anim = 0;   // off : décalage en places (le doigt), centre : l'exemple au milieu
@@ -107,7 +111,7 @@ export function mountExemples(host) {
   }
   // lire (11/10, Maxence) : la feuille touchée s'ouvre en presque plein écran, entière — entre le bandeau du haut et
   // SINGULIES en bas —, la frappe se lit ; elle grandit depuis sa place et y retourne (toucher, glisser, Échap)
-  let box = null;
+  let box = null, onScrRef = null;
   function read(on) {
     const mid = slots[2].f, im = mid.querySelector('img');
     if (on && (!im || box)) return;
@@ -134,15 +138,23 @@ export function mountExemples(host) {
       const r2 = im.getBoundingClientRect();
       veil.classList.remove('on');
       Object.assign(big.style, { left: r2.left + 'px', top: r2.top + 'px', width: r2.width + 'px', height: r2.height + 'px' });
+      if (onScrRef) document.getElementById('offre')?.removeEventListener('scroll', onScrRef);
       setTimeout(() => { mid.style.visibility = ''; big.remove(); veil.remove(); removeEventListener('keydown', esc); }, 520);
       place(true);
     };
     const esc = e => { if (e.key === 'Escape') close(); };
     addEventListener('keydown', esc);
     for (const el of [veil, big]) el.addEventListener('click', close);
-    let sx = null;
-    big.addEventListener('touchstart', e => { sx = e.touches.length === 1 ? e.touches[0].clientX : null; }, { passive: true });
-    big.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (sx != null && t && Math.abs(t.clientX - sx) > 40) close(); }, { passive: true });
+    // (12/10, Maxence) défiler (molette, doigt vers le haut ou le bas) ou glisser = refermer, comme on s'y attend
+    for (const el of [veil, big]) el.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > 2 || Math.abs(e.deltaX) > 2) { e.preventDefault(); close(); } }, { passive: false });
+    let sx = null, sy = 0;
+    const tS = e => { sx = e.touches.length === 1 ? e.touches[0].clientX : null; sy = e.touches.length === 1 ? e.touches[0].clientY : 0; };
+    const tM = e => { const t = e.touches[0]; if (sx != null && t && Math.hypot(t.clientX - sx, t.clientY - sy) > 24) { sx = null; if (e.cancelable) e.preventDefault(); close(); } };
+    for (const el of [veil, big]) { el.addEventListener('touchstart', tS, { passive: true }); el.addEventListener('touchmove', tM, { passive: false }); }
+    const host0 = document.getElementById('offre'), y0s = host0 ? host0.scrollTop : 0;
+    const onScr = () => { if (host0 && Math.abs(host0.scrollTop - y0s) > 6) close(); };
+    host0?.addEventListener('scroll', onScr, { passive: true });
+    onScrRef = onScr;
     box = { close };
     place(true);
   }
@@ -153,8 +165,9 @@ export function mountExemples(host) {
   const move = (x, y) => {
     if (x0 == null) return;
     const dx = x - x0, dy = y - y0;
-    if (horiz == null && Math.hypot(dx, dy) > 8) horiz = Math.abs(dx) > 1.2 * Math.abs(dy);
-    if (horiz) { moved = true; off = Math.max(-1.2, Math.min(1.2, dx / (w * 0.86))); place(false); }
+    if (Math.hypot(dx, dy) > 8) moved = true;                    // (12/10) bougé : jamais un toucher (défiler n'ouvre plus le poème)
+    if (horiz == null && Math.hypot(dx, dy) > 8) horiz = Math.abs(dx) > Math.abs(dy);
+    if (horiz) { off = Math.max(-1.2, Math.min(1.2, dx / (w * 0.86))); place(false); }
   };
   const end = (x, target) => {
     if (x0 == null) return;
@@ -164,7 +177,7 @@ export function mountExemples(host) {
       else { off = 0; place(true); }
       return;
     }
-    if (moved) return;
+    if (moved || performance.now() - t0 > 600) return;
     // un toucher : sur un voisin, il vient au milieu ; sur celui du milieu, on lit (ou on revient à la feuille entière)
     const slot = slots.find(s => s.f.contains(target));
     if (!slot) return;
@@ -172,7 +185,12 @@ export function mountExemples(host) {
     return true;
   };
   ringEl.addEventListener('touchstart', e => { if (e.touches.length === 1) start(e.touches[0].clientX, e.touches[0].clientY); else x0 = null; }, { passive: true });
-  ringEl.addEventListener('touchmove', e => { if (e.touches.length === 1) move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+  // (12/10) glisser de côté ne fait plus défiler la page (le geste est pris dès qu'il penche à l'horizontale)
+  ringEl.addEventListener('touchmove', e => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0]; move(t.clientX, t.clientY);
+    if (x0 != null && (horiz || (horiz == null && Math.abs(t.clientX - x0) > Math.abs(t.clientY - y0))) && e.cancelable) e.preventDefault();
+  }, { passive: false });
   // (un toucher traité ici n'est pas suivi du « click » simulé : il tombait sur la grande feuille, posée sous le doigt,
   // et la refermait aussitôt)
   ringEl.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t && end(t.clientX, document.elementFromPoint(t.clientX, t.clientY)) && e.cancelable) e.preventDefault(); });
@@ -182,5 +200,42 @@ export function mountExemples(host) {
   addEventListener('keydown', e => { if (reading || !host.isConnected || !host.getBoundingClientRect().top || host.getBoundingClientRect().top > innerHeight * 0.6) return; if (e.key === 'ArrowLeft') step(-1); else if (e.key === 'ArrowRight') step(1); });
   addEventListener('resize', layout);
   assign(); layout();
+  live();
   return { step, read };
+  // ---- (12/10, Maxence : « bien faire réagir ces feuilles à l'environnement ») chaque feuille est un objet posé dans la
+  //      même lumière que le reste : elle s'incline à peine vers la souris (le téléphone penché, s'il le dit déjà), elle
+  //      respire (deux sinus non accordés, chacune son rythme), et un reflet doux glisse sur le papier du côté de la
+  //      lampe. Seulement quand on la voit. ----
+  function live() {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const tilt = { x: 0, y: 0, tx: 0, ty: 0 };
+    addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; tilt.tx = Math.max(-1, Math.min(1, e.clientX / innerWidth * 2 - 1)); tilt.ty = Math.max(-1, Math.min(1, e.clientY / innerHeight * 2 - 1)); }, { passive: true });
+    let b0 = null, g0 = 0;
+    addEventListener('deviceorientation', e => {
+      if (e.beta == null || e.gamma == null) return;
+      if (b0 == null) { b0 = e.beta; g0 = e.gamma; }
+      b0 += (e.beta - b0) * 0.02; g0 += (e.gamma - g0) * 0.02;
+      tilt.tx = Math.tanh((e.gamma - g0) / 14); tilt.ty = Math.tanh((e.beta - b0) / 14);
+    });
+    let seen = false, raf = 0, last = 0;
+    const f = now => {
+      raf = 0;
+      if (!seen || document.hidden) return;
+      const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
+      const k = Math.min(1, dt * 2.2); tilt.x += (tilt.tx - tilt.x) * k; tilt.y += (tilt.ty - tilt.y) * k;
+      const t = now / 1000;
+      for (const s of slots) {
+        const ph = s.k * 1.9;
+        const bx = 0.6 * Math.sin(t * 0.47 + ph) + 0.4 * Math.sin(t * 1.07 + ph * 1.3), by = 0.6 * Math.sin(t * 0.39 + ph * 0.7) + 0.4 * Math.sin(t * 0.93 + ph);
+        const ry = 4.5 * tilt.x + 1.1 * bx, rx = -3.5 * tilt.y + 0.9 * by;
+        s.o.style.transform = 'perspective(1100px) rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + ry.toFixed(2) + 'deg)';
+        // le reflet : la lampe en haut à gauche, il suit l'inclinaison (une bande large, très douce)
+        const p = 30 + 22 * (tilt.x * 0.8 + 0.25 * bx) - 10 * tilt.y;
+        s.sh.style.backgroundPosition = p.toFixed(1) + '% 0';
+        s.sh.style.opacity = (0.55 + 0.25 * Math.sin(t * 0.31 + ph) + 0.2 * Math.abs(tilt.x)).toFixed(3);
+      }
+      raf = requestAnimationFrame(f);
+    };
+    new IntersectionObserver(es => { seen = es.some(e => e.isIntersecting); if (seen && !raf) raf = requestAnimationFrame(f); }).observe(ringEl);
+  }
 }

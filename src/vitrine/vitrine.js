@@ -9,7 +9,7 @@
 //     feuille ; elle tourne en glissant jusqu'au centre et se couche ; le rabat se referme ; la vue s'approche un peu ;
 //     la cire, le cachet
 //   3 « une carte mystère et un fil… pour rester liés » (11/10, Maxence : le cachet AVANT la carte mystère) : la vue
-//     recule ; la carte mystère se pose sous le cachet ; un seul fil, à deux bouts : chacun sort de l'enveloppe par un
+//     ne bouge plus (12/10) ; la carte mystère arrive du bas et se pose sous le cachet ; un seul fil, à deux bouts : chacun sort de l'enveloppe par un
 //     petit trou (percé de l'intérieur), l'un à gauche, l'autre à droite, court sur le dos de l'enveloppe, passe sur la
 //     carte, et ils se nouent au centre de la carte
 // Tout est une fonction de l'horloge vt (s). sheet.js dessine la feuille, l'enveloppe et le cachet (ses horloges, sans
@@ -115,7 +115,8 @@ export function createVitrine(o) {
   const CARD_Z = BACK_Z + bulgeAt(0, MY_Y) + 0.32;
   function mysteryLocal() {
     const u = easeOut(span(0.25, 1.45, r3()));
-    return M4.model(0, 0, -0.012, 0, lerp(MY_Y + 120, MY_Y, u), CARD_Z + 14 * (1 - u) * (1 - u));
+    // (12/10, Maxence) elle arrive du bas, comme la carte question (elle ne passe jamais sur le cachet)
+    return M4.model(0, 0, -0.012, 0, lerp(MY_Y - 170, MY_Y, u), CARD_Z + 14 * (1 - u) * (1 - u));
   }
   // le fil : un seul, à deux bouts. Chacun sort d'un petit trou percé de l'intérieur (à 9 mm du bord gauche, du bord
   // droit), court sur le dos, monte sur la carte, et ils se nouent au centre de la carte (une boucle de chaque côté, deux
@@ -159,13 +160,17 @@ export function createVitrine(o) {
     let c = lg(f.A), Hw = f.A.Hw;
     const need = ENV.w * ENV_K / 0.92 * H / W, kz = Math.max(1, need / (Hw || need)), u = vt > K[1] ? landU() : 0;
     if (kz > 1 && u > 0) { const kk = 1 + (kz - 1) * u; c = { cx: c.cx, cy: SY + (f.A.cy - SY) * kk, lD: c.lD + Math.log(kk) }; Hw *= kk; }
-    const near = vt > K[2] ? 1 - ease(span(0, 0.9, r3())) : ease(span(4.0, 4.9, r2()));
+    // (12/10) la carte mystère arrive sans que la vue bouge : on reste où le cachet s'est posé
+    const near = vt > K[2] ? 1 : ease(span(4.0, 4.9, r2()));
     if (near > 0) {
       const [ins0, ins1] = o.insets ? o.insets() : [0, 0];
       // (un peu plus près seulement : l'enveloppe garde toute sa largeur à l'écran)
       const k2 = Math.min(1, Math.max(0.82, ENV.w * ENV_K / 0.97 * H / W / Hw)), Hw2 = Hw * k2, [, sy] = sealAt();
       const yt = SY + ENV.h * ENV_K / 2 + 2, yb = SY - ENV.h * ENV_K / 2 - 2;
-      const lo = yt - (H / 2 - ins0) * Hw2 / H, hi = yb + (H / 2 - ins1) * Hw2 / H;
+      // (12/10, Maxence : « on garde toujours le même espace » entre l'objet et la description) le bas de l'enveloppe
+      // jamais plus bas que le bas de la feuille dans la vue de départ
+      const ysbA = H / 2 - (SY - SHEET.h / 2 - f.A.cy) * H / f.A.Hw;
+      const lo = yt - (H / 2 - ins0) * Hw2 / H, hi = Math.min(yb + (H / 2 - ins1) * Hw2 / H, yb + (ysbA - H / 2) * Hw2 / H);
       let cy2 = SY + sy;
       cy2 = lo <= hi ? Math.min(hi, Math.max(lo, cy2)) : (lo + hi) / 2;
       c = { cx: lerp(c.cx, 0, near), cy: lerp(c.cy, cy2, near), lD: lerp(c.lD, c.lD + Math.log(k2), near) };

@@ -26,7 +26,7 @@ const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o));
 const OBJETS = [
   { id: 'feuille', txt: 'l’exemplaire unique de ton poème,\ntapé à la machine à écrire' },
   { id: 'carte', txt: 'la question du jeu SINGULIES,\ntirée au hasard' },
-  { id: 'cachet', txt: 'le tout scellé à la cire' },
+  { id: 'cachet', txt: 'le tout dans une enveloppe\nscellée à la cire' },
   { id: 'mystere', txt: 'une carte mystère et un fil…\npour rester liés' },
 ];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -353,11 +353,10 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const root = document.createElement('div');
   root.id = 'offre'; root.className = 'of' + (over ? ' over' : '');
   root.style.setProperty('--inset', SHEET_INSET + 'px');
-  // (11/10, Maxence) sous l'objet : sa description, des points (une étape chacun, au lieu des flèches), la petite
-  // flèche qui fait descendre la page ; puis RECEVOIR et le prix (deux lignes)
-  const CAP = `<div class="of-cap"><div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
+  // (11/10, Maxence) sous l'objet : sa description, la petite flèche qui fait descendre la page ; puis RECEVOIR et le
+  // prix. (12/10 : plus de points — ils donnaient envie de glisser de côté ; une seule grammaire : on descend)
+  const CAP = `<div class="of-cap"><div class="of-vit" role="group" aria-label="Ce que tu reçois">
         <p class="of-vit-t" aria-live="polite"></p>
-        <div class="of-dots">${OBJETS.map((o, i) => `<button class="of-dot" type="button" data-k="${i}" aria-label="${esc(o.txt)}"><i></i></button>`).join('')}</div>
       </div><button class="of-down" type="button" aria-label="Descendre"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 9.5 L12 15.5 L18 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></button></div>`;
   root.innerHTML = `
     <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
@@ -445,7 +444,6 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     const dir = cur < 0 || k > cur ? 1 : -1; cur = k;
     slideTxt(nbsp(OBJETS[k].txt), dir);
     root.classList.toggle('vit-last', k === N - 1);
-    root.querySelectorAll('.of-dot').forEach((b, i) => b.classList.toggle('on', i === k));
   };
   // les flèches : la page défile jusqu'à l'étape voulue À L'ALLURE DE L'ÉTAPE (1 × en avançant, 1,5 × en reculant) ;
   // depuis la dernière, la flèche de droite rembobine tout, un peu plus vite (2,2 ×). Un geste (molette, doigt) l'arrête.
@@ -474,15 +472,6 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     const k = Math.max(0, Math.min(N - 1, d > 0 ? Math.floor(p + 0.02) + 1 : Math.ceil(p - 0.02) - 1));
     driveTo(keyY(k), PXS() * (d > 0 ? 1 : 1.5));
   };
-  // un point = une étape : la page y défile, à l'allure de chaque étape traversée
-  const goTo = k => {
-    if (busyMode()) return;
-    count('alt/vitrine');
-    if (!(vit && story)) { show(k); return; }
-    const y = keyY(k), back = y < root.scrollTop;
-    driveTo(y, PXS() * (back ? (k === 0 && cur === N - 1 ? 2.2 : 1.5) : 1));
-  };
-  root.querySelectorAll('.of-dot').forEach(b => b.addEventListener('click', () => goTo(+b.dataset.k)));
   // (11/10) une seule grammaire : vertical = avancer dans la page (les étapes suivent le défilement) ; les pages : les
   // flèches du bandeau (12/10 : plus de glissé pour changer de page, nav.js)
   // pendant l'enveloppe et le paiement : la feuille
@@ -513,6 +502,8 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       const y = root.scrollTop, L = storyLen();
       // (passé l'histoire : la description et ses points s'effacent, ils ne restent pas sous le bandeau)
       root.classList.toggle('past', y > L + 30);
+      // (12/10) passé l'histoire, plus aucun aimant : la page ne remonte plus d'elle-même vers la dernière étape
+      if (!drive) root.style.scrollSnapType = y > L + 30 ? 'none' : '';
       // l'histoire suit le doigt : on descend, elle avance ; on remonte, elle rembobine (tout de suite)
       if (vit && story) { const p = pOf(Math.min(y, L)); vit.scrub(p); show(Math.round(p)); }
       const c = cv(); if (!c) return;

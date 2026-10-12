@@ -57,3 +57,11 @@ body { -webkit-tap-highlight-color: transparent; }
 #fallback.cur::after { content: ''; display: inline-block; width: 1.5px; height: .78em; margin-left: -.2em; vertical-align: -0.02em;
   background: rgb(174, 174, 174); animation: fb-breathe 2.4s ease-in-out infinite; }
 @keyframes fb-breathe { 0%, 100% { opacity: .25; } 50% { opacity: .9; } }
+
+/* (12/10, alt) la page des prénoms, portail d'entrée : un fondu au noir vers les bords de l'écran (rien en haut ni en bas) */
+.edge-fade { position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: 0; transition: opacity .9s ease;
+  background: linear-gradient(to bottom, #060606 0, rgba(6,6,6,.85) 4%, rgba(6,6,6,0) 18%),
+    linear-gradient(to top, #060606 0, rgba(6,6,6,.85) 4%, rgba(6,6,6,0) 18%),
+    linear-gradient(to right, #060606 0, rgba(6,6,6,.7) 3%, rgba(6,6,6,0) 13%),
+    linear-gradient(to left, #060606 0, rgba(6,6,6,.7) 3%, rgba(6,6,6,0) 13%); }
+.edge-fade.on { opacity: 1; }

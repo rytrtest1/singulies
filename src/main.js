@@ -1052,9 +1052,11 @@ if (ALT) {
     },
     // (12/10, Maxence) sur l'accueil, le bandeau ne montre que UN PRENOM UN POEME (solo), avec SINGULIES en bas ; les
     // autres pages et les aiguilles paraissent avec la feuille
-    show: () => booted && !S.paid && !document.querySelector('.of.paying, .of.env'),
-    foot: () => booted && !S.paid && !document.querySelector('.of.paying, .of.env'),
-    shade: () => booted && onNames(),
+    // (12/10, Maxence : « le portail d'entrée des singuliers ») sur la page des prénoms : rien en haut ni en bas, un
+    // fondu au noir vers les bords ; le bandeau et SINGULIES paraissent avec la feuille
+    show: () => booted && !onNames() && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    foot: () => booted && !onNames() && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    shade: () => false,
     // (12/10) les aiguilles : sur la feuille, une fois l'offre posée (2,5 s après le bandeau du bas) ; la démonstration
     // seulement en haut de la page, sans paiement ni enveloppe
     ready: () => { const on = !!document.querySelector('#offre.on.bar-on'); if (!on) barAt = 0; else if (!barAt) barAt = performance.now(); return on && performance.now() - barAt > 2500; },
@@ -1065,6 +1067,10 @@ if (ALT) {
   });
   // venue par le fil (rechargement) : le champ entre du côté d'où l'on vient
   nav?.enter([canvas]);
+  // le fondu au noir vers les bords de l'écran, tant qu'on est sur les prénoms (il s'efface quand le prénom part)
+  const edges = document.createElement('div'); edges.className = 'edge-fade'; edges.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(edges);
+  setInterval(() => edges.classList.toggle('on', S.phase === 'input' && S.trans == null && !ofEl()), 150);
   window.__nav = nav;   // (essais)
 }
 boot();

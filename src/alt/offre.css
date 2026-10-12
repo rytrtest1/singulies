@@ -255,7 +255,7 @@
 
 /* (11/10) la description : deux lignes choisies, posées en bas de leur place (les points toujours à la même distance
    du texte) ; le prix sur une ligne ; SINGULIES et son fil sous le bandeau (nav.js) */
-.of-cap .of-vit-t > i { white-space: pre-line; align-items: flex-end; padding-bottom: 2px; }
+.of-cap .of-vit-t > i { white-space: pre-line; align-items: flex-start; padding-top: 2px; }   /* (12/10) toujours le même espace entre l'objet et le haut du texte */
 .of-cap .of-vit-t { height: 3.1em; }
 .of-dots { margin-top: 4px; }
 .of-bar { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
@@ -272,3 +272,16 @@
 .of-bar { transform: translateY(14px); opacity: 0; transition: transform .8s cubic-bezier(.2,.7,.3,1), opacity .8s ease; }
 .of.bar-on .of-bar { transform: none; opacity: 1; }
 .of.paying .of-bar { transform: translateY(14px); opacity: 0; }
+
+/* (12/10) plus de points : la flèche juste sous la description */
+.of-cap .of-down { margin-top: 6px; }
+
+/* (12/10) les autres poèmes : chaque feuille est un objet dans la lumière (exemples.js : inclinaison, respiration) */
+.ex-obj { position: relative; will-change: transform; }
+.ex-sheen { position: absolute; inset: 4% 5%; pointer-events: none; mix-blend-mode: screen; opacity: .6;
+  background: linear-gradient(115deg, rgba(255,255,255,0) 30%, rgba(236,232,224,.045) 45%, rgba(236,232,224,.07) 50%, rgba(236,232,224,.045) 55%, rgba(255,255,255,0) 70%);
+  background-size: 260% 100%; background-position: 30% 0; }
+/* (12/10) la description a sa vraie hauteur (deux lignes), posée au même endroit qu'avant ; le haut du texte toujours à la
+   même distance de l'objet, quelle que soit l'étape (avant : une boîte de hauteur nulle, le texte d'une ligne descendait) */
+.of-cap .of-vit-t { flex: none; margin-top: -3.1em; }
+.of-cap .of-down { margin-top: 4px; }

@@ -15,7 +15,7 @@
 // proche du centre à la fin du geste = la page) ; on change de page à tout moment, même pendant une transition (elle se
 // termine d'un coup). Le jeu n'est plus une page (il se découvre en répondant à la question du poème ; à la fin,
 // « pose une de mes questions à quelqu'un »).
-import { paintThread } from '../alt/stitch.js';
+import { paintThread, flowNow } from '../alt/stitch.js';
 import { count } from '../app/count.js';
 
 export const PAGES = [
@@ -70,7 +70,7 @@ const CSS = `
 /* le noir derrière le bandeau et le bas (les prénoms du champ s'y effacent, ne passent jamais dessous) */
 .nv-shade { position: fixed; z-index: 25; left: 0; right: 0; pointer-events: none; opacity: 0; transition: opacity .7s ease; }
 .nv-shade.t { top: 0; height: calc(104px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 52%, rgba(6,6,6,0)); }
-.nv-shade.b { bottom: 0; height: calc(96px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 0, #060606 48%, rgba(6,6,6,0)); }
+.nv-shade.b { bottom: 0; height: calc(38px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 0, #060606 55%, rgba(6,6,6,0)); }   /* (12/10) seulement sous SINGULIES : le prix au-dessus reste lisible */
 .nv-shade.on { opacity: 1; }
 `;
 
@@ -147,11 +147,20 @@ export function installNav(opts) {
     const u = clamp01((now - slide.t0 - rankOf(i, slide.dir) * LAG) / slide.dur);
     return slide.x0[i] + (slide.x1 - slide.x0[i]) * ez(u);
   };
+  // (12/10, Maxence : « vraiment donner l'impression qu'elles sont liées ») une onde très lente parcourt chaque fil — en
+  // haut de gauche à droite, en bas de droite à gauche — et les noms, suspendus au fil, la suivent (± 0,6 px) ; la
+  // matière du fil coulisse dans le même sens (stitch.js, flowNow)
+  const WAVE_A = reduced ? 0 : 0.6, WAVE_K = 2 * Math.PI / 380, WAVE_W = 0.55;
+  const waveTop = (px, t) => WAVE_A * Math.sin(px * WAVE_K - t * WAVE_W);
+  const waveBot = (px, t) => WAVE_A * Math.sin(px * WAVE_K * 1.13 + t * WAVE_W * 0.9 + 1.7);
   function applyNames(now) {
     if (!items.length) return;
-    const xs = items.map((_, i) => nameX(i, now));
+    const xs = items.map((_, i) => nameX(i, now)), t = now / 1000, W = innerWidth;
     track.style.transform = `translateX(${(-xs[C]).toFixed(2)}px)`;
-    items.forEach((a, i) => { const dx = xs[C] - xs[i]; a.style.translate = Math.abs(dx) > 0.01 ? `${dx.toFixed(2)}px 0` : ''; });
+    items.forEach((a, i) => {
+      const dx = xs[C] - xs[i], dy = boxes[i] ? waveTop(W / 2 + centers[i] - xs[i], t) : 0;
+      a.style.translate = Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01 ? `${dx.toFixed(2)}px ${dy.toFixed(2)}px` : '';
+    });
     if (slide && now - slide.t0 > slide.dur + items.length * LAG) slide = null;
   }
   function setX(x, anim) {
@@ -176,7 +185,7 @@ export function installNav(opts) {
   function layout() {
     root.classList.toggle('wide', !mobile());
     root.style.setProperty('--nv-fs', innerWidth < 520 ? '11px' : '12px');
-    root.style.setProperty('--nv-gap', innerWidth < 520 ? '30px' : '44px');
+    root.style.setProperty('--nv-gap', innerWidth < 520 ? '46px' : '64px');   // (12/10) plus de fil entre les noms : on le voit relier
     root.style.setProperty('--nv-m', mobile() ? '12%' : '7%');
     items.forEach(a => { a.style.translate = ''; });
     track.style.transform = 'translateX(0)';
@@ -221,15 +230,18 @@ export function installNav(opts) {
         const L = g.b - g.a;
         if (L <= 6) return;
         const sag = (reduced ? 0.45 : breath(j, t) * Math.min(1.6, L / 40)) * slackSpring(g.key, L - g.L0, dtS);
-        paintThread(x, g.a, g.b, y, g.seed, 1.25, { holes: g.holes, sag, sag2: reduced ? 0 : 0.18 * Math.sin(t * 0.57 + j * 2.3), g0: g.g0 });
+        paintThread(x, g.a, g.b, y, g.seed, 1.25, { holes: g.holes, sag, sag2: reduced ? 0 : 0.18 * Math.sin(t * 0.57 + j * 2.3), g0: g.g0 - flowNow(), yf: px => waveTop(px, t) });
       });
     }
     { const d = dpr(), x = fcv.getContext('2d'), fw = fcv.width / d, r = fsp.getBoundingClientRect(), y = 17;
       x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, fw, 34);
       if (r.width) {
         const ls = parseFloat(getComputedStyle(fsp).letterSpacing) || 0, l = r.left + 3, rr = r.right - 3 - ls;
-        paintThread(x, -4, l, y, 53, 1.2, { holes: [false, true], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(7, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 1) });
-        paintThread(x, rr, fw + 4, y, 71, 1.2, { holes: [true, false], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(9, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.47 + 4) });
+        // (le fil du bas coulisse de droite à gauche ; SINGULIES y est suspendu)
+        const fl = flowNow(), yb = px => waveBot(px, t);
+        fsp.style.translate = `0 ${waveBot((l + rr) / 2, t).toFixed(2)}px`;
+        paintThread(x, -4, l, y, 53, 1.2, { holes: [false, true], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(7, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 1), g0: -4 + fl, yf: yb });
+        paintThread(x, rr, fw + 4, y, 71, 1.2, { holes: [true, false], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(9, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.47 + 4), g0: rr + fl, yf: yb });
       }
     }
   }
@@ -248,7 +260,7 @@ export function installNav(opts) {
   const wake = () => { if (!raf) raf = requestAnimationFrame(loop); };
 
   let shown = false, footOn = false, busy = false, wandered = !!arrived;
-  let drag = null, revealDone = false, revealing = false, rvT = [];
+  let drag = null, revealDone = false, revealing = false, rvT = [], shownAt = 0;
   const atHome = () => cur === home;
   const pgOf = id => pages[id] || {};
   const objC = () => { const pg = pgOf(ring(cur).id), c = (pg.center && pg.center()) || (atHome() && opts.center && opts.center()) || null; return c || { y: innerHeight * 0.45, h: innerHeight * 0.5 }; };
@@ -267,12 +279,14 @@ export function installNav(opts) {
     const solo = on && atHome() && !drag && !!opts.solo?.();   // (en glissant, les voisins paraissent)
     const f = atHome() ? !!opts.foot?.() : pg.foot !== false;
     const sh = atHome() ? !!opts.shade?.() : !!pg.foot;
-    if (on !== shown) { shown = on; root.classList.toggle('on', on); if (on) layout(); }
+    if (on !== shown) { shown = on; root.classList.toggle('on', on); if (on) { layout(); shownAt = performance.now(); } }
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
     root.classList.toggle('solo', solo);
-    if (on && !revealDone && !revealing) {
-      if (!atHome() || !opts.ready) revealDone = true;
-      else if (opts.ready()) { let done = false; try { done = !!sessionStorage.getItem(K_REVEAL); } catch { /* */ } if (done || reduced || (opts.quiet && !opts.quiet())) revealDone = true; else reveal(); }
+    // (12/10) la démonstration du glissé : une fois par visite, sur la première page où le bandeau paraît (la feuille :
+    // une fois l'offre posée ; ailleurs : 2,5 s après)
+    if (on && !revealDone && !revealing && !busy && !drag) {
+      const ready = atHome() && opts.ready ? opts.ready() : performance.now() - shownAt > 2500;
+      if (ready) { let done = false; try { done = !!sessionStorage.getItem(K_REVEAL); } catch { /* */ } if (done || reduced || (atHome() && opts.quiet && !opts.quiet())) revealDone = true; else reveal(); }
     }
     shadeT.classList.toggle('on', sh && on); shadeB.classList.toggle('on', sh && f);
     if (shown || footOn) wake();

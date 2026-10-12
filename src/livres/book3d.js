@@ -65,13 +65,16 @@ export async function createBook(gl, base = './') {
 
 // Sur la page : un canvas posé exactement sur l'image (même boîte), qui paraît en fondu à sa première image ; l'image
 // fixe ne se montre jamais, sauf sans WebGL2 (.flat). Dessine seulement quand on le voit.
-export async function mountBook(box, base = './', { reduced = false } = {}) {
+export function mountBook(box, base = './', o = {}) { return mountLive(box, gl => createBook(gl, base), BOOK_ASPECT, o); }
+// (12/10) un objet en direct sur une page (le livre, l'enveloppe d'un poème par mois) : make(gl) → { frame(W, H, t, tilt,
+// spin) } ; aspect : largeur / hauteur de sa boîte. Mêmes gestes partout : la souris, le téléphone penché, la main.
+export async function mountLive(box, make, aspect, { reduced = false } = {}) {
   const canvas = document.createElement('canvas');
   canvas.className = 'lt-book-c';
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, premultipliedAlpha: false });
   if (!gl) return null;
   let book;
-  try { book = await createBook(gl, base); } catch { return null; }
+  try { book = await make(gl); } catch (e) { console.warn('objet', e); return null; }
   box.appendChild(canvas);
   const tilt = { x: 0, y: 0, tx: 0, ty: 0, gyro: false };
   let seen = true, raf = 0, t0 = performance.now(), last = t0, lost = false, shown = false;
@@ -150,7 +153,7 @@ export async function mountBook(box, base = './', { reduced = false } = {}) {
     if (lost) return;
     if (shown && hiddenNow()) { setTimeout(go, 400); return; }
     const dpr = Math.min(devicePixelRatio || 1, 2);
-    const W = Math.max(2, Math.round(box.clientWidth * dpr)), H = Math.round(W / BOOK_ASPECT);
+    const W = Math.max(2, Math.round(box.clientWidth * dpr)), H = Math.round(W / aspect);
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     const k = Math.min(1, dt * (tilt.gyro ? 7 : 1.6)); tilt.x += (tilt.tx - tilt.x) * k; tilt.y += (tilt.ty - tilt.y) * k;
