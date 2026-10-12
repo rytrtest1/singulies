@@ -8,7 +8,7 @@ export default defineConfig({
   // servent qu'en développement, aux outils de tools/)
   build: { rollupOptions: { input: {
     // le site
-    alt: 'alt.html', main: 'index.html', poeme: 'poeme.html', jeuPage: 'jeu.html', lettre: 'lettre.html', livres: 'livres.html',
+    alt: 'alt.html', main: 'index.html', ancien: 'ancien.html', poeme: 'poeme.html', jeuPage: 'jeu.html', lettre: 'lettre.html', livres: 'livres.html',
     merci: 'merci.html', pour: 'pour.html', confidentialite: 'confidentialite.html', demande: 'demande.html',
     // scènes seules (essais, liens directs)
     cartes: 'scene-cartes.html', jeu: 'scene-jeu.html', cachet: 'cachet.html',

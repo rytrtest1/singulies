@@ -409,7 +409,7 @@ async function finishPaid() {
   o.done = true; fin.saveOrder(o); count('alt/fini');
   await Promise.race([settled().catch(() => {}), sleep(2500)]);
   if (cardsReady && cardsReady !== 'failed') { cardsReady.canvas.style.transition = 'opacity 1.1s ease'; cardsReady.canvas.style.opacity = '0'; }
-  const home = new URL('./alt.html', document.baseURI); home.search = location.search;
+  const home = new URL('./', document.baseURI); home.search = location.search;
   setTimeout(() => fin.finalScreen(o, home.href), 1100);
 }
 
@@ -1036,10 +1036,21 @@ if (ALT) {
   // la cérémonie. Plus bas que l'histoire (les autres poèmes) : seulement UN PRENOM UN POEME.
   const ofEl = () => document.querySelector('#offre.on');
   const onNames = () => S.phase === 'input' && !ofEl();
-  // (12/10, Maxence) sur le portail des prénoms, le menu ne paraît qu'après un temps sans frappe (ETERNEL tapé et effacé,
-  // puis NAV_IDLE s sans toucher une touche) : celui qui cherche mes livres le trouve ; il repart dès qu'on écrit
-  const NAV_IDLE = 6;
-  const idleNames = () => onNames() && S.trans == null && !!S.introOff && S.t - Math.max(S.introEnd ?? S.t, S.keyAt ?? 0) > NAV_IDLE;
+  // (12/10, Maxence) sur le portail des prénoms, le menu est un indice pour qui ne sait pas quoi faire ou cherche une
+  // autre page : il paraît après ETERNEL et quelques respirations du curseur (au creux d'une respiration, quand le
+  // curseur est pâle : NAV_IDLE s puis le creux suivant) ; une fois paru, il reste (aussi pendant le vol des lettres) ;
+  // si l'on a touché pour écrire avant, il ne paraît pas sur cette page
+  const NAV_IDLE = 4.0, BREATH = 1.6;
+  const idleNames = () => {
+    if (!onNames()) return false;
+    if (S.navOn) return true;
+    if (S.navNo) return false;
+    if (S.typed || document.activeElement === input) { S.navNo = true; return false; }
+    if (!S.introOff || S.introEnd == null || S.trans != null) return false;
+    const t0 = S.introEnd + NAV_IDLE, k = Math.ceil((t0 - OPEN_DARK) / BREATH - 0.5) + 0.5;
+    if (S.t >= OPEN_DARK + k * BREATH) S.navOn = true;
+    return !!S.navOn;
+  };
   let barAt = 0;
   nav = installNav({
     current: 'poeme', base: './',

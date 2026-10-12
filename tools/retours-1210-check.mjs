@@ -13,7 +13,7 @@ const page = await browser.newPage({ viewport: vp, deviceScaleFactor: 1 });
 page.on('pageerror', e => console.log('ERR', String(e)));
 page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') console.log('console', m.text().slice(0, 200)); });
 const shot = n => page.screenshot({ path: `${dir}/${n}.png` });
-await page.goto(`http://localhost:${PORT}/alt.html?envoi=0&paiement=faux&seed=3`);
+await page.goto(`http://localhost:${PORT}/?envoi=0&paiement=faux&seed=3`);
 await page.waitForTimeout(6500);
 await shot('1-prenoms');
 console.log('bandeau sur les prénoms', await page.evaluate(() => ({ nav: document.querySelector('.nv')?.classList.contains('on'), foot: document.querySelector('.nv-foot')?.classList.contains('on'), bords: document.querySelector('.edge-fade')?.classList.contains('on') })));

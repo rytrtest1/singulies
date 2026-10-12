@@ -340,3 +340,11 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
   - **Une seule grammaire pour agir** : LE LIRE (*9,90 € sur amazon*), REJOINDRE (*9 € par mois*) : le signe cousu, le prix dessous, en bas comme RECEVOIR (`.lt-bar`). REJOINDRE ouvre la liste d'attente (email), puis l'envoie.
   - **Un poème par mois** : UN POEME PAR MOIS (capitales), *correspondance entre singuliés* dessous ; l'enveloppe **en direct** (`src/lettre/env3d.js`, même que la vitrine : sans rabat du bas, cachet de cire, tournable à la main ; `mountLive` dans book3d.js est commun aux objets des pages). Essai : `node tools/retours-1210-check.mjs [pc]`.
 
+## Retours du 12/10 (soir, font foi)
+- **Le site principal = le poème** : `index.html` = l'ancienne `alt.html` (ETERNEL → le prénom → la feuille) ; l'ancien portail aux cartes rangé dans `ancien.html` (noindex) ; `alt.html` reste (anciens liens).
+- **Paiement Stripe en mode test** (`RESERVATION = false`) pour voir le vrai déroulement ; **PASSER (test)** sous PAYER dans le panneau. **Plus d'écran d'essai à la fin** (prix, retours : `?test=1` pour le revoir).
+- **Menu sur le portail = un indice** : il paraît au creux d'une respiration du curseur, ≈ 4 s après ETERNEL (`NAV_IDLE`, `BREATH`) ; une fois paru il reste (aussi pendant le vol des lettres) ; si l'on a touché pour écrire avant, il ne paraît pas sur cette page. Démonstration du glissé : MES LIVRES à droite, directement l'autre côté, puis le centre.
+- **Vitrine** : la description se **tape à la machine** (lettres déjà à leur place, invisibles : rien ne bouge), deux lignes sans virgule en fin de ligne ; **les points reviennent** et **glisser l'objet de côté** avance / recule d'une étape ; l'invitation à descendre = **un fil vertical où une lueur coule** (plus de chevron) ; aucune barre de défilement (`.of`, `.ltp`). **pour moi · pour offrir** juste au-dessus de RECEVOIR (le panneau le reprend).
+- **Un poème par mois** : nouveau texte (« reçois un poème exclusif aux membres / je l'écris une fois à la machine… / une personne tirée au sort recevra l'original »).
+- **JOURNAL** (https://www.amazon.fr/dp/B0BYGNDTWB) : couverture KDP 6 × 9 po (152,4 × 228,6 mm), dos 15,9 mm ; recueil 5 × 8 po, dos 6,7 mm (mesurés sur les PDF) ; encre : `public/livres/journal-encre.png` (8 px/mm).
+

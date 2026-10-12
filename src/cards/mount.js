@@ -80,7 +80,7 @@ export async function mountCards(opts) {
   const { base = './', seed, look = {}, onEnd, onExit, log = () => {} } = opts;
   let name = opts.name;   // (12/10, alt) la scène peut être préparée avant que le prénom soit fini : api.setName
   const PAID = ['merci', 'pour'].includes(document.documentElement.dataset.page);   // (10/10) après le paiement : pas l'essai sans adresse
-  const TEST = new URLSearchParams(location.search).get('test') !== '0' || (NOADDR && !PAID);   // (09/10 : par défaut pendant la phase de test ; ?test=0 pour l'enlever)
+  const TEST = new URLSearchParams(location.search).get('test') === '1';   // (12/10, Maxence : l'écran d'essai de la fin retiré ; ?test=1 pour le revoir)
   const toSheet = opts.sheet ?? new URLSearchParams(location.search).get('feuille') !== '0';
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // téléphone : le clavier ne s'ouvre jamais tout seul dans la scène des cartes (08/10, Android), et se ferme quand une carte est balayée

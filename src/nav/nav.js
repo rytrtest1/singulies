@@ -19,7 +19,7 @@ import { paintThread, flowNow } from '../alt/stitch.js';
 import { count } from '../app/count.js';
 
 export const PAGES = [
-  { id: 'poeme', label: 'UN PRENOM UN POEME', href: 'alt.html' },
+  { id: 'poeme', label: 'UN PRENOM UN POEME', href: '' },
   { id: 'livres', label: 'MES LIVRES', href: 'livres.html' },
   { id: 'lettre', label: 'UN POEME PAR MOIS', href: 'lettre.html' },
 ];
@@ -488,15 +488,11 @@ export function installNav(opts) {
       if (!bx) return 0;
       return d > 0 ? Math.max(0, bx.r - innerWidth / 2 + A - centers[C]) : Math.min(0, innerWidth / 2 + bx.l - A - centers[C]);
     };
-    // (d : le côté ; le voisin de ce côté vient se lire ; puis le fil revient)
-    const side = (d, t0, hold) => {
-      at(t0 + 600, () => setX(centers[C] + shift(d), true));
-      at(t0 + 600 + DUR + hold, () => setX(centers[C], true));
-    };
-    const T1 = 600 + 2 * DUR + 1100 + 900;
-    side(1, 0, 1100);
-    side(-1, T1, 1600);
-    at(T1 + 600 + 2 * DUR + 1600 + 400, () => { revealing = false; removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true); revealDone = true; });
+    // (12/10, Maxence : « trop long, ça distrait ») MES LIVRES à droite, puis directement l'autre côté, puis le centre
+    at(600, () => setX(centers[C] + shift(1), true));
+    at(600 + DUR + 900, () => setX(centers[C] + shift(-1), true));
+    at(600 + 2 * DUR + 900 + 1100, () => setX(centers[C], true));
+    at(600 + 3 * DUR + 900 + 1100 + 300, () => { revealing = false; removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true); revealDone = true; });
   }
 
   // ---- l'arrivée par rechargement : la page entre du côté d'où l'on vient ----

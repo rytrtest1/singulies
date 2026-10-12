@@ -24,8 +24,8 @@ const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o));
 // un fil noir les relie (Maxence 11/10) ; un tour tout seul, il s'arrête sur la dernière ; dès qu'on touche aux flèches, plus de défilé automatique.
 // (11/10, Maxence) le cachet de cire AVANT la carte mystère ; les coupures de lignes sont choisies (\n)
 const OBJETS = [
-  { id: 'feuille', txt: 'l’exemplaire unique de ton poème,\ntapé à la machine à écrire' },
-  { id: 'carte', txt: 'la question du jeu SINGULIES,\ntirée au hasard' },
+  { id: 'feuille', txt: 'l’exemplaire unique de ton poème\ntapé à la machine à écrire' },
+  { id: 'carte', txt: 'la question du jeu SINGULIES\ntirée au hasard' },
   { id: 'cachet', txt: 'le tout dans une enveloppe\nscellée à la cire' },
   { id: 'mystere', txt: 'une carte mystère et un fil…\npour rester liés' },
 ];
@@ -129,6 +129,8 @@ function ensureRef(name) {
 }
 // payé : la suite ici même si la page sait enchaîner, sinon merci.html
 let closePanel = () => {};
+// (12/10, Maxence) pour moi / pour offrir : écrit juste au-dessus de RECEVOIR (le panneau le reprend)
+let giftPref = null, syncBarFor = () => {};
 // (10/10) payé par Apple Pay / Google Pay : l'adresse et l'email viennent du portefeuille — ils iront sur l'enveloppe,
 // tapés tout seuls après la cérémonie, puis l'email dans le champ de la fin
 function walletOut(ev, r) {
@@ -209,6 +211,7 @@ function openPanel(name, ref) {
       <div class="of-pf"><span class="of-where">où je te l’envoie</span><div class="of-addr"></div></div>
       <div class="of-pf"><span>le paiement</span><div class="of-pm"></div></div>
       <button class="of-go of-pay-go" type="button" disabled>PAYER ${esc(PRIX)}</button>
+      <button class="of-pay-skip" type="button">PASSER (test)</button>
       <p class="of-pay-msg" role="alert"></p>
       <p class="of-pay-legal">${fake ? 'paiement d’essai : rien n’est débité.<br>' : ''}paiement sécurisé par stripe.<br>un prénom, un poème : fait pour une personne, il ne peut être ni repris ni échangé.</p>
     </div>`;
@@ -223,18 +226,21 @@ function openPanel(name, ref) {
   const mail = root.querySelector('.of-pin'), go = root.querySelector('.of-pay-go'), msg = t => { root.querySelector('.of-pay-msg').textContent = t || ''; };
   const addrHost = root.querySelector('.of-addr'), pmHost = root.querySelector('.of-pm');
   // pour moi / pour offrir (10/10) : offert, le prénom écrit est le sien ; après le paiement, je demande comment l'écrire
-  let gift = !!readOrder()?.gift;
+  let gift = giftPref ?? !!readOrder()?.gift;
   const setFor = g => {
     gift = g;
     root.querySelectorAll('[data-for]').forEach(b => { const on = (b.dataset.for === 'offrir') === g; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
     root.querySelector('.of-pay-sub').textContent = g ? 'un prénom, un poème · à offrir' : 'un prénom, un poème';
     root.querySelector('.of-where').textContent = g ? 'où je l’envoie' : 'où je te l’envoie';
     const o = readOrder(); if (o && o.ref === ref) saveOrder({ ...o, gift: g });
+    giftPref = g; syncBarFor();
   };
   root.querySelectorAll('[data-for]').forEach(b => b.addEventListener('click', () => setFor(b.dataset.for === 'offrir')));
   setFor(gift);
   // payé : ici même si la page sait enchaîner, sinon merci.html
   const paidNow = extra => paidHere(name, ref, { gift, ...extra });
+  // (12/10, Maxence) le paiement de Stripe est en mode test : PASSER (test) va directement à la suite, sans rien payer
+  root.querySelector('.of-pay-skip').addEventListener('click', () => paidNow({ simule: true }));
 
   const expressHost = root.querySelector('.of-express'), orEl = root.querySelector('.of-or');
   if (fake) {
@@ -308,7 +314,7 @@ function pay(name) {
   let ref = null;
   try { const o = JSON.parse(localStorage.getItem(K_ORDER) || 'null'); if (o && o.name === name && !o.done) ref = o.ref; } catch { /* */ }
   ref = ref || orderRef(name);
-  try { localStorage.setItem(K_ORDER, JSON.stringify({ name, ref, at: Date.now() })); } catch { /* */ }
+  try { localStorage.setItem(K_ORDER, JSON.stringify({ name, ref, at: Date.now(), gift: !!giftPref })); } catch { /* */ }
   // réservation : rien à payer, la suite tout de suite (la demande part marquée « à payer »)
   if (RESERVE) { count('alt/reserve'); paidHere(name, ref, { reserve: true }); return; }
   count('alt/commander');
@@ -354,10 +360,12 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   root.id = 'offre'; root.className = 'of' + (over ? ' over' : '');
   root.style.setProperty('--inset', SHEET_INSET + 'px');
   // (11/10, Maxence) sous l'objet : sa description, la petite flèche qui fait descendre la page ; puis RECEVOIR et le
-  // prix. (12/10 : plus de points — ils donnaient envie de glisser de côté ; une seule grammaire : on descend)
-  const CAP = `<div class="of-cap"><div class="of-vit" role="group" aria-label="Ce que tu reçois">
+  // prix. (12/10 soir, Maxence) les points reviennent : glisser l'objet de côté avance (ou recule) dans l'histoire,
+  // comme descendre ; l'invitation à descendre : un fil vertical où une lueur coule vers le bas (pas une flèche)
+  const CAP = `<div class="of-cap"><div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
         <p class="of-vit-t" aria-live="polite"></p>
-      </div><button class="of-down" type="button" aria-label="Descendre"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 9.5 L12 15.5 L18 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></button></div>`;
+        <div class="of-dots">${OBJETS.map((o, i) => `<button class="of-dot" type="button" data-k="${i}" aria-label="${esc(o.txt.replace(/\n/g, ' '))}"><i></i></button>`).join('')}</div>
+      </div><button class="of-down" type="button" aria-label="Faire défiler"><i class="of-scroll"></i></button></div>`;
   root.innerHTML = `
     <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
     <main>
@@ -368,6 +376,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     </main>
     <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
+      <div class="of-bfor" role="radiogroup" aria-label="Pour qui"><button type="button" data-for="moi" role="radio">pour moi</button><i>·</i><button type="button" data-for="offrir" role="radio">pour offrir</button></div>
       <button class="of-go" type="button">RECEVOIR</button>
       <div class="of-price"><b>${esc(PRIX)}</b> tout compris</div>
     </div>`;
@@ -416,17 +425,29 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   };
   sizeStory(); addEventListener('resize', sizeStory);
   let cur = -1;
+  const dotsOn = k => root.querySelectorAll('.of-dot').forEach((b, i) => b.classList.toggle('on', i === k));
   // la description glisse (de droite à gauche quand on avance) : l'ancienne part d'un côté, la nouvelle arrive de l'autre
-  const slideTxt = (s, dir = 1) => {
-    txt.setAttribute('aria-label', s);
-    for (const old of txt.querySelectorAll('i:not(.out)')) {
-      old.classList.add('out'); old.style.transform = `translateX(${-dir * 46}px)`; old.style.opacity = '0';
-      setTimeout(() => old.remove(), 700);
-    }
-    const box = document.createElement('i'); box.textContent = s;
-    box.style.transform = `translateX(${dir * 46}px)`; box.style.opacity = '0';
-    txt.appendChild(box); void box.offsetWidth;
-    box.style.transform = ''; box.style.opacity = '';
+  // (12/10 soir, Maxence) la description se tape à la machine, lettre à lettre (l'ancienne s'efface d'un souffle) ;
+  // deux lignes choisies, sans virgule en fin de ligne
+  let typeT = 0;
+  const slideTxt = (s) => {
+    txt.setAttribute('aria-label', s.replace(/\n/g, ' '));
+    clearTimeout(typeT);
+    for (const old of txt.querySelectorAll('i:not(.out)')) { old.classList.add('out'); old.style.opacity = '0'; setTimeout(() => old.remove(), 400); }
+    const box = document.createElement('i'); txt.appendChild(box);
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) { box.textContent = s; return; }
+    // les lettres à venir sont déjà là, invisibles : la mise en page ne bouge jamais pendant la frappe
+    box.innerHTML = '<span class="tw">' + [...s].map(ch => ch === '\n' ? '<br>' : `<b>${esc(ch)}</b>`).join('') + '</span>';
+    const ks = [...box.querySelectorAll('b')];
+    let n = 0;
+    const strike = () => {
+      if (!box.isConnected || n >= ks.length) return;
+      ks[n++].classList.add('on');
+      const ch = ks[n - 1].textContent;
+      typeT = setTimeout(strike, (ch === ' ' ? 70 : 32) + Math.random() * 46);
+    };
+    typeT = setTimeout(strike, 140);
   };
   // les petits mots restent avec le suivant (jamais « à » seul en fin de ligne)
   const nbsp = s => { const r = /(^|[\s\u00a0])(à|a|de|du|la|le|un|et|y|me|ton|pour|au) /gi, f = x => x.replace(r, (m, a, w) => a + w + '\u00a0'); return f(f(s)); };
@@ -435,14 +456,14 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const fadeJump = (k, then) => {
     const c = sceneCv(); if (!c || !vit) { then && then(); return; }
     c.style.transition = 'opacity .3s ease'; c.style.opacity = '0';
-    setTimeout(() => { vit.jump(k); cur = k; slideTxt(nbsp(OBJETS[k].txt), -1); then && then(); setTimeout(() => { c.style.opacity = '1'; }, 60); }, 320);
+    setTimeout(() => { vit.jump(k); cur = k; slideTxt(nbsp(OBJETS[k].txt)); dotsOn(k); then && then(); setTimeout(() => { c.style.opacity = '1'; }, 60); }, 320);
   };
   // la description de l'étape k (le défilement, lui, mène l'animation : scrub)
   const show = k => {
     k = Math.max(0, Math.min(N - 1, k));
     if (k === cur) return;
     const dir = cur < 0 || k > cur ? 1 : -1; cur = k;
-    slideTxt(nbsp(OBJETS[k].txt), dir);
+    void dir; slideTxt(nbsp(OBJETS[k].txt)); dotsOn(k);
     root.classList.toggle('vit-last', k === N - 1);
   };
   // les flèches : la page défile jusqu'à l'étape voulue À L'ALLURE DE L'ÉTAPE (1 × en avançant, 1,5 × en reculant) ;
@@ -475,7 +496,28 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // (11/10) une seule grammaire : vertical = avancer dans la page (les étapes suivent le défilement) ; les pages : les
   // flèches du bandeau (12/10 : plus de glissé pour changer de page, nav.js)
   // pendant l'enveloppe et le paiement : la feuille
-  new MutationObserver(() => { if (busyMode() && cur !== 0) { cur = 0; slideTxt(nbsp(OBJETS[0].txt), -1); } }).observe(root, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(() => { if (busyMode() && cur !== 0) { cur = 0; slideTxt(nbsp(OBJETS[0].txt)); dotsOn(0); } }).observe(root, { attributes: true, attributeFilter: ['class'] });
+  // un point = une étape : la page y défile, à l'allure de chaque étape traversée
+  root.querySelectorAll('.of-dot').forEach(b => b.addEventListener('click', () => {
+    if (busyMode()) return;
+    const k = +b.dataset.k; count('alt/vitrine');
+    if (!(vit && story)) { show(k); return; }
+    const y = keyY(k), back = y < root.scrollTop;
+    driveTo(y, PXS() * (back ? 1.5 : 1));
+  }));
+  // glisser l'objet de côté (doigt, souris tenue) : vers la gauche = l'étape suivante, vers la droite = la précédente
+  if (hole) {
+    let sx = null, sy = 0, st = 0;
+    const s0 = (x, y) => { sx = x; sy = y; st = performance.now(); };
+    const s1 = (x, y) => {
+      if (sx == null) return; const dx = x - sx, dy = y - sy; sx = null;
+      if (Math.abs(dx) > 42 && Math.abs(dx) > 1.4 * Math.abs(dy) && performance.now() - st < 900) goStep(dx < 0 ? 1 : -1);
+    };
+    hole.addEventListener('touchstart', e => { if (e.touches.length === 1) s0(e.touches[0].clientX, e.touches[0].clientY); else sx = null; }, { passive: true });
+    hole.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t) s1(t.clientX, t.clientY); }, { passive: true });
+    hole.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button === 0) s0(e.clientX, e.clientY); });
+    addEventListener('pointerup', e => { if (e.pointerType === 'mouse') s1(e.clientX, e.clientY); });
+  }
   setTimeout(() => show(0), over ? 700 : 900);
   // (11/10, Maxence) la petite flèche, sous la description : la page descend, du même défilement — l'étape suivante, à
   // son allure ; après la dernière, les autres prénoms (la suite de la page). Jamais un saut.
@@ -528,6 +570,13 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     if (st && (st.vt > 0 || st.target > 0)) { root.scrollTo({ top: 0 }); fadeJump(0, () => pay(name)); } else pay(name);
   });
   barWalletSetup(root, name);
+  {
+    const bf = root.querySelector('.of-bfor');
+    syncBarFor = () => bf.querySelectorAll('[data-for]').forEach(b => { const on = (b.dataset.for === 'offrir') === !!giftPref; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+    giftPref = !!readOrder()?.gift;
+    bf.querySelectorAll('[data-for]').forEach(b => b.addEventListener('click', () => { giftPref = b.dataset.for === 'offrir'; count('alt/pour-' + b.dataset.for); syncBarFor(); }));
+    syncBarFor();
+  }
 
   // l'entrée : la couche se pose sur le prénom seul, puis l'acrostiche se tape, puis la barre du prix
   count('alt/offre');

@@ -12,11 +12,8 @@ const HTML = `<main class="lt">
   <h1 class="lt-h caps">UN POEME PAR MOIS</h1>
   <p class="lt-sub">correspondance entre singuliés</p>
   <div class="lt-txt">
-    <p>chaque mois, j’écris un poème pour les singuliers.</p>
-    <p>je le tape une fois à la machine, il est imprimé, et je le glisse à la main dans une enveloppe noire, avec une lettre : comment il est né, à quoi je pensais, ce que j’ai rayé.</p>
-    <p>chaque mois, l’original tapé part chez l’un de vous, tiré au sort.</p>
-    <p>par la poste. tu arrêtes quand tu veux.</p>
-    <p>pour toi, ou pour quelqu’un.</p>
+    <p>reçois un poème exclusif aux membres<br>je l’écris une fois à la machine, l’imprime, et le glisse à la main dans une enveloppe noire. avec une lettre au dos contenant mes pensées liées au poème pendant sa création</p>
+    <p>une personne tirée au sort recevra l’original</p>
   </div>
   <form class="lt-wait" novalidate autocomplete="on" hidden>
     <p>les premières lettres partent bientôt.<br>laisse ton email : je t’écris quand la première est prête.</p>

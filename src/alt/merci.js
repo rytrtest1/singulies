@@ -48,7 +48,7 @@ function final(order) {
   order.done = true;
   if (POUR) { try { localStorage.setItem('singulies.pour.' + order.ref, '1'); } catch { /* */ } } else saveOrder(order);
   canvas.classList.remove('on');
-  const home = new URL('./alt.html', document.baseURI), k = new URLSearchParams(location.search);
+  const home = new URL('./', document.baseURI), k = new URLSearchParams(location.search);
   for (const x of ['session', 'simule', 'r']) k.delete(x); home.search = k.toString();
   setTimeout(() => finalScreen(order, POUR ? null : home.href), 1100);
 }
@@ -73,7 +73,7 @@ async function run() {
   if (PAIEMENT_URL && /^cs_/.test(session) && !order.done) {
     const st = await fetch(PAIEMENT_URL.replace(/\/$/, '') + '/status?session_id=' + encodeURIComponent(session)).then(r => r.json()).catch(() => null);
     if (st && st.status && st.status !== 'complete') {
-      const back = new URL('./alt.html', document.baseURI);
+      const back = new URL('./', document.baseURI);
       screen(`<h1>${esc(order.name)}</h1><p>le paiement n’est pas passé.</p><p class="small"><a href="${esc(back.href)}">revenir à ta feuille</a></p>`);
       return;
     }
