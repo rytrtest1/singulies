@@ -11,6 +11,7 @@
 // dessus. Téléphone : leur bord ; toucher le bord gauche ou droit de l'écran = la page voisine (comme une story), ou
 // glisser l'objet (il suit le doigt, le voisin vient avec) ; une fois, l'objet esquisse le geste (à droite, puis à
 // gauche). Pages que le document ne sait pas monter (le poème, depuis lettre.html) : on y va en rechargeant.
+import { createNeedle, THREAD_END } from './needle.js';
 import { paintThread } from '../alt/stitch.js';
 import { count } from '../app/count.js';
 
@@ -47,7 +48,7 @@ const CSS = `
   -webkit-mask-image: linear-gradient(to right, transparent var(--nv-a, 0px), #000 calc(var(--nv-a, 0px) + var(--nv-m, 22%)), #000 calc(100% - var(--nv-a, 0px) - var(--nv-m, 22%)), transparent calc(100% - var(--nv-a, 0px)));
   mask-image: linear-gradient(to right, transparent var(--nv-a, 0px), #000 calc(var(--nv-a, 0px) + var(--nv-m, 22%)), #000 calc(100% - var(--nv-a, 0px) - var(--nv-m, 22%)), transparent calc(100% - var(--nv-a, 0px))); }
 /* (12/10) avec les flèches : les noms s'effacent avant elles (jamais une flèche sur un nom) */
-.nv.ar { --nv-a: 46px; }
+.nv.ar { --nv-a: 58px; }
 .nv-track { position: absolute; left: 50%; top: 0; height: 44px; display: flex; align-items: center; gap: var(--nv-gap, 34px); white-space: nowrap;
   will-change: transform; }
 .nv-track.anim { transition: transform ${DUR}ms ${EASE}; }
@@ -76,22 +77,16 @@ const CSS = `
 .nv-shade.t { top: 0; height: calc(104px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 52%, rgba(6,6,6,0)); }
 .nv-shade.b { bottom: 0; height: calc(96px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 0, #060606 48%, rgba(6,6,6,0)); }
 .nv-shade.on { opacity: 1; }
-/* (12/10, Maxence) les aiguilles, aux deux bouts du bandeau, à la place des flèches : le fil passe dans leur chas ; la
-   pointe dit où l'on va (à droite la page suivante, à gauche la précédente) ; la toucher : elle tire le fil */
-.nv-nd { position: absolute; bottom: 0; width: 44px; height: 44px; margin: 0; padding: 0 4px; border: 0; background: none; cursor: pointer;
-  display: flex; align-items: center; opacity: 0; pointer-events: none; -webkit-tap-highlight-color: transparent;
-  transition: opacity .6s ease, translate .7s ${EASE}; }
-.nv-nd.l { left: 4px; justify-content: flex-end; padding-right: 12px; translate: -34px 0; }
-.nv-nd.r { right: 4px; justify-content: flex-start; padding-left: 12px; translate: 34px 0; }
-.nv-nd svg { width: 24px; height: 8.57px; overflow: visible; flex: none; }
-.nv-nd.l svg { transform: scaleX(-1); }
-.nv.on .nv-nd.in { opacity: .85; pointer-events: auto; translate: 0 0; }
-.nv.on .nv-nd.in:hover, .nv.on .nv-nd.in:focus-visible { opacity: 1; outline: none; }
-.nv.on .nv-nd.in.go.l { translate: -8px 0; } .nv.on .nv-nd.in.go.r { translate: 8px 0; }
-/* le fil du bandeau s'arrête à un petit trou (42 px du bord) ; de là, le fil de l'aiguille ressort et entre dans son chas */
-.nv.ndl { --nv-el: 42px; } .nv.ndl.pl { --nv-el: 34px; }
-.nv.ndr { --nv-er: 42px; } .nv.ndr.pr { --nv-er: 34px; }
-.nv.solo .nv-nd { opacity: 0 !important; pointer-events: none !important; }
+/* (12/10, Maxence) les aiguilles, aux deux bouts du bandeau (needle.js) : piquées dans le fil, la pointe vers où l'on va
+   (à droite la page suivante, à gauche la précédente) ; la toucher fait un point : elle tire le fil, les noms avancent */
+.nv-nd { position: absolute; bottom: 0; width: 84px; height: 44px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer;
+  pointer-events: none; -webkit-tap-highlight-color: transparent; }
+.nv-nd svg { display: block; width: 84px; height: 44px; overflow: visible; }
+.nv-nd.l { left: 0; } .nv-nd.r { right: 0; }
+.nv.on .nv-nd.in { pointer-events: auto; }
+.nv-nd:focus-visible { outline: none; }
+.nv.ndl { --nv-el: ${84 - THREAD_END}px; } .nv.ndr { --nv-er: ${84 - THREAD_END}px; }
+.nv.solo .nv-nd { opacity: 0; pointer-events: none !important; transition: opacity .4s; }
 @media (prefers-reduced-motion: reduce) { .nv-track.anim { transition-duration: .01s; } }
 `;
 
@@ -144,38 +139,10 @@ export function installNav(opts) {
       return a;
     });
   }
-  // une aiguille fine (≈ 24 px, la pointe vers l'extérieur), argent satiné comme le cachet ; le fil ressort d'un petit
-  // trou (là où s'arrête celui du bandeau), entre dans le chas, un petit bout ressort et pend ; un reflet lent court sur
-  // le métal
-  const needle = d => {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'nv-nd ' + (d < 0 ? 'l' : 'r');
-    b.setAttribute('aria-label', d < 0 ? 'page précédente' : 'page suivante');
-    const id = 'nd' + (d < 0 ? 'l' : 'r');
-    const lus = reduced ? '' : `<animateTransform attributeName="gradientTransform" type="translate" values="-26 0;26 0;-26 0" dur="${d < 0 ? 13 : 11}s" repeatCount="indefinite"/>`;
-    const body = 'M1.3 4.05 Q.25 5 1.3 5.95 L18.5 5.85 Q23.6 5.55 27.7 5.02 Q23.6 4.45 18.5 4.15 Z';
-    b.innerHTML = `<svg viewBox="0 0 28 10" aria-hidden="true">
-<defs>
-<linearGradient id="${id}m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bdbcb8"/><stop offset=".42" stop-color="#8e8d89"/><stop offset="1" stop-color="#2e2d2b"/></linearGradient>
-<linearGradient id="${id}s" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="28" y2="0"><stop offset=".3" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/>${lus}</linearGradient>
-<clipPath id="${id}c"><path d="${body}"/></clipPath>
-</defs>
-<path d="M-7.5 5 Q-1.5 5.35 3.6 5" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="2.6" stroke-linecap="round" transform="translate(0 .9)"/>
-<path d="M-7.5 5 Q-1.5 5.35 3.6 5" fill="none" stroke="rgb(28,27,25)" stroke-width="1.45" stroke-linecap="round"/>
-<path d="M-6.8 4.8 Q-1.5 5.1 3.4 4.8" fill="none" stroke="rgba(120,116,108,.24)" stroke-width=".5" stroke-linecap="round"/>
-<ellipse cx="-7.6" cy="5" rx=".9" ry=".75" fill="#030303"/>
-<path d="${body}" fill="url(#${id}m)"/>
-<rect x="0" y="3" width="28" height="4" fill="url(#${id}s)" clip-path="url(#${id}c)"/>
-<rect x="2.3" y="4.62" width="4.4" height=".76" rx=".38" fill="#070707"/>
-<path d="M6.2 5 Q7.4 5.3 7.6 6.6 Q7.8 8.2 6.7 9.4" fill="none" stroke="rgb(28,27,25)" stroke-width="1.15" stroke-linecap="round"/>
-<path d="M6.2 4.75 Q7.2 5 7.35 6.2" fill="none" stroke="rgba(120,116,108,.3)" stroke-width=".45" stroke-linecap="round"/>
-</svg>`;
-    b.addEventListener('click', () => { stopReveal(); go(d); });
-    root.appendChild(b);
-    return b;
-  };
-  const arL = needle(-1), arR = needle(1);
-  // l'aiguille tire le fil (elle part un peu vers l'extérieur, le bout du fil avec elle), puis se détend
-  const pull = (d, on) => { const n = d < 0 ? arL : arR; n.classList.toggle('go', on); root.classList.toggle(d < 0 ? 'pl' : 'pr', on); };
+  const ndL = createNeedle(-1, { reduced, onClick: () => { stopReveal(); go(-1); } });
+  const ndR = createNeedle(1, { reduced, onClick: () => { stopReveal(); go(1); } });
+  root.append(ndL.el, ndR.el);
+  const ndOf = d => (d < 0 ? ndL : ndR);
   document.body.append(shadeT, shadeB, root, foot);
   build();
 
@@ -233,7 +200,7 @@ export function installNav(opts) {
   };
   const wake = () => { if (!raf && !reduced) raf = requestAnimationFrame(loop); };
 
-  let shown = false, footOn = false, busy = false;
+  let shown = false, footOn = false, busy = false, wandered = !!arrived;
   const atHome = () => cur === home;
   const pgOf = id => pages[id] || {};
   const objC = () => { const pg = pgOf(ring(cur).id), c = (pg.center && pg.center()) || (atHome() && opts.center && opts.center()) || null; return c || { y: innerHeight * 0.45, h: innerHeight * 0.5 }; };
@@ -248,9 +215,11 @@ export function installNav(opts) {
   function tick() {
     if (busy) return;
     const pg = pgOf(ring(cur).id);
-    const on = atHome() ? !!opts.show?.() : true;
+    // (venu d'une autre page par le bandeau : il reste, même sur les prénoms — opts.showBack)
+    const back = wandered && (opts.showBack ? !!opts.showBack() : true);
+    const on = atHome() ? (!!opts.show?.() || back) : true;
     const solo = on && atHome() && !!opts.solo?.();
-    const f = atHome() ? !!opts.foot?.() : pg.foot !== false;
+    const f = atHome() ? (!!opts.foot?.() || back) : pg.foot !== false;
     const sh = atHome() ? !!opts.shade?.() : !!pg.foot;
     if (on !== shown) { shown = on; root.classList.toggle('on', on); if (on) layout(); }
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
@@ -304,7 +273,7 @@ export function installNav(opts) {
   async function go(d, opt = {}) {
     if (busy || !d) return;
     stopReveal();
-    if (arrowsOn) { pull(Math.sign(d), true); setTimeout(() => pull(Math.sign(d), false), DUR); }
+    if (arrowsOn) ndOf(Math.sign(d)).stitch();
     const target = ring(cur + d), dir = Math.sign(d), fromId = ring(cur).id, from = pages[fromId] || {};
     count('nav/' + target.id);
     const inDoc = !!(pages[target.id] || MOUNTABLE[target.id]);
@@ -329,7 +298,7 @@ export function installNav(opts) {
       setTimeout(() => { location.href = url(target); }, 420);
       return;
     }
-    cur = mod(cur + d, PAGES.length);
+    cur = mod(cur + d, PAGES.length); wandered = true;
 
     // ---- ce qui arrive ----
     const inLayer = layerOf(pg), inObj = objOf(pg), inRest = restOf(pg);
@@ -383,18 +352,35 @@ export function installNav(opts) {
     build(); layout(); tick();
   });
 
-  // ---- (12/10, Maxence) plus de glissé pour changer de page : deux flèches. Après l'intro de la page des prénoms, une
-  //      fois par visite, la flèche de droite paraît et le bandeau glisse pour montrer ce qu'il y a à droite, puis celle
-  //      de gauche, et il montre la gauche (« UN POEME PAR MOIS » : qu'on ait envie d'y aller) ; puis il revient. Le
-  //      moindre geste arrête la démonstration (les deux flèches restent). ----
-  let arrowsOn = false, revealing = false, rvT = [];
-  function showArrows() { arrowsOn = true; root.classList.add('ar', 'ndl', 'ndr'); arL.classList.add('in'); arR.classList.add('in'); }
+  // ---- (12/10, Maxence) les pages : deux aiguilles. Sur la page de la feuille (le bandeau est caché pendant les
+  //      prénoms), une fois par visite : l'aiguille de droite paraît, pique, tire — le bandeau montre le nom de droite en
+  //      entier (la page ne bouge pas) —, relâche ; puis celle de gauche (UN POEME PAR MOIS, tenu un peu plus). Le moindre
+  //      geste arrête la démonstration (les aiguilles restent). Au repos, de temps en temps, un geste de couture : la
+  //      pointe ressort, elle replonge en tirant, le nom voisin glisse de quelques pixels vers le centre. ----
+  let arrowsOn = false, revealing = false, rvT = [], breaths = 0, brT = 0;
+  function showArrows() {
+    arrowsOn = true; root.classList.add('ar', 'ndl', 'ndr');
+    for (const n of [ndL, ndR]) { n.el.classList.add('in'); if (!n.shown) n.show(); }
+    scheduleBreath();
+  }
+  // le geste de couture au repos : 3 fois au plus, toutes les 7 à 9 s, en alternant les côtés
+  function scheduleBreath() {
+    clearTimeout(brT);
+    if (reduced || breaths >= 3) return;
+    brT = setTimeout(() => {
+      if (!busy && !revealing && shown && !root.classList.contains('solo') && !document.hidden) {
+        const d = breaths % 2 ? -1 : 1; breaths++;
+        ndOf(d).breathe(on => { if (!busy && !revealing) setX(centers[C] + (on ? d * 5 : 0), true); });
+      }
+      scheduleBreath();
+    }, 7000 + Math.random() * 2000);
+  }
   function stopReveal() {
     if (!revealing) return;
     revealing = false; rvT.forEach(clearTimeout); rvT = [];
-    pull(-1, false); pull(1, false);
     removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true);
     if (!busy) setX(centers[C], true);
+    for (const n of [ndL, ndR]) n.tug(false);
     showArrows();
   }
   function reveal() {
@@ -402,24 +388,23 @@ export function installNav(opts) {
     try { sessionStorage.setItem(K_REVEAL, '1'); } catch { /* */ }
     addEventListener('pointerdown', stopReveal, true); addEventListener('keydown', stopReveal, true);
     const at = (ms, f) => rvT.push(setTimeout(() => { if (revealing && !busy) f(); }, ms));
-    // jusqu'où glisser : le voisin lisible en entier, juste avant le fondu du bord (flèche + marge du masque)
+    // jusqu'où glisser : le voisin lisible en entier, juste avant le fondu du bord (aiguille + marge du masque)
     const shift = d => {
-      const A = 40 + (mobile() ? 0.12 : 0.07) * innerWidth + 8, bx = boxes[C + d];
+      const A = 58 + (mobile() ? 0.12 : 0.07) * innerWidth + 6, bx = boxes[C + d];
       if (!bx) return 0;
       return d > 0 ? Math.max(0, bx.r - innerWidth / 2 + A - centers[C]) : Math.min(0, innerWidth / 2 + bx.l - A - centers[C]);
     };
-    // l'aiguille de droite arrive le long du fil (il s'enfile dans son chas), puis tire : le bandeau montre la droite
-    at(0, () => { arR.classList.add('in'); root.classList.add('ndr'); });
-    at(750, () => { pull(1, true); setX(centers[C] + shift(1), true); });
-    at(750 + DUR + 1300, () => { pull(1, false); setX(centers[C], true); });
-    // puis celle de gauche : UN POEME PAR MOIS
-    at(2 * DUR + 2300, () => { arL.classList.add('in'); root.classList.add('ndl'); });
-    at(2 * DUR + 3050, () => { pull(-1, true); setX(centers[C] + shift(-1), true); });
-    at(3 * DUR + 4850, () => { pull(-1, false); setX(centers[C], true); });
-    at(4 * DUR + 4950, () => { revealing = false; removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true); showArrows(); });
+    const side = (d, t0, hold) => {
+      at(t0, () => { root.classList.add(d < 0 ? 'ndl' : 'ndr'); ndOf(d).el.classList.add('in'); ndOf(d).arrive(); });
+      at(t0 + 1250, () => { ndOf(d).tug(true); setX(centers[C] + shift(d), true); });
+      at(t0 + 1250 + DUR + hold, () => { ndOf(d).tug(false); setX(centers[C], true); });
+    };
+    side(1, 0, 1100);
+    side(-1, 1250 + 2 * DUR + 1100 + 700, 1600);
+    at(2 * (1250 + 2 * DUR) + 1100 + 700 + 1600 + 200, () => { revealing = false; removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true); showArrows(); });
   }
 
-  // ---- l'arrivée par rechargement  // ---- l'arrivée par rechargement : la page entre du côté d'où l'on vient ----
+  // ---- l'arrivée par rechargement  // ---- l'arrivée par rechargement  // ---- l'arrivée par rechargement : la page entre du côté d'où l'on vient ----
   function enter(list) {
     if (!arrived) return;
     const c = objC(), l = list.filter(Boolean);

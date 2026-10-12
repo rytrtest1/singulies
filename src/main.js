@@ -1021,6 +1021,7 @@ if (ALT) {
   // la cérémonie. Plus bas que l'histoire (les autres poèmes) : seulement UN PRENOM UN POEME.
   const ofEl = () => document.querySelector('#offre.on');
   const onNames = () => S.phase === 'input' && !ofEl();
+  let barAt = 0;
   nav = installNav({
     current: 'poeme', base: './',
     host: {
@@ -1034,14 +1035,16 @@ if (ALT) {
       leave: () => { input.blur(); if (onNames()) { S.portal = true; setTimeout(() => { if (S.portal && S.phase === 'input') { cancelAnimationFrame(rafId); rafId = 0; } }, 700); } },
       back: () => { if (S.portal) { S.portal = false; if (S.phase === 'input' && booted && !rafId && !document.hidden) { last = 0; rafId = requestAnimationFrame(frame); } } },
     },
-    show: () => booted && !S.paid && !document.querySelector('.of.paying, .of.env'),
-    // (11/10, Maxence) SINGULIES et son fil sur toutes les pages : les prénoms, la feuille (sous RECEVOIR)
-    foot: () => booted && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    // (12/10, Maxence) ni bandeau ni SINGULIES pendant la scène des prénoms (une fois le prénom retenu, elle ne revient
+    // pas) : ils paraissent avec la feuille
+    show: () => booted && !!ofEl() && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    foot: () => booted && !!ofEl() && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    showBack: () => booted && !S.paid && !document.querySelector('.of.paying, .of.env'),
     shade: () => booted && onNames(),
-    // (12/10) les flèches des pages paraissent une fois l'intro finie (ETERNEL tapé puis effacé) ; la démonstration
-    // (le bandeau montre la droite puis la gauche) seulement si l'on n'a encore rien écrit
-    ready: () => booted && (!ALT || !!S.introOff || S.phase !== 'input'),
-    quiet: () => !model.text && S.phase === 'input' && S.trans == null,
+    // (12/10) les aiguilles : sur la feuille, une fois l'offre posée (2,5 s après le bandeau du bas) ; la démonstration
+    // seulement en haut de la page, sans paiement ni enveloppe
+    ready: () => { const on = !!document.querySelector('#offre.on.bar-on'); if (!on) barAt = 0; else if (!barAt) barAt = performance.now(); return on && performance.now() - barAt > 2500; },
+    quiet: () => !!offerObj && offerObj.top < 30 && !document.querySelector('.of.paying, .of.env'),
     solo: () => !!offerObj && offerObj.top > offerObj.storyLen() + 40,
     side: () => !!document.querySelector('#offre.on.bar-on') && (!offerObj || offerObj.top < 30),
     center: () => { const top = NAV_TOP + safeTop(), bot = innerHeight - SHEET_INSET - safeBottom(); return { y: (top + bot) / 2, h: (bot - top) * 0.82 }; },
