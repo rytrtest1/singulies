@@ -315,3 +315,11 @@
 .of-pay-skip { display: block; margin: 10px auto 0; background: none; border: 0; padding: 8px 10px; font: 500 12px/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; color: #ece8e0; opacity: .4; cursor: pointer; }
 .of-pay-skip:hover { opacity: .7; }
 .of-vit-t > i .tw { display: block; text-align: center; white-space: pre-wrap; }
+
+/* (12/10, Maxence) les autres poèmes en direct (exemples3d.js) : un canvas transparent fixé sur l'écran, sous le bandeau ;
+   l'image ne sert plus qu'à la mise en page (et sans WebGL2). Lire : un voile, la feuille par-dessus. */
+.ex-cv { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }   /* au-dessus du fond des autres poèmes (.of-rest, z 1), sous le bandeau (z 3) */
+.ex-cv.reading { z-index: 25; }
+.ex-ring.live3d .ex-slot img, .ex-ring.live3d .ex-sheen { visibility: hidden; }
+.ex-veil3 { position: fixed; left: 0; right: 0; z-index: 24; background: #060606; opacity: 0; pointer-events: none; transition: opacity .45s ease; touch-action: none; }
+.ex-veil3.on { opacity: 1; pointer-events: auto; cursor: zoom-out; }

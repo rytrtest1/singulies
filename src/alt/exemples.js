@@ -1,6 +1,7 @@
 // Version alternative (10/10) : sous la feuille, de vrais poèmes déjà écrits, en défilé façon story (celui du milieu
 // plus grand, les voisins plus petits, en fondu). La carte de la question est posée face cachée (on ne dit pas laquelle).
 import { ACROSTICHES } from './config.js';
+import { count } from '../app/count.js';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // acrostiches réels d'Eternel (10/10), un prénom par exemple : ISABELLE, ANAIS, MARYSOL, JULIE. Chaque vers : la lettre
@@ -113,6 +114,7 @@ export function mountExemples(host) {
   // SINGULIES en bas —, la frappe se lit ; elle grandit depuis sa place et y retourne (toucher, glisser, Échap)
   let box = null, onScrRef = null;
   function read(on) {
+    if (g3) return read3d(on);
     const mid = slots[2].f, im = mid.querySelector('img');
     if (on && (!im || box)) return;
     if (!on) { box?.close(); return; }
@@ -158,13 +160,48 @@ export function mountExemples(host) {
     box = { close };
     place(true);
   }
+  // (12/10, Maxence) lire, en direct : la feuille du milieu vient remplir l'écran (exemples3d.js) ; toucher sa carte =
+  // la carte de près (toucher encore : la feuille) ; glisser de côté = le poème voisin, toujours ouvert ; glisser vers le
+  // bas, la molette, Échap, toucher ailleurs = refermer
+  let veil3 = null;
+  function read3d(on) {
+    if (!on) { if (!reading) return; reading = false; g3.close(); veil3?.classList.remove('on'); removeEventListener('keydown', esc3); return; }
+    if (reading) return;
+    reading = true; count('alt/lire');
+    if (!veil3) {
+      veil3 = document.createElement('div'); veil3.className = 'ex-veil3';
+      (document.getElementById('offre') || document.body).appendChild(veil3);
+      let sx = null, sy = 0, st = 0;
+      const tap = (x, y) => { if (g3.cardOpen) { g3.zoom(null); return; } const w = g3.hitWhat(x, y); if (w) g3.zoom(w); else read3d(false); };
+      const fin = (x, y) => {
+        if (sx == null) return; const dx = x - sx, dy = y - sy, quick = performance.now() - st < 900; sx = null;
+        if (Math.hypot(dx, dy) < 10) { tap(x, y); return; }
+        if (!quick) return;
+        if (Math.abs(dx) > 42 && Math.abs(dx) > 1.3 * Math.abs(dy)) { const d = dx < 0 ? 1 : -1; g3.toggleCard(false); g3.close(); setTimeout(() => { step(d); setTimeout(() => { if (reading) g3.open(); }, 520); }, 280); }
+        else if (Math.abs(dy) > 42) read3d(false);
+      };
+      veil3.addEventListener('touchstart', e => { const t = e.touches[0]; if (e.touches.length === 1) { sx = t.clientX; sy = t.clientY; st = performance.now(); } else sx = null; }, { passive: true });
+      veil3.addEventListener('touchmove', e => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+      veil3.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t) fin(t.clientX, t.clientY); if (e.cancelable) e.preventDefault(); });
+      veil3.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') { sx = e.clientX; sy = e.clientY; st = performance.now(); } });
+      veil3.addEventListener('pointerup', e => { if (e.pointerType === 'mouse') fin(e.clientX, e.clientY); });
+      veil3.addEventListener('wheel', e => { e.preventDefault(); if (Math.abs(e.deltaY) > 4) read3d(false); }, { passive: false });
+    }
+    const sf = { top: 52 + safe('top'), bot: 38 + safe('bottom') };
+    veil3.style.top = sf.top + 'px'; veil3.style.bottom = sf.bot + 'px';
+    void veil3.offsetWidth; veil3.classList.add('on');
+    addEventListener('keydown', esc3);
+    g3.open();
+  }
+  const esc3 = e => { if (e.key === 'Escape') read3d(false); else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { const d = e.key === 'ArrowRight' ? 1 : -1; g3.close(); setTimeout(() => { step(d); setTimeout(() => { if (reading) g3.open(); }, 520); }, 280); } };
   const safe = side => { const d = document.createElement('div'); d.style.cssText = `position:fixed;width:1px;height:env(safe-area-inset-${side});visibility:hidden`; document.body.appendChild(d); const v = d.offsetHeight || 0; d.remove(); return v; };
   // le doigt / la souris
   let x0 = null, y0 = 0, t0 = 0, horiz = null, moved = false;
-  const start = (x, y) => { x0 = x; y0 = y; t0 = performance.now(); horiz = null; moved = false; };
+  const start = (x, y) => { x0 = x; y0 = y; t0 = performance.now(); horiz = null; moved = false; lastDy = 0; };
+  let lastDy = 0;
   const move = (x, y) => {
     if (x0 == null) return;
-    const dx = x - x0, dy = y - y0;
+    const dx = x - x0, dy = y - y0; lastDy = dy;
     if (Math.hypot(dx, dy) > 8) moved = true;                    // (12/10) bougé : jamais un toucher (défiler n'ouvre plus le poème)
     if (horiz == null && Math.hypot(dx, dy) > 8) horiz = Math.abs(dx) > Math.abs(dy);
     if (horiz) { off = Math.max(-1.2, Math.min(1.2, dx / (w * 0.86))); place(false); }
@@ -177,6 +214,8 @@ export function mountExemples(host) {
       else { off = 0; place(true); }
       return;
     }
+    // (12/10, Maxence) glisser vers le haut = ouvrir le poème du milieu
+    if (horiz === false && g3 && lastDy < -40 && performance.now() - t0 < 900) { read(true); return true; }
     if (moved || performance.now() - t0 > 600) return;
     // un toucher : sur un voisin, il vient au milieu ; sur celui du milieu, on lit (ou on revient à la feuille entière)
     const slot = slots.find(s => s.f.contains(target));
@@ -200,6 +239,13 @@ export function mountExemples(host) {
   addEventListener('keydown', e => { if (reading || !host.isConnected || !host.getBoundingClientRect().top || host.getBoundingClientRect().top > innerHeight * 0.6) return; if (e.key === 'ArrowLeft') step(-1); else if (e.key === 'ArrowRight') step(1); });
   addEventListener('resize', layout);
   assign(); layout();
+  // (12/10, Maxence) les feuilles en direct, dans la lumière du site (exemples3d.js) ; l'image reste dessous, pour la mise
+  // en page et sans WebGL2
+  let g3 = null;
+  if (!ACROSTICHES.length) import('./exemples3d.js').then(m => m.mountSheets3d({ root: document.getElementById('offre') || document.body, slots, exemples: EXEMPLES, safe, watch: ringEl, scroller: document.getElementById('offre') || window, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches }))
+    .then(r => { if (!r) return; g3 = r; window.__ex3 = r; ringEl.classList.add('live3d'); for (const s of slots) s.o.style.transform = ''; }).catch(e => console.warn('exemples 3D', e));
+  // la molette vers le bas sur le défilé, la page déjà au bout : ouvrir
+  ringEl.addEventListener('wheel', e => { const r = document.getElementById('offre'); if (g3 && !reading && e.deltaY > 30 && r && r.scrollTop + r.clientHeight >= r.scrollHeight - 4) read(true); }, { passive: true });
   live();
   return { step, read };
   // ---- (12/10, Maxence : « bien faire réagir ces feuilles à l'environnement ») chaque feuille est un objet posé dans la
@@ -224,6 +270,7 @@ export function mountExemples(host) {
       const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
       const k = Math.min(1, dt * 2.2); tilt.x += (tilt.tx - tilt.x) * k; tilt.y += (tilt.ty - tilt.y) * k;
       const t = now / 1000;
+      if (g3) { raf = 0; return; }
       for (const s of slots) {
         const ph = s.k * 1.9;
         const bx = 0.6 * Math.sin(t * 0.47 + ph) + 0.4 * Math.sin(t * 1.07 + ph * 1.3), by = 0.6 * Math.sin(t * 0.39 + ph * 0.7) + 0.4 * Math.sin(t * 0.93 + ph);
