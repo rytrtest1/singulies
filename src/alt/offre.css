@@ -292,3 +292,13 @@
 .mc-jeu-t { font: min(13px, 3.45vw)/1.55 'SG Machine', 'Courier New', monospace; color: #cfcac1; }
 .mc-share { width: 44px; height: 44px; padding: 0; border: 0; background: none; color: #ece8e0; opacity: .62; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .mc-share:hover, .mc-share:focus-visible { opacity: .9; outline: none; }
+
+/* (12/10, Maxence) l'invitation à descendre sous RECEVOIR et le prix : le fil où coule la lueur, le nom de la section
+   suivante dessous ; le bandeau reste en bas, il l'annonce aussi plus loin dans la page */
+.of-bar .of-down { order: 9; position: static; display: block; width: auto; min-width: 44px; height: auto; margin: 4px auto 0; padding: 2px 14px 4px;
+  opacity: 0; pointer-events: none; transition: opacity 1s; animation: none; }
+.of-bar .of-down.on { opacity: .62; pointer-events: auto; }
+.of-bar .of-down.on:hover, .of-bar .of-down.on:focus-visible { opacity: .9; outline: none; }
+.of-bar .of-down.none { opacity: 0; pointer-events: none; }
+.of-bar .of-scroll { height: 18px; }
+.of-bar .of-down-l { margin-top: 4px; }

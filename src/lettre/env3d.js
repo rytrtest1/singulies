@@ -2,8 +2,8 @@
 // la même grammaire que la vitrine du poème — l'objet raconte, étape par étape, ce qu'on reçoit (Maxence 12/10) :
 //   0 « reçois un poème exclusif aux membres » : la feuille, le poème tapé (un poème au hasard : poemes.js)
 //   1 « accompagné de mes pensées pendant la création » : la feuille se retourne — au dos, la lettre
-//   2 « le tout dans une enveloppe scellée à la cire » : l'enveloppe (A5, le dos sans rabat du bas) monte du bas, la
-//     feuille pivote et s'y glisse, l'enveloppe remonte à sa place, le rabat se ferme, la cire, le cachet
+//   2 « le tout dans une enveloppe scellée à la cire » : l'enveloppe (C5, le dos sans rabat du bas) monte du bas, la
+//     feuille (A5 couchée) s'y glisse, l'enveloppe remonte à sa place, le rabat se ferme, la cire, le cachet
 //   3 « une personne tirée au sort reçoit l'original » : d'autres enveloppes montent derrière elle (les membres) ; elles
 //     se mélangent (la nôtre sort d'un côté et passe derrière), puis une, du milieu, sort de l'autre côté et vient devant
 // Une horloge à elle (vt, s) : chaque étape se joue à son rythme quand on y va (points, glissé, molette), se rembobine
@@ -19,15 +19,17 @@ import { stageLamp } from '../livres/book3d.js';
 import { stageView, MM } from '../app/stage.js';
 import { POEMES, PENSEES } from './poemes.js';
 
-// (12/10, Maxence) une enveloppe A5 (210 × 148 mm), dans le monde commun (à l'échelle de la feuille A4 du poème, sur
-// son horizon) ; le cachet à sa taille classique (27 mm) : en proportion plus grand ici que sur l'enveloppe de la feuille
-export const ENV_MM = { w: 210, h: 148 };
-const EK = ENV_MM.w / ENV.w * MM;                 // la forme de l'enveloppe (229 × 162) ramenée à l'A5, en unités
+// (12/10, Maxence : « c'est en A5, mais pas en portrait ») la feuille est une A5 couchée (210 × 148 mm), et l'enveloppe
+// celle qui la contient, une C5 (229 × 162 mm), toutes deux à leur vraie taille dans le monde commun (à l'échelle de la
+// feuille A4 du poème, sur son horizon) ; le cachet à sa taille classique (27 mm)
+export const ENV_MM = { w: 229, h: 162 };
+const EK = MM;                                    // la forme de l'enveloppe est en mm (229 × 162)
 const SEAL_K2 = MM / EK;                          // le cachet (27 mm réels) dans le repère de l'enveloppe
-const SK = 0.665;                                 // la feuille (la forme A4 de la feuille du poème) : elle tient dans l'enveloppe, 3 à 4 mm de jeu
-const SW = SHEET.w * SK, SHH = SHEET.h * SK;      // la feuille, en unités (debout)
+const SK = MM;                                    // la feuille : la forme A5 couchée en mm (210 × 148)
+const A5 = { w: 210, h: 148 }, LOGO_A5 = A5.h / 2 - 16;
+const SW = A5.w * SK, SHH = A5.h * SK;            // la feuille, en unités (couchée)
 const EW = ENV.w * EK, EH = ENV.h * EK;           // l'enveloppe, en unités
-const Y_B = -SHH / 2;                             // le bas de l'objet (la feuille debout, l'enveloppe à sa place)
+const Y_B = -SHEET.h / 2;                         // le bas de l'objet : celui de la feuille du poème (la légende à la même place) — l'enveloppe à sa place y pose son bas
 const EY = Y_B + EH / 2;                          // le centre de l'enveloppe à sa place
 const PX = 8;                                     // px par unité de l'encre de la feuille
 const T = (x, y, z) => M4.model(0, 0, 0, x, y, z);
@@ -45,10 +47,10 @@ const K = LKEYS, NE = 5;                          // NE : les enveloppes du tira
 
 // l'encre d'une face de la feuille : des lignes tapées, le bloc centré (largeur, hauteur), à partir de yTop (unités)
 function inkFace(lines, seed, { lead = 9, top = null } = {}) {
-  const cv = new OffscreenCanvas(Math.round(SHEET.w * PX), Math.round(SHEET.h * PX)), cx = cv.getContext('2d');
+  const cv = new OffscreenCanvas(Math.round(A5.w * PX), Math.round(A5.h * PX)), cx = cv.getContext('2d');
   cx.fillStyle = '#000'; cx.fillRect(0, 0, cv.width, cv.height);
-  const long = Math.max(...lines.map(l => l.length)) * TYPE.pitch, k = Math.min(1, (SHEET.w - 34) / long);
-  const h = (lines.length - 1) * lead * k, y0 = top != null ? top : SHEET.h / 2 - h / 2 + 4, x0 = (SHEET.w - long * k) / 2;
+  const long = Math.max(...lines.map(l => l.length)) * TYPE.pitch, k = Math.min(1, (A5.w - 44) / long);
+  const h = (lines.length - 1) * lead * k, y0 = top != null ? top : A5.h / 2 - h / 2 + 6, x0 = (A5.w - long * k) / 2;
   typeLines(cx, PX * k, lines, x0 / k, y0 / k, lead, seed, 1, '#fff');
   return cv;
 }
@@ -59,7 +61,7 @@ export async function createEnvelope(gl, base = './') {
   card.addShape('env', { ...ENV, fine: null });
   card.addShape('envBack', { ...ENV, h: ENV_BACK_H, fine: null });
   card.addShape('flap', { ...ENV, h: FLAP_H, fine: null });
-  card.addShape('sheet', { ...SHEET, fine: [10, 10, 0.25, 0, LOGO_Y] });
+  card.addShape('sheetA5', { w: A5.w, h: A5.h, r: SHEET.r, t: SHEET.t, fine: [10, 10, 0.25, 0, LOGO_A5] });
   // le cachet : tiré une fois par visite (chaque cachet est différent), le logo droit
   let sd = (Math.random() * 1e9) >>> 0 || 11; const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
   rnd.range = (a, b) => a + (b - a) * rnd();
@@ -69,8 +71,8 @@ export async function createEnvelope(gl, base = './') {
   // la feuille : le poème (une face), la lettre (l'autre) — un poème au hasard à chaque visite
   const poem = POEMES[Math.floor(Math.random() * POEMES.length)] || { vers: [''] };
   const front = card.makeInk(inkFace(poem.vers.map(v => v.replace(/œ/g, 'oe').replace(/Œ/g, 'OE')), 5), false);
-  const back = card.makeInk(inkFace(PENSEES, 9, { lead: 8.4, top: 44 }), false);
-  const sheetV = { seed: 51, paperXf: [1.2, -0.6, 0, 0], warp: [0.3, -0.16, 0.04], logoOff: [0, LOGO_Y], logoScale: [LOGO_K, LOGO_K], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35 };
+  const back = card.makeInk(inkFace(PENSEES, 9, { lead: 7.4 }), false);
+  const sheetV = { seed: 51, paperXf: [1.2, -0.6, 0, 0], warp: [0.3, -0.16, 0.04], logoOff: [0, LOGO_A5], logoScale: [LOGO_K, LOGO_K], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35 };
   // les autres enveloppes du tirage : chacune un peu de biais, son papier
   const pile = Array.from({ length: NE }, (_, i) => ({ rz: i ? rnd.range(-0.035, 0.035) : 0, seed: 23 + i * 11, dx: i ? rnd.range(-3, 3) : 0 }));
   const L = { ...LOOK };
@@ -89,21 +91,23 @@ export async function createEnvelope(gl, base = './') {
 
   // ---- les places (unités du monde, l'objet centré en x) ----
   // l'enveloppe : elle monte du bas (un peu plus bas que sa place, la feuille s'y glisse), puis remonte
+  // (12/10) elle arrive de côté, à sa place (jamais plus bas : elle passerait sur la légende) ; la feuille monte au-dessus
+  // d'elle et s'y glisse
   function envPos(r2) {
-    const uin = easeOut(span(0, 1.5, r2)), up = ease(span(3.0, 4.0, r2));
-    return [0, lerp(EY - 30 - 260, EY - 30, uin) + 30 * up, -6 * (1 - uin)];
+    const uin = easeOut(span(0, 1.5, r2));
+    return [lerp(-260, 0, uin), EY, -6 * (1 - uin)];
   }
-  // la feuille : debout (le poème), retournée (la lettre), puis couchée au-dessus de l'enveloppe, et dedans
+  // la feuille (couchée, A5) : le poème, retournée (la lettre), puis au-dessus de l'enveloppe, et dedans
   function sheetM(r1, r2) {
     const fl = ease(span(0.05, 1.45, r1)), lift = 7 * Math.sin(Math.PI * fl);
     let M = M4.mul(T(0, 0, lift), M4.model(0, Math.PI * fl, 0));
     if (r2 > 0) {
-      const [ex, ey, ez] = envPos(r2), rot = ease(span(0.4, 1.8, r2)), sl = ease(span(1.8, 3.2, r2));
-      const zin = ez + 0.75 * EK, yA = ey + EH / 2 + SW / 2 + 4, yIn = ey - 1.5;
+      const rot = ease(span(0.3, 1.6, r2)), sl = ease(span(1.8, 3.2, r2));
+      const zin = 0.75 * EK, yA = EY + EH / 2 + SHH / 2 + 3, yIn = EY - 2;
       // (devant l'enveloppe tant qu'elle passe au-dessus d'elle ; dans la poche dès qu'elle y entre)
-      const x = lerp(0, ex, rot), y = lerp(lerp(0, yA, rot), yIn, sl);
+      const x = 0, y = lerp(lerp(0, yA, rot), yIn, sl);
       const z = lerp((zin + 3) * easeOut(span(0, 0.8, r2)), zin, ease(span(1.8, 2.0, r2)));
-      M = M4.mul(T(x, y, z), M4.mul(M4.model(0, 0, Math.PI / 2 * rot), M4.model(0, Math.PI, 0)));
+      M = M4.mul(T(x, y, z), M4.model(0, Math.PI, 0));
     }
     return M4.mul(M, S(SK));
   }
@@ -141,7 +145,7 @@ export async function createEnvelope(gl, base = './') {
     const R = M4.mul(M4.mul(T(0, EY, -1 + dz), M4.model(rx, ry, rz)), T(0, -EY, 0));
     const r1 = Math.min(vt, K[1]), r2 = vt - K[1], r3 = vt - K[2];
     // la feuille (jusqu'à ce que le rabat soit fermé : ensuite elle est dans l'enveloppe, invisible)
-    if (r2 < 4.8) card.draw(v.vp, v.eye, { ...P, inkWear: 0.5, inkThr: 0.28, inkVar: 0.22 }, { model: M4.mul(R, sheetM(r1, r2)), lod: 'sheet', inkBack: front, ink: back, ...sheetV });
+    if (r2 < 4.8) card.draw(v.vp, v.eye, { ...P, inkWear: 0.5, inkThr: 0.28, inkVar: 0.22 }, { model: M4.mul(R, sheetM(r1, r2)), lod: 'sheetA5', inkBack: front, ink: back, ...sheetV });
     if (r2 > 0) {
       const uFlap = ease(span(3.6, 4.7, r2)), bulge = ease(span(2.4, 3.4, r2)), uSe = span(4.7, 5.9, r2);
       const EP = envPieces(bulge, uFlap);

@@ -366,7 +366,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const CAP = `<div class="of-cap"><div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
         <p class="of-vit-t" aria-live="polite"></p>
         <div class="of-dots">${OBJETS.map((o, i) => `<button class="of-dot" type="button" data-k="${i}" aria-label="${esc(o.txt.replace(/\n/g, ' '))}"><i></i></button>`).join('')}</div>
-      </div><button class="of-down" type="button"><i class="of-scroll"></i><span class="of-down-l"></span></button></div>`;
+      </div></div>`;
   root.innerHTML = `
     <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
     <main>
@@ -380,6 +380,8 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     <div class="of-bar">
       <button class="of-go" type="button">RECEVOIR</button>
       <div class="of-price"><b>${esc(PRIX)}</b> tout compris</div>
+      <!-- (12/10, Maxence) l'invitation à descendre, APRÈS l'action : la fin de cette section, le nom de la suivante -->
+      <button class="of-down" type="button"><i class="of-scroll"></i><span class="of-down-l"></span></button>
     </div>`;
   document.body.appendChild(root);
   document.body.classList.add('of-open');
@@ -634,6 +636,6 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // (pour le bandeau des pages) l'objet de la page : la scène (ou la feuille dessinée) et sa description
   // (11/10) la description suit le doigt par son contenu, jamais par le bloc collant lui-même (.of-cap, sticky) : Safari
   // repositionne mal un élément collant qu'on a décalé puis remis — le texte restait décalé après un aller-retour
-  const stage = () => [sceneCv() || root.querySelector('.of-sheet'), root.querySelector('.of-cap .of-vit'), root.querySelector('.of-cap .of-down')];
+  const stage = () => [sceneCv() || root.querySelector('.of-sheet'), root.querySelector('.of-cap .of-vit')];
   return { root, shown, hide, stage, storyLen, get top() { return root.scrollTop; } };
 }

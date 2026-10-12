@@ -1,10 +1,11 @@
-// « Un poème par mois » (12/10) : les poèmes que la page montre, un au hasard à chaque visite. Pour l'instant, les
-// acrostiches des autres poèmes (src/alt/exemples.js) — Maxence donnera la liste des siens à montrer ici.
+// « Un poème par mois » (12/10) : les poèmes que la page montre, un au hasard à chaque visite — pour l'instant un poème
+// d'essai ; Maxence donnera la liste des siens à montrer ici.
 // Chaque poème : ses vers, tels qu'ils seront tapés ; PENSEES : la lettre au dos (ses pensées pendant la création) —
 // PROVISOIRE, à remplacer par un vrai texte d'Eternel.
-import { EXEMPLES } from '../alt/exemples.js';
-
-export const POEMES = EXEMPLES.map(ex => ({ vers: ex.vers.map(v => (v ? v[0] + v.slice(2) : '')) }));
+// (12/10, Maxence) un poème d'essai, en attendant la liste
+export const POEMES = [
+  { vers: ['seul face à mon miroir', 'je me suis trouvé beau', 'c’est grâce à ton regard :', 'il oublie mes défauts', 'ou, tes cils en pinceau,', 'en fait une œuvre d’art :', 'un crépuscule vital', 'un clair-obscur écho'] },
+];
 
 export const PENSEES = [
   'je l’ai commencé un soir,',
