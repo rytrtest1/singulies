@@ -49,6 +49,7 @@ const SHEET_ZOOM = (W, H) => (W < H ? 0.8 : 0.86);
 // suivent ; la feuille apparaît ensuite sous elles. Une dérive lente, en courbe douce, chaque lettre un peu après la
 // précédente ; elles rapetissent en route jusqu'à la taille de la colonne.
 const DRIFT_AT = 0.5, DRIFT_T = 2.4, DRIFT_GAP = 0.03;
+const SHEET_LEAD = 1.8;   // (12/10) s : la feuille commence à paraître avant que les lettres s'y posent
 const clamp01 = u => Math.min(1, Math.max(0, u));
 // (10/10) payé ici, page rechargée PENDANT la cérémonie : merci.html la reprend (la commande est gardée) — une seule fois,
 // et seulement dans les 20 minutes (Maxence 11/10 : après une réservation, alt.html renvoyait toujours vers merci.html)
@@ -264,6 +265,8 @@ function startTransition() {
   nextEl.classList.remove('on');
   if (!renderer) { validate(); return; }
   prefetchCards();
+  // (12/10, alt) la scène des cartes, déjà prête (préparée pendant qu'on écrivait), reçoit le prénom définitif
+  if (ALT && cards) cards.then(() => { if (cardsReady && cardsReady !== 'failed') cardsReady.setName?.(shown.toUpperCase()); });
 }
 // pendant la recharge : seulement le réseau (module, papier, logo, police machine), aucun travail GPU
 let cardsModule = null;
@@ -312,6 +315,7 @@ function enterScene() {
   S.phase = 'scene'; S.phaseAt = S.t;
   cancelAnimationFrame(rafId); rafId = 0;
   canvas.style.visibility = 'hidden';
+  if (cardsReady && cardsReady.canvas) cardsReady.canvas.style.mixBlendMode = '';   // (l'accueil caché : plus rien à mêler)
   // mémoire de l'accueil rendue plus tard, quand la première question est posée (pas pendant le retournement)
   setTimeout(() => { try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* */ } }, 6000);
   window.__sg.cards = cardsReady;
@@ -644,15 +648,23 @@ function frame(ts) {
     const drifting = DRIFT && Array.isArray(S.colT);
     if (drifting && S.driftT == null && T >= plan.tEnd * DRIFT_AT) S.driftT = S.t;
     const driftEnd = drifting && S.driftT != null ? S.driftT + DRIFT_GAP * (here.length - 1) + DRIFT_T : Infinity;
-    // la scène des cartes se prépare quand tout est arrivé et que rien ne bouge (les lettres posées, le champ éteint)
-    if (T >= plan.tEnd && (!drifting || S.t >= driftEnd)) loadCards(S.validatedName.toUpperCase());
+    // la scène des cartes se prépare quand tout est arrivé et que rien ne bouge (les lettres posées, le champ éteint) ;
+    // (alt) d'ordinaire elle est déjà prête (préparée pendant qu'on écrivait), sinon dès le début de la dérive
+    if (T >= plan.tEnd && (!drifting || S.t >= driftEnd || S.driftT != null)) loadCards(S.validatedName.toUpperCase());
+    // (12/10, Maxence : « on dirait que le site charge ») la feuille paraît PENDANT que le prénom dérive : la scène des
+    // cartes part SHEET_LEAD s avant l'arrivée, par-dessus l'accueil en mode « éclaircir » (max des deux images : le fond
+    // est le même noir, la feuille paraît sous les lettres qui dérivent) ; chaque lettre de la colonne n'y paraît qu'à
+    // l'instant où celle de l'accueil s'y pose
+    if (drifting && S.driftT != null && S.cStart == null && cardsReady && cardsReady !== 'failed' && S.t >= driftEnd - SHEET_LEAD) {
+      S.cStart = S.t;
+      const off = cardsReady.now() - S.t;
+      cardsReady.landAt?.(here.map((_, i) => S.driftT + DRIFT_GAP * i + DRIFT_T + off));
+      Object.assign(cardsReady.canvas.style, { transition: 'none', mixBlendMode: 'lighten', opacity: '1' });
+      cardsReady.start();
+    }
     if (drifting && S.handT == null && S.t >= driftEnd + 0.05) {
       if (cardsReady === 'failed') { S.trans = null; plan = null; validate(); return; }
-      // la scène part d'abord, invisible ; on ne passe la main qu'une fois la feuille là (sinon une image noire)
-      if (cardsReady) {
-        if (S.cStart == null) { S.cStart = S.t; cardsReady.start(); }
-        if (cardsReady.sheet && S.t - S.cStart > 0.12) handoff(true);
-      }
+      if (cardsReady && cardsReady.sheet && S.cStart != null && S.t - S.cStart > 0.12) handoff(true);
     }
     const restAt = plan.tEnd + (CFG.reduced ? 0.1 : ALT ? 0.15 : REST);
     if (!drifting && S.riseT == null && T >= restAt) {
@@ -736,6 +748,9 @@ function frame(ts) {
   // (10/10) pendant que l'onde avance : le fond allumé, les lettres encore à venir partiront une fois allumées ;
   // jamais moins de 2 s après le dernier geste (toucher, souris, molette, touche)
   if (canNext && S.t >= Math.max(light.flyAt(), S.confirmedAt + 0.5, S.actAt + 2)) startTransition();
+  // (12/10, alt) la scène des cartes se prépare pendant qu'on écrit, à la première pause (le seul instant lourd tombe là,
+  // pas pendant la dérive) : la feuille peut ainsi paraître sous les lettres qui y glissent
+  if (ALT && !cards && !CFG.reduced && S.phase === 'input' && S.typed && T < 0 && S.t - S.keyAt > 0.8 && finalName(model.text)) loadCards(finalName(model.text).toUpperCase());
   // (10/10) ordinateur : fini d'écrire sans Entrée → après IDLE_GO s sans frappe, la suite (comme « OK » sur téléphone)
   if (!TOUCH && !wheel && !voice && !S.rev && S.phase === 'input' && T < 0 && S.trans == null && S.typed && S.keyAt > S.phaseAt
     && finalName(model.text) && !bridge.composing && S.t - S.keyAt > IDLE_GO && S.t >= Math.max(light.flyAt(), S.actAt + 2)) startTransition();
@@ -1051,10 +1066,5 @@ if (ALT) {
   // venue par le fil (rechargement) : le champ entre du côté d'où l'on vient
   nav?.enter([canvas]);
   window.__nav = nav;   // (essais)
-}
-if (PAGE === 'jeu') {
-  const st = document.createElement('style'); st.textContent = '#jeu .jeu-back { display: none !important; }'; document.head.appendChild(st);
-  const jr = () => document.querySelector('#jeu');
-  installNav({ current: 'jeu', base: './', host: { stage: () => [jr()], all: () => [jr()] }, show: () => !!document.querySelector('#jeu.on'), side: () => false });
 }
 boot();

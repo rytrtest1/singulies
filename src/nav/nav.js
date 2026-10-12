@@ -2,7 +2,7 @@
 // est (UN PRENOM UN POEME), et de part et d'autre, reliés à lui par un fil cousu qui court d'un bord à l'autre de
 // l'écran, les noms des pages voisines (UN POEME PAR MOIS à gauche — sur téléphone on en lit « … PAR MOIS » au bord —,
 // MES LIVRES à droite) ; sur ordinateur, la place le permet : toutes les pages, les plus lointaines plus pâles encore.
-// En bas, SINGULIES, sur un second fil, d'un bord à l'autre, sur toutes les pages (le toucher : le jeu). Les deux fils
+// En bas, SINGULIES, sur un second fil, d'un bord à l'autre, sur toutes les pages (le toucher : me contacter). Les deux fils
 // respirent à peine (leur affaissement change très lentement, chaque bout à son rythme).
 // UNE SEULE PAGE : aller à une page voisine ne recharge rien. Les pages sont pensées dans un même espace, côte à côte :
 // l'objet du centre et ceux des côtés se décalent ensemble, de la même distance, à la même allure (celui de droite vient
@@ -11,14 +11,16 @@
 // dessus. Téléphone : leur bord ; toucher le bord gauche ou droit de l'écran = la page voisine (comme une story), ou
 // glisser l'objet (il suit le doigt, le voisin vient avec) ; une fois, l'objet esquisse le geste (à droite, puis à
 // gauche). Pages que le document ne sait pas monter (le poème, depuis lettre.html) : on y va en rechargeant.
-import { drawChevron, CHEV_GAP } from './chevron.js';
+// (12/10, Maxence) Plus de flèches : on touche un nom, ou on fait glisser le bandeau (il suit le doigt, le nom le plus
+// proche du centre à la fin du geste = la page) ; on change de page à tout moment, même pendant une transition (elle se
+// termine d'un coup). Le jeu n'est plus une page (il se découvre en répondant à la question du poème ; à la fin,
+// « pose une de mes questions à quelqu'un »).
 import { paintThread } from '../alt/stitch.js';
 import { count } from '../app/count.js';
 
 export const PAGES = [
   { id: 'poeme', label: 'UN PRENOM UN POEME', href: 'alt.html' },
   { id: 'livres', label: 'MES LIVRES', href: 'livres.html' },
-  { id: 'jeu', label: 'LE JEU', href: 'jeu.html' },
   { id: 'lettre', label: 'UN POEME PAR MOIS', href: 'lettre.html' },
 ];
 const K_NAV = 'sg.nav', K_REVEAL = 'sg.nav.reveal';
@@ -27,7 +29,7 @@ const mod = (i, n) => ((i % n) + n) % n;
 const ring = i => PAGES[mod(i, PAGES.length)];
 const idx = id => PAGES.findIndex(p => p.id === id);
 // les pages que le document sait monter lui-même (src/nav/pages.js)
-const MOUNTABLE = { lettre: 1, livres: 1, jeu: 1 };
+const MOUNTABLE = { lettre: 1, livres: 1 };
 const SPAN = [-3, -2, -1, 0, 1, 2, 3];   // les noms posés sur le fil (les plus lointains : ordinateur, et pendant que le fil coulisse)
 const EASE = 'cubic-bezier(.45,.05,.25,1)', DUR = 720;
 const PAD = 1600;                         // le fil dépasse le bandeau de chaque côté (il court d'un bord à l'autre)
@@ -38,23 +40,24 @@ const CSS = `
 /* (12/10) le fil et les flèches : un seul dessin, fixe à l'écran, refait à chaque image quand il bouge (nav.js) */
 .nv-tc { position: absolute; left: 0; bottom: 0; height: 44px; pointer-events: none; }
 .nv.on { opacity: 1; }
-.nv-in { position: absolute; left: 0; right: 0; bottom: 0; height: 44px; overflow: hidden;
+.nv-in { position: absolute; left: 0; right: 0; bottom: 0; height: 44px; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
   -webkit-mask-image: linear-gradient(to right, transparent var(--nv-a, 0px), #000 calc(var(--nv-a, 0px) + var(--nv-m, 22%)), #000 calc(100% - var(--nv-a, 0px) - var(--nv-m, 22%)), transparent calc(100% - var(--nv-a, 0px)));
   mask-image: linear-gradient(to right, transparent var(--nv-a, 0px), #000 calc(var(--nv-a, 0px) + var(--nv-m, 22%)), #000 calc(100% - var(--nv-a, 0px) - var(--nv-m, 22%)), transparent calc(100% - var(--nv-a, 0px))); }
-/* (12/10) avec les flèches : les noms s'effacent avant elles (jamais une flèche sur un nom) */
-.nv.ar { --nv-a: 40px; }
+/* (12/10) le bandeau se fait glisser au doigt / à la souris */
+.nv.on .nv-in { pointer-events: auto; cursor: grab; }
+.nv.on.drag .nv-in, .nv.on.drag .nv-l { cursor: grabbing; }
 .nv-track { position: absolute; left: 50%; top: 0; height: 44px; display: flex; align-items: center; gap: var(--nv-gap, 34px); white-space: nowrap;
   will-change: transform; }
 .nv-l { position: relative; z-index: 1; display: block; margin: 0; padding: 14px 0; border: 0; background: none; cursor: pointer; text-decoration: none;
   font: 500 var(--nv-fs, 12px)/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; margin-right: -.3em; color: #ece8e0; opacity: .4;
-  transition: opacity .6s; -webkit-tap-highlight-color: transparent; }
+  transition: opacity .6s; -webkit-tap-highlight-color: transparent; -webkit-user-drag: none; }
 .nv-l.cur { opacity: .9; cursor: default; }
 .nv-l.far { opacity: 0; pointer-events: none !important; }
-.nv.wide .nv-l.far.d2 { opacity: .2; pointer-events: auto !important; }
+.nv.wide.many .nv-l.far.d2 { opacity: .2; pointer-events: auto !important; }
 .nv.solo .nv-l:not(.cur) { opacity: 0; pointer-events: none !important; }
 .nv.on .nv-l { pointer-events: auto; }
 .nv-l:not(.cur):hover, .nv-l:not(.cur):focus-visible { opacity: .75 !important; outline: none; }
-/* en bas : SINGULIES, sur son fil, d'un bord à l'autre (le toucher : le jeu) */
+/* en bas : SINGULIES, sur son fil, d'un bord à l'autre (le toucher : me contacter) */
 .nv-foot { position: fixed; z-index: 26; left: 0; right: 0; bottom: 0; height: calc(34px + env(safe-area-inset-bottom)); pointer-events: none;
   opacity: 0; transition: opacity .7s ease; }
 .nv-foot.on { opacity: 1; }
@@ -69,14 +72,6 @@ const CSS = `
 .nv-shade.t { top: 0; height: calc(104px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 52%, rgba(6,6,6,0)); }
 .nv-shade.b { bottom: 0; height: calc(96px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 0, #060606 48%, rgba(6,6,6,0)); }
 .nv-shade.on { opacity: 1; }
-/* (12/10, Maxence) les flèches, aux deux bouts du bandeau (le bout du fil, en pointe : chevron.js) : ici, seulement leur
-   zone de toucher */
-.nv-nd { position: absolute; bottom: 0; width: 48px; height: 44px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer;
-  pointer-events: none; -webkit-tap-highlight-color: transparent; }
-.nv-nd.l { left: 0; } .nv-nd.r { right: 0; }
-.nv.on .nv-nd.in { pointer-events: auto; }
-.nv-nd:focus-visible { outline: none; }
-
 `;
 
 // opts : { current (id de la page du document), base, host : la page du document { stage() (l'objet : il suit le doigt),
@@ -119,21 +114,16 @@ export function installNav(opts) {
     items = SPAN.map(d => {
       const p = ring(cur + d), a = document.createElement('a');
       a.className = 'nv-l' + (d === 0 ? ' cur' : Math.abs(d) > 1 ? ' far d' + Math.abs(d) : ''); a.textContent = p.label; a.href = url(p);
+      a.draggable = false;
       if (d === 0) a.setAttribute('aria-current', 'page');
-      a.addEventListener('click', e => { e.preventDefault(); if (d) go(d); });
+      // (par son nom, pas par son rang : un toucher pendant une transition vise la page qu'on voit)
+      a.addEventListener('click', e => { e.preventDefault(); if (swallow) { swallow = false; return; } stopReveal(); goTo(p.id); });
       track.appendChild(a);
       return a;
     });
   }
-  // les flèches : leur zone de toucher (le dessin est fait avec le fil)
-  const ndBtn = d => {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'nv-nd ' + (d < 0 ? 'l' : 'r');
-    b.setAttribute('aria-label', d < 0 ? 'page précédente' : 'page suivante');
-    b.addEventListener('click', () => { stopReveal(); go(d); });
-    root.appendChild(b);
-    return b;
-  };
-  const ndEl = { '-1': ndBtn(-1), 1: ndBtn(1) };
+  let swallow = false;                       // un glissé ne se termine pas en toucher sur un nom
+  root.classList.toggle('many', PAGES.length > 3);
   document.body.append(shadeT, shadeB, root, foot);
   build();
 
@@ -144,11 +134,10 @@ export function installNav(opts) {
   const clamp01 = u => Math.min(1, Math.max(0, u));
   const ez = u => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
 
-  // ---- (12/10, Maxence : « qu'on voie le fil bouger pour déplacer le menu ») le fil, les noms et les flèches (le bout du
-  //      fil en pointe) sont menés ensemble, image par image. Toucher une flèche : un petit coup vers son bord, le fil
-  //      coulisse (sa torsion défile : elle est attachée à la matière, stitch.js g0) et les noms arrivent de son côté ;
-  //      les noms en tête du mouvement partent les premiers (le fil s'étire derrière eux, toujours tiré, jamais poussé) ;
-  //      chaque bout de fil se tend quand il s'allonge vraiment et se détend avec un rebond (un ressort par bout). ----
+  // ---- (12/10, Maxence : « qu'on voie le fil bouger pour déplacer le menu ») le fil et les noms sont menés ensemble,
+  //      image par image. Changer de page : le fil coulisse (sa torsion défile : elle est attachée à la matière,
+  //      stitch.js g0) ; les noms en tête du mouvement partent les premiers (le fil s'étire derrière eux, toujours tiré,
+  //      jamais poussé) ; chaque bout de fil se tend quand il s'allonge vraiment et se détend avec un rebond. ----
   const LAG = 45;                            // retard d'un nom au suivant (ms)
   let X = 0, slide = null;                   // X : le décalage du bandeau ; slide : { x0 [par nom], x1, t0, dur, dir }
   // le premier à bouger : le nom en tête du mouvement (dir > 0 : les noms vont vers la gauche, le plus à gauche d'abord)
@@ -172,22 +161,6 @@ export function installNav(opts) {
     slide = { x0, x1: x, t0: now, dur: DUR, dir: Math.sign(x - x0[C]) || 1 };
     X = x; wake();
   }
-  // les flèches : on (montrée), a (opacité, menée), pull { tp, tr } (le petit coup / le retour)
-  const ND = { '-1': { on: false, a: 0, pull: null }, 1: { on: false, a: 0, pull: null } };
-  function pull(side, on) {
-    const n = ND[side], now = performance.now();
-    if (on) n.pull = { tp: now, tr: null };
-    else if (n.pull && n.pull.tr == null) n.pull.tr = now;
-    wake();
-  }
-  // le petit coup de la flèche vers son bord (px) : franc, tenu, puis elle revient (léger dépassement)
-  const PULL = 4;
-  const pushP = (n, now) => {
-    const p = n.pull; if (!p) return 0;
-    if (p.tr == null) return PULL * ez(clamp01((now - p.tp) / 200));
-    const q = clamp01((now - p.tr) / 520), held = PULL * ez(clamp01((p.tr - p.tp) / 200));
-    return held * (1 - ez(q)) - 1.3 * Math.sin(Math.PI * q) * (1 - q);
-  };
   // la tension : chaque bout de fil a un ressort (s : son mou, 1 = au repos) qui suit son allongement réel — tendu quand
   // il s'allonge, plus mou s'il raccourcit, et qui revient en rebondissant (amorti à moitié)
   const springs = {};
@@ -227,23 +200,15 @@ export function installNav(opts) {
       const y = boxes[C].y + 0.5, solo = root.classList.contains('solo');
       const xs = items.map((_, i) => nameX(i, now));
       const sl = i => W / 2 + boxes[i].l - xs[i], sr = i => W / 2 + boxes[i].r - xs[i];
-      // les flèches : leur pointe (au repos à CHEV_GAP du bord ; elles arrivent en glissant du bord) — le fil y finit
-      const nd = {};
-      for (const sd of [-1, 1]) {
-        const n = ND[sd], tip = sd > 0 ? W - CHEV_GAP : CHEV_GAP, arr = sd * (1 - n.a) * 8;
-        const px = tip + sd * pushP(n, now) + arr;
-        nd[sd] = { tip: [px, y], a: n.a, rest: tip + arr };
-        nd[sd].eye = nd[sd].tip;
-      }
       // les noms cousus : tous ceux qu'on voit, même en partie (le fil ne passe jamais sur des lettres : il plonge dans
-      // le trou avant le nom) ; un nom qui s'étend jusque sous la flèche : le fil plonge là où ses lettres paraissent
-      const A = root.classList.contains('ar') ? 40 : 0;
+      // le trou avant le nom) ; le fil court jusqu'aux deux bords
+      const A = 0;
       let P = solo ? [C] : items.map((_, i) => i).filter(i => sr(i) > A + 3 && sl(i) < W - A - 3);
       if (!P.length) P = [C];
-      const endL = nd[-1].a > 0.01 ? nd[-1].eye[0] : -4, endR = nd[1].a > 0.01 ? nd[1].eye[0] : W + 4;
+      const endL = -4, endR = W + 4;
       const holeL = Math.max(sl(P[0]) - 7, Math.min(endL + 8, A + 2)), holeR = Math.min(sr(P[P.length - 1]) + 7, Math.max(endR - 8, W - A - 2));
-      // (au repos : les noms tous au même décalage X, les flèches à leur place — l'allongement se mesure par rapport à ça)
-      const r0L = (nd[-1].a > 0.01 ? nd[-1].rest : -4), r0R = (nd[1].a > 0.01 ? nd[1].rest : W + 4);
+      // (au repos : les noms tous au même décalage X — l'allongement se mesure par rapport à ça)
+      const r0L = -4, r0R = W + 4;
       const segs = [];
       segs.push({ a: endL, b: holeL, holes: [false, true], g0: endL + xs[P[0]] - W / 2, seed: 11 + P[0] * 7, key: 'L',
         L0: Math.max(W / 2 + boxes[P[0]].l - X - 7, Math.min(r0L + 8, A + 2)) - r0L });
@@ -258,15 +223,6 @@ export function installNav(opts) {
         const sag = (reduced ? 0.45 : breath(j, t) * Math.min(1.6, L / 40)) * slackSpring(g.key, L - g.L0, dtS);
         paintThread(x, g.a, g.b, y, g.seed, 1.25, { holes: g.holes, sag, sag2: reduced ? 0 : 0.18 * Math.sin(t * 0.57 + j * 2.3), g0: g.g0 });
       });
-      // au-delà des flèches qui paraissent : le fil jusqu'au bord, qui s'efface
-      for (const sd of [-1, 1]) {
-        const a = nd[sd].a; if (a <= 0.01 || a >= 0.99) continue;
-        x.save(); x.globalAlpha = 1 - a;
-        if (sd > 0) paintThread(x, nd[1].eye[0], W + 4, y, 91, 1.25, { holes: [false, false], sag: 0.3 });
-        else paintThread(x, -4, nd[-1].eye[0], y, 97, 1.25, { holes: [false, false], sag: 0.3 });
-        x.restore();
-      }
-      for (const sd of [-1, 1]) drawChevron(x, nd[sd].tip, sd, nd[sd].a);
     }
     { const d = dpr(), x = fcv.getContext('2d'), fw = fcv.width / d, r = fsp.getBoundingClientRect(), y = 17;
       x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, fw, 34);
@@ -278,28 +234,21 @@ export function installNav(opts) {
     }
   }
   const paintNow = () => paint(performance.now());
-  // la boucle : vive quand quelque chose bouge (le fil qui coulisse, une flèche qui paraît), ≈ 25 images/s sinon
-  let raf = 0, lastP = 0, lastF = 0;
-  const lively = () => !!slide || ND[-1].pull || ND[1].pull || settling() || Math.abs(ND[-1].a - ndTarget(-1)) > 0.005 || Math.abs(ND[1].a - ndTarget(1)) > 0.005;
+  // la boucle : vive quand quelque chose bouge (le fil qui coulisse, qu'on fait glisser), ≈ 25 images/s sinon
+  let raf = 0, lastP = 0;
+  const lively = () => !!slide || !!drag || settling();
   const loop = now => {
     raf = 0;
     if (!(shown || footOn) || document.hidden) return;
-    const dt = Math.min(0.1, (now - (lastF || now)) / 1000); lastF = now;
-    for (const sd of [-1, 1]) {
-      const n = ND[sd], tg = ndTarget(sd);
-      n.a = reduced ? tg : n.a + (tg - n.a) * Math.min(1, dt * 3.2);
-      if (n.pull && n.pull.tr != null && now - n.pull.tr > 1400) n.pull = null;
-      ndEl[sd].classList.toggle('in', tg > 0.5);
-    }
     const live = lively();
     if (live || now - lastP > 40) { lastP = now; paint(now); }
     if (reduced && !live) return;
     raf = requestAnimationFrame(loop);
   };
   const wake = () => { if (!raf) raf = requestAnimationFrame(loop); };
-  const ndTarget = sd => (ND[sd].on && !root.classList.contains('solo') ? 1 : 0);
 
   let shown = false, footOn = false, busy = false, wandered = !!arrived;
+  let drag = null, revealDone = false, revealing = false, rvT = [];
   const atHome = () => cur === home;
   const pgOf = id => pages[id] || {};
   const objC = () => { const pg = pgOf(ring(cur).id), c = (pg.center && pg.center()) || (atHome() && opts.center && opts.center()) || null; return c || { y: innerHeight * 0.45, h: innerHeight * 0.5 }; };
@@ -315,15 +264,15 @@ export function installNav(opts) {
     if (busy) return;
     const pg = pgOf(ring(cur).id);
     const on = atHome() ? !!opts.show?.() : true;
-    const solo = on && atHome() && !!opts.solo?.();
+    const solo = on && atHome() && !drag && !!opts.solo?.();   // (en glissant, les voisins paraissent)
     const f = atHome() ? !!opts.foot?.() : pg.foot !== false;
     const sh = atHome() ? !!opts.shade?.() : !!pg.foot;
     if (on !== shown) { shown = on; root.classList.toggle('on', on); if (on) layout(); }
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
     root.classList.toggle('solo', solo);
-    if (on && !arrowsOn && !revealing) {
-      if (!atHome() || !opts.ready) showArrows();
-      else if (opts.ready()) { let done = false; try { done = !!sessionStorage.getItem(K_REVEAL); } catch { /* */ } if (done || reduced || (opts.quiet && !opts.quiet())) showArrows(); else reveal(); }
+    if (on && !revealDone && !revealing) {
+      if (!atHome() || !opts.ready) revealDone = true;
+      else if (opts.ready()) { let done = false; try { done = !!sessionStorage.getItem(K_REVEAL); } catch { /* */ } if (done || reduced || (opts.quiet && !opts.quiet())) revealDone = true; else reveal(); }
     }
     shadeT.classList.toggle('on', sh && on); shadeB.classList.toggle('on', sh && f);
     if (shown || footOn) wake();
@@ -341,9 +290,9 @@ export function installNav(opts) {
       .catch(e => { console.warn('page', id, e); delete loading[id]; return null; });
     return loading[id];
   }
-  // (préparées à un moment calme : la page voisine est déjà là quand on y va ; le jeu, lourd, seulement à la demande)
+  // (préparées à un moment calme : la page voisine est déjà là quand on y va)
   const idle = window.requestIdleCallback || (f => setTimeout(f, 300));
-  setTimeout(() => idle(() => { for (const d of [1, -1]) { const id = ring(cur + d).id; if (id !== 'jeu') ensure(id); } }), 7000);
+  setTimeout(() => idle(() => { for (const d of [1, -1]) ensure(ring(cur + d).id); }), 7000);
 
   const els = (pg, all) => ((all && pg.all ? pg.all() : pg.stage ? pg.stage() : []) || []).filter(Boolean);
   const T = `translate ${DUR}ms ${EASE}, scale ${DUR}ms ${EASE}, opacity ${Math.round(DUR * 0.8)}ms ease`;
@@ -367,10 +316,13 @@ export function installNav(opts) {
   // ---- aller à une page voisine (d : ±1, ±2, ±3) ----
   // (12/10) la page en cours glisse du côté d'où l'on part et s'efface ; la page d'arrivée entre de l'autre côté, en
   // fondu ; le fil du bandeau coulisse avec elles. Rien d'autre ne paraît à l'écran (plus d'aperçus).
+  // (12/10, Maxence : « changer de page même pendant une animation ») une transition en cours se termine d'un coup
+  // (fin()) et la suivante part de là ; pendant qu'une page se monte, la demande attend (pending)
+  let fin = null, pending = null;
   async function go(d, opt = {}) {
-    if (busy || !d) return;
+    if (!d) return;
+    if (busy) { if (fin) fin(); else { pending = { d, opt }; return; } }
     stopReveal();
-    if (arrowsOn) pull(Math.sign(d), true);
     const target = ring(cur + d), dir = Math.sign(d), fromId = ring(cur).id, from = pages[fromId] || {};
     count('nav/' + target.id);
     const inDoc = !!(pages[target.id] || MOUNTABLE[target.id]);
@@ -378,9 +330,8 @@ export function installNav(opts) {
     // la page d'arrivée est prête avant que rien ne bouge (montée maintenant si besoin)
     const pg = inDoc ? await ensure(target.id) : null;
     if (inDoc && !pg) { busy = false; location.href = url(target); return; }
-    // le fil coulisse : le nom suivant vient au centre (la flèche de ce côté)
+    // le fil coulisse : le nom suivant vient au centre
     if (centers[C + d] != null) setX(centers[C + d], true);
-    setTimeout(() => pull(dir, false), DUR * 0.75);
     items.forEach((a, i) => { const k = i - C - d; a.classList.toggle('cur', k === 0); a.classList.remove('far', 'd2', 'd3'); if (Math.abs(k) > 1) a.classList.add('far', 'd' + Math.min(3, Math.abs(k))); });
 
     // ---- ce qui part (un objet qui a suivi le doigt part d'où il est) ----
@@ -411,15 +362,22 @@ export function installNav(opts) {
     for (const el of inRest) fadeTo(el, 1, 520, inObj.length ? 260 : 120);
 
     if (!opt.pop) try { history.pushState({ sgPage: target.id }, '', STANDALONE ? location.href : url(target)); } catch { /* */ }
-    setTimeout(() => {
+    // la fin : à son heure, ou d'un coup si l'on va déjà ailleurs (tout se pose à sa place, le bandeau sur son nom)
+    let timer = 0;
+    const done = () => {
+      if (fin !== done) return;
+      fin = null; clearTimeout(timer);
       for (const el of outLayer) { el.style.visibility = 'hidden'; }
       for (const el of [...outLayer, ...outObj, ...outRest, ...outDrag]) clearAll(el);
-      for (const el of inObj) { el.style.transition = 'none'; el.style.transformOrigin = ''; el.style.translate = ''; el.style.scale = ''; }
-      for (const el of inRest) { el.style.transition = ''; }
+      for (const el of inObj) { el.style.transition = 'none'; el.style.transformOrigin = ''; el.style.translate = ''; el.style.scale = ''; el.style.opacity = ''; }
+      for (const el of inRest) { el.style.transition = ''; el.style.opacity = ''; }
       if (from.transient) delete pages[fromId];
       build(); layout();
       busy = false; tick();
-    }, DUR + SPAN.length * LAG + 30);
+    };
+    fin = done;
+    timer = setTimeout(() => { done(); if (pending) { const q = pending; pending = null; go(q.d, q.opt); } }, DUR + SPAN.length * LAG + 30);
+    if (pending) { const q = pending; pending = null; go(q.d, q.opt); }
   }
   // aller à une page par son nom (le chemin le plus court sur la boucle)
   function goTo(id) { const t = idx(id); if (t < 0) return; let d = mod(t - cur, PAGES.length); if (d > PAGES.length / 2) d -= PAGES.length; if (d) go(d); }
@@ -431,13 +389,13 @@ export function installNav(opts) {
     let d = mod(t - cur, PAGES.length); if (d > PAGES.length / 2) d -= PAGES.length;
     go(d, { pop: true });
   });
-  // (ordinateur) ← → = la page voisine, comme glisser l'objet — sauf là où ← → parcourent une série visible (le
-  // défilé des autres poèmes, exemples.js) et sur le jeu (les questions) ; jamais pendant qu'on écrit
+  // (ordinateur) ← → = la page voisine — sauf là où ← → parcourent une série visible (le défilé des autres poèmes,
+  // exemples.js) ; jamais pendant qu'on écrit
   addEventListener('keydown', e => {
-    if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || busy || !shown) return;
+    if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || !shown) return;
     const a = document.activeElement;
     if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !a.readOnly && getComputedStyle(a).opacity !== '0') return;
-    if (ring(cur).id === 'jeu' || document.querySelector('.mn-ct')) return;
+    if (document.querySelector('.mn-ct')) return;
     const r = document.querySelector('.ex-ring')?.getBoundingClientRect();
     if (r && r.height && r.top < innerHeight * 0.6 && r.bottom > innerHeight * 0.4) return;
     go(e.key === 'ArrowRight' ? 1 : -1);
@@ -450,42 +408,81 @@ export function installNav(opts) {
     build(); layout(); tick();
   });
 
-  // ---- (12/10, Maxence) les pages : deux flèches, le bout du fil en pointe. Sur la page de la feuille (sur l'accueil,
-  //      le bandeau ne montre que UN PRENOM UN POEME), une fois par visite : la flèche de droite paraît, donne son petit
-  //      coup — le fil coulisse, les noms arrivent jusqu'à lire MES LIVRES en entier (la page ne bouge pas) —, le fil
-  //      revient ; puis celle de gauche (UN POEME PAR MOIS, tenu un peu plus). Le moindre geste arrête tout. ----
-  let arrowsOn = false, revealing = false, rvT = [];
-  function showArrows() { arrowsOn = true; root.classList.add('ar'); ND[-1].on = ND[1].on = true; wake(); }
+  // ---- (12/10, Maxence : « il faut pouvoir slide sur le menu du haut ») le bandeau suit le doigt (ou la souris tenue) ;
+  //      au lâcher, le nom le plus proche du centre (élan compris) = la page ; aucun : le fil revient. Au-delà des noms
+  //      posés, il résiste. Sur la page des prénoms (seulement UN PRENOM UN POEME), les voisins paraissent en glissant. ----
+  const rubber = r => 46 * (1 - Math.exp(-r / 110));
+  inner.addEventListener('pointerdown', e => {
+    if (!shown || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    stopReveal();
+    if (busy && fin) fin();
+    if (busy) return;                                   // (une page se monte : un instant)
+    const now = performance.now(), x0 = nameX(C, now);
+    slide = null; X = x0;
+    drag = { id: e.pointerId, x: e.clientX, X0: x0, moved: false, v: 0, lx: e.clientX, lt: now };
+  });
+  addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x;
+    if (!drag.moved) {
+      if (Math.abs(dx) < 6) return;
+      drag.moved = true; root.classList.add('drag'); root.classList.remove('solo');
+      try { inner.setPointerCapture(drag.id); } catch { /* */ }
+    }
+    const now = performance.now(), dt = Math.max(1, now - drag.lt);
+    drag.v = 0.7 * drag.v + 0.3 * ((e.clientX - drag.lx) / dt); drag.lx = e.clientX; drag.lt = now;
+    const lo = centers[0], hi = centers[centers.length - 1];
+    let x = drag.X0 - dx;
+    if (x < lo) x = lo - rubber(lo - x); else if (x > hi) x = hi + rubber(x - hi);
+    X = x; wake();
+  }, { passive: true });
+  const endDrag = e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dd = drag; drag = null; root.classList.remove('drag');
+    if (!dd.moved) return;                              // un simple toucher : le nom touché fait le reste
+    swallow = true; setTimeout(() => { swallow = false; }, 80);
+    const still = performance.now() - dd.lt > 120 ? 0 : dd.v;
+    const proj = X - still * 200;                       // l'élan : où le bandeau irait
+    let best = C;
+    centers.forEach((c, i) => { if (Math.abs(c - proj) < Math.abs(centers[best] - proj)) best = i; });
+    const d = e.type === 'pointercancel' ? 0 : best - C;
+    if (d) go(d); else setX(centers[C], true);
+    tick();
+  };
+  addEventListener('pointerup', endDrag);
+  addEventListener('pointercancel', endDrag);
+
+  // ---- une fois par visite, sur la page de la feuille (sur l'accueil, le bandeau ne montre que UN PRENOM UN POEME) :
+  //      le fil coulisse tout seul jusqu'à lire MES LIVRES en entier (la page ne bouge pas), revient ; puis de l'autre
+  //      côté (UN POEME PAR MOIS, tenu un peu plus) — on comprend que le bandeau se fait glisser. Le moindre geste
+  //      arrête tout. ----
   function stopReveal() {
     if (!revealing) return;
     revealing = false; rvT.forEach(clearTimeout); rvT = [];
     removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true);
-    pull(-1, false); pull(1, false);
-    if (!busy) setX(centers[C], true);
-    showArrows();
+    if (!busy && !drag) setX(centers[C], true);
+    revealDone = true;
   }
   function reveal() {
-    revealing = true; root.classList.add('ar');
+    revealing = true;
     try { sessionStorage.setItem(K_REVEAL, '1'); } catch { /* */ }
     addEventListener('pointerdown', stopReveal, true); addEventListener('keydown', stopReveal, true);
     const at = (ms, f) => rvT.push(setTimeout(() => { if (revealing && !busy) f(); }, ms));
-    // jusqu'où glisser : le voisin lisible en entier, juste avant le fondu du bord (flèche + marge du masque)
+    // jusqu'où glisser : le voisin lisible en entier, juste avant le fondu du bord (marge du masque)
     const shift = d => {
-      const A = 40 + (mobile() ? 0.12 : 0.07) * innerWidth + 6, bx = boxes[C + d];
+      const A = (mobile() ? 0.12 : 0.07) * innerWidth + 6, bx = boxes[C + d];
       if (!bx) return 0;
       return d > 0 ? Math.max(0, bx.r - innerWidth / 2 + A - centers[C]) : Math.min(0, innerWidth / 2 + bx.l - A - centers[C]);
     };
-    // (d : la flèche ; le voisin de son côté vient se lire ; puis le fil revient)
+    // (d : le côté ; le voisin de ce côté vient se lire ; puis le fil revient)
     const side = (d, t0, hold) => {
-      at(t0, () => { ND[d].on = true; wake(); });
-      at(t0 + 1000, () => { pull(d, true); setX(centers[C] + shift(d), true); });
-      at(t0 + 1000 + DUR * 0.8, () => pull(d, false));
-      at(t0 + 1000 + DUR + hold, () => setX(centers[C], true));
+      at(t0 + 600, () => setX(centers[C] + shift(d), true));
+      at(t0 + 600 + DUR + hold, () => setX(centers[C], true));
     };
-    const T1 = 1000 + 2 * DUR + 1100 + 900;
+    const T1 = 600 + 2 * DUR + 1100 + 900;
     side(1, 0, 1100);
     side(-1, T1, 1600);
-    at(T1 + 1000 + 2 * DUR + 1600 + 400, () => { revealing = false; removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true); showArrows(); });
+    at(T1 + 600 + 2 * DUR + 1600 + 400, () => { revealing = false; removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true); revealDone = true; });
   }
 
   // ---- l'arrivée par rechargement : la page entre du côté d'où l'on vient ----

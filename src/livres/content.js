@@ -3,11 +3,11 @@
 import { count } from '../app/count.js';
 
 const HTML = `<main class="lt">
-  <div class="lt-env lt-book"><img src="BASElivres/livre.jpg" alt="Le livre Pensées poétiques, d’Eternel : une couverture noire, un cadre fin, le titre en capitales." width="1000" height="1300"></div>
-  <h1 class="lt-h">pensées poétiques</h1>
+  <div class="lt-env lt-book"><img src="BASElivres/livre.jpg" alt="Le livre PENSEES POETIQUES, d’Eternel : une couverture noire, un cadre fin, le titre en capitales." width="1000" height="1300"></div>
+  <h1 class="lt-h caps">PENSEES POETIQUES</h1>
   <p class="lt-sub">mon recueil</p>
   <div class="lt-txt">
-    <p>les poèmes que j’ai écrits, rassemblés dans un livre.</p>
+    <p>de l’ombre à la lumière, les pensées poétiques offrent une danse introspective entre âme et chair, rapport à soi et à l’autre, entre amour et trahison, amertume et reconnaissance…</p>
   </div>
   <a class="lt-go on lt-link" href="https://www.amazon.fr/dp/B0DS8RF83H" target="_blank" rel="noopener">LE LIRE</a>
   <p class="lt-note">sur amazon</p>

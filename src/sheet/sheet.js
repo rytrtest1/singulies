@@ -203,7 +203,11 @@ export function createSheetScene(gl, opts) {
   const EC_Y = SY - 156;                                    // l'enveloppe : sa poche juste sous la feuille (pivotée)
   const flyers = [];
   const PLACED = !!opts.placed;   // (11/10) alt : les lettres sont venues de l'accueil directement à leur place dans la colonne
-  { let k = 0; chars.forEach((ch, i) => { if (ch === ' ' || (!starts[i] && !PLACED)) return; flyers.push({ i, ch, at: PLACED ? 0.35 + k * 0.11 : FLY_AT + k * FLY_GAP + rnd.range(-0.05, 0.06), dur: PLACED ? 0.01 : FLY_T * rnd.range(0.92, 1.1), side: rnd.range(24, 34), lift: rnd.range(6, 12), g0: from.glow[i] ?? 0.9, k: 0.8 + 0.2 * rnd(), dec: 1.4 + 1.2 * rnd() }); k++; }); }
+  // (12/10) la feuille paraît pendant que le prénom dérive vers elle : chaque lettre de la colonne ne paraît qu'à l'instant
+  // où celle de l'accueil s'y pose ({ at: [instants], now } dans l'horloge de la scène)
+  const LAND = PLACED && opts.landAt && opts.landAt.at && opts.landAt.at.length ? opts.landAt : null;
+  const LAND_K = (opts.fast || 1) * 1.45 / ((+(new URLSearchParams(location.search).get('lent') || 1)) || 1);   // secondes → τ (SPEED, FAST, ?lent)
+  { let k = 0; chars.forEach((ch, i) => { if (ch === ' ' || (!starts[i] && !PLACED)) return; flyers.push({ i, ch, at: PLACED ? (LAND ? Math.max(0, (LAND.at[k] ?? LAND.at[LAND.at.length - 1] ?? 0) - LAND.now) * LAND_K : 0.35 + k * 0.11) : FLY_AT + k * FLY_GAP + rnd.range(-0.05, 0.06), dur: PLACED ? 0.01 : FLY_T * rnd.range(0.92, 1.1), side: rnd.range(24, 34), lift: rnd.range(6, 12), g0: from.glow[i] ?? 0.9, k: 0.8 + 0.2 * rnd(), dec: 1.4 + 1.2 * rnd() }); k++; }); }
   const landAll = flyers.length ? Math.max(...flyers.map(f => f.at + f.dur)) : FLY_AT;
   const READ_AT = landAll + 0.9, READ_GAP = 0.2;            // la lumière parcourt la colonne
   const CURSOR_AT = READ_AT + flyers.length * READ_GAP * 0.6 + 0.4;
@@ -627,6 +631,7 @@ export function createSheetScene(gl, opts) {
     const zL = lerp(1.0, 0.18, uR);                           // dans la poche : presque à plat sur la feuille
     for (const f of flyers) {
       if (hideInside) break;
+      if (LAND && tu < f.at) continue;
       const u = reduced ? (tu > f.at ? 1 : 0) : clamp01((tu - f.at) / f.dur);
       const end = M4.mul(Msheet, M4.mul(T(letX(f.ch), baseOf(f.i), SHEET.t / 2 + zL), S(emT)));
       const start = starts[f.i] ? M4.mul(starts[f.i], S(from.em)) : end;

@@ -24,20 +24,5 @@ export async function mountPage(id, { base = './', reduced = false, nav }) {
       center: () => { const r = obj.getBoundingClientRect(); return r.height ? { y: r.top + r.height / 2, h: r.height } : null; },
       back: () => { host.scrollTop = 0; } };
   }
-  if (id === 'jeu') {
-    // la scène du jeu (sa propre flèche retour est masquée : le bandeau la remplace) ; démontée une fois quittée
-    if (!document.getElementById('nv-jeu')) { const st = document.createElement('style'); st.id = 'nv-jeu'; st.textContent = '#jeu .jeu-back { display: none !important; } #jeu { z-index: 24; }'; document.head.appendChild(st); }
-    const { mountJeu } = await import('../jeu/jeu.js');
-    let gone = false;
-    const j = await mountJeu({ base, reduced, onBack: () => { if (!gone) nav.home(); } });
-    if (!j) return null;
-    j.root.style.visibility = 'hidden';
-    // (11/10) pas de glissé de page sur le jeu : glisser la question = une autre question (on change de page par le
-    // bandeau, ← → n'y changent pas de page non plus)
-    const jc = () => ({ y: innerHeight * 0.42, h: Math.min(innerWidth * 0.8, 420) * 52 / 87 });
-    return { stage: () => [j.root], all: () => [j.root], obj: () => [j.root], rest: () => [], objRect: () => { const c = jc(); return { cy: c.y, h: c.h }; }, foot: false, side: () => false, transient: true,
-      center: jc,
-      leave: () => { gone = true; setTimeout(() => j.leave(), 650); } };
-  }
   return null;
 }

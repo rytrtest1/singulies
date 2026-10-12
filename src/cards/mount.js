@@ -77,7 +77,8 @@ const CSS = `
 // opts : { name, base, seed, look, canvas?, onEnd(detail), onExit?() (retour depuis le paquet), log?(s), shot?,
 //          sheet? (défaut : oui ; ?feuille=0 → l'ancienne fin, fondu au noir), onOrder?(detail) }
 export async function mountCards(opts) {
-  const { name, base = './', seed, look = {}, onEnd, onExit, log = () => {} } = opts;
+  const { base = './', seed, look = {}, onEnd, onExit, log = () => {} } = opts;
+  let name = opts.name;   // (12/10, alt) la scène peut être préparée avant que le prénom soit fini : api.setName
   const PAID = ['merci', 'pour'].includes(document.documentElement.dataset.page);   // (10/10) après le paiement : pas l'essai sans adresse
   const TEST = new URLSearchParams(location.search).get('test') !== '0' || (NOADDR && !PAID);   // (09/10 : par défaut pendant la phase de test ; ?test=0 pour l'enlever)
   const toSheet = opts.sheet ?? new URLSearchParams(location.search).get('feuille') !== '0';
@@ -138,8 +139,9 @@ export async function mountCards(opts) {
   }
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');
   const giveEl = el('div', 'sc-sign', '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
-  const passEl = el('div', 'sc-pass', 'PASSER<span class="sc-sub"></span>'); passEl.setAttribute('role', 'button'); passEl.setAttribute('aria-label', 'Passer : j’improvise à partir de ' + name);
-  passEl.querySelector('.sc-sub').textContent = '(j’improvise à partir de ' + name + ')';
+  const passEl = el('div', 'sc-pass', 'PASSER<span class="sc-sub"></span>'); passEl.setAttribute('role', 'button');
+  const namePass = () => { passEl.setAttribute('aria-label', 'Passer : j’improvise à partir de ' + name); passEl.querySelector('.sc-sub').textContent = '(j’improvise à partir de ' + name + ')'; };
+  namePass();
   // l'enveloppe : POSTER (même signe que PASSER), dès que l'adresse a deux lignes, même clavier ouvert
   const postEl = el('div', 'sc-pass', 'POSTER'); postEl.setAttribute('role', 'button'); postEl.tabIndex = 0;
   // pointerdown sans effet par défaut : le champ garde le focus, le clavier ne se ferme pas sous le doigt avant le clic
@@ -192,7 +194,7 @@ export async function mountCards(opts) {
   function openSheet() {
     answer.blur();
     sheet = createSheetScene(gl, { card: scene.renderer, nameR: scene.nameR, look: scene.look, from: scene.snapshot(), seed, reduced, hold: !!opts.hold && !paid,
-      fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, insetBottom: !paid ? opts.insetBottom : null, insetTop: !paid ? opts.insetTop : null, placed: !paid && !!opts.placed, sheetZoom: !paid ? opts.sheetZoom : null,
+      fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, insetBottom: !paid ? opts.insetBottom : null, insetTop: !paid ? opts.insetTop : null, placed: !paid && !!opts.placed, landAt: !paid && landAt ? { at: landAt, now: now() } : null, sheetZoom: !paid ? opts.sheetZoom : null,
       vitrine: !!opts.vitrine && !paid, base,
       // payé : l'adresse connue (panneau, portefeuille) se tape seule sur l'enveloppe ; sinon on l'y écrit, puis POSTER
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.'); },
@@ -433,7 +435,7 @@ export async function mountCards(opts) {
     sheet.back(t);
   }
 
-  let started = false;
+  let started = false, landAt = null;
   const api = { afterPay, scene, canvas, gl, now, started: () => started, frames: 0, start, nameTargets: (W, H) => scene.nameTargets(name, W, H),
     // (10/10, alt) la vitrine, jouée dans la scène de la feuille
     vitrine: { go: k => sheet?.vitrine?.go(k), jump: k => sheet?.vitrine?.jump(k), scrub: p => sheet?.vitrine?.scrub(p), state: () => sheet?.vitrine?.state() || null } };
@@ -441,6 +443,10 @@ export async function mountCards(opts) {
   // (11/10, alt) les lettres sont déjà dans la colonne (venues de l'accueil) : la scène des cartes ne dessine jamais le
   // prénom en haut, pas même un instant
   if (opts.placed && opts.sheetOnly) scene.hideName(true);
+  // (12/10, alt) préparée pendant qu'on écrit : le prénom définitif arrive au départ ; les lettres de la colonne
+  // paraissent quand celles de l'accueil s'y posent (landAt : instants de cette horloge, une par lettre)
+  api.setName = n => { name = n; scene.setName(n); namePass(); };
+  api.landAt = list => { landAt = list; };
   function start() {
     if (started) return; started = true;
     scene.start(now());

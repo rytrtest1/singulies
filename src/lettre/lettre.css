@@ -13,6 +13,7 @@ body { position: fixed; inset: 0; width: 100%; }
 .lt.on > :nth-child(4) { transition-delay: .6s; } .lt.on > :nth-child(n+5) { transition-delay: .8s; }
 .lt-env { display: block; width: min(86%, 420px); height: auto; margin: 0 auto 10px; }
 .lt-h { margin: 18px 0 0; font: 500 26px/1.2 'SG Garamond', Georgia, serif; letter-spacing: .04em; color: rgb(236, 236, 236); }
+.lt-h.caps { font-size: 19px; letter-spacing: .3em; margin-right: -.3em; line-height: 1.5; }   /* (12/10) un titre en capitales, sans accent : comme les signes du site */
 .lt-sub { margin: 6px 0 30px; font: 500 16px/1.4 'SG Garamond', Georgia, serif; color: rgba(255, 255, 255, .5); }
 .lt-txt p { margin: 0 auto 16px; max-width: 34ch; }
 .lt-price { color: rgb(236, 236, 236); }

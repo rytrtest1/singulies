@@ -5,6 +5,8 @@
 // Il respire comme le reste : le livre se balance à peine (deux sinus non synchronisés), la lampe tourne lentement
 // autour et monte / descend (comme sur les cartes, jamais du côté du regard). Le téléphone qu'on penche le fait
 // vraiment tourner (gyroscope : on voit la tranche, le dos, la lumière glisse) ; sur ordinateur, la souris.
+// (12/10, Maxence) On le prend : le doigt (ou la souris tenue) le fait tourner dans tous les sens, il continue sur son
+// élan, puis revient doucement de face.
 // À t = 0 tout est au repos : la même image que public/livres/livre.jpg (l'aperçu du bandeau ; tools/livre-shot.mjs).
 import { createCardRenderer, M4 } from '../cards/cardRenderer.js';
 import { LOOK } from '../cards/scene.js';
@@ -28,11 +30,12 @@ export async function createBook(gl, base = './') {
   const coverInk = card.makeInk(ink, false);
   const L = { ...LOOK };
 
-  // t (s) : le temps de la respiration (0 = repos) ; tilt : { x, y } ∈ [−1, 1] (le téléphone penché, la souris)
-  function frame(W, H, t = 0, tilt = { x: 0, y: 0 }) {
+  // t (s) : le temps de la respiration (0 = repos) ; tilt : { x, y } ∈ [−1, 1] (le téléphone penché, la souris) ;
+  // spin : { x, y } (rad) le livre tourné à la main
+  function frame(W, H, t = 0, tilt = { x: 0, y: 0 }, spin = { x: 0, y: 0 }) {
     // le livre : de face, droit ; il respire à peine (deux sinus) et tourne franchement quand on penche le téléphone
     const bx = 0.6 * Math.sin(t * 0.61) + 0.4 * Math.sin(t * 1.37), by = 0.6 * Math.sin(t * 0.47) + 0.4 * Math.sin(t * 1.13);
-    const rx = 0.03 * bx - 0.3 * tilt.y, ry = 0.04 * by + 0.42 * tilt.x, rz = 0.008 * Math.sin(t * 0.29);
+    const rx = 0.03 * bx - 0.3 * tilt.y + spin.x, ry = 0.04 * by + 0.42 * tilt.x + spin.y, rz = 0.008 * Math.sin(t * 0.29);
     const dz = 2.2 * Math.sin(t * 0.29);
     // cadrage : le livre entier, avec la marge qu'il lui faut pour tourner sans sortir
     const y0 = -BOOK.h / 2 - 14, y1 = BOOK.h / 2 + 14;
@@ -101,6 +104,47 @@ export async function mountBook(box, base = './', { reduced = false } = {}) {
   };
   addEventListener('touchend', ask, { passive: true });
   addEventListener('click', ask);
+  // le livre en main : glisser le fait tourner (horizontal : autour de son axe vertical, sans limite ; vertical : il
+  // bascule, ±0,55 rad) ; lâché, il garde son élan, puis revient de face (au tour le plus proche) après 2 s
+  const spin = { x: 0, y: 0, vx: 0, vy: 0, held: false, at: 0 };
+  let grab = null;
+  canvas.style.touchAction = 'none'; canvas.style.cursor = 'grab';
+  canvas.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    grab = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() };
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* */ }
+    spin.held = true; spin.vx = spin.vy = 0; canvas.style.cursor = 'grabbing'; go();
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!grab || e.pointerId !== grab.id) return;
+    const now = performance.now(), dt = Math.max(8, now - grab.t) / 1000, k = Math.PI / Math.max(220, box.clientWidth);
+    const dy = (e.clientX - grab.x) * k, dx = (e.clientY - grab.y) * k;
+    spin.y += dy; spin.x = Math.max(-0.55, Math.min(0.55, spin.x + dx));
+    spin.vy = 0.5 * spin.vy + 0.5 * dy / dt; spin.vx = 0.5 * spin.vx + 0.5 * dx / dt;
+    grab.x = e.clientX; grab.y = e.clientY; grab.t = now; spin.at = now;
+    go();
+  });
+  const letGo = e => {
+    if (!grab || e.pointerId !== grab.id) return;
+    if (performance.now() - grab.t > 90) spin.vx = spin.vy = 0;          // tenu immobile avant de lâcher : pas d'élan
+    grab = null; spin.held = false; spin.at = performance.now(); canvas.style.cursor = 'grab';
+    if (reduced) { spin.x = spin.y = spin.vx = spin.vy = 0; }
+    go();
+  };
+  canvas.addEventListener('pointerup', letGo);
+  canvas.addEventListener('pointercancel', letGo);
+  const stepSpin = (dt, now) => {
+    if (spin.held) return true;
+    const fr = Math.exp(-dt * 2.6);
+    spin.y += spin.vy * dt; spin.x = Math.max(-0.55, Math.min(0.55, spin.x + spin.vx * dt));
+    spin.vy *= fr; spin.vx *= fr;
+    if (now - spin.at > 2000 && Math.abs(spin.vy) < 0.4) {
+      const k = Math.min(1, dt * 1.8), ty = Math.round(spin.y / (2 * Math.PI)) * 2 * Math.PI;
+      spin.y += (ty - spin.y) * k; spin.x += (0 - spin.x) * k;
+      if (Math.abs(ty - spin.y) < 1e-3 && Math.abs(spin.x) < 1e-3) { spin.y = 0; spin.x = 0; }
+    }
+    return Math.abs(spin.y) > 1e-3 || Math.abs(spin.x) > 1e-3 || Math.abs(spin.vy) > 1e-3;
+  };
   const draw = now => {
     raf = 0;
     if (lost) return;
@@ -110,9 +154,10 @@ export async function mountBook(box, base = './', { reduced = false } = {}) {
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     const k = Math.min(1, dt * (tilt.gyro ? 7 : 1.6)); tilt.x += (tilt.tx - tilt.x) * k; tilt.y += (tilt.ty - tilt.y) * k;
-    book.frame(W, H, reduced ? 0 : (now - t0) / 1000, tilt);
+    const turning = stepSpin(dt, now);
+    book.frame(W, H, reduced ? 0 : (now - t0) / 1000, tilt, spin);
     if (!shown) { shown = true; canvas.classList.add('on'); if (DO && typeof DO.requestPermission !== 'function') ask(); }
-    if (!reduced && seen && !document.hidden) raf = requestAnimationFrame(draw);
+    if ((!reduced || turning) && seen && !document.hidden) raf = requestAnimationFrame(draw);
   };
   const go = () => { if (!raf && !lost) raf = requestAnimationFrame(draw); };
   new IntersectionObserver(es => { seen = es.some(e => e.isIntersecting); if (seen) go(); }).observe(box);
