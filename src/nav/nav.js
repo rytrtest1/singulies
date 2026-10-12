@@ -128,9 +128,9 @@ export function installNav(opts) {
   // les aiguilles : leur zone de toucher (le dessin est fait avec le fil)
   const ndBtn = d => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'nv-nd ' + (d < 0 ? 'l' : 'r');
-    // elle tire le fil vers elle : les noms viennent de son côté, celui d'en face arrive au centre
-    b.setAttribute('aria-label', d < 0 ? 'page suivante' : 'page précédente');
-    b.addEventListener('click', () => { stopReveal(); go(-d); });
+    // elle avance et coud la page de son côté : les noms arrivent de son côté
+    b.setAttribute('aria-label', d < 0 ? 'page précédente' : 'page suivante');
+    b.addEventListener('click', () => { stopReveal(); go(d); });
     root.appendChild(b);
     return b;
   };
@@ -145,18 +145,19 @@ export function installNav(opts) {
   const clamp01 = u => Math.min(1, Math.max(0, u));
   const ez = u => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
 
-  // ---- (12/10, Maxence : « qu'on voie le fil bouger pour déplacer le menu ») le fil, les noms et les aiguilles sont
-  //      menés ensemble, image par image. Une aiguille tire le fil VERS ELLE (une aiguille ne pousse pas un fil) : elle
-  //      part d'un coup de pointe vers le bord, le fil se tend en onde depuis elle (le mou de chaque bout disparaît l'un
-  //      après l'autre), sa torsion défile dans le chas (elle est attachée à la matière : stitch.js, g0), les noms la
-  //      suivent, le plus proche d'abord (le fil s'étire derrière) ; au relâché, le mou revient avec un petit rebond.
-  //      L'aiguille de gauche fait donc venir le nom de droite, et inversement. ----
+  // ---- (12/10, Maxence : « qu'on voie le fil bouger pour déplacer le menu » ; « toucher l'aiguille de droite doit aller à
+  //      droite ») le fil, les noms et les aiguilles sont menés ensemble, image par image. L'aiguille avance et coud la
+  //      page suivante : un coup de pointe vers son bord, le fil sort de son chas (sa torsion défile : elle est attachée à
+  //      la matière, stitch.js g0) et les noms arrivent de son côté. Pour que le fil soit toujours tiré, jamais poussé,
+  //      les noms en tête du mouvement partent les premiers (le fil s'étire derrière eux) ; chaque bout de fil se tend
+  //      quand il s'allonge vraiment et se détend avec un rebond (un ressort par bout). ----
   const LAG = 45;                            // retard d'un nom au suivant (ms)
-  let X = 0, slide = null;                   // X : le décalage du bandeau ; slide : { x0 [par nom], x1, t0, dur, side }
-  const rankOf = (i, side) => (side > 0 ? items.length - 1 - i : i);   // le premier à bouger : le plus près de l'aiguille
+  let X = 0, slide = null;                   // X : le décalage du bandeau ; slide : { x0 [par nom], x1, t0, dur, dir }
+  // le premier à bouger : le nom en tête du mouvement (dir > 0 : les noms vont vers la gauche, le plus à gauche d'abord)
+  const rankOf = (i, dir) => (dir > 0 ? i : items.length - 1 - i);
   const nameX = (i, now) => {
     if (!slide) return X;
-    const u = clamp01((now - slide.t0 - rankOf(i, slide.side) * LAG) / slide.dur);
+    const u = clamp01((now - slide.t0 - rankOf(i, slide.dir) * LAG) / slide.dur);
     return slide.x0[i] + (slide.x1 - slide.x0[i]) * ez(u);
   };
   function applyNames(now) {
@@ -166,11 +167,11 @@ export function installNav(opts) {
     items.forEach((a, i) => { const dx = xs[C] - xs[i]; a.style.translate = Math.abs(dx) > 0.01 ? `${dx.toFixed(2)}px 0` : ''; });
     if (slide && now - slide.t0 > slide.dur + items.length * LAG) slide = null;
   }
-  // side : l'aiguille qui tire (+1 droite : les noms vont vers la droite, le plus à droite d'abord)
-  function setX(x, anim, side = 0) {
+  function setX(x, anim) {
     const now = performance.now();
     if (!anim || reduced) { slide = null; X = x; applyNames(now); paintNow(); return; }
-    slide = { x0: items.map((_, i) => nameX(i, now)), x1: x, t0: now, dur: DUR, side: side || Math.sign(x - X) || 1 };
+    const x0 = items.map((_, i) => nameX(i, now));
+    slide = { x0, x1: x, t0: now, dur: DUR, dir: Math.sign(x - x0[C]) || 1 };
     X = x; wake();
   }
   // les aiguilles : ndOn (montrée), a (opacité, menée), pull { tp, tr } (tirer / relâcher)
@@ -181,7 +182,7 @@ export function installNav(opts) {
     else if (n.pull && n.pull.tr == null) n.pull.tr = now;
     wake();
   }
-  // le recul de l'aiguille vers le bord quand elle tire (px) : un coup franc, tenu, puis elle revient (léger dépassement)
+  // le coup de pointe de l'aiguille vers son bord (px) : franc, tenu, puis elle revient (léger dépassement)
   const PULL = 7;
   const needleP = (n, now) => {
     const p = n.pull; if (!p) return 0;
@@ -189,19 +190,18 @@ export function installNav(opts) {
     const q = clamp01((now - p.tr) / 520), held = PULL * ez(clamp01((p.tr - p.tp) / 200));
     return held * (1 - ez(q)) - 1.3 * Math.sin(Math.PI * q) * (1 - q);
   };
-  // la tension d'un bout du fil (rang depuis l'aiguille qui tire) et le rebond du mou au relâché
-  const slackOf = (rank, now) => {
-    let t = 0, b = 0;
-    for (const sd of [-1, 1]) {
-      const p = ND[sd].pull; if (!p) continue;
-      const r = rank[sd], on = clamp01((now - p.tp - r * LAG) / 160);
-      if (p.tr == null) { t = Math.max(t, on); continue; }
-      const dt = now - p.tr - r * LAG, off = clamp01(dt / 220);
-      t = Math.max(t, on * (1 - off));
-      if (dt > 0) b += 0.9 * Math.exp(-dt / 320) * Math.sin(dt / 300 * 2 * Math.PI);
-    }
-    return Math.max(0, 1 - 0.92 * t + b);
+  // la tension : chaque bout de fil a un ressort (s : son mou, 1 = au repos) qui suit son allongement réel — tendu quand
+  // il s'allonge, plus mou s'il raccourcit, et qui revient en rebondissant (amorti à moitié)
+  const springs = {};
+  let lastS = 0;
+  const slackSpring = (key, elong, dt) => {
+    const sp = springs[key] || (springs[key] = { s: 1, v: 0 });
+    const target = Math.min(1.8, Math.max(0.06, 1 - elong / 6));
+    if (reduced || !dt) { sp.s = target; sp.v = 0; return sp.s; }
+    sp.v += ((target - sp.s) * 260 - 16 * sp.v) * dt; sp.s += sp.v * dt;
+    return Math.max(0, sp.s);
   };
+  const settling = () => Object.values(springs).some(sp => Math.abs(sp.v) > 0.02);
   function layout() {
     root.classList.toggle('wide', !mobile());
     root.style.setProperty('--nv-fs', innerWidth < 520 ? '11px' : '12px');
@@ -225,7 +225,7 @@ export function installNav(opts) {
   const glintOf = (side, now) => { if (reduced) return -1; const T = side > 0 ? 9.7 : 11.3, ph = ((now / 1000 + (side > 0 ? 2.3 : 7.1)) % T) / 1.2; return ph <= 1 ? ph : -1; };
   function paint(now) {
     if (!boxes.length) return;
-    const t = now / 1000;
+    const t = now / 1000, dtS = lastS ? Math.min(0.05, (now - lastS) / 1000) : 0; lastS = now;
     applyNames(now);
     { const k = Math.min(dpr(), 2), x = tc.getContext('2d'), W = innerWidth; x.setTransform(k, 0, 0, k, 0, 0); x.clearRect(0, 0, W, 44);
       const y = boxes[C].y + 0.5, solo = root.classList.contains('solo');
@@ -234,9 +234,9 @@ export function installNav(opts) {
       // les aiguilles : leur pointe (au repos à NEEDLE_GAP du bord ; elles arrivent en glissant du bord)
       const nd = {};
       for (const sd of [-1, 1]) {
-        const n = ND[sd], tip = sd > 0 ? W - NEEDLE_GAP : NEEDLE_GAP;
-        const px = tip + sd * needleP(n, now) + sd * (1 - n.a) * 8;
-        nd[sd] = { tip: [px, y + 0.3], a: n.a };
+        const n = ND[sd], tip = sd > 0 ? W - NEEDLE_GAP : NEEDLE_GAP, arr = sd * (1 - n.a) * 8;
+        const px = tip + sd * needleP(n, now) + arr;
+        nd[sd] = { tip: [px, y + 0.3], a: n.a, rest: needleEye([tip + arr, y + 0.3], sd)[0] };
         nd[sd].eye = needleEye(nd[sd].tip, sd);
       }
       // les noms cousus : tous ceux qu'on voit, même en partie (le fil ne passe jamais sur des lettres : il plonge dans
@@ -246,16 +246,20 @@ export function installNav(opts) {
       if (!P.length) P = [C];
       const endL = nd[-1].a > 0.01 ? nd[-1].eye[0] : -4, endR = nd[1].a > 0.01 ? nd[1].eye[0] : W + 4;
       const holeL = Math.max(sl(P[0]) - 7, Math.min(endL + 8, A + 2)), holeR = Math.min(sr(P[P.length - 1]) + 7, Math.max(endR - 8, W - A - 2));
+      // (au repos : les noms tous au même décalage X, les aiguilles à leur place — l'allongement se mesure par rapport à ça)
+      const r0L = (nd[-1].a > 0.01 ? nd[-1].rest : -4), r0R = (nd[1].a > 0.01 ? nd[1].rest : W + 4);
       const segs = [];
-      segs.push({ a: endL, b: holeL, holes: [false, true], g0: endL + xs[P[0]] - W / 2, seed: 11 + P[0] * 7 });
-      for (let j = 0; j < P.length - 1; j++) segs.push({ a: sr(P[j]) + 7, b: sl(P[j + 1]) - 7, holes: [true, true], g0: boxes[P[j]].r + 7, seed: 18 + P[j] * 7 });
+      segs.push({ a: endL, b: holeL, holes: [false, true], g0: endL + xs[P[0]] - W / 2, seed: 11 + P[0] * 7, key: 'L',
+        L0: Math.max(W / 2 + boxes[P[0]].l - X - 7, Math.min(r0L + 8, A + 2)) - r0L });
+      for (let j = 0; j < P.length - 1; j++) segs.push({ a: sr(P[j]) + 7, b: sl(P[j + 1]) - 7, holes: [true, true], g0: boxes[P[j]].r + 7, seed: 18 + P[j] * 7, key: 'm' + P[j],
+        L0: boxes[P[j + 1]].l - boxes[P[j]].r - 14 });
       const pl = P[P.length - 1];
-      segs.push({ a: holeR, b: endR, holes: [true, false], g0: holeR + xs[pl] - W / 2, seed: 18 + pl * 7 });
-      const n = segs.length;
+      segs.push({ a: holeR, b: endR, holes: [true, false], g0: holeR + xs[pl] - W / 2, seed: 18 + pl * 7, key: 'R',
+        L0: r0R - Math.min(W / 2 + boxes[pl].r - X + 7, Math.max(r0R - 8, W - A - 2)) });
       segs.forEach((g, j) => {
         const L = g.b - g.a;
         if (L <= 6) return;
-        const sag = (reduced ? 0.45 : breath(j, t) * Math.min(1.6, L / 40)) * slackOf({ '-1': j, 1: n - 1 - j }, now);
+        const sag = (reduced ? 0.45 : breath(j, t) * Math.min(1.6, L / 40)) * slackSpring(g.key, L - g.L0, dtS);
         paintThread(x, g.a, g.b, y, g.seed, 1.25, { holes: g.holes, sag, sag2: reduced ? 0 : 0.18 * Math.sin(t * 0.57 + j * 2.3), g0: g.g0 });
       });
       // au-delà des aiguilles qui paraissent : le fil jusqu'au bord, qui s'efface
@@ -283,7 +287,7 @@ export function installNav(opts) {
   const paintNow = () => paint(performance.now());
   // la boucle : vive quand quelque chose bouge (le fil tiré, une aiguille qui paraît, un éclat), ≈ 25 images/s sinon
   let raf = 0, lastP = 0, lastF = 0;
-  const lively = now => !!slide || ND[-1].pull || ND[1].pull || Math.abs(ND[-1].a - ndTarget(-1)) > 0.005 || Math.abs(ND[1].a - ndTarget(1)) > 0.005
+  const lively = now => !!slide || ND[-1].pull || ND[1].pull || settling() || Math.abs(ND[-1].a - ndTarget(-1)) > 0.005 || Math.abs(ND[1].a - ndTarget(1)) > 0.005
     || (ND[-1].a > 0.5 && glintOf(-1, now) >= 0) || (ND[1].a > 0.5 && glintOf(1, now) >= 0);
   const loop = now => {
     raf = 0;
@@ -374,7 +378,7 @@ export function installNav(opts) {
   async function go(d, opt = {}) {
     if (busy || !d) return;
     stopReveal();
-    if (arrowsOn) pull(-Math.sign(d), true);
+    if (arrowsOn) pull(Math.sign(d), true);
     const target = ring(cur + d), dir = Math.sign(d), fromId = ring(cur).id, from = pages[fromId] || {};
     count('nav/' + target.id);
     const inDoc = !!(pages[target.id] || MOUNTABLE[target.id]);
@@ -382,9 +386,9 @@ export function installNav(opts) {
     // la page d'arrivée est prête avant que rien ne bouge (montée maintenant si besoin)
     const pg = inDoc ? await ensure(target.id) : null;
     if (inDoc && !pg) { busy = false; location.href = url(target); return; }
-    // le fil coulisse : le nom suivant vient au centre (tiré par l'aiguille d'en face)
-    if (centers[C + d] != null) setX(centers[C + d], true, -dir);
-    setTimeout(() => pull(-dir, false), DUR * 0.75);
+    // le fil coulisse : le nom suivant vient au centre (cousu par l'aiguille de ce côté)
+    if (centers[C + d] != null) setX(centers[C + d], true);
+    setTimeout(() => pull(dir, false), DUR * 0.75);
     items.forEach((a, i) => { const k = i - C - d; a.classList.toggle('cur', k === 0); a.classList.remove('far', 'd2', 'd3'); if (Math.abs(k) > 1) a.classList.add('far', 'd' + Math.min(3, Math.abs(k))); });
 
     // ---- ce qui part (un objet qui a suivi le doigt part d'où il est) ----
@@ -455,9 +459,9 @@ export function installNav(opts) {
   });
 
   // ---- (12/10, Maxence) les pages : deux aiguilles, couchées sur le fil. Sur la page de la feuille (sur l'accueil, le
-  //      bandeau ne montre que UN PRENOM UN POEME), une fois par visite : l'aiguille de gauche paraît, tire — le fil se
-  //      tend, coulisse, les noms viennent jusqu'à lire MES LIVRES en entier (la page ne bouge pas) —, relâche, le fil
-  //      revient ; puis celle de droite (UN POEME PAR MOIS, tenu un peu plus). Le moindre geste arrête tout. ----
+  //      bandeau ne montre que UN PRENOM UN POEME), une fois par visite : l'aiguille de droite paraît, coud — le fil sort
+  //      de son chas, les noms arrivent jusqu'à lire MES LIVRES en entier (la page ne bouge pas) —, le fil revient ; puis
+  //      celle de gauche (UN POEME PAR MOIS, tenu un peu plus). Le moindre geste arrête tout. ----
   let arrowsOn = false, revealing = false, rvT = [];
   function showArrows() { arrowsOn = true; root.classList.add('ar'); ND[-1].on = ND[1].on = true; wake(); }
   function stopReveal() {
@@ -479,16 +483,16 @@ export function installNav(opts) {
       if (!bx) return 0;
       return d > 0 ? Math.max(0, bx.r - innerWidth / 2 + A - centers[C]) : Math.min(0, innerWidth / 2 + bx.l - A - centers[C]);
     };
-    // (d : l'aiguille qui tire ; le voisin d'en face vient se lire ; puis le fil se détend et les noms reviennent)
+    // (d : l'aiguille qui coud ; le voisin de son côté vient se lire ; puis le fil revient)
     const side = (d, t0, hold) => {
       at(t0, () => { ND[d].on = true; wake(); });
-      at(t0 + 1000, () => { pull(d, true); setX(centers[C] + shift(-d), true, d); });
+      at(t0 + 1000, () => { pull(d, true); setX(centers[C] + shift(d), true); });
       at(t0 + 1000 + DUR * 0.8, () => pull(d, false));
-      at(t0 + 1000 + DUR + hold, () => setX(centers[C], true, -d));
+      at(t0 + 1000 + DUR + hold, () => setX(centers[C], true));
     };
     const T1 = 1000 + 2 * DUR + 1100 + 900;
-    side(-1, 0, 1100);
-    side(1, T1, 1600);
+    side(1, 0, 1100);
+    side(-1, T1, 1600);
     at(T1 + 1000 + 2 * DUR + 1600 + 400, () => { revealing = false; removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true); showArrows(); });
   }
 
