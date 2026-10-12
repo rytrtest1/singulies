@@ -135,7 +135,7 @@ float sealH1(vec2 p) {
 }
 // la pose (09/10) : uSealF.x 0 → 1 — la cire coule et s'étale en dôme liquide, puis le sceau (invisible) appuie : le
 // centre s'enfonce, la cire chassée part vers l'extérieur et monte en bourrelet ; 1 = le cachet fini
-float sealS() { float f = uSealF.x; return mix(mix(0.3, 0.8, smoothstep(0.0, 0.42, f)), 1.0, smoothstep(0.42, 0.8, f)); }
+float sealS() { float f = uSealF.x; return mix(mix(0.2, 0.8, smoothstep(0.0, 0.42, f)), 1.0, smoothstep(0.42, 0.8, f)); }
 float sealH(vec2 p) {
   float f = uSealF.x;
   if (f >= 1.0) return sealH1(p);
@@ -262,7 +262,7 @@ uniform vec4 uSeal, uAO, uSealP, uSealQ;
 uniform vec4 uSealV, uSealF;
 uniform vec4 uSealR;          // cire : épaisseur (mm) sous laquelle elle devient translucide (le bord étalé laisse voir le papier), diffusion de la lumière dans la cire (0–1), décentrage de l'empreinte (mm)
 ${SEAL_GLSL}
-uniform mat4 uOccInv; uniform float uOccExact;     // ombre exacte : repère de la carte qui fait de l'ombre (inclinée)
+uniform mat4 uOccInv; uniform float uOccExact; uniform vec3 uOccTri;   // (12/10) uOccTri.x > 0 : l'ombre d'un rabat (triangle : demi-largeur à la charnière, longueur) au lieu d'une carte     // ombre exacte : repère de la carte qui fait de l'ombre (inclinée)
 // projecteur de mise en valeur (carte active) : cône doux
 uniform vec3 uSpotPos, uSpotDir; uniform float uSpot, uSpotCosOut, uSpotCosIn;
 uniform float uLight, uLightR, uEnv, uAlbedo, uExposure;
@@ -383,8 +383,16 @@ float occShadow(vec3 L, float dist) {
     float c = cos(uOccRot), sn = sin(uOccRot);
     q = vec2(c * q.x + sn * q.y, -sn * q.x + c * q.y);
   }
-  vec2 e = abs(q) - (uOcc.zw - 3.0);
-  float d = length(max(e, 0.0)) + min(max(e.x, e.y), 0.0) - 3.0;     // distance au rectangle arrondi (mm)
+  float d;
+  if (uOccTri.x > 0.5) {
+    // le rabat : la charnière en bas du repère (y = −len/2, pleine largeur), la pointe en haut (y = +len/2)
+    float hw = uOccTri.y, ln = uOccTri.z;
+    vec2 nn = normalize(vec2(ln, hw));
+    d = max(-ln * 0.5 - q.y, dot(vec2(abs(q.x), q.y) - vec2(hw, -ln * 0.5), nn));
+  } else {
+    vec2 e = abs(q) - (uOcc.zw - 3.0);
+    d = length(max(e, 0.0)) + min(max(e.x, e.y), 0.0) - 3.0;     // distance au rectangle arrondi (mm)
+  }
   float pen = max(0.4, s * uLightR / dist);
   return 1.0 - 0.9 * (1.0 - smoothstep(-pen, pen, d));
 }
@@ -669,6 +677,18 @@ function rigidInv(m) {
   o[15] = 1;
   return o;
 }
+// inverse d'une transformation affine quelconque (rotation, échelle, translation) — colonnes (WebGL)
+function affInv(m) {
+  const a = m[0], b = m[1], c = m[2], d = m[4], e = m[5], f = m[6], g = m[8], h = m[9], i = m[10];
+  const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C || 1e-9;
+  const o = new Float32Array(16);
+  o[0] = A / det; o[4] = B / det; o[8] = C / det;
+  o[1] = -(b * i - c * h) / det; o[5] = (a * i - c * g) / det; o[9] = -(a * h - b * g) / det;
+  o[2] = (b * f - c * e) / det; o[6] = -(a * f - c * d) / det; o[10] = (a * e - b * d) / det;
+  for (let r = 0; r < 3; r++) o[12 + r] = -(o[r] * m[12] + o[4 + r] * m[13] + o[8 + r] * m[14]);
+  o[15] = 1;
+  return o;
+}
 function loadImage(url) {
   return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
 }
@@ -783,7 +803,8 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uSpot, params.spotI || 0); gl.uniform1f(u.uSpotCosOut, params.spotCosOut || 0.9); gl.uniform1f(u.uSpotCosIn, params.spotCosIn || 0.95);
     if (oc) { gl.uniform4f(u.uOcc, oc.x || 0, oc.y || 0, CARD.w / 2, CARD.h / 2); gl.uniform1f(u.uOccZ, oc.z || 0); gl.uniform1f(u.uOccRot, oc.rz || 0); }
     gl.uniform1f(u.uOccExact, oc && oc.m ? 1 : 0);
-    if (oc && oc.m) gl.uniformMatrix4fv(u.uOccInv, false, rigidInv(oc.m));
+    if (oc && oc.m) gl.uniformMatrix4fv(u.uOccInv, false, oc.k || oc.tri ? affInv(oc.m) : rigidInv(oc.m));
+    gl.uniform3fv(u.uOccTri, oc && oc.tri ? [1, oc.tri[0], oc.tri[1]] : [0, 0, 0]);
     gl.uniform3fv(u.uRoomUp, params.roomUp || [0, 0, 1]);
     for (const k of ['Light', 'LightR', 'Env', 'Albedo', 'Exposure', 'H', 'B', 'Crease', 'Fiber', 'Foot', 'FootW', 'Rough', 'Spec', 'Sheen', 'Glint', 'Edge', 'Grain', 'DiffRough', 'Parallax', 'EnvSpec', 'Toe', 'Metal', 'InkAlb', 'InkPress', 'InkWear', 'InkThr', 'InkVar', 'InkPaper', 'InkOrg']) gl.uniform1f(u['u' + k], params[k[0].toLowerCase() + k.slice(1)] ?? 0);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, paperTex); gl.uniform1i(u.uPaper, 0);

@@ -12,6 +12,9 @@ import { typeLines } from './typewriter.js';
 // s'écrase, puis elle bascule jusqu'à sa tranche (09/10 : le cachet vient du geste de la personne, plus avant).
 export const ENV = { w: 229, h: 162, r: 0.8, t: 0.12 };
 export const ENV_BACK_H = 155, FLAP_H = 78, ENV_Z = -3;
+// (12/10) le monde de la feuille : la feuille est une A4 (210 × 297 mm) dessinée à 148 × 210 unités — une carte, un
+// cachet (objets à leur taille réelle) y sont réduits de 1/√2 (SEAL_S, CARD_S) ; SEAL_OFF : son centre sous la pointe du rabat
+export const SEAL_S = Math.SQRT1_2, SEAL_OFF = 7 * Math.SQRT1_2;
 export const SEAL_D = 27, SEAL_K = 0.35, SEAL_IN = 8.8, SEAL_WOB = 0.055;   // cachet : diamètre (mm), logo ≈ 15 mm dans l'empreinte (rayon 10,2 : ≈ 75 % du cachet, d'après la référence du 09/10), bord à 5–6 lobes
 // le cachet : matière (argent sombre, satiné, grainé) et forme (réglées le 09/10 ; banc : cachet.html)
 export const SEAL_LOOK0 = { lightR: 150, metal: 0.4, albedo: 0.085, env: 0.065, rough: 0.38, spec: 2.0, sheen: 0.15, glint: 0.7, grain: 0.8, fiber: 0.012, envSpec: 1.2, h: 0.2, b: 0.28, foot: 0.65, footW: 0.12, crease: 0.08, edge: 0, diffRough: 0.4 };   // cire à pigment argenté (pas un métal) ; lightR : reflet d'une source moyenne
@@ -249,17 +252,21 @@ export const SEAL_PRESS0 = 0.42;
 export function sealForm(u, look, shape) {
   const ss = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const press = ss(0.5, 0.8, u), cool = ss(0.55, 1, u);
-  const L = { ...look, rough: look.rough + (0.12 - look.rough) * (1 - cool), spec: look.spec + (4 - look.spec) * (1 - cool),
-    env: look.env + (0.09 - look.env) * (1 - cool), h: look.h * press, crease: look.crease * press, grain: look.grain * cool, glint: look.glint * cool };
+  // (12/10, Maxence : « il apparaît noir puis progressivement argenté ») la cire liquide est déjà argentée : à peine plus
+  // brillante (un miroir parfait ne renvoyait que le noir de la pièce)
+  const L = { ...look, rough: look.rough + (0.26 - look.rough) * (1 - cool), spec: look.spec + (2.6 - look.spec) * (1 - cool),
+    env: look.env + (0.08 - look.env) * (1 - cool), h: look.h * press, crease: look.crease * press, grain: look.grain * cool, glint: look.glint * cool };
   return { form: u, look: L, ring: shape.ring * press, peau: shape.peau * cool, pits: shape.pits * cool, cavWall: shape.cavWall * press };
 }
 
+// (12/10, Maxence : « un trait sombre apparaît à mi-chemin et montre où il va atterrir ») l'ombre fine sous le bord du
+// rabat ne vient qu'au contact ; pendant qu'il se ferme, c'est sa vraie ombre portée (sheet.js : occ.tri)
 // l'enveloppe pleine (09/10) : un léger bombé (la feuille et la carte dedans ; bulge 0 → 1) et l'ombre fine sous le bord
 // des rabats (closed : le rabat du haut fermé, 0 → 1) — ce que chaque pièce reçoit (cardRenderer : uPillow, uTriA/B)
 export const ENV_BULGE = 1.2, FLAP_SH = 0.38, FOLD_W = 2.5;
 export function envPieces(bulge, closed) {
   const A = ENV_BULGE * bulge, c2 = closed * closed;
-  const flapTri = [FLAP_SH * c2, ENV.h / 2, ENV.h / 2 - FLAP_H, ENV.w / 2], botTri = [FLAP_SH, -ENV.h / 2, -ENV.h / 2 + ENV.h * 0.58, ENV.w / 2];
+  const cl = Math.max(0, Math.min(1, (closed - 0.94) / 0.06)), flapTri = [FLAP_SH * cl * cl * (3 - 2 * cl), ENV.h / 2, ENV.h / 2 - FLAP_H, ENV.w / 2], botTri = [FLAP_SH, -ENV.h / 2, -ENV.h / 2 + ENV.h * 0.58, ENV.w / 2];
   const sy = ENV.h / 2 - FLAP_H + 7, wSeal = 1 - (sy / (ENV.h / 2)) ** 2;
   return {
     front: { pillow: [A, 0, 1, -1] },

@@ -15,7 +15,8 @@
 // Tout est une fonction de l'horloge vt (s). sheet.js dessine la feuille, l'enveloppe et le cachet (ses horloges, sans
 // retournement ; l'enveloppe dans le repère de la feuille), la vitrine le reste.
 import { M4, CARD } from '../cards/cardRenderer.js';
-import { ENV, PO, FLAP_H } from '../sheet/envelope.js';
+import { ENV, PO, FLAP_H, SEAL_OFF } from '../sheet/envelope.js';
+const CARD_S = Math.SQRT1_2, CW = CARD.w * CARD_S, CH = CARD.h * CARD_S;   // (12/10) la feuille est une A4 : la carte à sa taille (sheet.js)
 import { createThread, pathLen } from './thread.js';
 
 const clamp01 = u => Math.min(1, Math.max(0, u));
@@ -73,9 +74,9 @@ export function createVitrine(o) {
 
   // ---- les places (repère de la feuille : son centre, mm) ----
   const BOT = -SHEET.h / 2;
-  // la carte question : à cheval sur le bas de la feuille ; puis elle remonte dessus (avant l'enveloppe)
-  const QY = Math.min(BOT + 8, (o.sigY ?? -60) - 6 - CARD.h / 2);
-  const QIN = BOT + CARD.h / 2 + 7;
+  // la carte question : (12/10, Maxence) posée entière sur le bas de la feuille — elle n'en dépasse jamais
+  const QY = BOT + CH / 2 + 9;
+  const QIN = QY;
   function questionRel() {
     const u = easeOut(span(0, 1.7, vt)), up = ease(span(0, 0.7, r2()));
     const y = lerp(lerp(BOT - 230, QY, u), QIN, up), x = lerp(vQ.jx * 2, 0, up);
@@ -83,13 +84,16 @@ export function createVitrine(o) {
   }
   // l'enveloppe : dressée, elle arrive de la gauche et avale la feuille ; puis elle tourne (autour de l'endroit du
   // cachet) en glissant jusqu'au centre, et se couche
-  const ENV_Z = -0.2, SEAL_L = (ENV.h / 2 - FLAP_H + 7) * ENV_K, PIV = [SEAL_L, 0];
+  const ENV_Z = -0.2, SEAL_L = (ENV.h / 2 - FLAP_H + SEAL_OFF) * ENV_K, PIV = [SEAL_L, 0];
+  // (12/10, Maxence : le bas de l'objet toujours à la même distance de la description) couchée, l'enveloppe a son bas
+  // sur celui de la feuille
+  const ENV_DY = BOT + ENV.h * ENV_K / 2;
   const landU = () => ease(span(1.9, 3.1, r2()));
   const rzOf = () => -Math.PI / 2 * (1 - landU());
   function envCenter() {
     const rz = rzOf(), us = ease(span(0.6, 1.8, r2())), u = landU();
     const cx = PIV[0] + SEAL_L * Math.sin(rz) - u * SEAL_L, cy = PIV[1] - SEAL_L * Math.cos(rz) + u * SEAL_L;   // centre = pivot − R(rz)·(0, SEAL_L), recentré
-    return [cx - (ENV.h * ENV_K + 40) * (1 - us), cy];
+    return [cx - (ENV.h * ENV_K + 40) * (1 - us), cy + ENV_DY * u];
   }
   function envRel() {
     const [cx, cy] = envCenter();
@@ -107,8 +111,8 @@ export function createVitrine(o) {
   };
 
   // ---- étape 3 : la carte mystère, sous le cachet, et le fil (repère de l'enveloppe sans son échelle : mm) ----
-  const SEAL_Y = ENV.h / 2 - FLAP_H + 7;                     // le cachet (sur la pointe du rabat)
-  const MY_Y = SEAL_Y - 15 - CARD.h / 2;                     // la carte : juste sous le cachet
+  const SEAL_Y = ENV.h / 2 - FLAP_H + SEAL_OFF;                     // le cachet (sur la pointe du rabat)
+  const MY_Y = SEAL_Y - 12 - CH / 2;                     // la carte : juste sous le cachet
   const BACK_Z = 1.6 + ENV.t / 2;                            // la surface du dos
   // le dos bombé (l'enveloppe pleine) : nul sur les bords, ≈ 1,2 mm au centre
   const bulgeAt = (x, y) => 1.2 * Math.max(0, 1 - (x / (ENV.w / 2)) ** 2) * Math.max(0, 1 - (y / (ENV.h / 2)) ** 2);
@@ -128,14 +132,14 @@ export function createVitrine(o) {
     const sg = side, pts = [], y = MY_Y + 0.4 * sg;
     // il sort du trou (d'abord sous la surface : il émerge)
     pts.push([-sg * HOLE_X, y, BACK_Z - 0.4], [-sg * HOLE_X, y, BACK_Z + 0.1]);
-    for (let i = 1; i <= 24; i++) { const x = -sg * HOLE_X + sg * (HOLE_X - CARD.w / 2 - 1.5) * i / 24; pts.push(onBack(x, y + 0.25 * Math.sin(i * 0.7 + side))); }
+    for (let i = 1; i <= 24; i++) { const x = -sg * HOLE_X + sg * (HOLE_X - CW / 2 - 1.5) * i / 24; pts.push(onBack(x, y + 0.25 * Math.sin(i * 0.7 + side))); }
     // il monte sur le bord de la carte
-    pts.push(onCard(-sg * (CARD.w / 2 + 0.5), y, -0.3), onCard(-sg * (CARD.w / 2 - 1.5), y));
-    for (let i = 1; i <= 12; i++) { const x = -sg * (CARD.w / 2 - 1.5) + sg * (CARD.w / 2 - 1.5 - 2.2) * i / 12; pts.push(onCard(x, y)); }
-    // le nœud : une boucle, puis le bout qui pend (un peu différent de chaque côté)
-    const lp = [[-1.2, 0.8], [-6, 5.6], [-12.5, 5.4], [-15, 1], [-11, -1.8], [-3, -1.2], [0.8, 0.3]];
-    for (const [a, b] of lp) pts.push(onCard(sg * a, y + b, 0.35));
-    const tail = side > 0 ? [[-1.8, -4], [-4.2, -10], [-6.6, -17]] : [[-1.2, -4.2], [-2.8, -11], [-4.2, -18.5]];
+    pts.push(onCard(-sg * (CW / 2 + 0.5), y, -0.3), onCard(-sg * (CW / 2 - 1.5), y));
+    for (let i = 1; i <= 12; i++) { const x = -sg * (CW / 2 - 1.5) + sg * (CW / 2 - 1.5 - 1.6) * i / 12; pts.push(onCard(x, y)); }
+    // le nœud : une boucle, puis le bout qui pend (un peu différent de chaque côté) — à la taille de la carte (A4)
+    const lp = [[-1.2, 0.8], [-6, 5.6], [-12.5, 5.4], [-15, 1], [-11, -1.8], [-3, -1.2], [0.8, 0.3]].map(([a, b]) => [a * CARD_S, b * CARD_S]);
+    for (const [a, b] of lp) pts.push(onCard(sg * a, y + b, 0.3));
+    const tail = (side > 0 ? [[-1.8, -4], [-4.2, -10], [-6.6, -17]] : [[-1.2, -4.2], [-2.8, -11], [-4.2, -18.5]]).map(([a, b]) => [a * CARD_S, b * CARD_S]);
     for (const [a, b] of tail) pts.push(onCard(sg * a, y + b, 0.2));
     return pts;
   }
@@ -159,21 +163,16 @@ export function createVitrine(o) {
     const lg = c => ({ cx: c.cx, cy: c.cy, lD: Math.log(c.D) });
     let c = lg(f.A), Hw = f.A.Hw;
     const need = ENV.w * ENV_K / 0.92 * H / W, kz = Math.max(1, need / (Hw || need)), u = vt > K[1] ? landU() : 0;
-    if (kz > 1 && u > 0) { const kk = 1 + (kz - 1) * u; c = { cx: c.cx, cy: SY + (f.A.cy - SY) * kk, lD: c.lD + Math.log(kk) }; Hw *= kk; }
+    // (12/10) la vue recule autour du bas de la feuille (le bas de l'enveloppe) : il reste à sa place à l'écran
+    const YB = SY + BOT;
+    if (kz > 1 && u > 0) { const kk = 1 + (kz - 1) * u; c = { cx: c.cx, cy: YB + (f.A.cy - YB) * kk, lD: c.lD + Math.log(kk) }; Hw *= kk; }
     // (12/10) la carte mystère arrive sans que la vue bouge : on reste où le cachet s'est posé
     const near = vt > K[2] ? 1 : ease(span(4.0, 4.9, r2()));
     if (near > 0) {
-      const [ins0, ins1] = o.insets ? o.insets() : [0, 0];
-      // (un peu plus près seulement : l'enveloppe garde toute sa largeur à l'écran)
-      const k2 = Math.min(1, Math.max(0.82, ENV.w * ENV_K / 0.97 * H / W / Hw)), Hw2 = Hw * k2, [, sy] = sealAt();
-      const yt = SY + ENV.h * ENV_K / 2 + 2, yb = SY - ENV.h * ENV_K / 2 - 2;
-      // (12/10, Maxence : « on garde toujours le même espace » entre l'objet et la description) le bas de l'enveloppe
-      // jamais plus bas que le bas de la feuille dans la vue de départ
-      const ysbA = H / 2 - (SY - SHEET.h / 2 - f.A.cy) * H / f.A.Hw;
-      const lo = yt - (H / 2 - ins0) * Hw2 / H, hi = Math.min(yb + (H / 2 - ins1) * Hw2 / H, yb + (ysbA - H / 2) * Hw2 / H);
-      let cy2 = SY + sy;
-      cy2 = lo <= hi ? Math.min(hi, Math.max(lo, cy2)) : (lo + hi) / 2;
-      c = { cx: lerp(c.cx, 0, near), cy: lerp(c.cy, cy2, near), lD: lerp(c.lD, c.lD + Math.log(k2), near) };
+      // un peu plus près du cachet, la vue resserrée autour du bas de l'enveloppe : son bas ne bouge pas à l'écran
+      // (Maxence 12/10 : toujours la même distance entre l'objet et la description), elle garde toute sa largeur
+      const k2 = Math.min(1, Math.max(0.86, ENV.w * ENV_K / 0.97 * H / W / Hw));
+      c = { cx: lerp(c.cx, 0, near), cy: lerp(c.cy, YB + (c.cy - YB) * k2, near), lD: lerp(c.lD, c.lD + Math.log(k2), near) };
     }
     return Number.isFinite(c.cx + c.cy + c.lD) ? c : null;
   }
@@ -188,23 +187,24 @@ export function createVitrine(o) {
     if (!on()) return { occ: null };
     let occ = null;
     // la carte question (elle suit la feuille, jusque dans l'enveloppe)
-    const Mq = M4.mul(Msheet, questionRel());
+    const Mq = M4.mul(M4.mul(Msheet, questionRel()), S(CARD_S));
     card.draw(vp, eye, P, { model: Mq, lod: 'fine', ...vQ });
-    if (vt > 1.5 && vt < K[1] + 1.85) occ = { m: Mq };
+    if (vt > 1.5 && vt < K[1] + 1.85) occ = { m: Mq, k: true };
     if (Menv && vt > K[2] + 0.2) {
       // (le repère de l'enveloppe sans son échelle : les mesures en mm)
       const Me = M4.mul(Menv, S(1 / ENV_K));
-      const Mf = M4.mul(Me, mysteryLocal());
+      const Mf = M4.mul(M4.mul(Me, mysteryLocal()), S(CARD_S));
       card.draw(vp, eye, P, { model: M4.mul(Mf, M4.model(0, Math.PI, 0)), lod: 'fine', ...vM, logoK: 1 });
       const g = span(1.35, 3.8, r3());
       if (g > 0) {
         const e = g < 0.5 ? 2 * g * g : 1 - Math.pow(-2 * g + 2, 2) / 2;
-        STR.forEach((pts, i) => thread.draw(vp, eye, P, pts.map(p => ap(Me, p)), 0.4, { upTo: STR_L[i] * e, pitch: 1.5 }));
+        STR.forEach((pts, i) => thread.draw(vp, eye, P, pts.map(p => ap(Me, p)), 0.55, { upTo: STR_L[i] * e, pitch: 1.5 }));
       }
     }
     return { occ };
   }
 
   function free() { thread.free(); }
-  return { on, update, go, jump, scrub, state: () => ({ vt, target, k, arrived: Math.abs(vt - target) < 1e-3, keys: VKEYS }), envState, sheetState, camera, focus, draw, free };
+  const seek = v => { scrubbing = false; vt = target = Math.max(0, Math.min(VKEYS[VKEYS.length - 1], v)); };   // (essais : un instant précis)
+  return { on, update, go, jump, scrub, seek, state: () => ({ vt, target, k, arrived: Math.abs(vt - target) < 1e-3, keys: VKEYS }), envState, sheetState, camera, focus, draw, free };
 }

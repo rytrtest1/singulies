@@ -438,7 +438,7 @@ export async function mountCards(opts) {
   let started = false, landAt = null;
   const api = { afterPay, scene, canvas, gl, now, started: () => started, frames: 0, start, nameTargets: (W, H) => scene.nameTargets(name, W, H),
     // (10/10, alt) la vitrine, jouée dans la scène de la feuille
-    vitrine: { go: k => sheet?.vitrine?.go(k), jump: k => sheet?.vitrine?.jump(k), scrub: p => sheet?.vitrine?.scrub(p), state: () => sheet?.vitrine?.state() || null } };
+    vitrine: { go: k => sheet?.vitrine?.go(k), jump: k => sheet?.vitrine?.jump(k), scrub: p => sheet?.vitrine?.scrub(p), seek: v => sheet?.vitrine?.seek(v), state: () => sheet?.vitrine?.state() || null } };
 
   // (11/10, alt) les lettres sont déjà dans la colonne (venues de l'accueil) : la scène des cartes ne dessine jamais le
   // prénom en haut, pas même un instant

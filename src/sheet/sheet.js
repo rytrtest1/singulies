@@ -20,7 +20,7 @@ import { createRng } from '../field/rng.js';
 import { releaseCanvas } from '../app/compat.js';
 import { handName } from '../text/accents.js';
 import {
-  ENV, ENV_BACK_H, FLAP_H, ENV_Z, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, SEAL_PRESS0, envPieces, E, ADDR, SENDER, senderCount, PO, STAMPED, MAIL_W, FIELDS, emailOk, telOk,
+  ENV, ENV_BACK_H, FLAP_H, ENV_Z, SEAL_S, SEAL_OFF, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, SEAL_PRESS0, envPieces, E, ADDR, SENDER, senderCount, PO, STAMPED, MAIL_W, FIELDS, emailOk, telOk,
   fieldsReady, fieldsOut, contactOk, cleanContact, fieldPos, senderInk, fieldsInk, contactCardInk,
 } from './envelope.js';
 import { typeLines } from './typewriter.js';
@@ -30,6 +30,10 @@ import { createThread } from '../vitrine/thread.js';
 export { ENV, FIELDS, MAIL_W, addressInk, fieldsInk } from './envelope.js';
 
 export const SHEET = { w: 148, h: 210, r: 0.6, t: 0.1 };
+// (12/10, Maxence : « la carte doit toujours être exactement proportionnelle à l'objet montré ») la feuille est une A4 :
+// 148 × 210 unités = 210 × 297 mm ; une carte (87 × 52 mm) y est réduite de 1/√2 (CARD_S), comme le cachet (SEAL_S)
+export const CARD_S = Math.SQRT1_2;
+const CW = CARD.w * CARD_S, CH = CARD.h * CARD_S;
 // liens de la commande : null = lien d'attente (« bientôt »)
 export const ORDER_LINKS = { poste: null, direct: null };
 const ORDERS = [{ id: 'poste', label: 'par la poste' }, { id: 'direct', label: 'en direct' }];
@@ -38,8 +42,7 @@ const FOV = 26 * Math.PI / 180, TILT = 0.22, TF = Math.tan(FOV / 2);
 export const LOGO_Y = SHEET.h / 2 - 21;                 // logo en tête de feuille (centre, mm)
 export const LOGO_K = 0.4;                              // ≈ 15 mm (le logo des cartes fait 38,5)
 export const COL_X = -SHEET.w / 2 + 34;                 // marge de la colonne (un bloc de poème centré sur la page)
-const C_OVER = 15;                               // la carte recouvre le bas de la feuille (mm)
-export const C_POSE = { x: 26, y: -SHEET.h / 2 + C_OVER - CARD.h / 2, rz: -0.07 };
+export const C_POSE = { x: 18, y: -SHEET.h / 2 + 9 + CH / 2, rz: -0.05 };   // (12/10) posée entière sur le bas de la feuille : elle n'en dépasse plus
 const O_GAP = 13;
 const O_X = 10;                                  // la commande descend en cascade depuis la carte, un peu à droite
 
@@ -51,7 +54,7 @@ const FLY_AT = 1.05, FLY_GAP = 0.27, FLY_T = 1.35;
 const CAM_T = 2.4;
 const C_IN = { x: 14, y: -56, rz: -0.03, z: 0.3 };                  // la carte, posée sur la feuille pour entrer
 const FD_IN = [1.6, 3.1];                        // (alt) la carte face cachée glisse sur la feuille
-const FD_Y = -SHEET.h / 2 + CARD.h / 2 + 10;     // … et s'y pose entière, sous le nom, centrée (10/10 : rien ne dépasse de la feuille)
+const FD_Y = -SHEET.h / 2 + CH / 2 + 10;     // … et s'y pose entière, sous le nom, centrée (10/10 : rien ne dépasse de la feuille)
 const ENVELOPE = new URLSearchParams(location.search).get('enveloppe') !== '0';   // ?enveloppe=0 : « bientôt » comme avant
 // 08/10 : plus de commande — l'acrostiche posé, on passe directement à l'enveloppe (?commande=1 : les deux cartes)
 const ORDERS_ON = new URLSearchParams(location.search).get('commande') === '1' || !ENVELOPE;
@@ -187,11 +190,11 @@ export function createSheetScene(gl, opts) {
   const nLines = chars.length;
   // (10/10) l'acrostiche toujours centré sur la feuille : entre le haut (sous le logo) et le bas — ou, quand la carte
   // face cachée est posée sur la feuille (alt), le haut de la carte ; l'interligne se resserre s'il le faut
-  const FD = !!(C && C.faceDown), colTop = SHEET.h / 2 - 32, colBot = FD ? FD_Y + CARD.h / 2 + 10 : -SHEET.h / 2 + 18;
-  const lead = nLines > 1 ? Math.min(10.5, 148 / (nLines - 1), FD ? (colTop - colBot - 6) / (nLines - 1) : Infinity) : 10.5;
+  const FD = !!(C && C.faceDown), colTop = SHEET.h / 2 - 32, colBot = C ? (FD ? FD_Y : C_POSE.y) + CH / 2 + 10 : -SHEET.h / 2 + 18;
+  const lead = nLines > 1 ? Math.min(10.5, 148 / (nLines - 1), C ? (colTop - colBot - 6) / (nLines - 1) : Infinity) : 10.5;
   const cap = Math.min(6.4, lead * 0.6), emT = cap / nameR.capHeight;
   // bloc un peu remonté quand la carte (réponse) recouvre le bas ; (alt) centré au-dessus de la carte posée sur la feuille
-  const yc = C ? (FD ? (colTop + colBot) / 2 + cap / 2 : -6) : 0;
+  const yc = C ? (colTop + colBot) / 2 + cap / 2 : 0;
   const baseOf = k => yc + ((nLines - 1) / 2 - k) * lead - cap / 2;
   // départ : la lettre telle que la scène des cartes l'a laissée (monde, à plat)
   const starts = [];
@@ -283,7 +286,7 @@ export function createSheetScene(gl, opts) {
     return { cx: f.cx, cy: f.cy + (top + He / 2 - H / 2) * Hw / H, D: Hw / (2 * TF), Hw };
   }
   function layout(W, H) {
-    const cBot = C && !C.faceDown ? C_POSE.y - CARD.h / 2 : -SHEET.h / 2;   // (alt) la carte est SUR la feuille : même cadrage
+    const cBot = -SHEET.h / 2;   // (12/10) la carte est toujours SUR la feuille   // (alt) la carte est SUR la feuille : même cadrage
     frames.A = frameAbove(SY + cBot - 8, SY + SHEET.h / 2 + 4, -SHEET.w / 2, SHEET.w / 2, SHEET.w * 1.1, W, H);
     // tant que les lettres sont en haut : la feuille et le prénom au-dessus
     frames.AN = frameAbove(SY + cBot - 8, Math.max(SY + SHEET.h / 2 + 4, nameTop + 8), -SHEET.w / 2, SHEET.w / 2, SHEET.w * 1.1, W, H);
@@ -436,7 +439,7 @@ export function createSheetScene(gl, opts) {
       // le cachet de près pendant qu'il se fait (Maxence 09/10) ; on revient au cadrage de l'enveloppe entière avant la
       // bascule : la tranche y est calée sur le champ de l'email
       const uz = (reduced ? 0 : 1) * ease(span(PO.zoomIn, pp)) * (1 - ease(span(PO.zoomOut, pp)));
-      if (uz > 0) { const sy = EC.y + ENV.h / 2 - FLAP_H + 7, zD = fP.D * Math.max(0.2, (SEAL_D * 2.4) / (2 * fP.D * TF * Math.min(1, W / H)));
+      if (uz > 0) { const sy = EC.y + ENV.h / 2 - FLAP_H + SEAL_OFF, zD = fP.D * Math.max(0.2, (SEAL_D * SEAL_S * 2.4) / (2 * fP.D * TF * Math.min(1, W / H)));
         cxT = lerp(cxT, EC.x, uz); cyT = lerp(cyT, sy, uz); lD = lerp(lD, Math.log(zD), uz); }
     }
     // la vitrine : sa propre vue (la feuille, l'enveloppe, la carte vierge, la guirlande, tout l'envoi)
@@ -495,7 +498,7 @@ export function createSheetScene(gl, opts) {
         EC.z - 50 * (1 - uI) + 70 * Math.sin(Math.PI * uFlip) * mv + 55 * Math.sin(Math.PI * uTurn) - 5 * hb + dir[2] * far),
         M4.mul(G, M4.mul(M4.model(-(Math.PI / 2 - TILT) * uTip, 0, 0), M4.model(0, Math.PI * (uFlip + uTurn), 0))));
       // réglages (?cachet) : l'enveloppe tournée à la main, autour du cachet
-      if (SEAL_SHAPE.rotX || SEAL_SHAPE.rotY) { const py = ENV.h / 2 - FLAP_H + 7; Menv = M4.mul(Menv, M4.mul(T(0, py, 0), M4.mul(M4.model(SEAL_SHAPE.rotX, SEAL_SHAPE.rotY, 0), T(0, -py, 0)))); }
+      if (SEAL_SHAPE.rotX || SEAL_SHAPE.rotY) { const py = ENV.h / 2 - FLAP_H + SEAL_OFF; Menv = M4.mul(Menv, M4.mul(T(0, py, 0), M4.mul(M4.model(SEAL_SHAPE.rotX, SEAL_SHAPE.rotY, 0), T(0, -py, 0)))); }
       if (VE && VE.M) Menv = VE.M;                            // vitrine : l'enveloppe là où elle la pose
       lastMenv = Menv;
     }
@@ -533,9 +536,9 @@ export function createSheetScene(gl, opts) {
       const u = reduced ? sstep(FD_IN[0], FD_IN[0] + 0.5, tu) : span(FD_IN, tu), e = ease(u);
       const lv = C.leaveT != null ? (reduced ? 1 : ease(clamp01((t - C.leaveT) / 1.1))) : 0;
       const k = Math.max(1 - e, lv);
-      Mc = M4.mul(Msheet, M4.model(0, 0, -0.03 - 0.28 * k, C.v.jx + 24 * k, FD_Y + C.v.jy * 2 - 125 * k, 2.2 + 26 * k));
+      Mc = M4.mul(M4.mul(Msheet, M4.model(0, 0, -0.03 - 0.28 * k, C.v.jx + 24 * k, FD_Y + C.v.jy * 2 - 125 * k, 2.2 + 26 * k)), S(CARD_S));
       C.fade = sstep(0, 0.35, u) * (1 - sstep(0.3, 1, lv));
-      C.occ = u > 0.9 && lv < 0.05 && !hideInside ? { m: Mc } : null;
+      C.occ = u > 0.9 && lv < 0.05 && !hideInside ? { m: Mc, k: true } : null;
     } else if (C) {
       const rel = { x: lerp(C_POSE.x + C.v.jx, C_IN.x, uC), y: lerp(C_POSE.y + C.v.jy * 2, C_IN.y, uC), z: lerp(2.2, C_IN.z, uC) + 9 * Math.sin(Math.PI * uC), rz: lerp(C_POSE.rz, C_IN.rz, uC) };
       const target2 = M4.mul(Msheet, M4.model(0, 0, rel.rz, rel.x, rel.y, rel.z));
@@ -548,14 +551,15 @@ export function createSheetScene(gl, opts) {
       const lift = (reduced ? 0 : (CARD.w / 2 + 10) * sw) + (C.flipT0 >= 0 ? (CARD.w / 2 + 6) * Math.sin(Math.PI * C.flipA) * (reduced ? 0 : 1) : 0);
       // M0 contient déjà le demi-tour de la question (ry = π) : on l'en retire, on interpole, on le remet
       const unflip = M4.mul(C.M0, M4.model(0, -Math.PI, 0));
-      Mc = M4.mul(blendM(unflip, target2, e, [0, 0, lift]), M4.model(-0.12 * sw, phi, 0));
+      // (12/10) elle prend sa taille sur la feuille A4 en chemin (CARD_S)
+      Mc = M4.mul(M4.mul(blendM(unflip, target2, e, [0, 0, lift]), M4.model(-0.12 * sw, phi, 0)), S(lerp(1, CARD_S, e)));
       // réponse (09/10) : la face où elle est tapée reste lisse, comme quand on l'écrivait ; le logo, en relief, de
       // l'autre côté — la bascule se fait quand la carte est vue par la tranche, au milieu de son premier retournement
       if (C.ownBack) C.logoK = reduced ? (u > 0.5 ? 1 : 0) : sstep(0.42, 0.58, sstep(0.22, 0.78, u));
       // ombre de la carte sur la feuille
       // (09/10 : l'ombre suit la carte exactement, même soulevée ou inclinée — elle disparaissait d'un coup quand la
       // carte partait vers l'enveloppe ou se retournait)
-      C.occ = u > 0.9 && !hideInside ? { m: Mc } : null;
+      C.occ = u > 0.9 && !hideInside ? { m: Mc, k: true } : null;
     }
     // ---- dessin : enveloppe (fond), feuille, carte, lettres, puis le dos de l'enveloppe et le rabat (devant) ----
     // pleine : bombée une fois la feuille glissée dedans ; l'ombre du rabat du haut une fois fermé
@@ -664,22 +668,26 @@ export function createSheetScene(gl, opts) {
     gl.enable(gl.DEPTH_TEST);
     if (Menv && envFade > 0.004) {
       // le cachet posé : son ombre de contact sur ce qu'il recouvre (rabat, dos, rabat du bas ; repère de chacun)
-      const uSe0 = P_LOGO ? span(PO.seal, pp) : 0, aoK = SEAL_SHAPE.ao * sstep(0.6, 1, uSe0), sy = ENV.h / 2 - FLAP_H + 7;
-      const aoOf = y => aoK > 0 ? [0, y, SEAL_D / 2, aoK] : null, pq = sealPQ();
-      if (VE && VE.vNotch) card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.6)), lod: 'envBackV', ...EP.back, pillow: [EP.back.pillow[0], 0, 1, 1], triB: [0, 0, 0, 0], clip: [2, ENV.h / 2, VE.vNotch, ENV.w / 2], fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy), sealQ: pq.sealQ });
-      else card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...EP.back, ...(VE && VE.noBot ? { triB: [0, 0, 0, 0] } : {}), fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy + (ENV.h - ENV_BACK_H) / 2), sealQ: pq.sealQ });
-      if (!(VE && VE.noBot)) card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', ...EP.bot, fade: envFade, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2], ao: aoOf(sy), sealQ: pq.sealQ });
+      const uSe0 = P_LOGO ? span(PO.seal, pp) : 0, aoK = SEAL_SHAPE.ao * sstep(0.6, 1, uSe0), sy = ENV.h / 2 - FLAP_H + SEAL_OFF;
+      const aoOf = y => aoK > 0 ? [0, y, SEAL_D * SEAL_S / 2, aoK] : null, pq = sealPQ();
       const th = Math.PI * uFlap, hz = (1.9 + (VE ? VE.flapDz : 0)) * uFlap;   // (vitrine : le rabat se ferme sur la carte vierge)
       const Mf = M4.mul(Menv, M4.mul(M4.mul(T(0, ENV.h / 2, hz), M4.model(th, 0, 0)), T(0, FLAP_H / 2, 0)));
-      card.draw(vp, eye, P, { model: Mf, lod: 'flap', ...EP.flap, fade: envFade, shade: 1, ...envV.flap, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: aoOf(FLAP_H / 2 - 7), sealQ: pq.sealQ });
+      // (12/10) l'ombre portée du rabat sur le dos, selon la lampe, pendant qu'il se ferme (plus de trait qui annonce où il tombe)
+      const flapOcc = uFlap > 0.02 && uFlap < 0.995 ? { m: Mf, tri: [ENV.w / 2, FLAP_H] } : null;
+      if (VE && VE.vNotch) card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.6)), lod: 'envBackV', ...EP.back, pillow: [EP.back.pillow[0], 0, 1, 1], triB: [0, 0, 0, 0], clip: [2, ENV.h / 2, VE.vNotch, ENV.w / 2], fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy), sealQ: pq.sealQ, occ: flapOcc });
+      else card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...EP.back, ...(VE && VE.noBot ? { triB: [0, 0, 0, 0] } : {}), fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy + (ENV.h - ENV_BACK_H) / 2), sealQ: pq.sealQ, occ: flapOcc });
+      if (!(VE && VE.noBot)) card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', ...EP.bot, fade: envFade, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2], ao: aoOf(sy), sealQ: pq.sealQ, occ: flapOcc });
+      card.draw(vp, eye, P, { model: Mf, lod: 'flap', ...EP.flap, fade: envFade, shade: 1, ...envV.flap, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: aoOf(FLAP_H / 2 - SEAL_OFF), sealQ: pq.sealQ });
       // le cachet se pose À CHEVAL sur la pointe du rabat fermé (06/10 : il était trop haut), il descend, s'écrase un peu ;
       // 09/10 : après POSTER, une fois l'enveloppe retournée et le rabat fermé (le geste de la personne le scelle)
       const uSe = span(PO.seal, pp);
       if (P_LOGO && uSe > 0) {
         // la pose : la cire coule, le sceau (invisible) appuie, elle refroidit (sealForm) ; mouvement réduit : le cachet fini
-        const Fm = sealForm(reduced ? 1 : SEAL_PRESS0 + (1 - SEAL_PRESS0) * uSe, SEAL_LOOK, SEAL_SHAPE);
-        const Ms = M4.mul(M4.mul(Mf, T(0, FLAP_H / 2 - 7, -0.19 - EP.sealDz)), M4.model(0, 0, VE && VE.sealRot ? -VE.sealRot : 0));   // (vitrine : l'enveloppe est dressée, le logo reste droit)
-        card.draw(vp, eye, { ...P, ...Fm.look }, { model: Ms, lod: sealLod, fade: envFade * sstep(0, reduced ? 0.35 : 0.1, uSe), shade: 1, ...sealV, paperLo: SEAL_SHAPE.marbre, ...pq,
+        // (12/10, Maxence : « il apparaît noir puis argenté ») argenté tout de suite : une petite flaque épaisse qui
+        // s'étale, comme en vrai, puis le sceau appuie (sealForm de 0)
+        const Fm = sealForm(reduced ? 1 : uSe, SEAL_LOOK, SEAL_SHAPE);
+        const Ms = M4.mul(M4.mul(M4.mul(Mf, T(0, FLAP_H / 2 - SEAL_OFF, -0.19 - EP.sealDz)), M4.model(0, 0, VE && VE.sealRot ? -VE.sealRot : 0)), S(SEAL_S));   // (vitrine : l'enveloppe est dressée, le logo reste droit)
+        card.draw(vp, eye, { ...P, ...Fm.look }, { model: Ms, lod: sealLod, fade: envFade * sstep(0, reduced ? 0.35 : 0.04, uSe), shade: 1, ...sealV, paperLo: SEAL_SHAPE.marbre, ...pq,
           sealP: [SEAL_SHAPE.hd, SEAL_SHAPE.hc, SEAL_SHAPE.crest, Fm.ring], sealQ: [Fm.pits, Fm.cavWall, SEAL_SHAPE.cavEdge, SEAL_SHAPE.aoW], form: Fm.form,
           sealV4: [SD.wobPhase, SD.crest, SD.tilt, Fm.peau], sealR: [SEAL_SHAPE.film, SEAL_SHAPE.sss, SEAL_SHAPE.offX, SEAL_SHAPE.offY], logoOff: [SEAL_SHAPE.offX, SEAL_SHAPE.offY], blend: true });
       }
@@ -992,7 +1000,7 @@ export function createSheetScene(gl, opts) {
   return {
     frame, tap, press, release, scroll, back, setTilt, free, focusRect, gesture,
     // (10/10, alt) la vitrine : go(k) avance / recule d'une étape ; jump(k) y va d'un coup ; state()
-    vitrine: VIT ? { go: VIT.go, jump: VIT.jump, scrub: VIT.scrub, state: VIT.state } : null,
+    vitrine: VIT ? { go: VIT.go, jump: VIT.jump, scrub: VIT.scrub, seek: VIT.seek, state: VIT.state } : null,
     // (10/10, alt.html) payé, sans question (improvisation) : la feuille n'attend plus — la carte face cachée repart,
     // puis l'enveloppe, comme d'habitude
     unhold(t, o = {}) { if (VIT) VIT.jump(0); if (!HOLD) return; HOLD = false; if (o.noAddr) noAddr = true; if (C && C.faceDown && C.leaveT == null) C.leaveT = t; lastGesture = t - 1.5; },
