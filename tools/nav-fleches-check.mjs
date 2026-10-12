@@ -1,9 +1,9 @@
-// Les aiguilles du bandeau (12/10) — version figée. alt.html : sur l'accueil, le bandeau seul (UN PRENOM UN POEME) ; sur la
-// feuille, la démonstration (l'aiguille de droite pique, tire, relâche ; puis la gauche) ; captures du haut de l'écran
-// toutes les 0,5 s (2×), puis → (la page suivante) et ← (retour). node tools/nav-needle-check.mjs <dossier> [pc]
+// Les flèches du bandeau (12/10 : le bout du fil en pointe) — version figée. alt.html : sur l'accueil, le bandeau seul (UN PRENOM UN POEME) ; sur la
+// feuille, la démonstration (la flèche de droite, puis la gauche) ; captures du haut de l'écran
+// toutes les 0,5 s (2×), puis → (la page suivante) et ← (retour). node tools/nav-fleches-check.mjs <dossier> [pc]
 import { build, preview } from 'vite';
 import { chromium } from 'playwright';
-const SP = process.argv[2] || '.', PC = process.argv[3] === 'pc', OUT = 'C:/Users/maxen/AppData/Local/Temp/claude/nav-needle-dist', PORT = 5209;
+const SP = process.argv[2] || '.', PC = process.argv[3] === 'pc', OUT = 'C:/Users/maxen/AppData/Local/Temp/claude/nav-fleches-dist', PORT = 5209;
 await build({ logLevel: 'error', build: { outDir: OUT, emptyOutDir: true } });
 const server = await preview({ build: { outDir: OUT }, preview: { port: PORT, strictPort: true, host: 'localhost' }, logLevel: 'error' });
 const browser = await chromium.launch({ headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
@@ -12,7 +12,7 @@ const page = await browser.newPage(PC ? { viewport: { width: 1280, height: 800 }
 const errs = []; page.on('pageerror', e => errs.push(String(e))); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
 await page.goto(`http://localhost:${PORT}/alt.html?envoi=0&paiement=faux&seed=3`);
 await page.waitForTimeout(6000);
-const nvState = () => page.evaluate(() => ({ bandeau: document.querySelector('.nv').classList.contains('on'), seul: document.querySelector('.nv').classList.contains('solo'), SINGULIES: document.querySelector('.nv-foot').classList.contains('on'), aiguilles: document.querySelectorAll('.nv-nd.in').length }));
+const nvState = () => page.evaluate(() => ({ bandeau: document.querySelector('.nv').classList.contains('on'), seul: document.querySelector('.nv').classList.contains('solo'), SINGULIES: document.querySelector('.nv-foot').classList.contains('on'), fleches: document.querySelectorAll('.nv-nd.in').length }));
 console.log('prénoms', JSON.stringify(await nvState()));
 await page.screenshot({ path: `${SP}/nd-${tag}-accueil.png`, clip: { x: 0, y: 0, width: W, height: 50 } });
 await page.mouse.click(W / 2, 400); await page.keyboard.type('LEA', { delay: 100 }); await page.keyboard.press('Enter');
