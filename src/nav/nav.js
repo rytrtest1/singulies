@@ -33,13 +33,21 @@ const PAD = 1600;                         // le fil dépasse le bandeau de chaqu
 
 const CSS = `
 .nv { position: fixed; z-index: 26; left: 0; right: 0; top: 0; height: calc(48px + env(safe-area-inset-top)); pointer-events: none;
-  opacity: 0; transition: opacity .7s ease; }
+  opacity: 0; transition: opacity .7s ease, --nv-el .7s ${EASE}, --nv-er .7s ${EASE}; }
+/* (12/10) le fil, sur sa propre couche : il s'arrête net au chas de chaque aiguille (--nv-el / --nv-er : du bord au chas) */
+@property --nv-el { syntax: '<length>'; inherits: true; initial-value: 0px; }
+@property --nv-er { syntax: '<length>'; inherits: true; initial-value: 0px; }
+.nv-tw { position: absolute; left: 0; right: 0; bottom: 0; height: 44px; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent var(--nv-el, 0px), #000 calc(var(--nv-el, 0px) + 1.5px), #000 calc(100% - var(--nv-er, 0px) - 1.5px), transparent calc(100% - var(--nv-er, 0px)));
+  mask-image: linear-gradient(to right, transparent var(--nv-el, 0px), #000 calc(var(--nv-el, 0px) + 1.5px), #000 calc(100% - var(--nv-er, 0px) - 1.5px), transparent calc(100% - var(--nv-er, 0px))); }
+.nv-tt { position: absolute; left: 50%; top: 0; height: 44px; will-change: transform; }
+.nv-tt.anim { transition: transform ${DUR}ms ${EASE}; }
 .nv.on { opacity: 1; }
 .nv-in { position: absolute; left: 0; right: 0; bottom: 0; height: 44px; overflow: hidden;
   -webkit-mask-image: linear-gradient(to right, transparent var(--nv-a, 0px), #000 calc(var(--nv-a, 0px) + var(--nv-m, 22%)), #000 calc(100% - var(--nv-a, 0px) - var(--nv-m, 22%)), transparent calc(100% - var(--nv-a, 0px)));
   mask-image: linear-gradient(to right, transparent var(--nv-a, 0px), #000 calc(var(--nv-a, 0px) + var(--nv-m, 22%)), #000 calc(100% - var(--nv-a, 0px) - var(--nv-m, 22%)), transparent calc(100% - var(--nv-a, 0px))); }
 /* (12/10) avec les flèches : les noms s'effacent avant elles (jamais une flèche sur un nom) */
-.nv.ar { --nv-a: 40px; }
+.nv.ar { --nv-a: 46px; }
 .nv-track { position: absolute; left: 50%; top: 0; height: 44px; display: flex; align-items: center; gap: var(--nv-gap, 34px); white-space: nowrap;
   will-change: transform; }
 .nv-track.anim { transition: transform ${DUR}ms ${EASE}; }
@@ -68,18 +76,22 @@ const CSS = `
 .nv-shade.t { top: 0; height: calc(104px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 52%, rgba(6,6,6,0)); }
 .nv-shade.b { bottom: 0; height: calc(96px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 0, #060606 48%, rgba(6,6,6,0)); }
 .nv-shade.on { opacity: 1; }
-/* (12/10) les flèches des pages, aux deux bouts du bandeau : à droite la page suivante, à gauche la précédente */
-.nv-ar { position: absolute; bottom: 0; width: 44px; height: 44px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; -webkit-tap-highlight-color: transparent;
-  transition: opacity .7s ease, translate .7s ${EASE}; }
-.nv-ar.l { left: max(4px, env(safe-area-inset-left)); translate: 6px 0; }
-.nv-ar.r { right: max(4px, env(safe-area-inset-right)); translate: -6px 0; }
-.nv-ar svg { width: 9px; height: 16px; overflow: visible; }
-.nv-ar path { fill: none; stroke: #ece8e0; stroke-width: 1.15; stroke-linecap: round; stroke-linejoin: round; }
-.nv.on .nv-ar.in { opacity: .55; pointer-events: auto; translate: 0 0; }
-.nv.on .nv-ar.in:hover, .nv.on .nv-ar.in:focus-visible { opacity: .9; outline: none; }
-.nv.on .nv-ar.in.go.l { translate: -3px 0; } .nv.on .nv-ar.in.go.r { translate: 3px 0; }
-.nv.solo .nv-ar { opacity: 0 !important; pointer-events: none !important; }
+/* (12/10, Maxence) les aiguilles, aux deux bouts du bandeau, à la place des flèches : le fil passe dans leur chas ; la
+   pointe dit où l'on va (à droite la page suivante, à gauche la précédente) ; la toucher : elle tire le fil */
+.nv-nd { position: absolute; bottom: 0; width: 44px; height: 44px; margin: 0; padding: 0 4px; border: 0; background: none; cursor: pointer;
+  display: flex; align-items: center; opacity: 0; pointer-events: none; -webkit-tap-highlight-color: transparent;
+  transition: opacity .6s ease, translate .7s ${EASE}; }
+.nv-nd.l { left: 4px; justify-content: flex-end; padding-right: 12px; translate: -34px 0; }
+.nv-nd.r { right: 4px; justify-content: flex-start; padding-left: 12px; translate: 34px 0; }
+.nv-nd svg { width: 24px; height: 8.57px; overflow: visible; flex: none; }
+.nv-nd.l svg { transform: scaleX(-1); }
+.nv.on .nv-nd.in { opacity: .85; pointer-events: auto; translate: 0 0; }
+.nv.on .nv-nd.in:hover, .nv.on .nv-nd.in:focus-visible { opacity: 1; outline: none; }
+.nv.on .nv-nd.in.go.l { translate: -8px 0; } .nv.on .nv-nd.in.go.r { translate: 8px 0; }
+/* le fil du bandeau s'arrête à un petit trou (42 px du bord) ; de là, le fil de l'aiguille ressort et entre dans son chas */
+.nv.ndl { --nv-el: 42px; } .nv.ndl.pl { --nv-el: 34px; }
+.nv.ndr { --nv-er: 42px; } .nv.ndr.pr { --nv-er: 34px; }
+.nv.solo .nv-nd { opacity: 0 !important; pointer-events: none !important; }
 @media (prefers-reduced-motion: reduce) { .nv-track.anim { transition-duration: .01s; } }
 `;
 
@@ -108,7 +120,10 @@ export function installNav(opts) {
   const inner = document.createElement('div'); inner.className = 'nv-in';
   const track = document.createElement('div'); track.className = 'nv-track';
   const th = document.createElement('canvas'); th.className = 'nv-th'; th.setAttribute('aria-hidden', 'true');
-  inner.appendChild(track); root.appendChild(inner);
+  const tw = document.createElement('div'); tw.className = 'nv-tw';
+  const tt = document.createElement('div'); tt.className = 'nv-tt';
+  tt.appendChild(th); tw.appendChild(tt);
+  inner.appendChild(track); root.append(tw, inner);
   const foot = document.createElement('div'); foot.className = 'nv-foot';
   const fcv = document.createElement('canvas'); fcv.setAttribute('aria-hidden', 'true');
   const fsp = document.createElement('button'); fsp.type = 'button'; fsp.textContent = 'SINGULIES'; fsp.setAttribute('aria-label', 'SINGULIES, me contacter');
@@ -119,7 +134,7 @@ export function installNav(opts) {
   shadeT.className = 'nv-shade t'; shadeB.className = 'nv-shade b';
   let items = [];
   function build() {
-    track.replaceChildren(th);
+    track.replaceChildren();
     items = SPAN.map(d => {
       const p = ring(cur + d), a = document.createElement('a');
       a.className = 'nv-l' + (d === 0 ? ' cur' : Math.abs(d) > 1 ? ' far d' + Math.abs(d) : ''); a.textContent = p.label; a.href = url(p);
@@ -129,23 +144,45 @@ export function installNav(opts) {
       return a;
     });
   }
-  // (12/10, Maxence) plus d'aperçus des pages voisines (des images fixes qui paraissaient sur d'autres écrans) : quand on
-  // glisse, seuls le bandeau et la page en cours bougent ; la page d'arrivée entre de l'autre côté
-  const arrow = d => {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'nv-ar ' + (d < 0 ? 'l' : 'r');
-    b.innerHTML = `<svg viewBox="0 0 9 16" aria-hidden="true"><path d="${d < 0 ? 'M8 1 L1 8 L8 15' : 'M1 1 L8 8 L1 15'}"/></svg>`;
+  // une aiguille fine (≈ 24 px, la pointe vers l'extérieur), argent satiné comme le cachet ; le fil ressort d'un petit
+  // trou (là où s'arrête celui du bandeau), entre dans le chas, un petit bout ressort et pend ; un reflet lent court sur
+  // le métal
+  const needle = d => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'nv-nd ' + (d < 0 ? 'l' : 'r');
+    b.setAttribute('aria-label', d < 0 ? 'page précédente' : 'page suivante');
+    const id = 'nd' + (d < 0 ? 'l' : 'r');
+    const lus = reduced ? '' : `<animateTransform attributeName="gradientTransform" type="translate" values="-26 0;26 0;-26 0" dur="${d < 0 ? 13 : 11}s" repeatCount="indefinite"/>`;
+    const body = 'M1.3 4.05 Q.25 5 1.3 5.95 L18.5 5.85 Q23.6 5.55 27.7 5.02 Q23.6 4.45 18.5 4.15 Z';
+    b.innerHTML = `<svg viewBox="0 0 28 10" aria-hidden="true">
+<defs>
+<linearGradient id="${id}m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bdbcb8"/><stop offset=".42" stop-color="#8e8d89"/><stop offset="1" stop-color="#2e2d2b"/></linearGradient>
+<linearGradient id="${id}s" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="28" y2="0"><stop offset=".3" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/>${lus}</linearGradient>
+<clipPath id="${id}c"><path d="${body}"/></clipPath>
+</defs>
+<path d="M-7.5 5 Q-1.5 5.35 3.6 5" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="2.6" stroke-linecap="round" transform="translate(0 .9)"/>
+<path d="M-7.5 5 Q-1.5 5.35 3.6 5" fill="none" stroke="rgb(28,27,25)" stroke-width="1.45" stroke-linecap="round"/>
+<path d="M-6.8 4.8 Q-1.5 5.1 3.4 4.8" fill="none" stroke="rgba(120,116,108,.24)" stroke-width=".5" stroke-linecap="round"/>
+<ellipse cx="-7.6" cy="5" rx=".9" ry=".75" fill="#030303"/>
+<path d="${body}" fill="url(#${id}m)"/>
+<rect x="0" y="3" width="28" height="4" fill="url(#${id}s)" clip-path="url(#${id}c)"/>
+<rect x="2.3" y="4.62" width="4.4" height=".76" rx=".38" fill="#070707"/>
+<path d="M6.2 5 Q7.4 5.3 7.6 6.6 Q7.8 8.2 6.7 9.4" fill="none" stroke="rgb(28,27,25)" stroke-width="1.15" stroke-linecap="round"/>
+<path d="M6.2 4.75 Q7.2 5 7.35 6.2" fill="none" stroke="rgba(120,116,108,.3)" stroke-width=".45" stroke-linecap="round"/>
+</svg>`;
     b.addEventListener('click', () => { stopReveal(); go(d); });
     root.appendChild(b);
     return b;
   };
-  const arL = arrow(-1), arR = arrow(1);
+  const arL = needle(-1), arR = needle(1);
+  // l'aiguille tire le fil (elle part un peu vers l'extérieur, le bout du fil avec elle), puis se détend
+  const pull = (d, on) => { const n = d < 0 ? arL : arR; n.classList.toggle('go', on); root.classList.toggle(d < 0 ? 'pl' : 'pr', on); };
   document.body.append(shadeT, shadeB, root, foot);
   build();
 
   // ---- mise en page : le nom courant au centre ; le fil cousu entre chaque nom, et jusqu'aux bords ----
   let centers = [], boxes = [];
   const C = Math.floor(SPAN.length / 2);
-  const setX = (x, anim) => { track.classList.toggle('anim', !!anim); track.style.transform = `translateX(${(-x).toFixed(1)}px)`; };
+  const setX = (x, anim) => { for (const e of [track, tt]) { e.classList.toggle('anim', !!anim); e.style.transform = `translateX(${(-x).toFixed(1)}px)`; } };
   const dpr = () => Math.min(3, window.devicePixelRatio || 1);
   function layout() {
     root.classList.toggle('wide', !mobile());
@@ -267,6 +304,7 @@ export function installNav(opts) {
   async function go(d, opt = {}) {
     if (busy || !d) return;
     stopReveal();
+    if (arrowsOn) { pull(Math.sign(d), true); setTimeout(() => pull(Math.sign(d), false), DUR); }
     const target = ring(cur + d), dir = Math.sign(d), fromId = ring(cur).id, from = pages[fromId] || {};
     count('nav/' + target.id);
     const inDoc = !!(pages[target.id] || MOUNTABLE[target.id]);
@@ -350,11 +388,11 @@ export function installNav(opts) {
   //      de gauche, et il montre la gauche (« UN POEME PAR MOIS » : qu'on ait envie d'y aller) ; puis il revient. Le
   //      moindre geste arrête la démonstration (les deux flèches restent). ----
   let arrowsOn = false, revealing = false, rvT = [];
-  function showArrows() { arrowsOn = true; root.classList.add('ar'); arL.classList.add('in'); arR.classList.add('in'); }
+  function showArrows() { arrowsOn = true; root.classList.add('ar', 'ndl', 'ndr'); arL.classList.add('in'); arR.classList.add('in'); }
   function stopReveal() {
     if (!revealing) return;
     revealing = false; rvT.forEach(clearTimeout); rvT = [];
-    arL.classList.remove('go'); arR.classList.remove('go');
+    pull(-1, false); pull(1, false);
     removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true);
     if (!busy) setX(centers[C], true);
     showArrows();
@@ -370,11 +408,15 @@ export function installNav(opts) {
       if (!bx) return 0;
       return d > 0 ? Math.max(0, bx.r - innerWidth / 2 + A - centers[C]) : Math.min(0, innerWidth / 2 + bx.l - A - centers[C]);
     };
-    at(0, () => { arR.classList.add('in', 'go'); setX(centers[C] + shift(1), true); });
-    at(DUR + 1300, () => { arR.classList.remove('go'); setX(centers[C], true); });
-    at(2 * DUR + 1700, () => { arL.classList.add('in', 'go'); setX(centers[C] + shift(-1), true); });
-    at(3 * DUR + 3500, () => { arL.classList.remove('go'); setX(centers[C], true); });
-    at(4 * DUR + 3600, () => { revealing = false; removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true); showArrows(); });
+    // l'aiguille de droite arrive le long du fil (il s'enfile dans son chas), puis tire : le bandeau montre la droite
+    at(0, () => { arR.classList.add('in'); root.classList.add('ndr'); });
+    at(750, () => { pull(1, true); setX(centers[C] + shift(1), true); });
+    at(750 + DUR + 1300, () => { pull(1, false); setX(centers[C], true); });
+    // puis celle de gauche : UN POEME PAR MOIS
+    at(2 * DUR + 2300, () => { arL.classList.add('in'); root.classList.add('ndl'); });
+    at(2 * DUR + 3050, () => { pull(-1, true); setX(centers[C] + shift(-1), true); });
+    at(3 * DUR + 4850, () => { pull(-1, false); setX(centers[C], true); });
+    at(4 * DUR + 4950, () => { revealing = false; removeEventListener('pointerdown', stopReveal, true); removeEventListener('keydown', stopReveal, true); showArrows(); });
   }
 
   // ---- l'arrivée par rechargement  // ---- l'arrivée par rechargement : la page entre du côté d'où l'on vient ----
