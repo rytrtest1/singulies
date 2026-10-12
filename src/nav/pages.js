@@ -16,13 +16,11 @@ export async function mountPage(id, { base = './', reduced = false, nav }) {
   if (id === 'lettre' || id === 'livres') {
     const host = layer('pg-' + id);
     const m = id === 'lettre' ? await import('../lettre/content.js') : await import('../livres/content.js');
-    const { main } = (id === 'lettre' ? m.buildLettre : m.buildLivres)(host, base);
-    main.classList.add('on');
-    const obj = main.querySelector('.lt-env'), others = () => [...main.children].filter(e => e !== obj);
-    // l'objet (l'enveloppe, le livre) voyage ; le reste de la page paraît sur place
-    return { stage: () => [obj, ...others()], all: () => [host], obj: () => [obj], rest: others, foot: true, side: () => host.scrollTop < 40,
-      center: () => { const r = obj.getBoundingClientRect(); return r.height ? { y: r.top + r.height / 2, h: r.height } : null; },
-      back: () => { host.scrollTop = 0; } };
+    const pg = (id === 'lettre' ? m.buildLettre : m.buildLivres)(host, base);
+    pg.main.classList.add('on');
+    // (12/10) l'objet (dans le monde commun : le canvas transparent et sa prise) voyage ; le reste paraît sur place
+    return { stage: () => [...pg.obj(), ...pg.rest()], all: () => [host], obj: pg.obj, rest: pg.rest, foot: true, side: () => true,
+      center: pg.center, back: () => { host.scrollTop = 0; } };
   }
   return null;
 }

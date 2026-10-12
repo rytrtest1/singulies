@@ -6,10 +6,11 @@ import { installNav } from '../nav/nav.js';
 import { buildLivres } from './content.js';
 
 const host = document.querySelector('.ltp');
-const { main } = buildLivres(host, './');
+const pg = buildLivres(host, './');
+const { main } = pg;
 siteFonts('./').finally(() => requestAnimationFrame(() => requestAnimationFrame(() => main.classList.add('on'))));
 installCount('livres');
-const nav = installNav({ current: 'livres', base: './', host: { stage: () => [main.querySelector('.lt-env'), ...[...main.children].filter(e => !e.classList.contains('lt-env'))], all: () => [host], obj: () => [main.querySelector('.lt-env')], rest: () => [...main.children].filter(e => !e.classList.contains('lt-env')), center: () => { const r = main.querySelector('.lt-env').getBoundingClientRect(); return r.height ? { y: r.top + r.height / 2, h: r.height } : null; } },
-  show: () => true, foot: () => true, shade: () => true, side: () => host.scrollTop < 40,
-  center: () => { const im = main.querySelector('.lt-env').getBoundingClientRect(); return { y: im.top + im.height / 2, h: Math.max(140, innerHeight * 0.3) }; } });
+// (12/10) l'objet est dans le monde commun (src/app/stage.js) : il voyage, le reste paraît sur place
+const nav = installNav({ current: 'livres', base: './', host: { stage: () => [...pg.obj(), ...pg.rest()], all: () => [host], obj: pg.obj, rest: pg.rest, center: pg.center },
+  show: () => true, foot: () => true, shade: () => true, side: () => true, center: pg.center });
 nav?.enter([host]);

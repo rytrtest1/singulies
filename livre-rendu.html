@@ -18,9 +18,12 @@
   const canvas = document.getElementById('c');
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: true });
   const book = await createBook(gl, './');
-  function render(W = 1000, H = 1300, t = 0, tilt = { x: 0, y: 0 }) {
+  // (12/10) le livre est dans le monde commun (src/app/stage.js) : l'image couvre l'écran d'un téléphone (390 × 844) ;
+  // p : 0 le recueil, 1 le journal
+  function render(W = 780, H = 1688, t = 0, tilt = { x: 0, y: 0 }, p = 0) {
     canvas.width = W; canvas.height = H; canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-    book.frame(W, H, t, tilt);
+    gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    book.frame(W, H, W / 2, H / 2, t, tilt, { x: 0, y: 0 }, p);
     gl.finish();
     return canvas.toDataURL('image/jpeg', 0.92);
   }

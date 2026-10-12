@@ -66,3 +66,42 @@ a.lt-go { display: table; text-decoration: none; }
 .lt-live .lt-book-c { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 .ltp { scrollbar-width: none; } .ltp::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+/* (12/10, Maxence : « toutes les pages dans le même environnement ») une page autour d'un objet en direct (page.js) :
+   l'objet sur un canvas transparent qui couvre l'écran (src/app/stage.js : l'échelle et l'horizon de la feuille du
+   poème) ; sous lui, à la même distance de son bas que la description de la feuille, sa description tapée à la machine
+   et des points ; le signe et le prix en bas. Mêmes tailles, mêmes gris que la page du poème (offre.css). */
+.lt-cv { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: 0; transition: opacity .6s ease; }
+.lt-cv.on { opacity: 1; }
+.lt.lt-st { position: relative; z-index: 1; max-width: none; margin: 0; padding: 0; height: 100%; }
+.lt-st > .lt-grab { position: fixed; z-index: 1; opacity: 1; transform: none; -webkit-tap-highlight-color: transparent; }
+.lt-st > .lt-cap { margin-top: calc(min(13px, 3.45vw) * -3.1); position: fixed; left: 0; right: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; text-align: center; pointer-events: none; }
+.lt-st > .lt-cap > * { pointer-events: auto; }
+.lt-cap-t { position: relative; margin: 0; width: min(calc(100% - 32px), 380px); height: calc(var(--lines, 2) * 1.55em);
+  font: min(13px, 3.45vw)/1.55 'SG Machine', 'Courier New', monospace; color: #cfcac1; letter-spacing: .01em; }
+.lt-cap-t > i { position: absolute; inset: 0; display: flex; justify-content: center; align-items: flex-start; padding-top: 2px; font-style: normal; white-space: pre-line; transition: opacity .3s ease; }
+.lt-cap-t > i.out { opacity: 0; }
+.lt-cap-t > i .tw { display: block; text-align: center; white-space: pre-wrap; }
+.lt-cap-t > i b { font-weight: inherit; opacity: 0; }
+.lt-cap-t > i b.on { opacity: 1; animation: lt-strike .16s ease-out; }
+@keyframes lt-strike { from { opacity: .35; transform: translateY(-.04em); filter: blur(.5px); } }
+.lt-dots { display: flex; justify-content: center; height: 22px; margin: 2px 0 0; }
+.lt-dot { width: 22px; height: 22px; padding: 0; margin: 0; border: 0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
+.lt-dot i { display: block; width: 4px; height: 4px; border-radius: 50%; background: #ece8e0; opacity: .22; transition: opacity .4s, transform .4s; }
+.lt-dot.on i { opacity: .75; transform: scale(1.15); }
+.lt-dot:hover i { opacity: .55; }
+.lt-down { display: block; width: 44px; height: 34px; margin: 0 auto; padding: 0; background: none; border: 0; cursor: pointer; opacity: .5; }
+.lt-scroll { position: relative; display: block; width: 1px; height: 26px; margin: 0 auto; background: rgba(236,232,224,.18); overflow: hidden; }
+.lt-scroll::after { content: ''; position: absolute; left: 0; top: -12px; width: 1px; height: 12px;
+  background: linear-gradient(rgba(236,232,224,0), rgba(236,232,224,.95)); animation: lt-flow 2.2s cubic-bezier(.5,0,.5,1) infinite; }
+@keyframes lt-flow { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(38px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .lt-scroll::after { animation: none; } }
+/* la liste d'attente (un poème par mois) prend la place du texte */
+.lt-st .lt-wait { margin: 0; padding: 0; border: 0; width: min(calc(100% - 32px), 320px); }
+.lt-st.waiting .lt-cap-t, .lt-st.waiting .lt-dots, .lt-st.waiting .lt-down { display: none; }
+.lt-st .lt-note { margin: 10px auto 0 !important; font: 12px/1.55 'SG Machine', 'Courier New', monospace; color: rgba(255, 255, 255, .34); }
+.lt-st .lt-done { margin: 0; min-height: 0; font: min(13px, 3.45vw)/1.55 'SG Machine', 'Courier New', monospace; color: #cfcac1; }
+.lt-st.done .lt-wait { display: none; }
+.lt-st .lt-bar { z-index: 3; background: linear-gradient(to top, #060606 55%, rgba(6,6,6,0)); }
+.lt-st.flat .lt-grab { left: 50%; top: calc((46px + 100svh - 214px) / 2); width: 64vw; max-width: 380px; height: 46svh; transform: translate(-50%, -50%); background: center / contain no-repeat; }   /* sans WebGL2 : son image */
+.lt-st:not(.flat) > .lt-grab { background-image: none !important; }
