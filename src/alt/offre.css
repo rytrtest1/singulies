@@ -249,7 +249,12 @@
 /* les points reviennent, sous la description */
 .of-cap .of-dots { display: flex; justify-content: center; gap: 0; height: 22px; margin: 2px 0 0; }
 /* l'invitation à descendre : un fil vertical, une lueur qui y coule vers le bas */
-.of-cap .of-down { width: 44px; height: 34px; margin-top: 0; }
+.of-cap .of-down { width: auto; min-width: 44px; height: auto; margin-top: 0; padding: 2px 14px 6px; }
+/* (12/10) le nom de la section où il mène, sous le fil : on sait ce qu'il y a plus bas */
+.of-down-l { display: block; margin-top: 5px; font: 500 12.5px/1 'SG Garamond', Georgia, serif; letter-spacing: .05em; color: #ece8e0; white-space: nowrap; }
+.of-cap .of-down.on { opacity: .62; }
+.of-cap .of-down.on:hover, .of-cap .of-down.on:focus-visible { opacity: .9; outline: none; }
+.of-cap .of-down.none { opacity: 0; pointer-events: none; }
 .of-scroll { position: relative; display: block; width: 1px; height: 26px; margin: 0 auto; background: rgba(236,232,224,.18); overflow: hidden; }
 .of-scroll::after { content: ''; position: absolute; left: 0; top: -12px; width: 1px; height: 12px;
   background: linear-gradient(rgba(236,232,224,0), rgba(236,232,224,.95)); animation: of-flow 2.2s cubic-bezier(.5,0,.5,1) infinite; }

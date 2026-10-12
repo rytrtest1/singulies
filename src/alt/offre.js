@@ -366,13 +366,14 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const CAP = `<div class="of-cap"><div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
         <p class="of-vit-t" aria-live="polite"></p>
         <div class="of-dots">${OBJETS.map((o, i) => `<button class="of-dot" type="button" data-k="${i}" aria-label="${esc(o.txt.replace(/\n/g, ' '))}"><i></i></button>`).join('')}</div>
-      </div><button class="of-down" type="button" aria-label="Faire défiler"><i class="of-scroll"></i></button></div>`;
+      </div><button class="of-down" type="button"><i class="of-scroll"></i><span class="of-down-l"></span></button></div>`;
   root.innerHTML = `
     <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
     <main>
       ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
       <div class="of-rest">
-      <section class="of-ex" aria-label="D’autres prénoms, d’autres poèmes"><div class="of-ex-host"></div></section>
+      <!-- (12/10) chaque section de la suite porte son nom (data-nom) : le signe du bas l'annonce et y mène -->
+      <section class="of-ex of-sec" data-nom="d’autres prénoms" aria-label="D’autres prénoms, d’autres poèmes"><div class="of-ex-host"></div></section>
       </div>
     </main>
     <div class="of-shade" aria-hidden="true"></div>
@@ -552,19 +553,31 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     addEventListener('pointerup', e => { if (e.pointerType === 'mouse') s1(e.clientX, e.clientY); });
   }
   setTimeout(() => show(0), over ? 700 : 900);
-  // (11/10, Maxence) la petite flèche, sous la description : la page descend, du même défilement — l'étape suivante, à
-  // son allure ; après la dernière, les autres prénoms (la suite de la page). Jamais un saut.
-  const down = root.querySelector('.of-down');
-  // (le haut des autres prénoms, juste sous le bandeau : la position dans la page, indépendante du défilement en cours)
-  const exTop = () => { const r = root.querySelector('.of-rest'); return r ? r.offsetTop - 50 : storyLen(); };
-  const toRest = () => { count('alt/autres'); driveTo(exTop(), Math.max(innerHeight * 1.4, 700)); };
+  // (12/10, Maxence : « l'invitation à descendre n'est pas assez claire ») comme sur la plupart des sites : le signe du bas
+  // dit où il mène — le nom de la section suivante (« d'autres prénoms »), sous le fil où coule une lueur — et y va
+  // directement (la scène s'efface le temps du saut, l'histoire est posée à sa fin). Les étapes de l'objet : les points,
+  // le glissé, le défilement. Les sections à venir n'ont qu'à porter leur nom (.of-sec[data-nom]) : le signe annonce
+  // toujours la prochaine.
+  const down = root.querySelector('.of-down'), downL = down.querySelector('.of-down-l');
+  const secs = () => [...root.querySelectorAll('.of-sec')];
+  const secTop = el => el.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop - (el === secs()[0] ? 50 : 60);
+  const nextSec = () => secs().find(el => secTop(el) > root.scrollTop + 8) || null;
+  const exTop = () => { const f = secs()[0]; return f ? secTop(f) : storyLen(); };
+  const syncDown = () => { const n = nextSec(); downL.textContent = n ? n.dataset.nom : ''; down.setAttribute('aria-label', n ? n.dataset.nom : 'Faire défiler'); down.classList.toggle('none', !n); };
+  syncDown();
+  root.addEventListener('scroll', () => { if (!drive) syncDown(); }, { passive: true });
+  const jumpTo = el => {
+    count('alt/autres');
+    stopDrive();
+    const y = secTop(el), c = sceneCv();
+    if (root.scrollTop >= storyLen() - 2 || !c) { driveTo(y, Math.max(innerHeight * 1.4, 700)); return; }
+    c.style.transition = 'opacity .25s ease'; c.style.opacity = '0';
+    setTimeout(() => { if (vit) vit.jump(N - 1); root.scrollTop = y; syncDown(); }, 270);
+  };
   setTimeout(() => { down.dataset.shown = '1'; if (!busyMode()) down.classList.add('on'); }, over ? 1800 : 2400);
   down.addEventListener('click', () => {
     if (busyMode()) return;
-    if (!(vit && story)) { toRest(); return; }
-    const p = pOf(root.scrollTop);
-    if (root.scrollTop >= storyLen() - 2 || p > N - 1.02) { toRest(); return; }
-    goStep(1);
+    const n = nextSec(); if (n) jumpTo(n);
   });
   // en descendant : d'abord l'histoire (la scène reste en place), puis la feuille remonte avec la page
   const cv = () => document.querySelector('canvas.sc-c');
