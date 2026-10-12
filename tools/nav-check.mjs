@@ -12,7 +12,7 @@ const vp = PC ? { width: 1440, height: 900 } : { width: 390, height: 844 };
 const page = await browser.newPage({ viewport: vp, deviceScaleFactor: PC ? 1 : 2 });
 const tag = PC ? 'pc-' : '';
 // toucher un nom du bandeau (sa partie visible)
-const tapLabel = async txt => { const pt = await page.evaluate(t => { const a = [...document.querySelectorAll('.nv-l')].find(e => e.textContent === t && !e.classList.contains('far')); if (!a) return null; const r = a.getBoundingClientRect(); const x0 = Math.max(r.left, 8), x1 = Math.min(r.right, innerWidth - 8); return { x: (x0 + x1) / 2, y: r.top + r.height / 2 }; }, txt); if (pt) await page.mouse.click(pt.x, pt.y); else console.log('pas de nom', txt); };
+const tapLabel = async txt => { const pt = await page.evaluate(t => { const a = [...document.querySelectorAll('.nv-l')].find(e => e.textContent === t && !e.classList.contains('far')); if (!a) return null; const r = a.getBoundingClientRect(); const x0 = Math.max(r.left, 60), x1 = Math.min(r.right, innerWidth - 60);  /* (12/10 : les lettres visibles, hors des aiguilles) */ return { x: (x0 + x1) / 2, y: r.top + r.height / 2 }; }, txt); if (pt) await page.mouse.click(pt.x, pt.y); else console.log('pas de nom', txt); };
 const shot = n => page.screenshot({ path: `${dir}/${tag}${n}.png` });
 page.on('pageerror', e => console.log('ERR', String(e)));
 page.on('console', m => { if (m.type() === 'error') console.log('console', m.text()); });

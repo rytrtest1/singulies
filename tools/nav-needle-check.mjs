@@ -1,4 +1,4 @@
-// Les aiguilles du bandeau (12/10) — version figée. alt.html : bandeau et SINGULIES cachés pendant les prénoms ; sur la
+// Les aiguilles du bandeau (12/10) — version figée. alt.html : sur l'accueil, le bandeau seul (UN PRENOM UN POEME) ; sur la
 // feuille, la démonstration (l'aiguille de droite pique, tire, relâche ; puis la gauche) ; captures du haut de l'écran
 // toutes les 0,5 s (2×), puis → (la page suivante) et ← (retour). node tools/nav-needle-check.mjs <dossier> [pc]
 import { build, preview } from 'vite';
@@ -12,7 +12,9 @@ const page = await browser.newPage(PC ? { viewport: { width: 1280, height: 800 }
 const errs = []; page.on('pageerror', e => errs.push(String(e))); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
 await page.goto(`http://localhost:${PORT}/alt.html?envoi=0&paiement=faux&seed=3`);
 await page.waitForTimeout(6000);
-console.log('prénoms : bandeau', await page.evaluate(() => document.querySelector('.nv').classList.contains('on')), 'SINGULIES', await page.evaluate(() => document.querySelector('.nv-foot').classList.contains('on')));
+const nvState = () => page.evaluate(() => ({ bandeau: document.querySelector('.nv').classList.contains('on'), seul: document.querySelector('.nv').classList.contains('solo'), SINGULIES: document.querySelector('.nv-foot').classList.contains('on'), aiguilles: document.querySelectorAll('.nv-nd.in').length }));
+console.log('prénoms', JSON.stringify(await nvState()));
+await page.screenshot({ path: `${SP}/nd-${tag}-accueil.png`, clip: { x: 0, y: 0, width: W, height: 50 } });
 await page.mouse.click(W / 2, 400); await page.keyboard.type('LEA', { delay: 100 }); await page.keyboard.press('Enter');
 await page.waitForFunction(() => document.querySelector('#offre.bar-on'), null, { timeout: 40000 });
 const t0 = Date.now();
@@ -21,7 +23,7 @@ for (let i = 0; i < 24; i++) {
   await page.waitForTimeout(Math.max(0, t0 + 2000 + i * 500 - Date.now()));
   await page.screenshot({ path: `${SP}/nd-${tag}-${String(i).padStart(2, '0')}.png`, clip: { x: 0, y: 0, width: W, height: 50 } });
 }
-console.log('feuille : bandeau', await page.evaluate(() => document.querySelector('.nv').classList.contains('on')), 'SINGULIES', await page.evaluate(() => document.querySelector('.nv-foot').classList.contains('on')));
+console.log('feuille', JSON.stringify(await nvState()));
 await page.click('.nv-nd.r'); await page.waitForTimeout(1500);
 console.log('→', await page.evaluate(() => location.pathname));
 await page.click('.nv-nd.l'); await page.waitForTimeout(1500);

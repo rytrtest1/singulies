@@ -7,7 +7,8 @@ function rng(seed) { let s = seed >>> 0 || 1; return () => (s = (s * 16807) % 21
 
 // le fil cousu entre ha et hb (px), à la hauteur y0, dans un contexte 2D déjà réglé (aussi : le bandeau des pages, nav.js)
 // o : { sag (px, l'affaissement au milieu), sag2 (px, une légère ondulation en S), holes ([début, fin] : un trou à ce
-// bout — sans trou, le fil vient de plus loin, du bord de l'écran) }
+// bout — sans trou, le fil vient de plus loin, du bord de l'écran), g0 (12/10 : la position de ha le long du fil lui-même
+// — la torsion est alors attachée à la matière : quand le fil coulisse, ses reflets défilent avec lui) }
 export function paintThread(x, ha, hb, y0, seed = 7, TH = 1.25, o = {}) {
   const sag = o.sag ?? 0.45, sag2 = o.sag2 ?? 0, holes = o.holes || [true, true];
   const R = rng(seed);
@@ -26,10 +27,21 @@ export function paintThread(x, ha, hb, y0, seed = 7, TH = 1.25, o = {}) {
   line(-TH * 0.2, 'rgba(120,116,108,.24)', TH * 0.42, 2, P.length - 2);
   line(TH * 0.3, 'rgba(0,0,0,.35)', TH * 0.3, 2, P.length - 2);
   // la torsion : de fins reflets en biais, irréguliers
-  for (let s = ha + 2.5 + R() * 2; s < hb - 2.5; s += 3.1 + (R() - 0.5) * 0.8) {
-    const i = Math.min(P.length - 1, Math.round(s - ha)), [px, py] = P[i], a = 0.07 + 0.16 * R() ** 2;
-    x.beginPath(); x.moveTo(px - 0.6, py - TH * 0.46); x.lineTo(px + 0.5, py + TH * 0.18);
-    x.strokeStyle = `rgba(165,160,150,${a.toFixed(3)})`; x.lineWidth = 0.45; x.stroke();
+  const twist = (px, py, a) => { x.beginPath(); x.moveTo(px - 0.6, py - TH * 0.46); x.lineTo(px + 0.5, py + TH * 0.18); x.strokeStyle = `rgba(165,160,150,${a.toFixed(3)})`; x.lineWidth = 0.45; x.stroke(); };
+  if (o.g0 == null) {
+    for (let s = ha + 2.5 + R() * 2; s < hb - 2.5; s += 3.1 + (R() - 0.5) * 0.8) {
+      const i = Math.min(P.length - 1, Math.round(s - ha)), [px, py] = P[i];
+      twist(px, py, 0.07 + 0.16 * R() ** 2);
+    }
+  } else {
+    // (attachée au fil : le m-ième reflet est toujours au même endroit de la matière)
+    const sp = 3.1, Lh = hb - ha, h = m => { const v = Math.sin(m * 127.1 + 0.5) * 43758.5453; return v - Math.floor(v); };
+    for (let m = Math.floor(o.g0 / sp) - 1; m * sp <= o.g0 + Lh + 1; m++) {
+      const sa = m * sp + (h(m) - 0.5) * 0.8 - o.g0;
+      if (sa < 2.5 || sa > Lh - 2.5) continue;
+      const i = Math.min(P.length - 1, Math.max(0, Math.round(sa))), [px, py] = P[i];
+      twist(px, py, 0.07 + 0.16 * h(m + 0.37) ** 2);
+    }
   }
   // une pointe de lustre ciré
   { const c = ha + (hb - ha) * (0.3 + 0.4 * R()), l = 6 + 8 * R(), i0 = Math.max(2, Math.round(c - l / 2 - ha)), i1 = Math.min(P.length - 2, Math.round(c + l / 2 - ha));

@@ -1035,17 +1035,16 @@ if (ALT) {
       leave: () => { input.blur(); if (onNames()) { S.portal = true; setTimeout(() => { if (S.portal && S.phase === 'input') { cancelAnimationFrame(rafId); rafId = 0; } }, 700); } },
       back: () => { if (S.portal) { S.portal = false; if (S.phase === 'input' && booted && !rafId && !document.hidden) { last = 0; rafId = requestAnimationFrame(frame); } } },
     },
-    // (12/10, Maxence) ni bandeau ni SINGULIES pendant la scène des prénoms (une fois le prénom retenu, elle ne revient
-    // pas) : ils paraissent avec la feuille
-    show: () => booted && !!ofEl() && !S.paid && !document.querySelector('.of.paying, .of.env'),
-    foot: () => booted && !!ofEl() && !S.paid && !document.querySelector('.of.paying, .of.env'),
-    showBack: () => booted && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    // (12/10, Maxence) sur l'accueil, le bandeau ne montre que UN PRENOM UN POEME (solo), avec SINGULIES en bas ; les
+    // autres pages et les aiguilles paraissent avec la feuille
+    show: () => booted && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    foot: () => booted && !S.paid && !document.querySelector('.of.paying, .of.env'),
     shade: () => booted && onNames(),
     // (12/10) les aiguilles : sur la feuille, une fois l'offre posée (2,5 s après le bandeau du bas) ; la démonstration
     // seulement en haut de la page, sans paiement ni enveloppe
     ready: () => { const on = !!document.querySelector('#offre.on.bar-on'); if (!on) barAt = 0; else if (!barAt) barAt = performance.now(); return on && performance.now() - barAt > 2500; },
     quiet: () => !!offerObj && offerObj.top < 30 && !document.querySelector('.of.paying, .of.env'),
-    solo: () => !!offerObj && offerObj.top > offerObj.storyLen() + 40,
+    solo: () => (onNames() && !(window.__nav && window.__nav.wandered)) || (!!offerObj && offerObj.top > offerObj.storyLen() + 40),
     side: () => !!document.querySelector('#offre.on.bar-on') && (!offerObj || offerObj.top < 30),
     center: () => { const top = NAV_TOP + safeTop(), bot = innerHeight - SHEET_INSET - safeBottom(); return { y: (top + bot) / 2, h: (bot - top) * 0.82 }; },
   });
