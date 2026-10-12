@@ -381,7 +381,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       <button class="of-go" type="button">RECEVOIR</button>
       <div class="of-price"><b>${esc(PRIX)}</b> tout compris</div>
       <!-- (12/10, Maxence) l'invitation à descendre, APRÈS l'action : la fin de cette section, le nom de la suivante -->
-      <button class="of-down" type="button"><i class="of-scroll"></i><span class="of-down-l"></span></button>
+      <button class="of-down" type="button"><svg class="arw" viewBox="0 0 18 11" aria-hidden="true"><path d="M1.5 1.5 L9 9 L16.5 1.5"/></svg><span class="of-down-l"></span></button>
     </div>`;
   document.body.appendChild(root);
   document.body.classList.add('of-open');
@@ -547,16 +547,28 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     const s0 = (x, y, tg) => { if (!inObj(x, y, tg)) { sx = null; return; } sx = x; sy = y; st = performance.now(); };
     const s1 = (x, y) => {
       if (sx == null) return; const dx = x - sx, dy = y - sy; sx = null;
-      if (Math.abs(dx) > 36 && Math.abs(dx) > 1.3 * Math.abs(dy) && performance.now() - st < 900) goStep(dx < 0 ? 1 : -1, 1.5);
+      if (Math.abs(dx) > 36 && Math.abs(dx) > 1.3 * Math.abs(dy) && performance.now() - st < 1500) goStep(dx < 0 ? 1 : -1, 1.5);
     };
-    root.addEventListener('touchstart', e => { if (e.touches.length === 1) s0(e.touches[0].clientX, e.touches[0].clientY, e.target); else sx = null; }, { passive: true });
+    // (12/10) au doigt, le geste est décidé PENDANT qu'il se fait : en mode appli (écran d'accueil de l'iPhone), dès que
+    // le doigt dérive un peu verticalement la page commence à défiler et iOS annule le toucher (touchcancel, jamais de
+    // touchend) — le glissé n'était jamais vu ; dans Safari ou Instagram, le touchend arrivait quand même
+    let lx = 0, ly = 0;
+    root.addEventListener('touchstart', e => { if (e.touches.length === 1) { s0(e.touches[0].clientX, e.touches[0].clientY, e.target); lx = e.touches[0].clientX; ly = e.touches[0].clientY; } else sx = null; }, { passive: true });
+    root.addEventListener('touchmove', e => {
+      const t = e.touches[0]; if (!t || sx == null) return;
+      lx = t.clientX; ly = t.clientY;
+      const dx = lx - sx, dy = ly - sy;
+      if (Math.abs(dx) > 36 && Math.abs(dx) > 1.3 * Math.abs(dy)) s1(lx, ly);
+      else if (Math.abs(dy) > 60) sx = null;          // un défilement : ce n'est pas un glissé
+    }, { passive: true });
     root.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t) s1(t.clientX, t.clientY); }, { passive: true });
+    root.addEventListener('touchcancel', () => s1(lx, ly), { passive: true });
     root.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button === 0) s0(e.clientX, e.clientY, e.target); });
     addEventListener('pointerup', e => { if (e.pointerType === 'mouse') s1(e.clientX, e.clientY); });
   }
   setTimeout(() => show(0), over ? 700 : 900);
   // (12/10, Maxence : « l'invitation à descendre n'est pas assez claire ») comme sur la plupart des sites : le signe du bas
-  // dit où il mène — le nom de la section suivante (« d'autres prénoms »), sous le fil où coule une lueur — et y va
+  // dit où il mène — le nom de la section suivante (« d'autres prénoms »), sous une flèche vers le bas — et y va
   // directement (la scène s'efface le temps du saut, l'histoire est posée à sa fin). Les étapes de l'objet : les points,
   // le glissé, le défilement. Les sections à venir n'ont qu'à porter leur nom (.of-sec[data-nom]) : le signe annonce
   // toujours la prochaine.

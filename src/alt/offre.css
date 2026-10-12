@@ -302,3 +302,12 @@
 .of-bar .of-down.none { opacity: 0; pointer-events: none; }
 .of-bar .of-scroll { height: 18px; }
 .of-bar .of-down-l { margin-top: 4px; }
+
+/* (12/10, Maxence : « enlève le fil qui descend, une flèche vers le bas ») un chevron fin, du trait des signes, qui
+   descend doucement de quelques pixels et remonte */
+.arw { display: block; width: 18px; height: 11px; margin: 0 auto; overflow: visible; fill: none; stroke: #ece8e0; stroke-width: 1.25;
+  stroke-linecap: round; stroke-linejoin: round; animation: arw-bob 2.4s ease-in-out infinite; }
+@keyframes arw-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .arw { animation: none; } }
+.of-bar .of-down-l { margin-top: 7px; }
+.of-bar .of-down { padding-top: 6px; }

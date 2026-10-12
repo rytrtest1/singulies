@@ -26,7 +26,7 @@ export function buildStagePage(host, o) {
       ${o.steps.some(x => x.title || x.sub) ? '<h1 class="lt-ti caps"></h1><p class="lt-su"></p>' : ''}
       <p class="lt-cap-t" aria-live="polite"></p>
       ${N > 1 ? `<div class="lt-dots">${o.steps.map((s, i) => `<button class="lt-dot" type="button" data-k="${i}" aria-label="${esc(s.txt.replace(/\n/g, ' '))}"><i></i></button>`).join('')}</div>
-      <button class="lt-down" type="button" aria-label="La suite"><i class="lt-scroll"></i></button>` : ''}
+      <button class="lt-down" type="button" aria-label="La suite"><svg class="arw" viewBox="0 0 18 11" aria-hidden="true"><path d="M1.5 1.5 L9 9 L16.5 1.5"/></svg></button>` : ''}
       ${o.extra || ''}
       <p class="lt-done" role="status" aria-live="polite"></p>
     </div>
