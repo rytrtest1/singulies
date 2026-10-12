@@ -27,15 +27,21 @@ const S = k => new Float32Array([k, 0, 0, 0, 0, k, 0, 0, 0, 0, k, 0, 0, 0, 0, 1]
 
 // la lampe des cartes, à la mesure de la vue commune : rasante, de côté, tenue hors du secteur du regard ; elle tourne
 // et respire (≈ 19 s, 9 s) — la même pour tous les objets des pages
-export function stageLamp(L, v, t, tilt, kf = 1.25, az0 = 0) {
+// (12/10, Maxence : « artefact de lumière sur la tranche quand on le bouge, trop de lumière ou trop sombre ») un objet
+// qu'on prend en main (le livre, l'enveloppe d'un poème par mois) : la lampe plus haute (≈ 46°, elle respire à peine)
+// et plus loin — la force compensée pour la face (donc énorme sous une lampe rasante) ne fait plus flamber la tranche
+// quand elle se tourne vers elle — et un peu plus de lumière ambiante : une face tournée loin de la lampe ne tombe plus
+// dans le noir
+export function stageLamp(L, v, t, tilt, kf = 1.25, az0 = 0, calm = false) {
   const Hw = v.Hw, kk = Hw / 235 * kf, R = L.lightR0 * Hw * kf, Z = L.lightZ * kk, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R);
   const back = CAM_AZ + Math.PI, lim = Math.PI - L.lampGap;
-  let rel = wrapA(L.lightAz + az0 + L.breathAz * (0.72 * Math.sin(t * 0.33) + 0.28 * Math.sin(t * 0.69)) + 0.5 * tilt.x - back);
+  let rel = wrapA(L.lightAz + az0 + L.breathAz * (calm ? 0.5 : 1) * (0.72 * Math.sin(t * 0.33) + 0.28 * Math.sin(t * 0.69)) + 0.5 * tilt.x - back);
   rel = lim * Math.tanh(rel / lim);
   const az = back + rel, mid = (L.elMin + L.elMax) / 2, half = (L.elMax - L.elMin) / 2;
-  const el = mid + half * Math.tanh((L.elBase + L.breathEl * (0.7 * Math.sin(t * 0.27) + 0.3 * Math.sin(t * 0.61)) + 0.2 * tilt.y - mid) / half);
+  const el = calm ? 0.7 + 0.05 * Math.sin(t * 0.27) + 0.06 * tilt.y
+    : mid + half * Math.tanh((L.elBase + L.breathEl * (0.7 * Math.sin(t * 0.27) + 0.3 * Math.sin(t * 0.61)) + 0.2 * tilt.y - mid) / half);
   return { ...L, lightPos: [Math.cos(az) * D0 * Math.cos(el), Math.sin(az) * D0 * Math.cos(el), D0 * Math.sin(el)],
-    light: L.light * kk * kk * Math.sin(el0) / Math.sin(el), spotI: 0 };
+    light: L.light * kk * kk * Math.sin(el0) / Math.sin(el), spotI: 0, ...(calm ? { env: L.env * 1.35 } : {}) };
 }
 
 export async function createBook(gl, base = './', list = BOOKS) {
@@ -58,7 +64,7 @@ export async function createBook(gl, base = './', list = BOOKS) {
   // livre tourné à la main) ; p : l'étape (continue) — le livre p est au centre, les autres glissent de côté
   function frame(W, H, cw, ch, t = 0, tilt = { x: 0, y: 0 }, spin = { x: 0, y: 0 }, p = 0) {
     const v = stageView(cw, ch);
-    const P = { ...stageLamp(L, v, t, tilt), inkWear: 0, inkVar: 0.08, inkPress: 0, inkPaper: 1.5, inkOrg: 0, inkThr: 0.2 };
+    const P = { ...stageLamp(L, v, t, tilt, 2.2, 0, true), inkWear: 0, inkVar: 0.08, inkPress: 0, inkPaper: 1.5, inkOrg: 0, inkThr: 0.2 };
     gl.viewport(0, 0, W, H);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -89,9 +95,9 @@ export async function createBook(gl, base = './', list = BOOKS) {
 // (12/10) un objet en direct sur une page, dans le monde commun : un canvas TRANSPARENT qui couvre l'écran (l'objet y est
 // à sa place et à son échelle — plus de boîte, donc plus de cadre noir qui passe sur l'objet voisin en changeant de
 // page) ; grab : l'élément posé sur l'objet (on l'y prend en main). make(gl) → { frame(W, H, cw, ch, t, tilt, spin, p),
-// rect, bottom } ; o.step(dt) → encore en mouvement ? (l'étape qui glisse) ; o.p() : l'étape. Mêmes gestes partout : la
+// rect, bottom } (frame rend true s'il bouge encore de lui-même) ; o.pt() : l'étape voulue ; o.step(dt) → encore en mouvement ? (l'étape qui glisse) ; o.p() : l'étape. Mêmes gestes partout : la
 // souris, le téléphone penché, la main.
-export async function mountStage(host, grab, make, { reduced = false, step = () => false, p = () => 0 } = {}) {
+export async function mountStage(host, grab, make, { reduced = false, step = () => false, p = () => 0, pt = p } = {}) {
   const canvas = document.createElement('canvas');
   canvas.className = 'lt-cv';
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: true, depth: true, premultipliedAlpha: false });
@@ -179,9 +185,9 @@ export async function mountStage(host, grab, make, { reduced = false, step = () 
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     const k = Math.min(1, dt * (tilt.gyro ? 7 : 1.6)); tilt.x += (tilt.tx - tilt.x) * k; tilt.y += (tilt.ty - tilt.y) * k;
     const turning = stepSpin(dt, now), moving = step(dt);
-    scene.frame(W, H, cw, ch, reduced ? 0 : (now - t0) / 1000, tilt, spin, p());
+    const live = scene.frame(W, H, cw, ch, reduced ? 0 : (now - t0) / 1000, tilt, spin, p(), pt());
     if (!shown) { shown = true; canvas.classList.add('on'); if (DO && typeof DO.requestPermission !== 'function') ask(); }
-    if ((!reduced || turning || moving) && !document.hidden) raf = requestAnimationFrame(draw);
+    if ((!reduced || turning || moving || live === true) && !document.hidden) raf = requestAnimationFrame(draw);
   };
   const go = () => { if (!raf && !lost) raf = requestAnimationFrame(draw); };
   document.addEventListener('visibilitychange', () => { if (!document.hidden) go(); });

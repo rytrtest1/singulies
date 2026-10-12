@@ -9,9 +9,10 @@ import { buildLettre } from './content.js';
 const host = document.querySelector('.ltp');
 const pg = buildLettre(host, './');
 const { main } = pg;
+window.__lettre = pg;   // (essais)
 siteFonts('./').finally(() => requestAnimationFrame(() => requestAnimationFrame(() => main.classList.add('on'))));
 installCount('lettre');
 // (12/10) l'objet est dans le monde commun (src/app/stage.js) : il voyage, le reste paraît sur place
-const nav = installNav({ current: 'lettre', base: './', host: { stage: () => [...pg.obj(), ...pg.rest()], all: () => [host], obj: pg.obj, rest: pg.rest, center: pg.center },
+const nav = installNav({ current: 'lettre', base: './', host: { stage: () => [...pg.obj(), ...pg.rest()], all: () => [host], obj: pg.obj, rest: pg.rest, center: pg.center, leave: () => pg.close?.() },
   show: () => true, foot: () => true, shade: () => true, side: () => true, center: pg.center });
 nav?.enter([host]);

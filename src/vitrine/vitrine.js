@@ -1,13 +1,13 @@
 // La vitrine (11/10, alt.html) : ce qu'il y a dans l'envoi, joué EN DIRECT dans la scène de la feuille. Rien ne bouge
 // tout seul : l'animation suit le défilement de la page (on descend, elle avance ; on remonte, elle rembobine, tout de
 // suite, même au milieu d'une étape) — scrub(p) ; les points font défiler jusqu'à l'étape. La vue reste celle de la
-// feuille ; le cachet se regarde un peu plus près.
+// feuille (12/10 : plus de rapprochement sur le cachet).
 //   0 la feuille
 //   1 la carte question arrive du bas de l'écran et se pose en bas, à cheval sur la feuille (face cachée)
 //   2 « le tout scellé à la cire » : la carte remonte sur la feuille ; l'enveloppe (à la mesure de la feuille, le dos
 //     ouvert en V sous le rabat, comme une vraie : on voit la feuille dedans) arrive de côté, dressée, et avale la
-//     feuille ; elle tourne en glissant jusqu'au centre et se couche ; le rabat se referme ; la vue s'approche un peu ;
-//     la cire, le cachet
+//     feuille ; elle tourne en glissant jusqu'au centre et se couche ; le rabat se referme ; la cire, le cachet (la
+//     vue ne bouge pas)
 //   3 « une carte mystère et un fil… pour rester liés » (11/10, Maxence : le cachet AVANT la carte mystère) : la vue
 //     ne bouge plus (12/10) ; la carte mystère arrive du bas et se pose sous le cachet ; un seul fil, à deux bouts : chacun sort de l'enveloppe par un
 //     petit trou (percé de l'intérieur), l'un à gauche, l'autre à droite, court sur le dos de l'enveloppe, passe sur la
@@ -100,7 +100,7 @@ export function createVitrine(o) {
   }
   // le cachet, là où il est (repère de la feuille) : centre + R(rz)·(0, SEAL_L)
   function sealAt() { const [cx, cy] = envCenter(), rz = rzOf(); return [cx - SEAL_L * Math.sin(rz), cy + SEAL_L * Math.cos(rz)]; }
-  // le rabat se referme, puis (la vue un peu plus près) la cire et le cachet, à leur allure réelle — tout dans l'étape 2
+  // le rabat se referme, puis la cire et le cachet, à leur allure réelle — tout dans l'étape 2
   const FLAP_AT = 3.3, SEAL_AT = 4.7;
   const ppOf = () => {
     if (vt > K[2]) return PO.seal[1] + 0.3;
@@ -122,8 +122,7 @@ export function createVitrine(o) {
     const [cx, cy] = envCenter();
     return { rel: M4.mul(M4.mul(T(cx, cy, ENV_Z + 0.2), M4.model(0, 0, rzOf())), M4.model(0, 0, Math.PI / 2)) };
   }
-  // la vue : celle de la feuille ; l'enveloppe couchée tient dans la largeur ; le cachet un peu plus près (étape 2),
-  // jamais au point que l'enveloppe déborde de sa place (sous le bandeau, au-dessus de la description)
+  // la vue : celle de la feuille ; l'enveloppe couchée tient dans la largeur (la vue recule juste assez)
   function camera(f, frameFor, W, H) {
     if (!on()) return null;
     const lg = c => ({ cx: c.cx, cy: c.cy, lD: Math.log(c.D) });
@@ -132,14 +131,7 @@ export function createVitrine(o) {
     // (12/10) la vue recule autour du bas de la feuille (le bas de l'enveloppe) : il reste à sa place à l'écran
     const YB = SY + BOT;
     if (kz > 1 && u > 0) { const kk = 1 + (kz - 1) * u; c = { cx: c.cx, cy: YB + (f.A.cy - YB) * kk, lD: c.lD + Math.log(kk) }; Hw *= kk; }
-    // (12/10) la carte mystère arrive sans que la vue bouge : on reste où le cachet s'est posé
-    const near = vt > K[2] ? 1 : ease(span(4.0, 4.9, r2()));
-    if (near > 0) {
-      // un peu plus près du cachet, la vue resserrée autour du bas de l'enveloppe : son bas ne bouge pas à l'écran
-      // (Maxence 12/10 : toujours la même distance entre l'objet et la description), elle garde toute sa largeur
-      const k2 = Math.min(1, Math.max(0.86, ENV.w * ENV_K / 0.97 * H / W / Hw));
-      c = { cx: lerp(c.cx, 0, near), cy: lerp(c.cy, YB + (c.cy - YB) * k2, near), lD: lerp(c.lD, c.lD + Math.log(k2), near) };
-    }
+    // (12/10, Maxence : « ne zoom pas du tout au moment de la cire ») la vue ne s'approche plus du cachet
     return Number.isFinite(c.cx + c.cy + c.lD) ? c : null;
   }
   function focus() {

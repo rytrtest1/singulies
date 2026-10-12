@@ -1,6 +1,7 @@
 // Version alternative (10/10) : après le champ de prénoms, la feuille qui attend — l'acrostiche tapé, les vraies
 // photos, le prix, COMMANDER (Stripe). La question vient après le paiement (merci.html), jamais avant.
 import '../basique/basique.css';
+import '../app/pay.css';
 import './offre.css';
 import { acrostic } from '../basique/basique.js';
 import { mountExemples } from './exemples.js';
@@ -129,7 +130,7 @@ function ensureRef(name) {
 }
 // payé : la suite ici même si la page sait enchaîner, sinon merci.html
 let closePanel = () => {};
-// (12/10, Maxence) pour moi / pour offrir : écrit juste au-dessus de RECEVOIR (le panneau le reprend)
+// pour moi / pour offrir : choisi dans le panneau de paiement (12/10 : plus dans le bandeau)
 let giftPref = null, syncBarFor = () => {};
 // (10/10) payé par Apple Pay / Google Pay : l'adresse et l'email viennent du portefeuille — ils iront sur l'enveloppe,
 // tapés tout seuls après la cérémonie, puis l'email dans le champ de la fin
@@ -376,7 +377,6 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     </main>
     <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
-      <div class="of-bfor" role="radiogroup" aria-label="Pour qui"><button type="button" data-for="moi" role="radio">pour moi</button><i>·</i><button type="button" data-for="offrir" role="radio">pour offrir</button></div>
       <button class="of-go" type="button">RECEVOIR</button>
       <div class="of-price"><b>${esc(PRIX)}</b> tout compris</div>
     </div>`;
@@ -412,16 +412,19 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // (la carte 1,8 s, l'enveloppe et la carte mystère 7 s, le cachet 2,4 s) — aucune partie en accéléré
   const KEYS = vit ? vit.state().keys : OBJETS.map((o, i) => i);
   const PXS = () => innerHeight * 0.18;                                      // px de défilement par seconde d'animation
-  const keyY = i => KEYS[i] * PXS();
+  // (12/10, Maxence : « la carte mystère n'est pas assez sensible au scroll, on galère ») la dernière étape demande
+  // moitié moins de défilement que sa durée (elle suit toujours le doigt, à 2,2 × au plus)
+  const WK = [1, 1, 0.5];
+  const segL = i => (KEYS[i + 1] - KEYS[i]) * (WK[i] ?? 1) * PXS();
+  const keyY = i => { let y = 0; for (let j = 0; j < i; j++) y += segL(j); return y; };
   const storyLen = () => (vit && story ? keyY(N - 1) : 0);
-  const pOf = y => { const t = Math.max(0, y) / PXS(); for (let i = 0; i < N - 1; i++) if (t < KEYS[i + 1]) return i + (t - KEYS[i]) / (KEYS[i + 1] - KEYS[i]); return N - 1; };
+  const pOf = y => { y = Math.max(0, y); for (let i = 0; i < N - 1; i++) { const l = segL(i); if (y < l) return i + y / l; y -= l; } return N - 1; };
   // (des repères d'arrêt : la page se pose doucement sur chaque étape — scroll-snap)
   const sizeStory = () => {
     if (!story) return;
     story.style.height = storyLen() + 'px';
     // (pas de repère à la fin de l'histoire : la page continue librement vers les autres prénoms, au doigt comme à la molette)
-    if (vit && !story.children.length) for (let i = 0; i < N - 1; i++) { const m = document.createElement('i'); m.className = 'of-snap'; story.appendChild(m); }
-    [...story.children].forEach((m, i) => { m.style.top = (keyY(i) - story.offsetTop) + 'px'; });
+
   };
   sizeStory(); addEventListener('resize', sizeStory);
   let cur = -1;
@@ -484,14 +487,35 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     drive = requestAnimationFrame(f);
   };
   for (const ev of ['wheel', 'touchstart']) root.addEventListener(ev, stopDrive, { passive: true });
-  const goStep = d => {
+  // (12/10) la page se pose sur une étape (plus d'aimant CSS : il ramenait à l'étape d'avant au milieu de la carte
+  // mystère) — dès que le défilement s'arrête, entre deux étapes : un petit geste suffit, elle finit dans le sens où l'on
+  // allait (au-delà de 12 % de l'étape), sinon elle revient
+  let touching = false, sDir = 0, sLast = 0, settleT = 0;
+  root.addEventListener('touchstart', () => { touching = true; clearTimeout(settleT); }, { passive: true });
+  const touchOff = () => { touching = false; armSettle(); };
+  root.addEventListener('touchend', touchOff, { passive: true });
+  root.addEventListener('touchcancel', touchOff, { passive: true });
+  function armSettle() {
+    clearTimeout(settleT);
+    settleT = setTimeout(() => {
+      if (touching || drive || busyMode() || !(vit && story)) return;
+      const y = root.scrollTop, L = storyLen();
+      if (y >= L - 1) return;
+      const p = pOf(y), i = Math.floor(p), f = p - i;
+      if (f < 0.004 || f > 0.996) return;
+      const k = sDir > 0 ? (f > 0.12 ? i + 1 : i) : sDir < 0 ? (f < 0.88 ? i : i + 1) : Math.round(p);
+      driveTo(keyY(k), PXS() * 1.4);
+    }, 220);
+  }
+  root.addEventListener('scroll', () => { const y = root.scrollTop; if (Math.abs(y - sLast) > 0.5) sDir = Math.sign(y - sLast); sLast = y; if (!drive) armSettle(); }, { passive: true });
+  const goStep = (d, fast = 1) => {
     if (busyMode()) return;
     count('alt/vitrine');
     if (!(vit && story)) { show(cur + d); return; }
     const p = pOf(root.scrollTop);
     if (d > 0 && p > N - 1.02) { driveTo(0, PXS() * 2.2); return; }      // depuis la fin : tout rembobiner
     const k = Math.max(0, Math.min(N - 1, d > 0 ? Math.floor(p + 0.02) + 1 : Math.ceil(p - 0.02) - 1));
-    driveTo(keyY(k), PXS() * (d > 0 ? 1 : 1.5));
+    driveTo(keyY(k), PXS() * (d > 0 ? 1 : 1.5) * fast);
   };
   // (11/10) une seule grammaire : vertical = avancer dans la page (les étapes suivent le défilement) ; les pages : les
   // flèches du bandeau (12/10 : plus de glissé pour changer de page, nav.js)
@@ -506,16 +530,25 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     driveTo(y, PXS() * (back ? 1.5 : 1));
   }));
   // glisser l'objet de côté (doigt, souris tenue) : vers la gauche = l'étape suivante, vers la droite = la précédente
+  // (12/10, Maxence : « le plus intuitif avec les points, c'est de slide ») partout où est l'objet, à toutes les étapes —
+  // pas seulement sur sa place du haut de page (.of-hole monte avec le défilement : passé la feuille, le geste tombait
+  // sur la page) : la bande de l'écran entre le bandeau des pages et la description, tant qu'on est dans l'histoire
   if (hole) {
     let sx = null, sy = 0, st = 0;
-    const s0 = (x, y) => { sx = x; sy = y; st = performance.now(); };
+    const inObj = (x, y, tg) => {
+      if (busyMode() || root.classList.contains('past') || root.scrollTop > storyLen() + 30) return false;
+      if (tg && tg.closest && tg.closest('a, button, input, .of-bar, .of-rest, .of-pay')) return false;
+      const capTop = root.querySelector('.of-cap')?.getBoundingClientRect().top ?? innerHeight * 0.7;
+      return y > 46 && y < capTop;
+    };
+    const s0 = (x, y, tg) => { if (!inObj(x, y, tg)) { sx = null; return; } sx = x; sy = y; st = performance.now(); };
     const s1 = (x, y) => {
       if (sx == null) return; const dx = x - sx, dy = y - sy; sx = null;
-      if (Math.abs(dx) > 42 && Math.abs(dx) > 1.4 * Math.abs(dy) && performance.now() - st < 900) goStep(dx < 0 ? 1 : -1);
+      if (Math.abs(dx) > 36 && Math.abs(dx) > 1.3 * Math.abs(dy) && performance.now() - st < 900) goStep(dx < 0 ? 1 : -1, 1.5);
     };
-    hole.addEventListener('touchstart', e => { if (e.touches.length === 1) s0(e.touches[0].clientX, e.touches[0].clientY); else sx = null; }, { passive: true });
-    hole.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t) s1(t.clientX, t.clientY); }, { passive: true });
-    hole.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button === 0) s0(e.clientX, e.clientY); });
+    root.addEventListener('touchstart', e => { if (e.touches.length === 1) s0(e.touches[0].clientX, e.touches[0].clientY, e.target); else sx = null; }, { passive: true });
+    root.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t) s1(t.clientX, t.clientY); }, { passive: true });
+    root.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button === 0) s0(e.clientX, e.clientY, e.target); });
     addEventListener('pointerup', e => { if (e.pointerType === 'mouse') s1(e.clientX, e.clientY); });
   }
   setTimeout(() => show(0), over ? 700 : 900);
@@ -544,8 +577,6 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       const y = root.scrollTop, L = storyLen();
       // (passé l'histoire : la description et ses points s'effacent, ils ne restent pas sous le bandeau)
       root.classList.toggle('past', y > L + 30);
-      // (12/10) passé l'histoire, plus aucun aimant : la page ne remonte plus d'elle-même vers la dernière étape
-      if (!drive) root.style.scrollSnapType = y > L + 30 ? 'none' : '';
       // l'histoire suit le doigt : on descend, elle avance ; on remonte, elle rembobine (tout de suite)
       if (vit && story) { const p = pOf(Math.min(y, L)); vit.scrub(p); show(Math.round(p)); }
       const c = cv(); if (!c) return;
@@ -570,13 +601,8 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     if (st && (st.vt > 0 || st.target > 0)) { root.scrollTo({ top: 0 }); fadeJump(0, () => pay(name)); } else pay(name);
   });
   barWalletSetup(root, name);
-  {
-    const bf = root.querySelector('.of-bfor');
-    syncBarFor = () => bf.querySelectorAll('[data-for]').forEach(b => { const on = (b.dataset.for === 'offrir') === !!giftPref; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
-    giftPref = !!readOrder()?.gift;
-    bf.querySelectorAll('[data-for]').forEach(b => b.addEventListener('click', () => { giftPref = b.dataset.for === 'offrir'; count('alt/pour-' + b.dataset.for); syncBarFor(); }));
-    syncBarFor();
-  }
+  // (12/10, Maxence) pour moi / pour offrir : seulement au moment du paiement (le panneau)
+  giftPref = !!readOrder()?.gift;
 
   // l'entrée : la couche se pose sur le prénom seul, puis l'acrostiche se tape, puis la barre du prix
   count('alt/offre');

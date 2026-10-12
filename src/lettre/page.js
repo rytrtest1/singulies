@@ -23,7 +23,7 @@ export function buildStagePage(host, o) {
   host.innerHTML = `<main class="lt lt-st">
     <div class="lt-grab" role="img" aria-label="${esc(o.aspectLabel || '')}"></div>
     <div class="lt-cap">
-      ${o.steps.some(x => x.title) ? '<h1 class="lt-ti caps"></h1><p class="lt-su"></p>' : ''}
+      ${o.steps.some(x => x.title || x.sub) ? '<h1 class="lt-ti caps"></h1><p class="lt-su"></p>' : ''}
       <p class="lt-cap-t" aria-live="polite"></p>
       ${N > 1 ? `<div class="lt-dots">${o.steps.map((s, i) => `<button class="lt-dot" type="button" data-k="${i}" aria-label="${esc(s.txt.replace(/\n/g, ' '))}"><i></i></button>`).join('')}</div>
       <button class="lt-down" type="button" aria-label="La suite"><i class="lt-scroll"></i></button>` : ''}
@@ -105,7 +105,7 @@ export function buildStagePage(host, o) {
   };
   let scene = null, live = null;
   const step = dt => { const kk = reduced ? 1 : Math.min(1, dt * 3.2); p += (pT - p) * kk; if (Math.abs(pT - p) < 1e-3) p = pT; place(); return Math.abs(pT - p) > 1e-3; };
-  live = mountStage(host, grab, o.make, { reduced, step, p: () => p }).then(r => { scene = r && r.scene; if (!r) main.classList.add('flat'); place(); return r; });
+  live = mountStage(host, grab, o.make, { reduced, step, p: () => p, pt: () => pT }).then(r => { scene = r && r.scene; if (!r) main.classList.add('flat'); place(); return r; });
   addEventListener('resize', place);
   setStep(0, 'debut');
   return { main, grab, cap, sign, live, setStep, get step() { return k; },

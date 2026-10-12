@@ -20,7 +20,7 @@ export async function mountPage(id, { base = './', reduced = false, nav }) {
     pg.main.classList.add('on');
     // (12/10) l'objet (dans le monde commun : le canvas transparent et sa prise) voyage ; le reste paraît sur place
     return { stage: () => [...pg.obj(), ...pg.rest()], all: () => [host], obj: pg.obj, rest: pg.rest, foot: true, side: () => true,
-      center: pg.center, back: () => { host.scrollTop = 0; } };
+      center: pg.center, back: () => { host.scrollTop = 0; }, leave: () => pg.close?.() };
   }
   return null;
 }

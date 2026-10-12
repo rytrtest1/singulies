@@ -1051,7 +1051,7 @@ if (ALT) {
     if (S.t >= OPEN_DARK + k * BREATH) S.navOn = true;
     return !!S.navOn;
   };
-  let barAt = 0;
+  let barAt = 0, navAt = 0;
   nav = installNav({
     current: 'poeme', base: './',
     host: {
@@ -1074,8 +1074,13 @@ if (ALT) {
     shade: () => booted && idleNames(),
     // (12/10) les aiguilles : sur la feuille, une fois l'offre posée (2,5 s après le bandeau du bas) ; la démonstration
     // seulement en haut de la page, sans paiement ni enveloppe
-    ready: () => { const on = !!document.querySelector('#offre.on.bar-on'); if (!on) barAt = 0; else if (!barAt) barAt = performance.now(); return on && performance.now() - barAt > 2500; },
-    quiet: () => !!offerObj && offerObj.top < 30 && !document.querySelector('.of.paying, .of.env'),
+    // (12/10, Maxence) sur la page des prénoms, si le menu paraît (rien n'est écrit), la démonstration part aussi
+    // (1,4 s après lui) — une fois par visite : elle ne revient plus sur la feuille
+    ready: () => {
+      if (onNames()) { if (!idleNames() || S.typed) { navAt = 0; return false; } if (!navAt) navAt = performance.now(); return performance.now() - navAt > 1400; }
+      const on = !!document.querySelector('#offre.on.bar-on'); if (!on) barAt = 0; else if (!barAt) barAt = performance.now(); return on && performance.now() - barAt > 2500;
+    },
+    quiet: () => (onNames() ? !S.typed : !!offerObj && offerObj.top < 30 && !document.querySelector('.of.paying, .of.env')),
     solo: () => !!offerObj && offerObj.top > offerObj.storyLen() + 40,
     side: () => !!document.querySelector('#offre.on.bar-on') && (!offerObj || offerObj.top < 30),
     center: () => { const top = NAV_TOP + safeTop(), bot = innerHeight - SHEET_INSET - safeBottom(); return { y: (top + bot) / 2, h: (bot - top) * 0.82 }; },

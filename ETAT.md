@@ -397,3 +397,10 @@ Voir « Point de reprise » en tête de fichier.
 - Vérifié (Chromium logiciel, 390 × 844) : vitrine (A4, ombre du rabat, cachet, carte mystère + fil), pages livres / lettre (pc aussi), autres poèmes (ouvert, poème de près, carte de près), parcours payé complet `alt-paid-check` (mélange → pioche → réponse → vitrine → adresse seule → postée → email → TERMINER → fin, 0 erreur), écran final → `jeu?q=3`. Vitest 45/45.
 - Non vérifié : vrai téléphone (gyroscope, clavier, Safari), fluidité réelle (le rendu logiciel est trop lent pour juger les temps), version simple de la cérémonie (mélange, histoire) — inchangée, sauf le sens du glissé et les textes.
 - À fournir : texte et prix du JOURNAL.
+
+## 12/10 (nuit) — retours en vrac de Maxence
+- Fait : démonstration du bandeau sur la page des prénoms quand le menu paraît (une fois) ; vitrine : glisser l'objet à toutes les étapes, plus de zoom sur la cire, dernière étape ×0,5 de défilement, la page se pose seule (plus de scroll-snap) ; « pour moi / pour offrir » retiré du bandeau ; lumière du livre et de l'enveloppe calmée (tranche ≈ 120 au lieu de 242–255 de près ; face au repos 44, avant 34) ; un poème par mois : plus de titre, objet en quatre étapes (poème, lettre au dos, enveloppe + cachet, tirage au sort) ; panneau de paiement commun (pay.css), REJOINDRE l'ouvre ; transition entre pages en glissé côte à côte (plus de fondu croisé).
+- Vérifié (Chromium logiciel, 390 × 844, `SWIFT=1 node tools/retours-1210c-check.mjs`) : démonstration partie sans rien écrire (drapeau posé), pas de .of-bfor, glissés → étape 1, petit geste depuis le cachet → la page avance seule vers la fin, un poème par mois sans titre, REJOINDRE → panneau ouvert / Échap le ferme, 0 erreur ; planche des étapes de l'enveloppe (`tools/lettre-steps.mjs`) ; planche du livre tourné (`tools/livre-spin.mjs`). Vitest 45/45, build OK.
+- Non vérifié : la transition entre pages en mouvement réel (le rendu logiciel est trop lent pour la capturer au milieu), fluidité sur téléphone (tirage : 5 enveloppes et 5 cachets).
+- À fournir : la liste des poèmes à montrer (`POEMES`, src/lettre/poemes.js) et le vrai texte de la lettre au dos (`PENSEES`).
+

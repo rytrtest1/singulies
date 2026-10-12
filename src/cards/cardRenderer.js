@@ -450,14 +450,14 @@ void main() {
         float an = 1.45 * (1.0 - clamp((ht - az) / uBook.w, 0.0, 1.0));
         nE = normalize(Ng * cos(an) + Zw * sz * sin(an));
         alb = uAlbedo * (1.0 + 0.3 * (vnoise(vec2(vMM.y * 0.9, vZ * 2.0)) - 0.5));
-        rE = 0.5; sE = 0.6;
+        rE = 0.6; sE = 0.18;   // (12/10) le dos : satiné, plus de filet blanc qui flambe quand on le tourne
       } else {
         float al = vMM.x > 0.5 * uCard.x - 0.5 ? vMM.y : vMM.x, cz = ht - az;
         if (cz < uBook.y) {
           float an = 1.2 * (1.0 - clamp(cz / 0.22, 0.0, 1.0));
           nE = normalize(Ng * cos(an) + Zw * sz * sin(an));
-          alb = uAlbedo * 1.9;
-          rE = 0.45; sE = 0.5;
+          alb = uAlbedo * 1.1;
+          rE = 0.6; sE = 0.12;   // (12/10) la couverture coupée : un fil à peine plus clair, jamais un trait blanc
         } else {
           // les feuilles ne sont pas des rayures régulières : des lignes à des hauteurs un peu inégales, qui ondulent
           // à peine le long de la tranche ; trois échelles (cahiers ≈ 0,8 mm, groupes ≈ 0,25 mm, feuilles), chacune
@@ -474,7 +474,7 @@ void main() {
           float fib = vnoise(vec2(al * 3.0, zw * 12.0)) - 0.5;          // fibres coupées
           alb = uAlbedo * (0.95 + 0.5 * (band - 0.5) + 0.5 * k2 * grp + 0.35 * k * (r1 - 0.5) + 0.3 * streak + 0.25 * fib) * gap;
           nE = normalize(Ng + Zw * (0.5 * k * (r2 - 0.5) + 0.35 * k2 * grp + 0.25 * (band - 0.5)));
-          rE = 0.6; sE = 0.3;
+          alb *= 0.75; rE = 0.7; sE = 0.1;   // (12/10) des feuilles noires, mates
         }
       }
     }

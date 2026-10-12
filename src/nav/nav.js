@@ -328,8 +328,8 @@ export function installNav(opts) {
   const fadeTo = (el, o, ms, delay = 0) => { el.style.transition = `opacity ${ms}ms ease ${delay}ms`; el.style.opacity = o === 1 ? '' : String(o); };
   const clearAll = el => { clearT(el); el.style.opacity = ''; };
   // ---- aller à une page voisine (d : ±1, ±2, ±3) ----
-  // (12/10) la page en cours glisse du côté d'où l'on part et s'efface ; la page d'arrivée entre de l'autre côté, en
-  // fondu ; le fil du bandeau coulisse avec elles. Rien d'autre ne paraît à l'écran (plus d'aperçus).
+  // (12/10) la page en cours glisse du côté d'où l'on part, la page d'arrivée la suit, collée à elle (une largeur
+  // d'écran plus loin) ; le fil du bandeau coulisse avec elles. Rien d'autre ne paraît à l'écran (plus d'aperçus).
   // (12/10, Maxence : « changer de page même pendant une animation ») une transition en cours se termine d'un coup
   // (fin()) et la suivante part de là ; pendant qu'une page se monte, la demande attend (pending)
   let fin = null, pending = null;
@@ -349,12 +349,16 @@ export function installNav(opts) {
     items.forEach((a, i) => { const k = i - C - d; a.classList.toggle('cur', k === 0); a.classList.remove('far', 'd2', 'd3'); if (Math.abs(k) > 1) a.classList.add('far', 'd' + Math.min(3, Math.abs(k))); });
 
     // ---- ce qui part (un objet qui a suivi le doigt part d'où il est) ----
-    const s = S(), c0 = objC();
+    // (12/10, Maxence : « un objet bave sur l'autre en fondu, c'est cheap ») les pages sont côte à côte dans le même
+    // espace, à une largeur d'écran l'une de l'autre : l'objet qui part et celui qui arrive glissent ENSEMBLE, de la
+    // même distance (W), à la même allure, opaques — ils ne se chevauchent jamais et rien ne fond ; seuls les textes
+    // s'effacent sur place (vite) et paraissent une fois l'objet arrivé
+    const s = S(), c0 = objC(), W = innerWidth;
     const outLayer = layerOf(from), outObj = objOf(from), outRest = restOf(from);
     const outDrag = els(from, false).filter(el => !outLayer.includes(el) && !outObj.includes(el));
     from.leave?.();
-    for (const el of outRest) fadeTo(el, 0, 260);
-    for (const el of outObj) put(el, -dir * s, 1, 0, c0.y, true);
+    for (const el of outRest) fadeTo(el, 0, 200);
+    for (const el of outObj) put(el, -dir * W, 1, 1, c0.y, true);
     for (const el of outDrag) put(el, -dir * s, 1, 0, c0.y, true);
     if (!inDoc) {
       try { sessionStorage.setItem(K_NAV, JSON.stringify({ to: target.id, dir, at: Date.now() })); } catch { /* */ }
@@ -370,10 +374,10 @@ export function installNav(opts) {
     for (const el of inRest) { el.style.transition = 'none'; el.style.opacity = '0'; }
     pg.back?.();
     const c1 = objC();
-    for (const el of inObj) put(el, dir * s, 1, 0, c1.y, false);
+    for (const el of inObj) put(el, dir * W, 1, 1, c1.y, false);
     void document.body.offsetWidth;
     for (const el of inObj) put(el, 0, 1, 1, c1.y, true);
-    for (const el of inRest) fadeTo(el, 1, 520, inObj.length ? 260 : 120);
+    for (const el of inRest) fadeTo(el, 1, 460, inObj.length ? Math.round(DUR * 0.7) : 160);
 
     if (!opt.pop) try { history.pushState({ sgPage: target.id }, '', STANDALONE ? location.href : url(target)); } catch { /* */ }
     // la fin : à son heure, ou d'un coup si l'on va déjà ailleurs (tout se pose à sa place, le bandeau sur son nom)
