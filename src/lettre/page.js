@@ -54,6 +54,7 @@ export function buildStagePage(host, o) {
     const strike = () => { if (!box.isConnected || n >= ks.length) return; ks[n++].classList.add('on'); typeT = setTimeout(strike, (ks[n - 1].textContent === ' ' ? 70 : 32) + Math.random() * 46); };
     typeT = setTimeout(strike, 140);
   };
+  const wrapTo0 = () => { if (scene && scene.wrap && scene.wrap()) { p = 0; } setStep(0); };
   const setStep = (j, from = 'geste') => {
     j = Math.max(0, Math.min(N - 1, j));
     if (j === k) return;
@@ -85,7 +86,8 @@ export function buildStagePage(host, o) {
     if (sx == null) return; const dx = x - sx, dy = y - sy; sx = null;
     if (performance.now() - st0 > 900) return;
     // (13/10, Maxence : « cohérence PARTOUT ») depuis le dernier point, le geste vers la suite revient au premier
-    if (Math.abs(dx) > 42 && Math.abs(dx) > 1.4 * Math.abs(dy)) setStep(dx < 0 && k === N - 1 ? 0 : k + (dx < 0 ? 1 : -1));
+    // (13/10) l'objet peut enchaîner du dernier au premier sans rembobiner (un poème par mois : scene.wrap)
+    if (Math.abs(dx) > 42 && Math.abs(dx) > 1.4 * Math.abs(dy)) { if (dx < 0 && k === N - 1) { wrapTo0(); return; } setStep(k + (dx < 0 ? 1 : -1)); }
     else if (Math.abs(dy) > 42 && Math.abs(dy) > 1.4 * Math.abs(dx)) setStep(k + (dy < 0 ? 1 : -1));
   };
   host.addEventListener('touchstart', e => { if (e.touches.length === 1) s0(e.touches[0].clientX, e.touches[0].clientY, e.target); else sx = null; }, { passive: true });

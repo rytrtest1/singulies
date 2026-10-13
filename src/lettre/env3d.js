@@ -41,7 +41,7 @@ const lerp = (a, b, u) => a + (b - a) * u;
 const ap = (m, p) => [m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]];
 
 // les étapes (s) : le paquet de lettres part, la feuille arrive ; elle se retourne ; l'enveloppe et le cachet ; le tirage
-const D = [3.3, 6.0, 4.2];
+const D = [5.6, 6.0, 4.2];                        // (13/10 : l'étape 1 = l'enveloppe du centre s'ouvre, la feuille en sort, se retourne)
 export const LKEYS = D.reduce((a, d) => (a.push(a[a.length - 1] + d), a), [0]);
 const K = LKEYS, NE = 5;                          // NE : les enveloppes du tirage
 // (12/10, Maxence) plus de texte sur la feuille : les lignes sont le fil noir cousu, comme sur la feuille du poème —
@@ -102,7 +102,7 @@ export async function createEnvelope(gl, base = './') {
     const rz = mv * (0.045 * Math.sin(t * 0.17 + g.ph2) + 0.02 * Math.sin(t * 0.31 + g.ph));
     const ry = mv * 0.14 * Math.sin(t * 0.11 + g.ph) - x * 0.0009, rx = mv * 0.05 * Math.sin(t * 0.19 + g.ph2);
     // (plus loin, plus haut : sur la ligne du regard, au milieu de la place de l'objet)
-    return { x, M: M4.mul(M4.model(rx, ry, rz, x, y + lineY(z), z), S(EK)) };
+    return { x, p: [rx, ry, rz, x, y + lineY(z), z], M: M4.mul(M4.model(rx, ry, rz, x, y + lineY(z), z), S(EK)) };
   }
   const paperOf = k => ({ ...sheetV, seed: 51 + (((k % 7) + 7) % 7) * 9 });
   // l'enveloppe (repère : Me) : face, dos sans rabat du bas, rabat (fl : 0 ouvert → 1 fermé), cachet (us : sa pose)
@@ -128,9 +128,15 @@ export async function createEnvelope(gl, base = './') {
   }
   // la feuille (couchée, A5) : elle arrive de droite (le paquet part à gauche), se retourne (la lettre), puis au-dessus
   // de l'enveloppe, et dedans
+  // (13/10, Maxence) étape 1 : l'enveloppe du centre vient à sa place (SEL), son rabat s'ouvre, la feuille en sort par le
+  // haut, vient au centre devant elle pendant que l'enveloppe s'en va, puis se retourne
+  const SEL = [0, -10, 2], OUT_ON = [1.9, 3.1], OUT_C = [2.9, 3.9], FLIP = [3.9, 5.5];
   function sheetM(r0, r2, x0 = 0) {
-    const fl = ease(span(1.5, 3.1, r0)), lift = 7 * Math.sin(Math.PI * fl);
-    let M = M4.mul(T(x0, 0, lift), M4.model(0, Math.PI * fl, 0));
+    const fl = ease(span(FLIP[0], FLIP[1], r0)), lift = 7 * Math.sin(Math.PI * fl);
+    const a = ease(span(OUT_ON[0], OUT_ON[1], r0)), b = ease(span(OUT_C[0], OUT_C[1], r0));
+    const zin = SEL[2] + 0.8 * EK;                                   // dans la poche, entre ses deux faces
+    const y = lerp(lerp(SEL[1], SEL[1] + EH * 0.92, a), 0, b), z = lerp(zin + 4 * a, 0, b) + 9 * Math.sin(Math.PI * b);
+    let M = M4.mul(T(x0, y, z + lift), M4.model(0, Math.PI * fl, 0));
     if (r2 > 0) {
       const rot = ease(span(0.3, 1.6, r2)), sl = ease(span(1.8, 3.2, r2));
       const zin = 0.75 * EK, yA = EY + EH / 2 + SHH / 2 + 3, yIn = EY - 2;
@@ -178,7 +184,12 @@ export async function createEnvelope(gl, base = './') {
   }
 
   // W, H : px du canvas ; cw, ch : px CSS ; t (s) ; tilt ; spin (en main) ; p : l'étape (glissée) ; pT : l'étape voulue
-  let tNow = 0;
+  // (13/10, Maxence) du dernier point au premier : les deux montrent des lettres fermées — on ne rembobine pas, les
+  // enveloppes du tirage rejoignent la guirlande qui défile (wrap : l'instant du saut ; l'horloge est déjà à 0)
+  let wrapT = -1, wrapMap = null;
+  function wrap() { if (vt < K[K.length - 1] - 0.5) return false; wrapT = performance.now() / 1000; wrapMap = null; vt = 0; lastT = null; return true; }
+  const WRAP_D = 2.2;
+  let tNow = 0, sel = null;
   function frame(W, H, cw, ch, t = 0, tilt = { x: 0, y: 0 }, spin = { x: 0, y: 0 }, p = 0, pT = p) {
     const moving = clock(pT); tNow = t;
     const v = stageView(cw, ch);
@@ -195,31 +206,58 @@ export async function createEnvelope(gl, base = './') {
     // ---- 0 les lettres des membres qui dérivent, liées par le fil ; 1 la feuille arrive et se retourne ; 2 elle entre
     // dans l'enveloppe ----
     const out = ease(span(0.1, 1.1, r0)), others = 1 - span(0.1, 0.9, r0);
-    const fl = ease(span(1.5, 3.1, r0));
+    const fl = ease(span(FLIP[0], FLIP[1], r0));
+    // l'enveloppe choisie : celle qui est au plus près du centre quand on quitte l'étape 0 (gardée jusqu'au retour)
+    if (r0 <= 0.0001) sel = null;
+    else if (!sel) { let bi = 0, bd = 1e9; gar.forEach((g, i) => { const d = Math.abs(garM(i, t, 0).x); if (d < bd) { bd = d; bi = i; } }); sel = { i: bi, t }; }
+    const selOn = !!sel && r2 < 4.8;
     if (others > 0.01) {
       const v0 = stageView(cw, ch), half = v0.Hw * cw / ch * 0.5;
       const gs = gar.map((g, i) => ({ i, ...garM(i, t, out) })).sort((a, b) => a.x - b.x);
+      // le saut depuis le tirage : chaque enveloppe de la pile va prendre la place d'une lettre de la guirlande (la plus
+      // proche du centre pour celle de devant), les autres lettres paraissent en fondu, le fil aussi
+      const ww = wrapT < 0 ? 1 : clamp01((performance.now() / 1000 - wrapT) / WRAP_D);
+      if (ww >= 1) wrapT = -1;
+      if (ww < 1 && !wrapMap) {
+        const near = gs.slice().sort((a, b) => Math.abs(a.x) - Math.abs(b.x)).map(g => g.i);
+        wrapMap = new Map([[near[0], 3], [near[1], 2], [near[2], 4], [near[3], 1], [near[4], 0]]);
+      }
+      const inPile = i => ww < 1 && wrapMap && wrapMap.has(i);
       const pts = [];
       const W2 = (m, x, y, z) => ap(M4.mul(R, m), [x, y, z]);
       let prev = null;
       for (const g of gs) {
+        if (sel && g.i === sel.i) continue;                         // (elle quitte le fil)
         const Mw = M4.mul(R, g.M);
         // (seulement celles qu'on peut voir : leur fil, lui, court de l'une à l'autre)
-        if (Math.abs(g.x) < half * 2.2 + EW) drawEnv(v, P, Mw, { seed: gar[g.i].seed, si: g.i, fade: others });
+        if (inPile(g.i)) {
+          // (de sa place finale dans le tirage à sa place dans la guirlande)
+          const k = wrapMap.get(g.i), [px, py, pz, pa] = pilePos(k, D[2]), u = ease(clamp01(ww * 1.15 - 0.04 * k));
+          const q = [lerp(0, g.p[0], u), lerp(0, g.p[1], u), lerp(pa, g.p[2], u), lerp(px, g.p[3], u), lerp(EY + py, g.p[4], u), lerp(pz, g.p[5], u)];
+          drawEnv(v, P, M4.mul(R, M4.mul(M4.model(...q), S(EK))), { seed: k ? pile[k].seed : pile[0].seed, si: k });
+        } else if (Math.abs(g.x) < half * 2.2 + EW) drawEnv(v, P, Mw, { seed: gar[g.i].seed, si: g.i, fade: others * (ww < 1 ? ease(ww) : 1) });
         const a = W2(g.M, -ENV.w / 2 - 0.5, THR_Y, THR_Z), b = W2(g.M, ENV.w / 2 + 0.5, THR_Y, THR_Z);
         if (prev) {
           const n = 16, len = Math.hypot(a[0] - prev[0], a[1] - prev[1]);
           for (let k = 0; k <= n; k++) { const u = k / n, sg = Math.sin(Math.PI * u);
             pts.push([lerp(prev[0], a[0], u), lerp(prev[1], a[1], u) - sg * (len * 0.08 + 1.2 * Math.sin(t * 0.4 + g.i)), lerp(prev[2], a[2], u) + sg * 3 * Math.sin(t * 0.23 + g.i * 1.3)]); }
-          fil.draw(v.vp, v.eye, P, pts.splice(0), FIL_R * 1.6, { pitch: 1.0, fade: others });
+          fil.draw(v.vp, v.eye, P, pts.splice(0), FIL_R * 1.6, { pitch: 1.0, fade: others * (ww < 1 ? ease(span(0.5, 1, ww)) : 1) });
         }
         prev = b;
       }
     }
-    if (r2 < 4.8 && r0 > 0.05) {
-      // la feuille : elle monte au centre pendant que les lettres s'éloignent, puis se retourne (étape 1)
-      const uin = easeOut(span(0.3, 1.4, r0)), fade = r2 > 0 ? 1 : span(0.3, 1.0, r0);
-      const Ms = M4.mul(R, M4.mul(T(0, -36 * (1 - uin), -20 * (1 - uin)), sheetM(r0, r2)));
+    if (selOn && r2 <= 0) {
+      // elle vient au centre, droite (elle garde sa pose de dérive au moment du choix), son rabat s'ouvre ; la feuille
+      // sortie, elle descend et s'efface
+      const g = garM(sel.i, sel.t, 0).p, u = ease(span(0, 1.4, r0)), dn = ease(span(OUT_C[0], OUT_C[1] + 0.3, r0));
+      const q = [lerp(g[0], 0, u), lerp(g[1], 0, u), lerp(g[2], 0, u), lerp(g[3], SEL[0], u), lerp(g[4], SEL[1], u) - 34 * dn, lerp(g[5], SEL[2], u) - 20 * dn];
+      const Me = M4.mul(R, M4.mul(M4.model(...q), S(EK)));
+      drawEnv(v, P, Me, { seed: gar[sel.i].seed, si: sel.i, fl: 1 - ease(span(1.0, 2.0, r0)), fade: 1 - dn });
+    }
+    if (r2 < 4.8 && r0 > 0.9) {
+      // la feuille : dans l'enveloppe ouverte, elle en sort, vient devant au centre, puis se retourne (étape 1)
+      const fade = 1;
+      const Ms = M4.mul(R, sheetM(r0, r2));
       card.draw(v.vp, v.eye, P, { model: Ms, lod: 'sheetA5', ...paperOf(0), fade });
       // les lignes du poème au recto ; celles de la lettre au verso, seulement retournée (jamais au travers)
       const flk = r2 > 0 ? 1 : fl;
@@ -238,7 +276,7 @@ export async function createEnvelope(gl, base = './') {
         drawEnv(v, P, Me, i ? { seed: pile[i].seed, si: i } : { seed: pile[0].seed, ep: EP, fl: uFlap, us: uSe, F: Fm });
       }
     }
-    return moving || (others > 0.01 && !reduced);   // (les lettres dérivent : on dessine toujours)
+    return moving || wrapT >= 0 || (others > 0.01 && !reduced);   // (les lettres dérivent : on dessine toujours)
   }
   // (13/10) le fil de SINGULIES, sous la description, coulisse avec celui des lettres : leur allure à l'écran (px), depuis
   // le début ; et combien on le voit (l'étape 0)
@@ -252,5 +290,5 @@ export async function createEnvelope(gl, base = './') {
     const a = v.project(-hw, y1), c = v.project(hw, y0);
     return { l: a[0], t: a[1], r: c[0], b: c[1] };
   }
-  return { frame, rect, flowPx, bottom: () => Y_B, keys: LKEYS, state: () => ({ vt }), seek: x => { vt = x; } };   // (essais)
+  return { frame, rect, flowPx, wrap, bottom: () => Y_B, keys: LKEYS, state: () => ({ vt }), seek: x => { vt = x; } };   // (essais)
 }

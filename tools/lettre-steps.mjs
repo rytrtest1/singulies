@@ -24,5 +24,12 @@ for (const v of VTS) {
   await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
   await page.screenshot({ path: `${OUT}/lettre-${VTS.indexOf(v) === VTS.lastIndexOf(v) ? v : v + "-" + (shot++)}.png` });
 }
+// WRAP=1 : du dernier point au premier (13/10) — les enveloppes du tirage rejoignent la guirlande, en temps réel
+if (process.env.WRAP) {
+  await page.evaluate(async () => { const r = await window.__lettre.live, K = r.scene.keys; window.__lettre.setStep(K.length - 1); r.scene.seek(K[K.length - 1]); });
+  await page.waitForTimeout(600);
+  await page.evaluate(async () => { const r = await window.__lettre.live; r.scene.wrap(); window.__lettre.setStep(0); });
+  for (const ms of [0, 500, 1100, 1800, 2600]) { await page.waitForTimeout(ms ? 300 : 0); await page.screenshot({ path: `${OUT}/wrap-${ms}.png` }); }
+}
 console.log('ok');
 await browser.close(); await server.close();
