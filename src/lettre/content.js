@@ -14,7 +14,7 @@ import '../app/pay.css';
 const STEPS = [
   'une lettre mensuelle\nexclusive aux membres',
   'un poème inédit au recto\nmes pensées de création au verso',
-  'le tout dans une enveloppe\nscellée à la cire',
+  'le tout dans une\nenveloppe gaufrée',
   'chaque mois une personne tirée au sort\nreçoit l’original',
 ].map(txt => ({ txt }));
 

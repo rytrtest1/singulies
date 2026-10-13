@@ -41,7 +41,7 @@ const lerp = (a, b, u) => a + (b - a) * u;
 const ap = (m, p) => [m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]];
 
 // les étapes (s) : le paquet de lettres part, la feuille arrive ; elle se retourne ; l'enveloppe et le cachet ; le tirage
-const D = [5.6, 6.0, 4.2];                        // (13/10 : l'étape 1 = l'enveloppe du centre s'ouvre, la feuille en sort, se retourne)
+const D = [5.6, 5.0, 4.2];                        // (13/10 : l'étape 1 = l'enveloppe du centre s'ouvre, la feuille en sort, se retourne)
 export const LKEYS = D.reduce((a, d) => (a.push(a[a.length - 1] + d), a), [0]);
 const K = LKEYS, NE = 5;                          // NE : les enveloppes du tirage
 // (12/10, Maxence) plus de texte sur la feuille : les lignes sont le fil noir cousu, comme sur la feuille du poème —
@@ -106,6 +106,7 @@ export async function createEnvelope(gl, base = './') {
   }
   const paperOf = k => ({ ...sheetV, seed: 51 + (((k % 7) + 7) % 7) * 9 });
   // l'enveloppe (repère : Me) : face, dos sans rabat du bas, rabat (fl : 0 ouvert → 1 fermé), cachet (us : sa pose)
+  const SEALED = false, EMB_K = 0.86, FLAP_EMB = 24;              // (le cachet : SEALED = true)
   function drawEnv(v, P, Me, { seed = 23, ep = envPieces(1, 1), fl = 1, us = 1, F = F1, si = 0, fade = 1 } = {}) {
     const eb = { ...envBase, seed, fade };
     const th = Math.PI * fl, hz = 1.9 * fl;
@@ -113,8 +114,11 @@ export async function createEnvelope(gl, base = './') {
     const occ = fl > 0.02 && fl < 0.995 ? { m: Mf, tri: [ENV.w / 2, FLAP_H] } : null;
     card.draw(v.vp, v.eye, P, { model: Me, lod: 'env', ...eb, ...ep.front });
     card.draw(v.vp, v.eye, P, { model: M4.mul(Me, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...eb, seed: seed + 8, ...ep.back, triB: [0, 0, 0, 0], occ });
-    card.draw(v.vp, v.eye, P, { model: Mf, lod: 'flap', ...eb, seed: seed + 20, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ...ep.flap });
-    if (us <= 0) return;
+    // (13/10, Maxence : « plus premium ») plus de cachet de cire : le logo gaufré à sec en haut du rabat, à la taille de
+    // celui des cartes du jeu (≈ 33 mm) — près du pli, centré
+    card.draw(v.vp, v.eye, P, { model: Mf, lod: 'flap', ...eb, seed: seed + 20, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ...ep.flap,
+      noLogo: false, logoOff: [0, -FLAP_H / 2 + FLAP_EMB], logoScale: [EMB_K, -EMB_K] });
+    if (us <= 0 || !SEALED) return;
     const Ms = M4.mul(M4.mul(Mf, T(0, FLAP_H / 2 - 7 * SEAL_K2, -0.19 - ep.sealDz)), S(SEAL_K2));
     card.draw(v.vp, v.eye, { ...P, ...F.look }, { model: Ms, lod: sealLod, seed: 7 + si, paperXf: [0, 0, 0, 0], paperLo: SH.marbre, logoOff: [SD.offX, SD.offY],
       logoScale: [SEAL_K, -SEAL_K], warp: [0, 0, 0], seal: [1, SEAL_IN, SEAL_D / 2, SEAL_WOB], form: F.form ?? 1, fade: span(0, 0.04, us) * fade,
@@ -252,7 +256,8 @@ export async function createEnvelope(gl, base = './') {
       const g = garM(sel.i, sel.t, 0).p, u = ease(span(0, 1.4, r0)), dn = ease(span(OUT_C[0], OUT_C[1] + 0.3, r0));
       const q = [lerp(g[0], 0, u), lerp(g[1], 0, u), lerp(g[2], 0, u), lerp(g[3], SEL[0], u), lerp(g[4], SEL[1], u) - 34 * dn, lerp(g[5], SEL[2], u) - 20 * dn];
       const Me = M4.mul(R, M4.mul(M4.model(...q), S(EK)));
-      drawEnv(v, P, Me, { seed: gar[sel.i].seed, si: sel.i, fl: 1 - ease(span(1.0, 2.0, r0)), fade: 1 - dn });
+      const flc = 1 - ease(span(1.0, 2.0, r0));
+      drawEnv(v, P, Me, { seed: gar[sel.i].seed, si: sel.i, fl: flc, ep: envPieces(0, flc), fade: 1 - dn });   // (à plat : la feuille dedans ne la traverse pas)
     }
     if (r2 < 4.8 && r0 > 0.9) {
       // la feuille : dans l'enveloppe ouverte, elle en sort, vient devant au centre, puis se retourne (étape 1)
@@ -265,7 +270,7 @@ export async function createEnvelope(gl, base = './') {
     }
     // ---- 3 l'enveloppe, le cachet ; 4 le tirage ----
     if (r2 > 0) {
-      const uFlap = ease(span(3.6, 4.7, r2)), bulge = ease(span(2.4, 3.4, r2)), uSe = span(4.7, 5.9, r2);
+      const uFlap = ease(span(3.6, 4.7, r2)), bulge = ease(span(2.4, 3.4, r2)), uSe = 0;   // (13/10 : plus de cire)
       const EP = envPieces(bulge, uFlap);
       const Fm = uSe < 1 ? sealForm(uSe, SEAL_LOOK0, SH) : F1;
       for (let i = 0; i < NE; i++) {
