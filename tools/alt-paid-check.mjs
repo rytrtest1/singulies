@@ -48,7 +48,6 @@ await page.keyboard.press('Enter');
 await page.waitForTimeout(15000); await shot('2b-enveloppe');
 await page.waitForTimeout(8000); await shot('2c-arrivee');
 // (rendu logiciel lent : l'histoire mise au bout — le cachet, la carte mystère, le fil)
-if (process.env.SWIFT) { await page.evaluate(() => window.__sg.cardsApi.vitrine.seek(12.8)); await page.waitForTimeout(9000); await shot('2d-fil'); }
 await page.waitForFunction(() => window.__sg.cardsApi?.sheet?.state().env?.write, null, { timeout: 180000 });
 if (RES) {
   await page.evaluate(() => window.__sg.cardsApi.sheet.setFields({ nom: 'Martin', rue: '3 rue Haute', cplt: '', ville: 'Paris', cp: '75011' }));
@@ -65,6 +64,15 @@ await page.waitForSelector('.sc-mail', { state: 'attached', timeout: process.env
 out.placeholderAvant = await page.evaluate(() => document.querySelector('.sc-mail').classList.contains('ready'));
 await page.waitForSelector('.sc-mail.ready', { timeout: process.env.SWIFT ? 200000 : 30000 });
 await page.waitForTimeout(2500); await shot('4-email');
+// (13/10) la flèche retour depuis l'email : l'enveloppe revient sur l'adresse ; puis POSTER de nouveau
+if (process.env.BACK) {
+  await page.evaluate(() => document.querySelector('.sc-back').click());
+  await page.waitForFunction(() => !window.__sg.cardsApi.sheet.state().env.posted && !document.querySelector('.sc-mail'), null, { timeout: 120000 });
+  await page.waitForFunction(() => window.__sg.cardsApi.sheet.state().env.canPost, null, { timeout: 300000 });
+  await shot('4b-retour'); out.retour = 'ok';
+  await page.evaluate(() => [...document.querySelectorAll('.sc-pass')].find(e => e.textContent === 'POSTER')?.click());
+  await page.waitForSelector('.sc-mail.ready', { timeout: 400000 }); await page.waitForTimeout(2500);
+}
 if (RES) { await page.click('.sc-mail input'); await page.keyboard.type('lea.martin@exemple.fr', { delay: 30 }); await page.waitForTimeout(600); }
 out.email = await page.evaluate(() => document.querySelector('.sc-mail input').value);
 if (RES) out.demande = await page.evaluate(async o => { const m = await import('/src/app/send.js'); const p = m.params({ name: 'LEA', kind: 'theme', text: 'x', address: ['Lea Martin'], email: 'lea.martin@exemple.fr', order: o }); return { mode: p.mode, contact: p.contact_html }; }, out.order).catch(() => '(src/app/send.js : pas dans la version compilée)');

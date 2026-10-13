@@ -872,7 +872,7 @@ export function createSheetScene(gl, opts) {
     }
     if (env) {
       gesture(t);
-      if (env.sent) return false;                                                // la tranche est devenue le champ de l'email
+      // (13/10) la tranche était devenue le champ de l'email : elle revient, l'enveloppe se redresse sur l'adresse
       if (env.postT >= 0) { env.postT = -1; env.sent = false; return true; }     // postée : elle revient
       if (env.back) return false;
       env.writing = false; emit('stopWrite', {});

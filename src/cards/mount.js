@@ -198,8 +198,10 @@ export async function mountCards(opts) {
       fast: !paid ? opts.sheetFast || 1 : 1, noTopCard: !!opts.noTopCard, placed: !paid && !!opts.placed, landAt: !paid && landAt ? { at: landAt, now: now() } : null,
       // (12/10, Maxence) payé : la même scène que la page (même cadrage) ; la vitrine se joue d'elle-même avec la carte de
       // la personne (story), puis l'enveloppe se retourne pour l'adresse
-      insetBottom: !paid || opts.vitrine || opts.story ? opts.insetBottom : null, insetTop: !paid || opts.vitrine || opts.story ? opts.insetTop : null, sheetZoom: !paid || opts.vitrine || opts.story ? opts.sheetZoom : null,
-      vitrine: !!opts.vitrine && !paid, story: (!!opts.vitrine && paid) || !!opts.story, base,
+      // (13/10, Maxence) payé : la fin d'avant — la feuille dans l'enveloppe, l'expéditeur tapé de près, le destinataire
+      // (l'adresse connue se tape seule, sinon à la main), POSTER, le cachet de près, la tranche, l'email ; plus d'histoire
+      insetBottom: !paid ? opts.insetBottom : null, insetTop: !paid ? opts.insetTop : null, sheetZoom: !paid ? opts.sheetZoom : null,
+      vitrine: !!opts.vitrine && !paid, story: false, base,
       // payé : l'adresse connue (panneau, portefeuille) se tape seule sur l'enveloppe ; sinon on l'y écrit, puis POSTER
       on: { back: closeSheet, order: d => { log('commande : ' + d.mode); opts.onOrder?.(d); say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.'); },
         // l'enveloppe : on y tape l'adresse (même champ natif que la réponse, Entrée = ligne suivante)
@@ -250,7 +252,8 @@ export async function mountCards(opts) {
   let mail = null;
   function askMail(d) {
     try { localStorage.setItem('singulies.draft', JSON.stringify(d)); } catch { /* */ }
-    answer.blur(); postEl.classList.remove('on'); backEl.classList.remove('on');
+    answer.blur(); postEl.classList.remove('on');
+    if (mail) mail.drop();
     const box = el('div', 'sc-mail');
     const inp = document.createElement('input');
     Object.assign(inp, { type: 'email', spellcheck: false, autocomplete: 'email', placeholder: 'email', name: 'email' });
@@ -301,7 +304,7 @@ export async function mountCards(opts) {
     inp.addEventListener('change', draw);
     let done = false;
     const finish = () => {
-      if (done || !ok()) return; done = true;
+      if (done || !ok()) return; done = true; if (mail) mail.sending = true;
       const c = inp.value.trim(), out = { ...d, contact: c, email: c, tel: '' };
       try { localStorage.removeItem('singulies.draft'); } catch { /* */ }
       inp.blur(); go.classList.remove('on'); box.classList.remove('on');
@@ -319,7 +322,7 @@ export async function mountCards(opts) {
     go.addEventListener('click', finish);
     go.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); finish(); } });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); finish(); } });
-    mail = { box, inp, go, inner, draw, ready: false };
+    mail = { box, inp, go, inner, draw, ready: false, drop: () => { box.remove(); go.remove(); } };
     say('l’enveloppe est partie. ton email, puis COMMANDER.');
     api.ask = { input: inp, send: finish };
   }
@@ -468,7 +471,7 @@ export async function mountCards(opts) {
         sh.frame(t, dt, W, H);
         if (sheet !== sh) { if (manualDt == null) requestAnimationFrame(frame); return; }     // retour : la scène des cartes reprend
         passEl.classList.remove('on');
-        backEl.classList.toggle('on', (!opts.hold || paid) && t - sheetAt > 2.5 && !sheet.state().backing && !mail);
+        backEl.classList.toggle('on', (!opts.hold || paid) && t - sheetAt > 2.5 && !sheet.state().backing && !(mail && mail.sending));
         if (opts.onSheetReady && !api.sheetReady && sheet.ready(true)) { api.sheetReady = true; opts.onSheetReady(); }
         // l'enveloppe : le champ natif sur le bloc d'adresse ; le signe « donner » = poster
         const ar = sheet.addrRect(), es = sheet.state().env;
@@ -637,7 +640,7 @@ export async function mountCards(opts) {
     const es = sheet.state().env;
     if (es && es.write && !inputs.includes(document.activeElement) && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { sheet.startWriting(); return; }
     if (es && inputs.includes(document.activeElement) && e.key !== 'Escape') return;
-    if (e.key === 'Escape') { if (!mail) { sheet.back(now()); backEl.classList.remove('on'); } }
+    if (e.key === 'Escape') { if (!mail || unMail()) { sheet.back(now()); backEl.classList.remove('on'); } }
     else if (e.key === 'ArrowDown' || e.key === 'PageDown') sheet.scroll(-1, now());
     else if (e.key === 'ArrowUp' || e.key === 'PageUp') sheet.scroll(1, now());
   });
@@ -681,7 +684,11 @@ export async function mountCards(opts) {
     if (coarse && r.type && r.type !== 'write' && r.type !== 'flip') closeKb();
     if (r.type === 'write') { answer.value = scene.state().active?.text || ''; focusAnswer(); }
   });
+  // (13/10, Maxence) la flèche retour rembobine toujours jusqu'à l'étape d'avant — depuis l'email : l'enveloppe revient
+  // sur l'adresse
+  const unMail = () => { if (!mail || mail.sending) return false; mail.inp.blur(); mail.drop(); mail = null; api.ask = null; return true; };
   backEl.addEventListener('click', () => {
+    if (sheet && mail) { if (mail.sending) return; unMail(); sheet.back(now()); log('retour (email)'); return; }
     if (sheet) { if (sheet.back(now())) { backEl.classList.remove('on'); log('retour'); } return; }
     if (scene.state().mode !== 'free') { if (onExit && !paid) { answer.blur(); onExit(); } return; }
     if (scene.back(now())) {
