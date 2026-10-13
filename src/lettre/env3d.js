@@ -16,7 +16,7 @@ import { LOOK } from '../cards/scene.js';
 import { createThread } from '../vitrine/thread.js';
 import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, envPieces } from '../sheet/envelope.js';
 import { SHEET, LOGO_Y, LOGO_K } from '../sheet/sheet.js';
-import { stageLamp } from '../livres/book3d.js';
+import { objLamp } from '../livres/book3d.js';
 import { stageView, MM } from '../app/stage.js';
 
 // (12/10, Maxence : « c'est en A5, mais pas en portrait ») la feuille est une A5 couchée (210 × 148 mm), et l'enveloppe
@@ -60,8 +60,8 @@ export async function createEnvelope(gl, base = './') {
   rnd.range = (a, b) => a + (b - a) * rnd();
   const SD = sealDraw(rnd), SH = SEAL_SHAPE0, F1 = sealForm(1, SEAL_LOOK0, SH);
   const sealLod = card.addShape('seal-lettre', { w: SEAL_D, h: SEAL_D, r: SEAL_D / 2, t: 0.2, fine: [SEAL_D / 2 + 1, SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: SEAL_WOB, wobPhase: SD.wobPhase, alwaysFine: true });
-  const envBase = { seed: 23, paperXf: [0.4, -0.3, 0, 0], warp: [0.1, -0.04, 0], paperTile: 0.6 * 87 / 0.7, paperLo: 0.35, noLogo: true };
-  const sheetV = { seed: 51, paperXf: [1.2, -0.6, 0, 0], warp: [0.3, -0.16, 0.04], logoOff: [0, LOGO_A5], logoScale: [LOGO_K, LOGO_K], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35 };
+  const envBase = { seed: 23, paperXf: [0.4, -0.3, 0, 0], warp: [0.1, -0.04, 0], paperTile: 0.6 * 87 / 0.7, paperLo: 0.6, noLogo: true };
+  const sheetV = { seed: 51, paperXf: [1.2, -0.6, 0, 0], warp: [0.3, -0.16, 0.04], logoOff: [0, LOGO_A5], logoScale: [LOGO_K, LOGO_K], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.6 };
   // les autres enveloppes du tirage : chacune un peu de biais, son papier
   const pile = Array.from({ length: NE }, (_, i) => ({ rz: i ? rnd.range(-0.035, 0.035) : 0, seed: 23 + i * 11, dx: i ? rnd.range(-3, 3) : 0 }));
   const L = { ...LOOK };
@@ -177,9 +177,9 @@ export async function createEnvelope(gl, base = './') {
     const moving = clock(pT);
     const v = stageView(cw, ch);
     const bx = 0.6 * Math.sin(t * 0.53) + 0.4 * Math.sin(t * 1.21), by = 0.6 * Math.sin(t * 0.41) + 0.4 * Math.sin(t * 1.03);
-    const rx = 0.03 * bx - 0.3 * tilt.y + spin.x, ry = 0.04 * by + 0.42 * tilt.x + spin.y, rz = 0.006 * Math.sin(t * 0.27);
+    const rx = 0.03 * bx - 0.2 * tilt.y + spin.x, ry = 0.04 * by + 0.2 * tilt.x + spin.y, rz = 0.006 * Math.sin(t * 0.27);
     const dz = 1.5 * Math.sin(t * 0.29);
-    const P = stageLamp(L, v, t, tilt, 2.2, 0.35, true);
+    const P = objLamp(L, EW, t, tilt, 0.35);                     // (13/10) la lampe de la carte, à la mesure de l'enveloppe
     gl.viewport(0, 0, W, H);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);

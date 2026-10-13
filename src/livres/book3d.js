@@ -32,6 +32,12 @@ const S = k => new Float32Array([k, 0, 0, 0, 0, k, 0, 0, 0, 0, k, 0, 0, 0, 0, 1]
 // et plus loin — la force compensée pour la face (donc énorme sous une lampe rasante) ne fait plus flamber la tranche
 // quand elle se tourne vers elle — et un peu plus de lumière ambiante : une face tournée loin de la lampe ne tombe plus
 // dans le noir
+// (13/10, Maxence : « refais la lumière et la respiration des gros objets, prends la carte en exemple ») la lampe de la
+// carte, à la mesure de l'OBJET (pas de la vue) : la scène des cartes pose sa lampe à ≈ 2,7 largeurs de carte (téléphone :
+// la carte fait 80 % de l'écran) ; ici, la même proportion pour un objet de largeur size (unités) — mêmes ombres
+// rasantes, même dégradé d'un bord à l'autre, même respiration (orbite ≈ 19 / 9 s, hauteur 17°–42°) — au lieu d'une
+// lampe lointaine et haute qui en faisait un aplat gris délavé (mesuré : livre ≈ 45 uniforme, carte 12–30)
+export const objLamp = (L, size, t, tilt, az0 = 0) => stageLamp(L, { Hw: size * 2.7 }, t, tilt, 1, az0, false);
 export function stageLamp(L, v, t, tilt, kf = 1.25, az0 = 0, calm = false) {
   const Hw = v.Hw, kk = Hw / 235 * kf, R = L.lightR0 * Hw * kf, Z = L.lightZ * kk, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R);
   const back = CAM_AZ + Math.PI, lim = Math.PI - L.lampGap;
@@ -66,7 +72,8 @@ export async function createBook(gl, base = './', list = BOOKS) {
   // livre tourné à la main) ; p : l'étape (continue) — le livre p est au centre, les autres glissent de côté
   function frame(W, H, cw, ch, t = 0, tilt = { x: 0, y: 0 }, spin = { x: 0, y: 0 }, p = 0) {
     const v = stageView(cw, ch);
-    const P = { ...stageLamp(L, v, t, tilt, 2.2, 0, true), inkWear: 0, inkVar: 0.08, inkPress: 0, inkPaper: 1.5, inkOrg: 0, inkThr: 0.2 };
+    const lx = window.__lamp || {}, bc = books[Math.max(0, Math.min(books.length - 1, Math.round(p)))];
+    const P = { ...(lx.kf ? stageLamp(L, v, t, tilt, lx.kf, lx.az ?? 0, lx.calm ?? false) : objLamp(L, bc.w * MM, t, tilt)), inkWear: 0, inkVar: 0.08, inkPress: 0, inkPaper: 1.5, inkOrg: 0, inkThr: 0.2 };
     gl.viewport(0, 0, W, H);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -78,11 +85,12 @@ export async function createBook(gl, base = './', list = BOOKS) {
       // le livre : de face, droit ; il respire à peine (deux sinus) et tourne franchement quand on penche le téléphone
       const ph = b.i * 1.7;
       const bx = 0.6 * Math.sin(t * 0.61 + ph) + 0.4 * Math.sin(t * 1.37 + ph), by = 0.6 * Math.sin(t * 0.47 + ph) + 0.4 * Math.sin(t * 1.13);
-      const rx = 0.03 * bx - 0.3 * tilt.y * near + spin.x * near, ry = 0.04 * by + 0.42 * tilt.x * near + spin.y * near + 0.35 * d, rz = 0.008 * Math.sin(t * 0.29 + ph);
+      const rx = 0.03 * bx - 0.2 * tilt.y * near + spin.x * near, ry = 0.04 * by + 0.2 * tilt.x * near + spin.y * near + 0.35 * d,   // (inclinaison : celle de la carte, 0,2)
+        rz = 0.008 * Math.sin(t * 0.29 + ph);
       const dz = 2.2 * Math.sin(t * 0.29 + ph) * MM;
       card.draw(v.vp, v.eye, P, {
         model: M4.mul(M4.model(rx, ry, rz, d * sp, baseY(b), -b.t * MM / 2 + dz), S(MM)), lod: 'book-' + b.id, seed: 31 + b.i * 7, noLogo: true,
-        paperXf: [0.8, -0.4, 0, 0], warp: [0, 0, 0], paperTile: 0.6 * 87 / 0.7, paperLo: 0.4,
+        paperXf: [0.8, -0.4, 0, 0], warp: [0, 0, 0], paperTile: 0.6 * 87 / 0.7, paperLo: 0.75,
         inkBack: b.inkTex, book: [b.t, BOOK.cover, BOOK.sheet, BOOK.spineR], hinge: [BOOK.hinge, 0.09], fade: Math.min(1, 0.15 + near * 1.2),
       });
     }
