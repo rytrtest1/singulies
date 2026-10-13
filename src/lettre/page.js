@@ -25,7 +25,6 @@ export function buildStagePage(host, o) {
     <div class="lt-cap">
       ${o.steps.some(x => x.title || x.sub) ? '<h1 class="lt-ti caps"></h1><p class="lt-su"></p>' : ''}
       <p class="lt-cap-t" aria-live="polite"></p>
-      ${o.steps.some(x => x.tag) ? '<div class="lt-tagl" aria-hidden="true"><canvas></canvas><span></span></div>' : ''}
       ${N > 1 ? `<div class="lt-dots">${o.steps.map((s, i) => `<button class="lt-dot" type="button" data-k="${i}" aria-label="${esc(s.txt.replace(/\n/g, ' '))}"><i></i></button>`).join('')}</div>` : ''}
       ${o.extra || ''}
       <p class="lt-done" role="status" aria-live="polite"></p>
@@ -67,7 +66,6 @@ export function buildStagePage(host, o) {
       if (!ti.textContent || reduced) put(); else { ti.style.opacity = su.style.opacity = '0'; setTimeout(put, 260); }
     }
     type(nbsp(s.txt));
-    const tl = main.querySelector('.lt-tagl'); if (tl) { if (s.tag) tl.querySelector('span').textContent = s.tag; tl.classList.toggle('on', !!s.tag); }
     main.querySelectorAll('.lt-dot').forEach((b, i) => b.classList.toggle('on', i === j));
     pr.innerHTML = o.price ? o.price(j) : '';
     if (o.sign.href && s.href) sign.href = s.href;
@@ -111,18 +109,25 @@ export function buildStagePage(host, o) {
     const r = scene && scene.rect ? scene.rect(W, H, p) : null;
     if (r) Object.assign(grab.style, { left: r.l + 'px', top: r.t + 'px', width: (r.r - r.l) + 'px', height: (r.b - r.t) + 'px' });
   };
-  // (13/10, Maxence) sous la description, SINGULIES sur son fil d'un bord à l'autre (comme ETERNEL en bas) — et ce fil
-  // coulisse avec celui des lettres qui dérivent au-dessus (scene.flowPx : la même allure à l'écran, le même souffle)
-  const tagLine = (W) => {
-    const el = main.querySelector('.lt-tagl'); if (!el || !el.classList.contains('on')) return;
-    const cv = el.querySelector('canvas'), sp = el.querySelector('span'), d = Math.min(3, devicePixelRatio || 1), hh = 24;
-    const box = el.getBoundingClientRect(); if (!box.width) return;
-    if (cv.width !== Math.round(W * d)) { cv.width = Math.round(W * d); cv.height = hh * d; Object.assign(cv.style, { width: W + 'px', height: hh + 'px', left: -box.left + 'px' }); }
+  // (13/10, Maxence) derrière les lettres qui dérivent, SINGULIES — le nom de la communauté — en grand, dans la police
+  // des textes, sur son fil d'un bord à l'autre ; le fil coulisse dans l'autre sens que les lettres (comme une poulie)
+  let wordEl = null;
+  const tagLine = W => {
+    if (!o.behind || !scene || !scene.flowPx) return;
+    if (!wordEl) {
+      wordEl = document.createElement('div'); wordEl.className = 'lt-word'; wordEl.setAttribute('aria-hidden', 'true');
+      wordEl.innerHTML = `<canvas></canvas><span>${esc(o.behind)}</span>`;
+      host.insertBefore(wordEl, host.firstChild);                      // (sous le canvas de l'objet : derrière les lettres)
+    }
+    const f = scene.flowPx(W, innerHeight), op = Math.max(0, Math.min(1, f.o));
+    wordEl.style.top = f.y.toFixed(1) + 'px'; wordEl.style.opacity = op.toFixed(3);
+    if (op < 0.005) return;
+    const cv = wordEl.querySelector('canvas'), sp = wordEl.querySelector('span'), d = Math.min(3, devicePixelRatio || 1), hh = 30;
+    if (cv.width !== Math.round(W * d)) { cv.width = Math.round(W * d); cv.height = hh * d; Object.assign(cv.style, { width: W + 'px', height: hh + 'px' }); }
     const x = cv.getContext('2d'); x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, W, hh);
-    const r = sp.getBoundingClientRect(), ls = parseFloat(getComputedStyle(sp).letterSpacing) || 0, l = r.left + 3, rr = r.right - 3 - ls, y = hh / 2;
-    const f = scene && scene.flowPx ? scene.flowPx(W, innerHeight) : { x: 0, sag: 0 };
-    paintThread(x, -4, l, y, 83, 1.2, { holes: [false, true], sag: 0.5 + 0.6 * f.sag, g0: -4 - f.x });
-    paintThread(x, rr, W + 4, y, 97, 1.2, { holes: [true, false], sag: 0.5 - 0.6 * f.sag, g0: rr - f.x });
+    const r = sp.getBoundingClientRect(), ls = parseFloat(getComputedStyle(sp).letterSpacing) || 0, l = r.left - 6, rr = r.right - ls + 6, y = hh / 2;
+    paintThread(x, -4, l, y, 83, 1.3, { holes: [false, true], sag: 0.5 + 0.6 * f.sag, g0: -4 + f.x });
+    paintThread(x, rr, W + 4, y, 97, 1.3, { holes: [true, false], sag: 0.5 - 0.6 * f.sag, g0: rr + f.x });
   };
   let scene = null, live = null;
   const step = dt => { const kk = reduced ? 1 : Math.min(1, dt * 3.2); p += (pT - p) * kk; if (Math.abs(pT - p) < 1e-3) p = pT; place(); return Math.abs(pT - p) > 1e-3; };
@@ -133,7 +138,7 @@ export function buildStagePage(host, o) {
     canvas: () => host.querySelector('.lt-cv'),
     // (le bandeau des pages) ce qui voyage : l'objet (le canvas et sa prise) ; le reste paraît sur place
     obj: () => [host.querySelector('.lt-cv'), grab].filter(Boolean),
-    rest: () => [cap, main.querySelector('.lt-bar')].filter(Boolean),
+    rest: () => [cap, main.querySelector('.lt-bar'), wordEl].filter(Boolean),
     center: () => { const r = grab.getBoundingClientRect(); return r.height ? { y: r.top + r.height / 2, h: r.height } : null; } };
 }
 

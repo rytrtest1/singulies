@@ -16,7 +16,7 @@ const STEPS = [
   'un poème inédit au recto\nmes pensées de création au verso',
   'le tout dans une enveloppe\nscellée à la cire',
   'chaque mois une personne tirée au sort\nreçoit l’original',
-].map((txt, i) => ({ txt, ...(i === 0 ? { tag: 'SINGULIES' } : {}) }));   // (13/10) sous la première : SINGULIES sur son fil
+].map(txt => ({ txt }));
 
 // (12/10, Maxence : « la cohérence du paiement entre toutes les pages ») REJOINDRE ouvre le même panneau que RECEVOIR
 // (src/app/pay.css) : il monte du bandeau, l'objet remonte au-dessus et reste visible ; en attendant l'abonnement, on y
@@ -28,7 +28,7 @@ const PRICE = '9 €', PER = 'par mois';
 export function buildLettre(host, base = './') {
   const pg = buildStagePage(host, {
     base, steps: STEPS, fallback: () => 'simple/enveloppe-dos.jpg', aspectLabel: 'Une feuille, un poème tapé à la machine, glissée dans une enveloppe noire fermée par un cachet de cire argenté.',
-    sign: { label: 'REJOINDRE' }, price: () => `<b>${PRICE}</b> ${PER}`,
+    sign: { label: 'REJOINDRE' }, behind: 'SINGULIES', price: () => `<b>${PRICE}</b> ${PER}`,
     make: gl => import('./env3d.js').then(m => m.createEnvelope(gl, base)),
   });
   const { main, sign, grab } = pg;

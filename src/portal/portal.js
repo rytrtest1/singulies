@@ -383,7 +383,7 @@ export async function mountPortal(opts = {}) {
     if (e.pointerType !== 'mouse' || !lay.W) return;
     ptr.x = Math.max(-1, Math.min(1, (e.clientX / lay.W - 0.5) * 2)); ptr.y = Math.max(-1, Math.min(1, -(e.clientY / lay.H - 0.5) * 2));
   });
-  const DO = window.DeviceOrientationEvent;
+  const DO = null;   // (13/10, Maxence) plus jamais l'orientation du téléphone : la respiration suffit
   let orientOn = false, orientAsked = false;
   function onOrient(e) {
     if (e.beta == null || e.gamma == null) return;

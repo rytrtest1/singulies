@@ -72,13 +72,7 @@ export async function mountSheets3d(o) {
   const tilt = { x: 0, y: 0, tx: 0, ty: 0 };
   if (!reduced) {
     addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; tilt.tx = Math.max(-1, Math.min(1, e.clientX / innerWidth * 2 - 1)); tilt.ty = Math.max(-1, Math.min(1, e.clientY / innerHeight * 2 - 1)); }, { passive: true });
-    let b0 = null, g0 = 0;
-    addEventListener('deviceorientation', e => {
-      if (e.beta == null || e.gamma == null) return;
-      if (b0 == null) { b0 = e.beta; g0 = e.gamma; }
-      b0 += (e.beta - b0) * 0.02; g0 += (e.gamma - g0) * 0.02;
-      tilt.tx = Math.tanh((e.gamma - g0) / 16); tilt.ty = -Math.tanh((e.beta - b0) / 16);
-    });
+    // (13/10) plus d'orientation du téléphone
   }
 
   // ---- lire : r 0 → 1 (la feuille du milieu vient remplir l'écran) ; zc 0 → 1 (sa carte de près) ----

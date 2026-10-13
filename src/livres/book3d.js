@@ -84,8 +84,10 @@ export async function createBook(gl, base = './', list = BOOKS) {
       const near = Math.max(0, 1 - Math.abs(d));
       // le livre : de face, droit ; il respire à peine (deux sinus) et tourne franchement quand on penche le téléphone
       const ph = b.i * 1.7;
-      const bx = 0.6 * Math.sin(t * 0.61 + ph) + 0.4 * Math.sin(t * 1.37 + ph), by = 0.6 * Math.sin(t * 0.47 + ph) + 0.4 * Math.sin(t * 1.13);
-      const rx = 0.03 * bx - 0.2 * tilt.y * near + spin.x * near, ry = 0.04 * by + 0.2 * tilt.x * near + spin.y * near + 0.35 * d,   // (inclinaison : celle de la carte, 0,2)
+      // (13/10, Maxence) une respiration ample, d'elle-même : il tourne lentement d'un côté puis de l'autre (on voit son
+      // dos, son épaisseur, la tranche des pages), bascule un peu — deux sinus lents non synchronisés
+      const bx = 0.6 * Math.sin(t * 0.23 + ph) + 0.4 * Math.sin(t * 0.51 + ph), by = 0.7 * Math.sin(t * 0.19 + ph) + 0.3 * Math.sin(t * 0.43 + 2 * ph);
+      const rx = 0.09 * bx - 0.2 * tilt.y * near + spin.x * near, ry = 0.42 * by + 0.2 * tilt.x * near + spin.y * near + 0.35 * d,   // (inclinaison : celle de la carte, 0,2)
         rz = 0.008 * Math.sin(t * 0.29 + ph);
       const dz = 2.2 * Math.sin(t * 0.29 + ph) * MM;
       card.draw(v.vp, v.eye, P, {
@@ -136,7 +138,7 @@ export async function mountStage(host, grab, make, { reduced = false, step = () 
     tilt.gyro = true;
     tilt.tx = Math.tanh((e.gamma - g0) / 18); tilt.ty = Math.tanh(-(e.beta - b0) / 18);
   };
-  const DO = window.DeviceOrientationEvent;
+  const DO = null;   // (13/10, Maxence) plus jamais l'orientation du téléphone : la respiration suffit
   let asked = false;
   const ask = () => {
     if (asked || !DO || reduced || !onScreen()) return;

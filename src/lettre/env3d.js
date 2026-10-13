@@ -86,7 +86,7 @@ export async function createEnvelope(gl, base = './') {
   // enveloppe) ; un même fil noir passe sur chacune (sous le cachet) et s'affaisse de l'une à l'autre, avec une onde lente
   // — les membres, liés. (13/10) Le fil passe derrière chaque lettre, à mi-hauteur (il entre par un bord, ressort par
   // l'autre). Pas de flottement de haut en bas (« cheap ») : chacune garde sa hauteur, seule son inclinaison vit.
-  // Sous la description, SINGULIES sur son fil (page.js : tag) coulisse à la même allure (flowPx).
+  // Derrière elles, SINGULIES (le nom des membres) sur son fil, qui coulisse dans l'autre sens (page.js : behind ; flowPx).
   const NG = 8, G_SP = EW * 1.32, G_V = 11, G_Z = -125;          // nombre, écart (unités), allure (unités / s), profondeur
   const gar = Array.from({ length: NG }, (_, i) => ({ ph: rnd() * 6.283, ph2: rnd() * 6.283, seed: 23 + i * 13, dz: rnd.range(-16, 16), dy: rnd.range(-3, 3) }));
   const THR_Y = 0, THR_Z = -0.8;                                  // le fil : à mi-hauteur, derrière la lettre (mm, repère de l'enveloppe)
@@ -193,8 +193,8 @@ export async function createEnvelope(gl, base = './') {
   function frame(W, H, cw, ch, t = 0, tilt = { x: 0, y: 0 }, spin = { x: 0, y: 0 }, p = 0, pT = p) {
     const moving = clock(pT); tNow = t;
     const v = stageView(cw, ch);
-    const bx = 0.6 * Math.sin(t * 0.53) + 0.4 * Math.sin(t * 1.21), by = 0.6 * Math.sin(t * 0.41) + 0.4 * Math.sin(t * 1.03);
-    const rx = 0.03 * bx - 0.2 * tilt.y + spin.x, ry = 0.04 * by + 0.2 * tilt.x + spin.y, rz = 0.006 * Math.sin(t * 0.27);
+    const bx = 0.6 * Math.sin(t * 0.27) + 0.4 * Math.sin(t * 0.61), by = 0.6 * Math.sin(t * 0.21) + 0.4 * Math.sin(t * 0.49);
+    const rx = 0.06 * bx - 0.2 * tilt.y + spin.x, ry = 0.14 * by + 0.2 * tilt.x + spin.y, rz = 0.006 * Math.sin(t * 0.27);
     const dz = 1.5 * Math.sin(t * 0.29);
     const P = objLamp(L, EW, t, tilt, 0.35);                     // (13/10) la lampe de la carte, à la mesure de l'enveloppe
     gl.viewport(0, 0, W, H);
@@ -282,7 +282,7 @@ export async function createEnvelope(gl, base = './') {
   // le début ; et combien on le voit (l'étape 0)
   function flowPx(cw, ch) {
     const v = stageView(cw, ch), a = v.project(0, lineY(G_Z), G_Z), b = v.project(10, lineY(G_Z), G_Z);
-    return { x: (reduced ? 0 : G_V * tNow) * (b[0] - a[0]) / 10, sag: Math.sin(tNow * 0.4), o: 1 - span(0, 0.6, vt) };
+    return { x: (reduced ? 0 : G_V * tNow) * (b[0] - a[0]) / 10, sag: Math.sin(tNow * 0.4), o: 1 - span(0, 0.6, vt), y: a[1], cx: a[0] };
   }
   // la prise (px CSS) : la feuille debout, ou l'enveloppe ; le bas : toujours le même
   function rect(cw, ch, p) {

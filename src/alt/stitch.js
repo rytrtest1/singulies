@@ -113,15 +113,13 @@ export function stitch(el, { pad = 3.5, dy = 0, seed = 7 } = {}) {
   function draw(w, dpr) {
     cw = w; cdpr = dpr;
     x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, H);
-    paintThread(x, 2.6, w - 2.6, H / 2, seed, TH, { g0: seed * 7 - flowNow() });
+    paintThread(x, 2.6, w - 2.6, H / 2, seed, TH, { g0: seed * 7 });   // (13/10, Maxence) cousu : il ne coulisse pas
   }
   const ro = new ResizeObserver(layout); ro.observe(el);
   document.fonts && document.fonts.ready.then(layout);
   layout();
-  // (12/10) il coulisse : redessiné ≈ 12 fois par seconde, seulement à l'écran
-  const me = { tick: () => { if (cw && cv.isConnected && cv.offsetParent !== null) draw(cw, cdpr); } };
-  flows.add(me); runFlow();
-  return { layout, remove() { ro.disconnect(); cv.remove(); flows.delete(me); } };
+  // (13/10) cousu : immobile (seuls les fils des menus coulissent)
+  return { layout, remove() { ro.disconnect(); cv.remove(); } };
 }
 
 // le fil coulisse (12/10) : px de matière par seconde, de gauche à droite (FLOW_V) ; une horloge commune à tous les

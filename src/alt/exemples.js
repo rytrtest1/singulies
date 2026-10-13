@@ -275,13 +275,7 @@ export function mountExemples(host) {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const tilt = { x: 0, y: 0, tx: 0, ty: 0 };
     addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; tilt.tx = Math.max(-1, Math.min(1, e.clientX / innerWidth * 2 - 1)); tilt.ty = Math.max(-1, Math.min(1, e.clientY / innerHeight * 2 - 1)); }, { passive: true });
-    let b0 = null, g0 = 0;
-    addEventListener('deviceorientation', e => {
-      if (e.beta == null || e.gamma == null) return;
-      if (b0 == null) { b0 = e.beta; g0 = e.gamma; }
-      b0 += (e.beta - b0) * 0.02; g0 += (e.gamma - g0) * 0.02;
-      tilt.tx = Math.tanh((e.gamma - g0) / 14); tilt.ty = Math.tanh((e.beta - b0) / 14);
-    });
+    // (13/10) plus d'orientation du téléphone
     let seen = false, raf = 0, last = 0;
     const f = now => {
       raf = 0;

@@ -737,7 +737,7 @@ export async function mountCards(opts) {
   let orientAsked = false;
   function askOrientation() {
     if (orientAsked) return;
-    const DO = window.DeviceOrientationEvent;
+    const DO = null;   // (13/10, Maxence) plus jamais l'orientation du téléphone : la respiration suffit
     if (DO && typeof DO.requestPermission === 'function') {          // iPhone : demande système, dans un geste
       orientAsked = true;
       DO.requestPermission().then(s => { if (s === 'granted') addEventListener('deviceorientation', onOrient); }).catch(() => { orientAsked = false; });

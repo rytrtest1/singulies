@@ -91,7 +91,7 @@ export async function mountDemande(canvas, d, { base = './', reduced = false } =
     lamp.ve += (w * w * (e - lamp.e) - 2 * z * w * lamp.ve) * dt; lamp.e += lamp.ve * dt;
   }
   addEventListener('pointermove', e => { if (e.pointerType === 'mouse') { ptr.x = (e.clientX / innerWidth - 0.5) * 2; ptr.y = -(e.clientY / innerHeight - 0.5) * 2; } });
-  const DO = window.DeviceOrientationEvent;
+  const DO = null;   // (13/10, Maxence) plus jamais l'orientation du téléphone : la respiration suffit
   const onOrient = e => { if (e.beta != null) { ptr.x = Math.max(-1, Math.min(1, e.gamma / 25)); ptr.y = Math.max(-1, Math.min(1, -(e.beta - 50) / 25)); } };
   if (DO && typeof DO.requestPermission !== 'function') addEventListener('deviceorientation', onOrient);
   let asked = false;
