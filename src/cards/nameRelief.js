@@ -161,7 +161,7 @@ export async function createNameRelief(gl, paperTex, family = '"SG Garamond", se
   function draw(vp, eye, P, look, occ, time = 0, alpha = 1) {
     if (!count || alpha <= 0.002) return;
     common(vp, eye, P, look, occ, time);
-    if (alpha < 1) gl.uniform1f(u.uAlpha, alpha);
+    if (alpha < 1) gl.uniform1f(prog.u.uAlpha, alpha);
     gl.bindVertexArray(vao);
     gl.drawArrays(gl.TRIANGLES, 0, count);
     done();
