@@ -325,3 +325,20 @@
 .of-up .arw { animation-name: arw-bob-up; }
 @keyframes arw-bob-up { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 .of.paying .of-up { opacity: 0; pointer-events: none; }
+
+/* (12/10, Maxence) la fin : le prénom, la réf., merci, « je te tiens au courant » tapé ; le paquet au milieu, le signe
+   partager juste dessous, la phrase ; RETOUR en bas, à la hauteur des signes d'action (RECEVOIR) */
+.mc.fin .ref { margin: 0 0 18px; }
+.mc.fin .mc-merci { margin: 0 0 6px; }
+.mc-type .tw { display: inline; white-space: pre-wrap; }
+.mc-type b { font-weight: inherit; opacity: 0; }
+.mc-type b.on { opacity: 1; animation: of-strike .16s ease-out; }
+.mc.fin .mc-jeu { bottom: calc(150px + env(safe-area-inset-bottom)); }
+.mc.fin .mc-share { margin-top: -6px; }
+.mc.fin .mc-jeu-t { margin-top: -6px; }
+.mc.fin .mc-retour { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom)); margin: 0; }
+.mc.fin > *, .mc.fin .mc-share, .mc.fin .mc-jeu-t { transition: opacity .5s ease; }
+.mc.fin.away > :not(.mc-jeu), .mc.fin.away .mc-share, .mc.fin.away .mc-jeu-t { opacity: 0; pointer-events: none; }
+/* payé : le noir, le prénom, « à toi de jouer maintenant » */
+.mc.fin.play { justify-content: center; padding-top: 0; }
+.mc.fin.play .mc-name { margin-bottom: 18px; }

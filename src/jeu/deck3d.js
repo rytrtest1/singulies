@@ -28,7 +28,7 @@ export async function mountDeck(box, { base = './', reduced = false, onDraw = ()
   const q = QUESTIONS[Math.floor(rnd() * QUESTIONS.length)];
   const qInk = card.makeInk(makeInkMap(q.q, Math.floor(top.seed * 1000) + q.id).canvas);
   box.appendChild(canvas);
-  let raf = 0, t0 = performance.now(), drawT = -1, done = false;
+  let raf = 0, t0 = performance.now(), drawT = -1, done = false, gone = false, lastVP = null, lastW = 0;
   const pull = () => { if (drawT >= 0) return; drawT = performance.now(); go(); };
   const frame = now => {
     raf = 0;
@@ -45,6 +45,8 @@ export async function mountDeck(box, { base = './', reduced = false, onDraw = ()
     gl.viewport(0, 0, W, H);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
+    lastVP = vp; lastW = wpx; lastP = P;
+    if (gone) { if (!document.hidden) raf = requestAnimationFrame(frame); return; }
     const u = drawT < 0 ? 0 : clamp01((now - drawT) / 1300);
     for (let i = 0; i < N; i++) {
       const v = vs[i];
@@ -63,12 +65,17 @@ export async function mountDeck(box, { base = './', reduced = false, onDraw = ()
     if (!document.hidden) raf = requestAnimationFrame(frame);
   };
   const go = () => { if (!raf) raf = requestAnimationFrame(frame); };
-  // toucher, ou glisser vers le haut
-  let sy = null;
-  box.addEventListener('pointerdown', e => { sy = e.clientY; });
-  box.addEventListener('pointerup', e => { if (sy == null) return; const dy = e.clientY - sy; sy = null; if (Math.abs(dy) < 10 || dy < -30) pull(); });
-  box.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pull(); } });
+  // (12/10) le relais vers la page du jeu (jeu.js, relay) : où est la carte du dessus à l'écran, sa largeur, son papier ;
+  // la page du jeu la prend (giveDeck : on cesse de la dessiner) et la rend au retour (takeDeck)
+  let lastP = null;
+  function deckScreen() {
+    if (!lastVP) return null;
+    const v = top, z = (N - 1) * PITCH, m = lastVP, w = m[3] * v.jx + m[7] * v.jy + m[11] * z + m[15];
+    const r = box.getBoundingClientRect(), x = (m[0] * v.jx + m[4] * v.jy + m[8] * z + m[12]) / w, y = (m[1] * v.jx + m[5] * v.jy + m[9] * z + m[13]) / w;
+    return { x: r.left + (x * 0.5 + 0.5) * r.width, y: r.top + (0.5 - y * 0.5) * r.height, w: lastW, v: { ...v, jx: 0, jy: 0 } };
+  }
+
   document.addEventListener('visibilitychange', () => { if (!document.hidden) go(); });
   go();
-  return { pull, qid: q.id };
+  return { pull, qid: q.id, deckScreen, lightNow: () => null, giveDeck: () => { gone = true; }, takeDeck: () => { gone = false; drawT = -1; done = false; go(); } };
 }

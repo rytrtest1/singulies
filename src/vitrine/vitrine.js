@@ -131,7 +131,15 @@ export function createVitrine(o) {
     // (12/10) la vue recule autour du bas de la feuille (le bas de l'enveloppe) : il reste à sa place à l'écran
     const YB = SY + BOT;
     if (kz > 1 && u > 0) { const kk = 1 + (kz - 1) * u; c = { cx: c.cx, cy: YB + (f.A.cy - YB) * kk, lD: c.lD + Math.log(kk) }; Hw *= kk; }
-    // (12/10, Maxence : « ne zoom pas du tout au moment de la cire ») la vue ne s'approche plus du cachet
+    // (12/10, Maxence : « ne zoom pas du tout au moment de la cire ») la vitrine ne s'approche plus du cachet — mais
+    // après le paiement (l'histoire jouée avec la carte de la personne : o.noCard), la vue s'en approche comme avant
+    if (o.noCard) {
+      const near = vt > K[2] ? 1 : ease(span(4.0, 4.9, r2()));
+      if (near > 0) {
+        const k2 = Math.min(1, Math.max(0.86, ENV.w * ENV_K / 0.97 * H / W / Hw));
+        c = { cx: lerp(c.cx, 0, near), cy: lerp(c.cy, YB + (c.cy - YB) * k2, near), lD: lerp(c.lD, c.lD + Math.log(k2), near) };
+      }
+    }
     return Number.isFinite(c.cx + c.cy + c.lD) ? c : null;
   }
   function focus() {

@@ -475,7 +475,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       blank = { v, ink: null, labelInk: card.makeInk(makeInkMap('carte blanche', Math.floor(v.seed * 1000) + 3).canvas), text: '', cursorMM: null, first: 0, place: 'rest', out: 1, appearT: null };
     }
     // la carte blanche monte du bas (après une question passée) ; elle se range quand une réponse est validée
-    const bIn = (answer && !answer.anim && choicesOn()) || mode === 'free' || busy(blank, t);
+    // (12/10, Maxence) après le paiement, plus de carte blanche qui monte : PASSER seul y mène (mount.js)
+    const bIn = (!shuf && answer && !answer.anim && choicesOn()) || mode === 'free' || busy(blank, t);
     if (bIn && blank.appearT == null) blank.appearT = t + 2.2;
     if (!bIn) blank.appearT = null;
     blank.out += ((bIn ? 0 : 1) - blank.out) * Math.min(1, dt * 1.8);
@@ -656,9 +657,12 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (peekQ && (ended || !question || seq[cur - 1]?.id !== peekQ.id) && backHint <= 0 && dragPeek < 0.001) { card.freeInk(peekQ.ink); peekQ = null; }
     if (peekQ && (backHint > 0.001 || dragPeek > 0.001) && fadeQ > 0.01) {
       // (12/10 : au bord droit — la précédente revient de la droite)
-      const rest = centerPose(peekQ.v), off = { ...rest, x: rest.x + SW * (lay.Ww / 2 + CARD.w * 1.2), y: rest.y - 8, rz: rest.rz + SW * 0.3 };
-      const show = { ...rest, x: SW * (lay.Ww / 2 - 13 + CARD.w / 2), y: rest.y - 3, rz: rest.rz + SW * 0.08 };
-      const k = Math.max(backHint, dragPeek), to = dragPeek > backHint ? { ...show, x: show.x - SW * 16 * dragPeek, rz: show.rz - SW * 0.04 * dragPeek, z: (show.z || 0) - 1.5 } : show;   // (sous la question : pas de chevauchement)
+      // (12/10, Maxence) la précédente est partie du côté où l'on a glissé (SW) : elle revient de ce bord-là, sous le doigt
+      // qui glisse dans l'autre sens — jamais du bord où va la question
+      const PS = -SW;
+      const rest = centerPose(peekQ.v), off = { ...rest, x: rest.x + PS * (lay.Ww / 2 + CARD.w * 1.2), y: rest.y - 8, rz: rest.rz + PS * 0.3 };
+      const show = { ...rest, x: PS * (lay.Ww / 2 - 13 + CARD.w / 2), y: rest.y - 3, rz: rest.rz + PS * 0.08 };
+      const k = Math.max(backHint, dragPeek), to = dragPeek > backHint ? { ...show, x: show.x - PS * 16 * dragPeek, rz: show.rz - PS * 0.04 * dragPeek, z: (show.z || 0) - 1.5 } : show;   // (sous la question : pas de chevauchement)
       peekAt = lerpPose(off, to, k);
       card.draw(vp, eye, P, { model: model(Gq, peekAt), lod: 'fine', ink: peekQ.ink, shade: dimQ, fade: fadeQ, ...peekQ.v });
     } else peekAt = null;
@@ -907,7 +911,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     frame, tap, drag, release, give, pass, back, start, prepare, reopen, resume, pioche: t => drawFromShuffle(t), snapshot, hideName, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer, setJeuWrite, drawAt, relayIn, relayOut, relaying: () => !!relay && !relay.fin,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
-    state: () => ({ freeFor: mode === 'free' ? lastT - freeT : 0, blankFor: blank && blank.appearT != null ? lastT - blank.appearT + 2.2 : 0, hasPrev: hasPrev(), idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false, shuffling: !!shuf && !shuf.done }),
+    state: () => ({ paidMode: !!shuf, freeFor: mode === 'free' ? lastT - freeT : 0, blankFor: blank && blank.appearT != null ? lastT - blank.appearT + 2.2 : 0, hasPrev: hasPrev(), idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false, shuffling: !!shuf && !shuf.done }),
     look: L, layout: lay,
   };
 }

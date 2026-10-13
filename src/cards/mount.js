@@ -23,6 +23,7 @@ const CSS = `
   opacity: 0; transition: opacity 1.2s; pointer-events: none;
   font: 500 14px/44px 'SG Garamond', serif; letter-spacing: 0.45em; padding-left: 0.45em; color: #fff; }   /* (12/10 : le même interlettrage que tous les signes) */
 .sc-pass.on { opacity: .62; pointer-events: auto; }
+.sc-pass.nosub .sc-sub { display: none; }
 .sc-pass .sc-sub { display: block; margin-top: -12px; font-size: 13px; line-height: 1.2; letter-spacing: .04em; padding-left: 0; opacity: .55; }
 .sc-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); }
 /* feuille : boutons accessibles (clavier, lecteur d'écran) posés sur la carte et la commande ; le toucher passe au canvas */
@@ -513,10 +514,15 @@ export async function mountCards(opts) {
       const mk = scene.marks();
       // (10/10) aussi quelques secondes après l'apparition de la carte blanche, même pas touchée (réponse vide)
       const blankIn = st.mode === 'q' && st.blankFor > 3.5 && !(st.active && st.active.text);
-      passEl.classList.toggle('on', !st.ended && ((st.mode === 'free' && st.freeFor > 3) || blankIn));
+      // (12/10, Maxence) après le paiement : PASSER seul, sous la question posée (il mène à la carte vierge, « dis-moi ce
+      // que tu veux », sous laquelle PASSER revient : j'improvise)
+      const paidQ = st.paidMode && st.mode === 'q' && !st.shuffling && st.active && !st.active.text && st.idle > 1.2;
+      passEl.classList.toggle('on', !st.ended && ((st.mode === 'free' && st.freeFor > (st.paidMode ? 1.6 : 3)) || (st.paidMode ? paidQ : blankIn)));
+      passEl.classList.toggle('nosub', !!st.paidMode && st.mode === 'q');
       const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
       if (st.kb && r) passEl.style.top = Math.max(r.bottom + 2, (r.bottom + kbTop) / 2 - 22) + 'px';
       // (10/10) centré entre la question (et sa bande de réponse) et la carte blanche
+      else if (st.mode === 'q' && mk && st.paidMode) passEl.style.top = ((mk.qBottom || mk.deckBottom) + 34) + 'px';
       else if (st.mode === 'q' && mk) passEl.style.top = (((mk.qBottom || mk.deckBottom) + mk.blankTop) / 2 - (passEl.offsetHeight || 60) / 2) + 'px';
       else if (mk) passEl.style.top = (mk.deckBottom + 34) + 'px';
       // respiration : la lumière et la carte en focus bougent d'elles-mêmes, très peu (le vivant, sans gyroscope)
@@ -707,7 +713,12 @@ export async function mountCards(opts) {
     if (sheet) { if (sheet.post(now())) { answer.blur(); log('postée'); } return; }
     if (scene.give(now())) { answer.blur(); log('donné'); }
   });
-  passEl.addEventListener('click', () => { const r = scene.pass(now()); if (r) { answer.blur(); log('passé'); } });
+  passEl.addEventListener('click', () => {
+    const st = scene.state();
+    // (12/10) après le paiement, le premier PASSER : la carte vierge (le thème libre) ; le second : j'improvise
+    if (st.paidMode && st.mode === 'q') { if (scene.chooseBlank(now())) { answer.blur(); log('carte vierge'); } return; }
+    const r = scene.pass(now()); if (r) { answer.blur(); log('passé'); }
+  });
 
 
   // ---- gyroscope : zéro = tenue normale de lecture (≈ 50° vers l'arrière, à plat de côté) ----

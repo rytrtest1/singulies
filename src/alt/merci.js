@@ -9,7 +9,7 @@ import { norm } from '../basique/basique.js';
 import { installSend, setOrder, settled, send } from '../app/send.js';
 import { installCount, count } from '../app/count.js';
 import { PAIEMENT_URL } from './config.js';
-import { esc, readOrder, saveOrder, screen, leave, finalScreen, askHow, shareGift } from './fin.js';
+import { esc, readOrder, saveOrder, screen, leave, finalScreen, askHow, shareGift, playScreen } from './fin.js';
 
 const Q = new URLSearchParams(location.search);
 const POUR = document.documentElement.dataset.page === 'pour';
@@ -96,10 +96,8 @@ async function run() {
     count('alt/fini'); settled().finally(() => final(order)); return;
   }
   // l'avant : merci, et ce qui va se passer
-  const intro = screen(order.gift
-    ? `<h1>${esc(order.name)}</h1><p>merci. ${how === 'blanche' ? 'écris le thème de son poème.' : how === 'impro' ? 'j’improvise sur son prénom.' : 'je tire une carte : ta réponse sera le thème de son poème.'}</p>`
-    : `<h1>${esc(order.name)}</h1><p>merci. maintenant je tire une carte pour toi.</p>
-    <p class="small">ta réponse sera le thème du poème.<br>tu peux aussi passer : j’improviserai sur ton prénom.</p>`);
+  // (12/10, Maxence) le même écran qu'après un paiement dans la page : le prénom, « à toi de jouer maintenant » tapé
+  const intro = playScreen(order.name, order.gift ? (how === 'blanche' ? 'écris le thème de son poème' : how === 'impro' ? 'j’improvise sur son prénom' : 'à toi de jouer pour ' + order.name.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())) : 'à toi de jouer maintenant').el;
   await ceremony(order, intro, how);
 }
 

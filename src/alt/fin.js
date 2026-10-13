@@ -19,40 +19,71 @@ export const leave = d => { d.classList.remove('on'); setTimeout(() => d.remove(
 // le prénom tel qu'on l'écrit dans une phrase : Léa → LEA dans le poème, mais « Lea » ici (capitale initiale)
 const said = n => String(n).toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 
-// la fin (12/10, Maxence) : le prénom, à sa taille de toujours ; « merci » ; ce que je fais maintenant ; la référence ;
-// ACCUEIL. En bas, le paquet du jeu (SINGULIES / le jeu, en direct : src/jeu/deck3d.js) invite à tirer une carte —
-// « pose une question à quelqu'un », un signe partager : la carte tirée, l'écran du jeu avec cette question.
-// (rechargée : la même, pas une seconde demande)
+// (12/10, Maxence) une ligne tapée à la machine dans el (rend une promesse : la frappe finie)
+export function typeInto(el, text, { at = 300, step = 58 } = {}) {
+  el.setAttribute('aria-label', text);
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduced) { el.textContent = text; return Promise.resolve(); }
+  // les lettres à venir sont déjà là, invisibles : rien ne bouge pendant la frappe
+  el.innerHTML = '<span class="tw">' + [...text].map(ch => `<b>${esc(ch)}</b>`).join('') + '</span>';
+  const ks = [...el.querySelectorAll('b')];
+  return new Promise(res => {
+    let n = 0;
+    const strike = () => { if (!el.isConnected || n >= ks.length) { res(); return; } ks[n++].classList.add('on'); setTimeout(strike, (ks[n - 1].textContent === ' ' ? 80 : step * 0.6) + Math.random() * step * 0.8); };
+    setTimeout(strike, at);
+  });
+}
+// (12/10, Maxence) payé : un écran noir, le prénom, « à toi de jouer maintenant » tapé — puis le jeu (rend le temps qu'il
+// tient, ms)
+export function playScreen(name, line = 'à toi de jouer maintenant') {
+  const d = screen(`<h1 class="mc-name">${esc(name)}</h1><p class="mc-line mc-type"></p>`);
+  d.classList.add('fin', 'play');
+  const done = typeInto(d.querySelector('.mc-type'), line, { at: 900 });
+  return { el: d, done };
+}
+
+// la fin (12/10, Maxence) : le prénom ; la référence ; MERCI ; « je te tiens au courant » tapé. Au milieu, le paquet du
+// jeu (SINGULIES / le jeu, en direct : src/jeu/deck3d.js), le signe partager juste dessous, « pose une question à
+// quelqu'un » ; le toucher : la carte se retourne et devient l'écran du jeu (la même carte, aucun changement de page :
+// mountJeu en relais, comme du portail) — on y glisse, on change de question, on la partage ; son retour ramène ici.
+// RETOUR, en bas, à la place des signes d'action (RECEVOIR). (rechargée : la même, pas une seconde demande)
 export function finalScreen(order, home) {
-  const n = esc(order.name), s = esc(said(order.name));
-  const line = order.lien ? `dès que ${s} aura répondu, je lis ses mots, écris son poème<br>et l’envoie par la poste.`
-    : order.reserve ? `je t’écris pour le paiement, puis je lis tes mots, écris ton poème<br>et l’envoie par la poste.`
-    : order.gift ? `je lis tes mots, écris son poème<br>et l’envoie par la poste.`
-    : `je lis tes mots, écris ton poème<br>et l’envoie par la poste.`;
-  const jeuUrl = id => { const u = new URL('./jeu', document.baseURI), k = new URLSearchParams(); if (id != null) k.set('q', id); u.search = k.toString(); return u.href; };
+  const n = esc(order.name);
   const d = screen(`<h1 class="mc-name">${n}</h1>
-    <p class="mc-merci">merci</p>
-    <p class="mc-line">${line}</p>
-    ${order.reserve ? '<p class="small">rien n’a été débité.</p>' : ''}
     ${order.ref ? `<div class="ref">réf. ${esc(order.ref)}</div>` : ''}
-    ${home ? `<a class="mc-sign" href="${esc(home)}">ACCUEIL</a>` : ''}
+    <p class="mc-merci">merci</p>
+    <p class="mc-line mc-type"></p>
+    ${order.reserve ? '<p class="small">rien n’a été débité.</p>' : ''}
     <div class="mc-jeu">
       <div class="mc-deck" role="button" tabindex="0" aria-label="Tirer une carte du jeu SINGULIES"></div>
-      <div class="mc-jeu-row"><span class="mc-jeu-t">pose une question à quelqu’un</span>
-        <button class="mc-share" type="button" aria-label="Partager une question du jeu"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v10h14V11h-1" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
-    </div>`);
+      <button class="mc-share" type="button" aria-label="Poser une question du jeu à quelqu’un"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v10h14V11h-1" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <span class="mc-jeu-t">pose une question à quelqu’un</span>
+    </div>
+    ${home ? `<a class="mc-sign mc-retour" href="${esc(home)}">RETOUR</a>` : ''}`);
   d.classList.add('fin');
+  typeInto(d.querySelector('.mc-type'), 'je te tiens au courant', { at: 900 });
   const sign = d.querySelector('.mc-sign');
-  if (sign) import('./stitch.js').then(m => m.stitch(sign, { seed: 'ACCUEIL'.length * 13 })).catch(() => {});
+  if (sign) import('./stitch.js').then(m => m.stitch(sign, { seed: 'RETOUR'.length * 13 })).catch(() => {});
   // le paquet en direct (sans WebGL2 : le signe et le lien suffisent)
   const deckBox = d.querySelector('.mc-deck');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let deck = null;
+  const base = new URL('./', document.baseURI).href;
+  const jeuUrl = id => { const u = new URL('./jeu', document.baseURI), k = new URLSearchParams(); if (id != null) k.set('q', id); u.search = k.toString(); return u.href; };
+  let deck = null, jeu = null, inJeu = false;
   const toJeu = id => { location.href = jeuUrl(id); };
-  import('../jeu/deck3d.js').then(m => m.mountDeck(deckBox, { base: new URL('./', document.baseURI).href, reduced, onDraw: toJeu })).then(r => { deck = r; if (!r) deckBox.classList.add('flat'); }).catch(() => deckBox.classList.add('flat'));
-  // partager : la carte se tire, puis l'écran du jeu (où PARTAGER envoie la question)
-  d.querySelector('.mc-share').addEventListener('click', () => { if (deck) deck.pull(); else toJeu(null); });
-  deckBox.addEventListener('click', () => { if (!deck) toJeu(null); });
+  // la page du jeu, préparée d'avance par-dessus (transparente) : au toucher, elle prend le paquet là où il est
+  const prep = () => import('../jeu/jeu.js').then(m => m.mountJeu({ base, reduced, relay: true, portal: () => deck,
+    onBack: () => { inJeu = false; d.classList.remove('away'); },
+    onReturned: () => deck?.takeDeck() })).then(j => { jeu = j; }).catch(e => console.warn('jeu', e));
+  import('../jeu/deck3d.js').then(m => m.mountDeck(deckBox, { base, reduced, onDraw: toJeu })).then(r => { deck = r; if (!r) { deckBox.classList.add('flat'); return; } setTimeout(prep, 1800); }).catch(() => deckBox.classList.add('flat'));
+  const open = () => {
+    if (inJeu) return;
+    if (deck && jeu) { inJeu = true; d.classList.add('away'); jeu.takeOver(); return; }
+    if (deck) deck.pull(); else toJeu(null);
+  };
+  d.querySelector('.mc-share').addEventListener('click', open);
+  deckBox.addEventListener('click', open);
+  deckBox.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   return d;
 }
 

@@ -404,3 +404,8 @@ Voir « Point de reprise » en tête de fichier.
 - Non vérifié : la transition entre pages en mouvement réel (le rendu logiciel est trop lent pour la capturer au milieu), fluidité sur téléphone (tirage : 5 enveloppes et 5 cachets).
 - À fournir : la liste des poèmes à montrer (`POEMES`, src/lettre/poemes.js) et le vrai texte de la lettre au dos (`PENSEES`).
 
+## 13/10 — retours en vrac de Maxence (feuille, pages, un poème par mois, après paiement)
+- Fait : voir CLAUDE.md « Retours du 13/10 ».
+- Vérifié (Chromium logiciel 390 × 844) : entrée de la feuille (captures : description, puis bandeaux, RECEVOIR, flèche) ; hauteurs mesurées (RECEVOIR à 103 px du bas, LE LIRE / REJOINDRE alignés dessus) ; poème ouvert glissé à −0,3 / −0,6 (la voisine à côté, sans chevauchement) puis lâché ; un poème par mois, 8 instants de l'horloge (paquet lié + SINGULIES, feuille aux lignes de fil, enveloppe, cachet, tirage) ; parcours payé complet `SWIFT=1 … alt-paid-check.mjs` (PASSER sans carte blanche, enveloppe, adresse seule, email, TERMINER, fin « merci », 0 erreur) ; écran final → jeu en relais → retour (0 erreur). Vitest 45/45.
+- Non vérifié : version simple (sans WebGL2) de ces changements — non reportée cette fois (écran final, PASSER / carte vierge, enveloppes liées) ; transition « page suivante » en mouvement réel.
+
