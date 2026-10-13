@@ -14,7 +14,7 @@
 import { createCardRenderer, M4, CARD } from '../cards/cardRenderer.js';
 import { LOOK } from '../cards/scene.js';
 import { createThread } from '../vitrine/thread.js';
-import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, envPieces } from '../sheet/envelope.js';
+import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, envPieces, stampInk } from '../sheet/envelope.js';
 import { SHEET, LOGO_Y, LOGO_K } from '../sheet/sheet.js';
 import { stageLamp } from '../livres/book3d.js';
 import { stageView, MM } from '../app/stage.js';
@@ -41,9 +41,9 @@ const lerp = (a, b, u) => a + (b - a) * u;
 const ap = (m, p) => [m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]];
 
 // les étapes (s) : le paquet de lettres part, la feuille arrive ; elle se retourne ; l'enveloppe et le cachet ; le tirage
-const D = [1.6, 1.6, 6.0, 4.2];
+const D = [3.3, 6.0, 4.2];
 export const LKEYS = D.reduce((a, d) => (a.push(a[a.length - 1] + d), a), [0]);
-const K = LKEYS, NE = 5, NB = 5;                  // NE : les enveloppes du tirage ; NB : celles du paquet (étape 0)
+const K = LKEYS, NE = 5;                          // NE : les enveloppes du tirage
 // (12/10, Maxence) plus de texte sur la feuille : les lignes sont le fil noir cousu, comme sur la feuille du poème —
 // au recto le poème (lignes centrées, longueurs de vers), au verso la lettre (paragraphes, alignés à gauche)
 const FIL_R = 0.26;
@@ -80,28 +80,22 @@ export async function createEnvelope(gl, base = './') {
 
   // ---- les places (unités du monde, l'objet centré en x) ----
   const fil = createThread(gl);
-  // (12/10, Maxence) étape 0 : le paquet de lettres — les enveloppes des membres, l'une sur l'autre, un peu de biais,
-  // liées par un fil noir (une croix sur le dessus, un nœud) ; SINGULIES écrit dessous sur son fil (page.js : tag)
-  const BY = 6;                                    // le paquet : son centre (au-dessus de SINGULIES)
-  const bundle = Array.from({ length: NB }, (_, i) => ({ x: i ? rnd.range(-5, 5) : 0, y: i ? rnd.range(-4, 4) : 0, rz: i ? rnd.range(-0.06, 0.06) : 0.01, seed: 61 + i * 13 }));
-  const bundleX = r0 => -280 * ease(span(0.0, 1.0, r0));
-  const TOPZ = 1.9 * EK + 0.9 + FIL_R + 0.3;         // le fil passe au-dessus du rabat de l'enveloppe du dessus
-  const KX = -EW * 0.26, KY = BY - EH * 0.2;                // la croix du fil, à l'écart du cachet ; le nœud au croisement
-  const bundleThread = () => {
-    const z0 = -NB * 2.6, zt = TOPZ, hw = EW / 2 + 0.6, hh = EH / 2 + 0.6, P = [];
-    // l'horizontal : il sort de dessous le paquet à gauche, court sur le dessus, y redescend à droite
-    const H = [[-hw - 0.4, KY, z0], [-hw, KY, zt * 0.5]];
-    for (let x = -hw + 1.5; x <= hw - 1.5; x += 3) H.push([x, KY + 0.25 * Math.sin(x * 0.11), zt]);
-    H.push([hw, KY, zt * 0.5], [hw + 0.4, KY, z0]);
-    const V = [[KX, BY - hh - 0.4, z0], [KX, BY - hh, zt * 0.5]];
-    for (let y = BY - hh + 1.5; y <= BY + hh - 1.5; y += 3) V.push([KX + 0.25 * Math.sin(y * 0.13), y, zt + (y > KY ? 0 : 0)]);
-    V.push([KX, BY + hh, zt * 0.5], [KX, BY + hh + 0.4, z0]);
-    // le nœud : deux boucles et deux bouts qui pendent
-    const loop = sg => [[0, 0], [sg * 5.6, 4.8], [sg * 12.6, 4.5], [sg * 14.7, 0.6], [sg * 10.5, -2.2], [sg * 2.8, -1.1], [0, 0]].map(([a, b]) => [KX + a, KY + b, zt + 0.6]);
-    const tail = sg => [[0, 0], [sg * 2, -4.9], [sg * 4.5, -12], [sg * 6.4, -18]].map(([a, b]) => [KX + a, KY + b, zt + 0.4]);
-    return [H, V, loop(1), loop(-1), tail(1), tail(-1)];
-  };
-  const BT = bundleThread();
+  // (13/10, Maxence) étape 0 : les lettres du mois, des feuilles A5 qui défilent de gauche à droite comme sur une chaîne
+  // (une avance, une pause), chacune avec les lignes de son poème — le fil — et liées entre elles par ce fil (la première
+  // ligne de chacune court jusqu'au bord et passe à la voisine) ; à chaque pause, le tampon du logo SINGULIES tombe sur
+  // celle du centre. SINGULIES écrit dessous, sur son fil (page.js : tag). Elle ne bouge que tant qu'on est à l'étape 0.
+  const SP = SW + 30, CYC = 2.3, MOVE = 0.5;                 // l'écart entre deux feuilles ; un cycle (s) ; la part qui avance
+  const advOf = c => { const n = Math.floor(c / CYC), u = (c - n * CYC) / CYC; return n + ease(Math.min(1, u / MOVE)); };
+  const stampAt = k => (k - 1) * CYC + (MOVE + 0.12) * CYC;   // la feuille k est au centre de (k−1+MOVE)·CYC à k·CYC
+  let cvT = (1 - 1) * CYC + MOVE * CYC + 0.4, cvLast = null, frozen = null;
+  // le tampon : trois coups différents (angle, place, appui), frappés une fois
+  const STAMPS = [0, 1, 2].map(n => {
+    const PXs = 8, cv = new OffscreenCanvas(A5.w * PXs, A5.h * PXs), cx = cv.getContext('2d');
+    cx.fillStyle = '#000'; cx.fillRect(0, 0, cv.width, cv.height);
+    stampInk(cx, PXs, card.logoMask(), A5.w - 34 + rnd.range(-3, 3), 30 + rnd.range(-3, 3), (rnd() < 0.5 ? -1 : 1) * rnd.range(0.08, 0.45), (rnd() * 1e9) >>> 0);
+    return card.makeInk(cv, false);
+  });
+  const paperOf = k => ({ ...sheetV, seed: 51 + (((k % 7) + 7) % 7) * 9 });
   // l'enveloppe (repère : Me) : face, dos sans rabat du bas, rabat (fl : 0 ouvert → 1 fermé), cachet (us : sa pose)
   function drawEnv(v, P, Me, { seed = 23, ep = envPieces(1, 1), fl = 1, us = 1, F = F1, si = 0, fade = 1 } = {}) {
     const eb = { ...envBase, seed, fade };
@@ -125,10 +119,9 @@ export async function createEnvelope(gl, base = './') {
   }
   // la feuille (couchée, A5) : elle arrive de droite (le paquet part à gauche), se retourne (la lettre), puis au-dessus
   // de l'enveloppe, et dedans
-  function sheetM(r0, r1, r2) {
-    const xin = 280 * (1 - easeOut(span(0.5, 1.6, r0)));
-    const fl = ease(span(0.05, 1.45, r1)), lift = 7 * Math.sin(Math.PI * fl);
-    let M = M4.mul(T(xin, 0, lift), M4.model(0, Math.PI * fl, 0));
+  function sheetM(r0, r2, x0 = 0) {
+    const fl = ease(span(1.5, 3.1, r0)), lift = 7 * Math.sin(Math.PI * fl);
+    let M = M4.mul(T(x0, 0, lift), M4.model(0, Math.PI * fl, 0));
     if (r2 > 0) {
       const rot = ease(span(0.3, 1.6, r2)), sl = ease(span(1.8, 3.2, r2));
       const zin = 0.75 * EK, yA = EY + EH / 2 + SHH / 2 + 3, yIn = EY - 2;
@@ -140,6 +133,7 @@ export async function createEnvelope(gl, base = './') {
     return M4.mul(M, S(SK));
   }
   // les lignes de fil de la feuille (repère de la feuille, mm de la forme A5) : face +1 (recto) ou −1 (verso)
+  let LINK_Y = 0, LINK_L = 0;
   const sheetLines = (() => {
     const out = [], W0 = A5.w - 60, zt = SHEET.t / 2 + FIL_R / SK + 0.2;
     const line = (x0, x1, y, side) => {
@@ -149,6 +143,7 @@ export async function createEnvelope(gl, base = './') {
       return pts;
     };
     const lead = 9.5, h0 = (RECTO.length - 1) * lead / 2 - 4;
+    LINK_Y = h0; LINK_L = W0 * RECTO[0];
     RECTO.forEach((w, i) => { const L = W0 * w; out.push(line(-L / 2, L / 2, h0 - i * lead, 1)); });
     // (verso : vu retourné, la gauche de la lettre est à droite du repère)
     const lv = 7.6, v0 = (VERSO.length - 1) * lv / 2 - 2;
@@ -188,21 +183,37 @@ export async function createEnvelope(gl, base = './') {
     gl.enable(gl.DEPTH_TEST);
     // la prise en main tourne tout l'objet autour du bas de l'objet relevé de la moitié de l'enveloppe
     const R = M4.mul(M4.mul(T(0, EY, -1 + dz), M4.model(rx, ry, rz)), T(0, -EY, 0));
-    const r0 = Math.min(vt, K[1]), r1 = Math.max(0, Math.min(vt, K[2]) - K[1]), r2 = vt - K[2], r3 = vt - K[3];
-    // ---- 0 le paquet de lettres, lié ----
-    if (r0 < 1.0) {
-      const Mb = M4.mul(R, T(bundleX(r0), 0, 0));
-      for (let i = NB - 1; i >= 0; i--) {
-        const b = bundle[i];
-        drawEnv(v, P, M4.mul(Mb, M4.mul(M4.mul(T(b.x, BY + b.y, -i * 2.6), M4.model(0, 0, b.rz)), S(EK))), { seed: b.seed, si: i + 10 });
+    const r0 = Math.min(vt, K[1]), r2 = vt - K[1], r3 = vt - K[2];
+    // ---- 0 la chaîne des lettres (le temps de la chaîne n'avance qu'à l'étape 0) ----
+    const tnow = performance.now() / 1000, cdt = cvLast == null ? 0 : Math.min(0.1, tnow - cvLast); cvLast = tnow;
+    if (vt <= 0.0001 && Math.round(pT) === 0) {
+      if (frozen) { cvT = (frozen.kc - 1) * CYC + MOVE * CYC + 0.05; frozen = null; }   // revenu : elle repart de la feuille du centre
+      else if (!reduced) cvT += cdt;
+    } else if (!frozen) { const a = advOf(cvT); frozen = { a, kc: Math.ceil(a - 0.02) }; }
+    const adv = frozen ? lerp(frozen.a, frozen.kc, ease(span(0, 1.0, r0))) : advOf(cvT);
+    const kc = frozen ? frozen.kc : Math.round(adv);
+    const others = 1 - span(0.2, 0.9, r0);                   // les voisines s'effacent quand on passe à l'étape 1
+    const stamped = k => (frozen ? k <= frozen.kc : cvT >= stampAt(k));
+    const sheetX = k => (adv - k) * SP;
+    if (r2 < 4.8) {
+      for (let k = Math.floor(adv) - 2; k <= Math.ceil(adv) + 2; k++) {
+        const isC = k === kc, x = sheetX(k);
+        if (!isC && (others < 0.01 || Math.abs(x) > SP * 2.2)) continue;
+        // le coup de tampon : la feuille s'enfonce à peine, rebondit (pam)
+        const ts = frozen ? 99 : cvT - stampAt(k), dip = ts > 0 && ts < 0.5 ? -1.4 * Math.sin(Math.PI * ts / 0.5) * Math.exp(-ts * 4) : 0;
+        const Ms = M4.mul(R, isC ? sheetM(r0, r2, x) : M4.mul(T(x, 0, dip), S(SK)));
+        const fade = isC ? 1 : others;
+        card.draw(v.vp, v.eye, P, { model: isC && !frozen ? M4.mul(Ms, T(0, 0, dip / SK)) : Ms, lod: 'sheetA5', ...paperOf(k), fade, ...(stamped(k) ? { inkBack: STAMPS[((k % 3) + 3) % 3] } : {}) });
+        if (r2 < 3.0) for (const pts of sheetLines) fil.draw(v.vp, v.eye, P, pts.map(q => ap(Ms, q)), FIL_R, { pitch: 1.0, fade });
+        // le fil qui la lie à la voisine de gauche : la première ligne court jusqu'au bord, passe l'écart, entre dans la suivante
+        if (others > 0.01 && r0 < 1.0) {
+          const zt = SHEET.t / 2 + FIL_R / SK + 0.2, xl = -LINK_L / 2, y = LINK_Y, gap = SP - SW;
+          const pts = [[xl, y, zt], [-A5.w / 2 + 0.5, y, zt]];
+          for (let n = 1; n < 8; n++) { const u = n / 8; pts.push([-A5.w / 2 - (gap / SK) * u, y - 5 * Math.sin(Math.PI * u), zt - 0.6 * Math.sin(Math.PI * u)]); }
+          pts.push([-A5.w / 2 - gap / SK - 0.5, y, zt], [-A5.w / 2 - gap / SK + 6, y, zt], [-A5.w / 2 - gap / SK + 6.6, y, -0.1]);
+          fil.draw(v.vp, v.eye, P, pts.map(q => ap(M4.mul(R, M4.mul(T(x, 0, 0), S(SK))), q)), FIL_R, { pitch: 1.0, fade: others });
+        }
       }
-      for (const pts of BT) fil.draw(v.vp, v.eye, P, pts.map(q => ap(Mb, q)), 0.4, { pitch: 1.3 });   // (le fil du paquet, un peu plus gros : il lie)
-    }
-    // ---- 1–2 la feuille ; elle entre dans l'enveloppe (jusqu'à ce que le rabat soit fermé : ensuite on ne la voit plus) ----
-    if (r0 > 0.45 && r2 < 4.8) {
-      const Ms = M4.mul(R, sheetM(r0, r1, r2));
-      card.draw(v.vp, v.eye, P, { model: Ms, lod: 'sheetA5', ...sheetV });
-      if (r2 < 3.0) for (const pts of sheetLines) fil.draw(v.vp, v.eye, P, pts.map(q => ap(Ms, q)), FIL_R, { pitch: 1.0 });
     }
     // ---- 3 l'enveloppe, le cachet ; 4 le tirage ----
     if (r2 > 0) {
@@ -221,12 +232,12 @@ export async function createEnvelope(gl, base = './') {
   }
   // SINGULIES, écrit sous le paquet sur son fil (page.js le place) : où et combien on le voit
   function tag(cw, ch) {
-    const v = stageView(cw, ch), q = v.project(bundleX(Math.min(vt, K[1])), BY - EH / 2 - 14);
+    const v = stageView(cw, ch), q = v.project(0, -SHH / 2 - 16);
     return { x: q[0], y: q[1], o: 1 - span(0, 0.6, vt) };
   }
   // la prise (px CSS) : la feuille debout, ou l'enveloppe ; le bas : toujours le même
   function rect(cw, ch, p) {
-    const v = stageView(cw, ch), [hw, y0, y1] = vt < 0.8 ? [EW / 2, BY - EH / 2, BY + EH / 2] : vt < K[2] + 1.5 ? [SW / 2, -SHH / 2, SHH / 2] : [EW / 2, Y_B, Y_B + EH];
+    const v = stageView(cw, ch), [hw, y0, y1] = vt < K[1] + 1.5 ? [SW / 2, -SHH / 2, SHH / 2] : [EW / 2, Y_B, Y_B + EH];
     const a = v.project(-hw, y1), c = v.project(hw, y0);
     return { l: a[0], t: a[1], r: c[0], b: c[1] };
   }

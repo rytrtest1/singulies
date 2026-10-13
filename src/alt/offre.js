@@ -597,7 +597,9 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const down = root.querySelector('.of-down');
   const secs = () => [...root.querySelectorAll('.of-sec')];
   const secTop = el => el.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop - (el === secs()[0] ? 50 : 60);
-  const nextSec = () => secs().find(el => secTop(el) > root.scrollTop + 8) || null;
+  // (13/10, Maxence : « la flèche qui reste quand elle est inutile ») une section compte comme « à venir » tant que son
+  // haut est encore dans le bas de l'écran ; déjà à l'écran, la flèche s'en va
+  const nextSec = () => secs().find(el => secTop(el) + 50 - root.scrollTop > innerHeight * 0.55) || null;
   const exTop = () => { const f = secs()[0]; return f ? secTop(f) : storyLen(); };
   // (12/10, Maxence) la flèche seule, sans le nom de la section (son nom reste pour la lecture d'écran)
   const syncDown = () => { const n = nextSec(); down.setAttribute('aria-label', n ? n.dataset.nom : 'Faire défiler'); down.classList.toggle('none', !n); };
@@ -620,6 +622,11 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   up.innerHTML = '<svg class="arw" viewBox="0 0 18 11" aria-hidden="true"><path d="M1.5 9.5 L9 2 L16.5 9.5"/></svg>';
   root.appendChild(up);
   up.addEventListener('click', ascend);
+  // (ni l'une ni l'autre pendant qu'on lit un poème ouvert, qu'on paie, ou qu'on remplit l'enveloppe)
+  setInterval(() => {
+    const busy = busyMode() || !!document.querySelector('.ex-veil3.on, .ex-veil.on');
+    root.classList.toggle('arrows-off', busy);
+  }, 250);
   const downAt = () => { let rv = false; try { rv = !!sessionStorage.getItem('sg.nav.reveal'); } catch { /* */ } return BAR_AT + (rv ? 1200 : 6500); };
   setTimeout(() => setTimeout(() => { down.dataset.shown = '1'; if (!busyMode()) down.classList.add('on'); }, downAt() - BAR_AT), BAR_AT);
   down.addEventListener('click', () => {

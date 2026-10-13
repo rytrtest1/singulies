@@ -121,7 +121,8 @@ a.lt-go { display: table; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .arw { animation: none; } }
 .lt-down { display: flex; align-items: center; justify-content: center; }
 
-/* (12/10) le mot posé sous l'objet, sur son fil cousu (un poème par mois : SINGULIES), comme RECEVOIR */
-.lt-tag { position: fixed; left: 0; top: 0; z-index: 2; pointer-events: none; will-change: transform, opacity; }
-.lt-tag span { position: relative; display: inline-block; padding: 6px 2px 9px; padding-right: calc(2px - .45em); font: 500 13px/1 'SG Garamond', Georgia, serif;
-  letter-spacing: .45em; color: rgba(236, 232, 224, .78); white-space: nowrap; }
+/* (13/10) le mot posé sous l'objet, sur son fil d'un bord à l'autre (comme ETERNEL en bas) : SINGULIES, les membres liés */
+.lt-tag { position: fixed; left: 0; right: 0; top: 0; z-index: 2; height: 30px; margin-top: -15px; pointer-events: none; will-change: top, opacity; }
+.lt-tag canvas { position: absolute; left: 0; top: 0; }
+.lt-tag span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin-right: -.34em; padding: 0 0 0 .34em;
+  font: 500 10.5px/14px 'SG Garamond', Georgia, serif; letter-spacing: .34em; color: #ece8e0; opacity: .62; white-space: nowrap; }

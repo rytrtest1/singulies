@@ -10,7 +10,7 @@
 // o : { base, steps: [{ txt, price?, href?, label? }], sign: { label, href?, onClick(k) }, price(k), make(gl) →
 //       { frame(W, H, cssW, cssH, t, tilt, spin, p), rect(cssW, cssH, p) → { l, t, r, b }, bottom(p) (unités) },
 //       aspectLabel, onStep(k), extra (html sous la légende) }
-import { stitch } from '../alt/stitch.js';
+import { stitch, paintThread, flowNow } from '../alt/stitch.js';
 import { captionShift, insetBottom } from '../app/stage.js';
 import { mountStage } from '../livres/book3d.js';
 
@@ -105,13 +105,27 @@ export function buildStagePage(host, o) {
   };
   // (12/10) un mot posé sous l'objet, sur son fil (un poème par mois : SINGULIES sous le paquet des lettres) — l'objet
   // dit où et combien on le voit (scene.tag)
-  let tagEl = null;
+  // (13/10, Maxence) comme ETERNEL en bas de page : le mot sur son fil, qui court d'un bord à l'autre de l'écran et passe
+  // dans deux petits trous de part et d'autre du mot — le nom des membres, liés entre eux
+  let tagEl = null, tagCv = null, tagSp = null;
   const tagPlace = (W, H) => {
     if (!scene || !scene.tag) return;
-    if (!tagEl) { tagEl = document.createElement('div'); tagEl.className = 'lt-tag'; tagEl.innerHTML = `<span>${esc(o.tag || 'SINGULIES')}</span>`; main.appendChild(tagEl); stitch(tagEl.firstChild, { seed: 41 }); }
-    const g = scene.tag(W, H);
-    tagEl.style.transform = `translate(${g.x.toFixed(1)}px, ${g.y.toFixed(1)}px) translate(-50%, -50%)`;
-    tagEl.style.opacity = Math.max(0, Math.min(1, g.o)).toFixed(3);
+    if (!tagEl) {
+      tagEl = document.createElement('div'); tagEl.className = 'lt-tag';
+      tagCv = document.createElement('canvas'); tagCv.setAttribute('aria-hidden', 'true');
+      tagSp = document.createElement('span'); tagSp.textContent = o.tag || 'SINGULIES';
+      tagEl.append(tagCv, tagSp); main.appendChild(tagEl);
+    }
+    const g = scene.tag(W, H), op = Math.max(0, Math.min(1, g.o));
+    tagEl.style.top = g.y.toFixed(1) + 'px';
+    tagEl.style.opacity = op.toFixed(3);
+    if (op < 0.005) return;
+    const d = Math.min(3, devicePixelRatio || 1), cw = W, chh = 30;
+    if (tagCv.width !== Math.round(cw * d)) { tagCv.width = Math.round(cw * d); tagCv.height = chh * d; tagCv.style.width = cw + 'px'; tagCv.style.height = chh + 'px'; }
+    const x = tagCv.getContext('2d'); x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, cw, chh);
+    const r = tagSp.getBoundingClientRect(), ls = parseFloat(getComputedStyle(tagSp).letterSpacing) || 0, l = r.left + 3, rr = r.right - 3 - ls, y = chh / 2, t = performance.now() / 1000, fl = flowNow();
+    paintThread(x, -4, l, y, 83, 1.2, { holes: [false, true], sag: 0.4 + 0.5 * Math.sin(t * 0.7), g0: -4 + fl });
+    paintThread(x, rr, cw + 4, y, 97, 1.2, { holes: [true, false], sag: 0.4 + 0.5 * Math.sin(t * 0.61 + 2), g0: rr + fl });
   };
   let scene = null, live = null;
   const step = dt => { const kk = reduced ? 1 : Math.min(1, dt * 3.2); p += (pT - p) * kk; if (Math.abs(pT - p) < 1e-3) p = pT; place(); return Math.abs(pT - p) > 1e-3; };
