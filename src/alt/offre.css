@@ -343,3 +343,4 @@
 .mc.fin.play { justify-content: center; padding-top: 0; }
 .mc.fin.play .mc-name { margin-bottom: 18px; }
 .of.arrows-off .of-up, .of.arrows-off .of-bar .of-down { opacity: 0 !important; pointer-events: none !important; }
+.of-bar, .of-bar .of-down { touch-action: pan-y; }

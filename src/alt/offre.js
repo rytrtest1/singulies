@@ -629,7 +629,46 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   }, 250);
   const downAt = () => { let rv = false; try { rv = !!sessionStorage.getItem('sg.nav.reveal'); } catch { /* */ } return BAR_AT + (rv ? 1200 : 6500); };
   setTimeout(() => setTimeout(() => { down.dataset.shown = '1'; if (!busyMode()) down.classList.add('on'); }, downAt() - BAR_AT), BAR_AT);
-  down.addEventListener('click', () => {
+  // (13/10) le bandeau du bas est fixe : un doigt qui y glisse ne faisait pas défiler la page (rien ne bougeait, ou la
+  // flèche partait) — le geste est rendu à la page, avec son élan ; l'histoire suit comme partout ailleurs
+  {
+    const bar = root.querySelector('.of-bar');
+    let g = null, inert = 0;
+    bar.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1) { g = null; return; }
+      cancelAnimationFrame(inert); stopDrive();
+      g = { y: e.touches[0].clientY, x: e.touches[0].clientX, top: root.scrollTop, v: 0, ly: e.touches[0].clientY, lt: performance.now(), on: false };
+    }, { passive: true });
+    bar.addEventListener('touchmove', e => {
+      if (!g) return;
+      const t = e.touches[0], dy = t.clientY - g.y, dx = t.clientX - g.x;
+      if (!g.on) { if (Math.abs(dy) < 6 || Math.abs(dx) > Math.abs(dy)) return; g.on = true; touching = true; }
+      if (e.cancelable) e.preventDefault();
+      const now = performance.now(), dt = Math.max(1, now - g.lt);
+      g.v = 0.7 * g.v + 0.3 * ((t.clientY - g.ly) / dt); g.ly = t.clientY; g.lt = now;
+      root.scrollTop = g.top - dy;
+    }, { passive: false });
+    const endG = () => {
+      if (!g) return; const gg = g; g = null;
+      if (!gg.on) return;
+      touching = false;
+      let v = -gg.v * 1000, last = performance.now();          // px/s, dans le sens du défilement
+      if (performance.now() - gg.lt > 120) v = 0;
+      const f = now => { const dt = Math.min(0.05, (now - last) / 1000); last = now; v *= Math.exp(-dt * 3.2); root.scrollTop += v * dt; if (Math.abs(v) > 20) inert = requestAnimationFrame(f); else armSettle(); };
+      inert = requestAnimationFrame(f);
+    };
+    bar.addEventListener('touchend', endG, { passive: true });
+    bar.addEventListener('touchcancel', endG, { passive: true });
+  }
+  // (13/10, Maxence : « si on fait défiler dans la zone de la flèche, ça descend sans l'animation ») un défilement qui
+  // commence sur la flèche n'est pas un toucher : seul un vrai toucher (sans bouger, sans que la page ait défilé) la prend
+  let press = null;
+  down.addEventListener('pointerdown', e => { press = { x: e.clientX, y: e.clientY, top: root.scrollTop, t: performance.now() }; });
+  addEventListener('pointermove', e => { if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 8) press.moved = true; }, { passive: true });
+  root.addEventListener('scroll', () => { if (press && Math.abs(root.scrollTop - press.top) > 2) press.moved = true; }, { passive: true });
+  down.addEventListener('click', e => {
+    const pr = press; press = null;
+    if (pr && (pr.moved || Math.abs(root.scrollTop - pr.top) > 2)) { e.preventDefault(); return; }
     if (busyMode()) return;
     const n = nextSec(); if (n) descend(n);
   });
