@@ -11,6 +11,7 @@ await build({ logLevel: 'error', build: { outDir: OUT, emptyOutDir: true } });
 const server = await preview({ build: { outDir: OUT }, preview: { port: PORT, strictPort: true, host: 'localhost' }, logLevel: 'error' });
 const browser = await chromium.launch(process.env.SWIFT ? { headless: true, executablePath: '/opt/pw-browsers/chromium', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] } : { headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+if (process.env.SWIFT) await page.addInitScript(() => { window.__dtMax = 0.4; });   // (rendu logiciel : quelques images par seconde — l'horloge des scènes avance quand même)
 page.setDefaultTimeout(90000);
 const errs = []; page.on('pageerror', e => errs.push(String(e))); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
 const CAP = process.env.CAPDIR || 'captures';

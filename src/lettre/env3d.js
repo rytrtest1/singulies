@@ -85,7 +85,7 @@ export async function createEnvelope(gl, base = './') {
   // droite, chacune à sa profondeur, son balancement, son inclinaison (deux sinus lents non synchronisés, tirés par
   // enveloppe) ; un même fil noir passe sur chacune (sous le cachet) et s'affaisse de l'une à l'autre, avec une onde lente
   // — les membres, liés. Derrière, le logo SINGULIES en très grand, à peine visible (page.js : mark). Plus de tampon.
-  const NG = 8, G_SP = EW * 1.14, G_V = 6.5, G_Z = -125;          // nombre, écart (unités), allure (unités / s), profondeur
+  const NG = 8, G_SP = EW * 1.32, G_V = 6.5, G_Z = -125;          // nombre, écart (unités), allure (unités / s), profondeur
   const gar = Array.from({ length: NG }, (_, i) => ({ ph: rnd() * 6.283, ph2: rnd() * 6.283, seed: 23 + i * 13, dz: rnd.range(-16, 16), dy: rnd.range(-7, 7) }));
   const THR_Y = -ENV.h * 0.3, THR_Z = 3.2;                         // le fil sur le dos (mm, repère de l'enveloppe)
   function garM(i, t, out) {
