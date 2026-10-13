@@ -102,7 +102,7 @@ export function installNav(opts) {
   inner.appendChild(track); root.append(tc, inner);
   const foot = document.createElement('div'); foot.className = 'nv-foot';
   const fcv = document.createElement('canvas'); fcv.setAttribute('aria-hidden', 'true');
-  const fsp = document.createElement('button'); fsp.type = 'button'; fsp.textContent = 'SINGULIES'; fsp.setAttribute('aria-label', 'SINGULIES, me contacter');
+  const fsp = document.createElement('button'); fsp.type = 'button'; fsp.textContent = 'ETERNEL'; fsp.setAttribute('aria-label', 'ETERNEL, me contacter');   // (12/10, Maxence : SINGULIES est sous les enveloppes d'un poème par mois ; en bas, l'auteur)
   // (11/10, Maxence) SINGULIES en bas = la signature du site, comme un pied de page : on y écrit (le jeu est dans le bandeau)
   fsp.addEventListener('click', () => import('../menu/contact.js').then(m => m.openContact({ base: opts.base || './', reduced })));
   foot.append(fcv, fsp);

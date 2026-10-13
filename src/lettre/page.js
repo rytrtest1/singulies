@@ -25,8 +25,7 @@ export function buildStagePage(host, o) {
     <div class="lt-cap">
       ${o.steps.some(x => x.title || x.sub) ? '<h1 class="lt-ti caps"></h1><p class="lt-su"></p>' : ''}
       <p class="lt-cap-t" aria-live="polite"></p>
-      ${N > 1 ? `<div class="lt-dots">${o.steps.map((s, i) => `<button class="lt-dot" type="button" data-k="${i}" aria-label="${esc(s.txt.replace(/\n/g, ' '))}"><i></i></button>`).join('')}</div>
-      <button class="lt-down" type="button" aria-label="La suite"><svg class="arw" viewBox="0 0 18 11" aria-hidden="true"><path d="M1.5 1.5 L9 9 L16.5 1.5"/></svg></button>` : ''}
+      ${N > 1 ? `<div class="lt-dots">${o.steps.map((s, i) => `<button class="lt-dot" type="button" data-k="${i}" aria-label="${esc(s.txt.replace(/\n/g, ' '))}"><i></i></button>`).join('')}</div>` : ''}
       ${o.extra || ''}
       <p class="lt-done" role="status" aria-live="polite"></p>
     </div>
@@ -101,7 +100,18 @@ export function buildStagePage(host, o) {
   const place = () => {
     const W = innerWidth, H = innerHeight, sc = scene && scene.bottom ? captionShift(W, H, scene.bottom(p)) : 0;
     cap.style.top = `calc(100svh - ${insetBottom()}px + ${sc.toFixed(1)}px)`;
+    tagPlace(W, H);
     if (scene && scene.rect) { const r = scene.rect(W, H, p); Object.assign(grab.style, { left: r.l + 'px', top: r.t + 'px', width: (r.r - r.l) + 'px', height: (r.b - r.t) + 'px' }); }
+  };
+  // (12/10) un mot posé sous l'objet, sur son fil (un poème par mois : SINGULIES sous le paquet des lettres) — l'objet
+  // dit où et combien on le voit (scene.tag)
+  let tagEl = null;
+  const tagPlace = (W, H) => {
+    if (!scene || !scene.tag) return;
+    if (!tagEl) { tagEl = document.createElement('div'); tagEl.className = 'lt-tag'; tagEl.innerHTML = `<span>${esc(o.tag || 'SINGULIES')}</span>`; main.appendChild(tagEl); stitch(tagEl.firstChild, { seed: 41 }); }
+    const g = scene.tag(W, H);
+    tagEl.style.transform = `translate(${g.x.toFixed(1)}px, ${g.y.toFixed(1)}px) translate(-50%, -50%)`;
+    tagEl.style.opacity = Math.max(0, Math.min(1, g.o)).toFixed(3);
   };
   let scene = null, live = null;
   const step = dt => { const kk = reduced ? 1 : Math.min(1, dt * 3.2); p += (pT - p) * kk; if (Math.abs(pT - p) < 1e-3) p = pT; place(); return Math.abs(pT - p) > 1e-3; };
@@ -112,6 +122,6 @@ export function buildStagePage(host, o) {
     canvas: () => host.querySelector('.lt-cv'),
     // (le bandeau des pages) ce qui voyage : l'objet (le canvas et sa prise) ; le reste paraît sur place
     obj: () => [host.querySelector('.lt-cv'), grab].filter(Boolean),
-    rest: () => [cap, main.querySelector('.lt-bar')].filter(Boolean),
+    rest: () => [cap, main.querySelector('.lt-bar'), tagEl].filter(Boolean),
     center: () => { const r = grab.getBoundingClientRect(); return r.height ? { y: r.top + r.height / 2, h: r.height } : null; } };
 }

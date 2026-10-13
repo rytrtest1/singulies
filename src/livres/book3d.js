@@ -10,7 +10,7 @@
 // À t = 0 tout est au repos : la même image que public/livres/livre.jpg (l'aperçu du bandeau ; tools/livre-shot.mjs).
 import { createCardRenderer, M4 } from '../cards/cardRenderer.js';
 import { LOOK } from '../cards/scene.js';
-import { stageView, MM } from '../app/stage.js';
+import { stageView, MM, SH } from '../app/stage.js';
 
 // (12/10, Maxence) les deux livres, dans le monde commun (src/app/stage.js) : à l'échelle de la feuille A4 du poème,
 // centrés sur son horizon ; l'épaisseur de chacun = son dos mesuré sur le PDF KDP (le nombre de pages)
@@ -57,6 +57,8 @@ export async function createBook(gl, base = './', list = BOOKS) {
     for (const [dx, dy] of [[0, 0], [0.8, 0], [0, 0.8]]) ix.drawImage(im, dx, dy, ink.width, ink.height);
     return { ...b, i, inkTex: card.makeInk(ink, false) };
   }));
+  // (posé : son bas sur celui de la feuille du poème)
+  const baseY = b => -SH.h / 2 + b.h * MM / 2;
   // l'écart entre deux livres : hors de l'écran (on n'en voit qu'un à la fois ; ils glissent de côté)
   const span = (v, W, H) => v.Hw * W / H * 0.62 + 70;
 
@@ -79,7 +81,7 @@ export async function createBook(gl, base = './', list = BOOKS) {
       const rx = 0.03 * bx - 0.3 * tilt.y * near + spin.x * near, ry = 0.04 * by + 0.42 * tilt.x * near + spin.y * near + 0.35 * d, rz = 0.008 * Math.sin(t * 0.29 + ph);
       const dz = 2.2 * Math.sin(t * 0.29 + ph) * MM;
       card.draw(v.vp, v.eye, P, {
-        model: M4.mul(M4.model(rx, ry, rz, d * sp, 0, -b.t * MM / 2 + dz), S(MM)), lod: 'book-' + b.id, seed: 31 + b.i * 7, noLogo: true,
+        model: M4.mul(M4.model(rx, ry, rz, d * sp, baseY(b), -b.t * MM / 2 + dz), S(MM)), lod: 'book-' + b.id, seed: 31 + b.i * 7, noLogo: true,
         paperXf: [0.8, -0.4, 0, 0], warp: [0, 0, 0], paperTile: 0.6 * 87 / 0.7, paperLo: 0.4,
         inkBack: b.inkTex, book: [b.t, BOOK.cover, BOOK.sheet, BOOK.spineR], hinge: [BOOK.hinge, 0.09], fade: Math.min(1, 0.15 + near * 1.2),
       });
@@ -87,8 +89,10 @@ export async function createBook(gl, base = './', list = BOOKS) {
   }
   const cur = p => books[Math.max(0, Math.min(books.length - 1, Math.round(p)))];
   // la prise (px CSS) : le livre du centre ; son bas (unités) : pour la légende
-  function rect(cw, ch, p) { const v = stageView(cw, ch), b = cur(p), a = v.project(-b.w * MM / 2, b.h * MM / 2), c = v.project(b.w * MM / 2, -b.h * MM / 2); return { l: a[0], t: a[1], r: c[0], b: c[1] }; }
-  function bottom(p) { const i = Math.floor(p), f = p - i, h = j => books[Math.max(0, Math.min(books.length - 1, j))].h * MM / 2; return -(h(i) + (h(i + 1) - h(i)) * f); }
+  function rect(cw, ch, p) { const v = stageView(cw, ch), b = cur(p), y = baseY(b), a = v.project(-b.w * MM / 2, y + b.h * MM / 2), c = v.project(b.w * MM / 2, y - b.h * MM / 2); return { l: a[0], t: a[1], r: c[0], b: c[1] }; }
+  // (12/10, Maxence : « cohérence globale des zones ») chaque livre est posé sur la même ligne que le bas de la feuille du
+  // poème : la description est au même endroit sur toutes les pages
+  function bottom() { return -SH.h / 2; }
   return { frame, rect, bottom };
 }
 

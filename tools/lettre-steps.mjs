@@ -15,7 +15,7 @@ await page.goto(`http://localhost:${PORT}/lettre.html?envoi=0`);
 await page.waitForFunction(() => window.__lettre && document.querySelector('.lt-cv.on'));
 for (const v of VTS) {
   // l'étape voulue = celle de l'instant (pour que l'horloge reste là)
-  await page.evaluate(async v => { const r = await window.__lettre.live; const k = [0, 1.6, 7.6, 11.8].filter(x => x <= v + 1e-6).length - 1; window.__lettre.setStep(v > 0 && k < 3 && v > [0, 1.6, 7.6][k] ? k + 1 : k); r.scene.seek(v); }, v);
+  await page.evaluate(async v => { const r = await window.__lettre.live; const K = r.scene.keys, k = K.filter(x => x <= v + 1e-6).length - 1; window.__lettre.setStep(k < K.length - 1 && v > K[k] + 1e-6 ? k + 1 : k); r.scene.seek(v); }, v);
   await page.evaluate(() => new Promise(r => { window.__lettre.live.then(x => x.scene.seek(x.scene.state().vt)); requestAnimationFrame(() => requestAnimationFrame(r)); }));
   await page.evaluate(v => window.__lettre.live.then(x => x.scene.seek(v)), v);
   await page.waitForTimeout(400);

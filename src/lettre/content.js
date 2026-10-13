@@ -12,11 +12,11 @@ import '../app/pay.css';
 
 // (12/10, Maxence) l'objet raconte chaque étape (env3d.js) ; plus de titre UN POEME PAR MOIS (le bandeau le dit déjà)
 const STEPS = [
-  'reçois un poème\nexclusif aux membres',
-  'accompagné de mes pensées\npendant la création',
+  'reçois une lettre\nexclusive aux membres',
+  'un poème inédit au recto\nmes pensées de création au verso',
   'le tout dans une enveloppe\nscellée à la cire',
   'chaque mois une personne tirée au sort\nreçoit l’original',
-].map(txt => ({ txt, sub: 'correspondance entre singuliés' }));
+].map(txt => ({ txt }));
 
 // (12/10, Maxence : « la cohérence du paiement entre toutes les pages ») REJOINDRE ouvre le même panneau que RECEVOIR
 // (src/app/pay.css) : il monte du bandeau, l'objet remonte au-dessus et reste visible ; en attendant l'abonnement, on y

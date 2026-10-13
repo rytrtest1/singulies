@@ -49,7 +49,7 @@ a.lt-go { display: table; text-decoration: none; }
 /* (12/10, Maxence) une seule grammaire : le signe (LE LIRE, REJOINDRE) cousu, le prix dessous — comme RECEVOIR */
 .lt { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
 .lt-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
-  padding: 30px 16px calc(40px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 60%, rgba(6,6,6,0)); pointer-events: none; }
+  padding: 30px 16px calc(80px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 60%, rgba(6,6,6,0)); pointer-events: none; }   /* (12/10) le signe à la même hauteur que RECEVOIR (dont la flèche est dessous) */
 .lt-sign { position: relative; display: inline-block; margin: 2px 0 0; border: 0; background: none; cursor: pointer; text-decoration: none; pointer-events: auto;
   padding: 10px 2px 11px; padding-right: calc(2px - .45em); color: rgba(241, 237, 230, .92); font: 500 16px/1 'SG Garamond', Georgia, serif; letter-spacing: .45em;
   -webkit-tap-highlight-color: transparent; }
@@ -120,3 +120,8 @@ a.lt-go { display: table; text-decoration: none; }
 @keyframes arw-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
 @media (prefers-reduced-motion: reduce) { .arw { animation: none; } }
 .lt-down { display: flex; align-items: center; justify-content: center; }
+
+/* (12/10) le mot posé sous l'objet, sur son fil cousu (un poème par mois : SINGULIES), comme RECEVOIR */
+.lt-tag { position: fixed; left: 0; top: 0; z-index: 2; pointer-events: none; will-change: transform, opacity; }
+.lt-tag span { position: relative; display: inline-block; padding: 6px 2px 9px; padding-right: calc(2px - .45em); font: 500 13px/1 'SG Garamond', Georgia, serif;
+  letter-spacing: .45em; color: rgba(236, 232, 224, .78); white-space: nowrap; }

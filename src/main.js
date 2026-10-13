@@ -1069,8 +1069,10 @@ if (ALT) {
     // autres pages et les aiguilles paraissent avec la feuille
     // (12/10, Maxence : « le portail d'entrée des singuliers ») sur la page des prénoms : rien en haut ni en bas, un
     // fondu au noir vers les bords ; le bandeau et SINGULIES paraissent avec la feuille
-    show: () => booted && (!onNames() || idleNames()) && !S.paid && !document.querySelector('.of.paying, .of.env'),
-    foot: () => booted && (!onNames() || idleNames()) && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    // (12/10, Maxence) sur la feuille, les bandeaux paraissent avec RECEVOIR (après l'exemplaire original), sauf s'ils
+    // avaient déjà paru sur le portail
+    show: () => booted && (onNames() ? idleNames() : (S.navOn || !!document.querySelector('#offre.bar-on'))) && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    foot: () => booted && (onNames() ? idleNames() : (S.navOn || !!document.querySelector('#offre.bar-on'))) && !S.paid && !document.querySelector('.of.paying, .of.env'),
     shade: () => booted && idleNames(),
     // (12/10) les aiguilles : sur la feuille, une fois l'offre posée (2,5 s après le bandeau du bas) ; la démonstration
     // seulement en haut de la page, sans paiement ni enveloppe
@@ -1078,7 +1080,7 @@ if (ALT) {
     // (1,4 s après lui) — une fois par visite : elle ne revient plus sur la feuille
     ready: () => {
       if (onNames()) { if (!idleNames() || S.typed) { navAt = 0; return false; } if (!navAt) navAt = performance.now(); return performance.now() - navAt > 1400; }
-      const on = !!document.querySelector('#offre.on.bar-on'); if (!on) barAt = 0; else if (!barAt) barAt = performance.now(); return on && performance.now() - barAt > 2500;
+      const on = !!document.querySelector('#offre.on.bar-on'); if (!on) barAt = 0; else if (!barAt) barAt = performance.now(); return on && performance.now() - barAt > 1200;
     },
     quiet: () => (onNames() ? !S.typed : !!offerObj && offerObj.top < 30 && !document.querySelector('.of.paying, .of.env')),
     solo: () => !!offerObj && offerObj.top > offerObj.storyLen() + 40,

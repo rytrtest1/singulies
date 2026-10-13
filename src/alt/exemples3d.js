@@ -82,7 +82,7 @@ export async function mountSheets3d(o) {
   }
 
   // ---- lire : r 0 → 1 (la feuille du milieu vient remplir l'écran) ; zc 0 → 1 (sa carte de près) ----
-  const rd = { on: false, r: 0, zc: 0, zcT: 0, what: 'card' };
+  const rd = { on: false, r: 0, zc: 0, zcT: 0, what: 'card', drag: 0, dragT: null, dragCb: null };
   const insets = () => { const sf = o.safe || (() => 0); return { top: 52 + sf('top'), bot: 38 + sf('bottom') }; };
 
   // la vue : 1 unité du monde = 1 px CSS sur le plan z = 0 (les feuilles se posent exactement sur leurs figures)
@@ -99,6 +99,11 @@ export async function mountSheets3d(o) {
     const kt = Math.min(1, dt * 2.2); tilt.x += (tilt.tx - tilt.x) * kt; tilt.y += (tilt.ty - tilt.y) * kt;
     rd.r += ((rd.on ? 1 : 0) - rd.r) * (reduced ? 1 : Math.min(1, dt * 5));
     rd.zc += (rd.zcT - rd.zc) * (reduced ? 1 : Math.min(1, dt * 5));
+    // (12/10, Maxence) ouverte, on glisse : la feuille suit le doigt et la voisine arrive avec elle, à côté, en grand
+    if (rd.dragT != null) {
+      rd.drag += (rd.dragT - rd.drag) * (reduced ? 1 : Math.min(1, dt * 10));
+      if (Math.abs(rd.dragT - rd.drag) < 0.004) { rd.drag = rd.dragT; rd.dragT = null; const cb = rd.dragCb; rd.dragCb = null; cb && cb(); }
+    }
     if (!rd.on && rd.r < 0.002) { rd.r = 0; canvas.classList.remove('reading'); }
     const D = ch / (2 * TF), eye = [0, -D * Math.sin(TILT), D * Math.cos(TILT)];
     const vp = M4.mul(M4.perspective(FOV, cw / ch, D * 0.3, D * 3), M4.lookAt(eye, [0, 0, 0], [0, 1, 0]));
@@ -123,8 +128,9 @@ export async function mountSheets3d(o) {
       let k = rc.width * SHEET_IN_IMG / SHEET.w, x = rc.left + rc.width / 2 - cw / 2, y = ch / 2 - (rc.top + rc.height / 2), z = 0, fade = op;
       // ouverte : celle du milieu vient au centre, en grand ; les autres s'effacent
       if (rd.r > 0.001) {
-        const u = ease(clamp01(rd.r));
-        if (s.k === 0) { k = lerp(k, bigK, u); x = lerp(x, 0, u); y = lerp(y, bigY, u); z = 2 * u; }
+        const u = ease(clamp01(rd.r)), SP = cw * 1.04;
+        if (s.k === 0) { k = lerp(k, bigK, u); x = lerp(x, 0, u) + rd.drag * SP; y = lerp(y, bigY, u); z = 2 * u; }
+        else if (Math.abs(s.k) === 1 && rd.on && Math.abs(s.k + rd.drag) < 1.1 && s.k * rd.drag < 0) { k = bigK; x = (s.k + rd.drag) * SP; y = bigY; z = 2; fade = u; }
         else fade *= 1 - u;
       }
       if (fade < 0.01) continue;
@@ -146,7 +152,7 @@ export async function mountSheets3d(o) {
       gl.enable(gl.DEPTH_TEST);
       if (s.k === 0) lastRects = [M];
     }
-    if (stateV.v && !document.hidden && (!reduced || Math.abs((rd.on ? 1 : 0) - rd.r) > 1e-3 || Math.abs(rd.zcT - rd.zc) > 1e-3)) raf = requestAnimationFrame(draw);
+    if (stateV.v && !document.hidden && (!reduced || rd.dragT != null || Math.abs((rd.on ? 1 : 0) - rd.r) > 1e-3 || Math.abs(rd.zcT - rd.zc) > 1e-3)) raf = requestAnimationFrame(draw);
   };
   const go = () => { if (!raf) raf = requestAnimationFrame(draw); };
   // (seulement quand on voit le défilé)
@@ -184,6 +190,10 @@ export async function mountSheets3d(o) {
     canvas, go,
     open() { rd.on = true; rd.zcT = 0; canvas.classList.add('reading'); go(); },
     close() { rd.on = false; rd.zcT = 0; go(); },
+    // ouverte : le glissé (fraction de la largeur de l'écran ; − = vers la gauche) ; settle(v, cb) : y aller, puis cb
+    drag(v) { rd.dragT = null; rd.drag = v; rd.zcT = 0; go(); },
+    settle(v, cb) { rd.dragT = v; rd.dragCb = cb || null; go(); },
+    jumpDrag(v) { rd.drag = v; go(); },
     toggleCard(on) { rd.zcT = on ?? (rd.zcT ? 0 : 1); go(); return !!rd.zcT; },
     zoom(what) { if (what) rd.what = what; rd.zcT = what ? 1 : 0; go(); },
     hitWhat,

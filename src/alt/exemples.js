@@ -105,6 +105,8 @@ export function mountExemples(host) {
     }
   }
   // aller d'une place (±1) : on glisse, puis on recentre sans que rien ne bouge (les images changent de place)
+  // (le défilé recentré d'un coup, sans animation : la lecture ouverte a déjà fait glisser les feuilles)
+  function jump(d) { clearTimeout(anim); center = mod(center + d); off = 0; assign(); place(false); }
   function step(d) {
     off = -d; place(true);
     clearTimeout(anim);
@@ -171,19 +173,36 @@ export function mountExemples(host) {
     if (!veil3) {
       veil3 = document.createElement('div'); veil3.className = 'ex-veil3';
       (document.getElementById('offre') || document.body).appendChild(veil3);
-      let sx = null, sy = 0, st = 0;
+      let sx = null, sy = 0, st = 0, hz = null, busy3 = false;
       const tap = (x, y) => { if (g3.cardOpen) { g3.zoom(null); return; } const w = g3.hitWhat(x, y); if (w) g3.zoom(w); else read3d(false); };
-      const fin = (x, y) => {
-        if (sx == null) return; const dx = x - sx, dy = y - sy, quick = performance.now() - st < 900; sx = null;
-        if (Math.hypot(dx, dy) < 10) { tap(x, y); return; }
-        if (!quick) return;
-        if (Math.abs(dx) > 42 && Math.abs(dx) > 1.3 * Math.abs(dy)) { const d = dx < 0 ? 1 : -1; g3.toggleCard(false); g3.close(); setTimeout(() => { step(d); setTimeout(() => { if (reading) g3.open(); }, 520); }, 280); }
-        else if (Math.abs(dy) > 42) read3d(false);
+      // (12/10, Maxence) glisser de côté, ouverte : la feuille suit le doigt, la voisine arrive à côté au fur et à mesure ;
+      // lâchée au-delà du quart (ou d'un geste vif), la voisine vient au milieu ; sinon tout revient. Aucune collision : les
+      // deux feuilles restent à une largeur d'écran l'une de l'autre.
+      const mv = (x, y) => {
+        if (sx == null || busy3) return;
+        const dx = x - sx, dy = y - sy;
+        if (hz == null && Math.hypot(dx, dy) > 10) hz = Math.abs(dx) > Math.abs(dy);
+        if (hz) g3.drag(Math.max(-1, Math.min(1, dx / innerWidth)));
       };
-      veil3.addEventListener('touchstart', e => { const t = e.touches[0]; if (e.touches.length === 1) { sx = t.clientX; sy = t.clientY; st = performance.now(); } else sx = null; }, { passive: true });
-      veil3.addEventListener('touchmove', e => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+      const fin = (x, y) => {
+        if (sx == null) return; const dx = x - sx, dy = y - sy, dtm = performance.now() - st, quick = dtm < 900; sx = null;
+        const wasH = hz; hz = null;
+        if (busy3) return;
+        if (Math.hypot(dx, dy) < 10) { tap(x, y); return; }
+        if (wasH) {
+          const v = dx / Math.max(1, dtm), d = dx < 0 ? 1 : -1;
+          if (Math.abs(dx) > innerWidth * 0.25 || Math.abs(v) > 0.45) { busy3 = true; g3.settle(-d, () => { jump(d); g3.jumpDrag(0); busy3 = false; }); }
+          else g3.settle(0);
+          return;
+        }
+        if (quick && Math.abs(dy) > 42) read3d(false);
+      };
+      veil3.addEventListener('touchstart', e => { const t = e.touches[0]; if (e.touches.length === 1) { sx = t.clientX; sy = t.clientY; st = performance.now(); hz = null; } else sx = null; }, { passive: true });
+      veil3.addEventListener('touchmove', e => { if (e.cancelable) e.preventDefault(); const t = e.touches[0]; if (t) mv(t.clientX, t.clientY); }, { passive: false });
       veil3.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t) fin(t.clientX, t.clientY); if (e.cancelable) e.preventDefault(); });
-      veil3.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') { sx = e.clientX; sy = e.clientY; st = performance.now(); } });
+      veil3.addEventListener('touchcancel', () => { sx = null; hz = null; g3.settle(0); });
+      veil3.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') { sx = e.clientX; sy = e.clientY; st = performance.now(); hz = null; } });
+      veil3.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') mv(e.clientX, e.clientY); });
       veil3.addEventListener('pointerup', e => { if (e.pointerType === 'mouse') fin(e.clientX, e.clientY); });
       veil3.addEventListener('wheel', e => { e.preventDefault(); if (Math.abs(e.deltaY) > 4) read3d(false); }, { passive: false });
     }
@@ -193,7 +212,7 @@ export function mountExemples(host) {
     addEventListener('keydown', esc3);
     g3.open();
   }
-  const esc3 = e => { if (e.key === 'Escape') read3d(false); else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { const d = e.key === 'ArrowRight' ? 1 : -1; g3.close(); setTimeout(() => { step(d); setTimeout(() => { if (reading) g3.open(); }, 520); }, 280); } };
+  const esc3 = e => { if (e.key === 'Escape') read3d(false); else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { const d = e.key === 'ArrowRight' ? 1 : -1; g3.settle(-d, () => { jump(d); g3.jumpDrag(0); }); } };
   const safe = side => { const d = document.createElement('div'); d.style.cssText = `position:fixed;width:1px;height:env(safe-area-inset-${side});visibility:hidden`; document.body.appendChild(d); const v = d.offsetHeight || 0; d.remove(); return v; };
   // le doigt / la souris
   let x0 = null, y0 = 0, t0 = 0, horiz = null, moved = false;
