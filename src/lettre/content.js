@@ -16,7 +16,7 @@ const STEPS = [
   'un poème inédit au recto\nmes pensées de création au verso',
   'le tout dans une enveloppe\nscellée à la cire',
   'chaque mois une personne tirée au sort\nreçoit l’original',
-].map(txt => ({ txt }));
+].map((txt, i) => ({ txt, ...(i === 0 ? { tag: 'SINGULIES' } : {}) })));   // (13/10) sous la première : SINGULIES sur son fil
 
 // (12/10, Maxence : « la cohérence du paiement entre toutes les pages ») REJOINDRE ouvre le même panneau que RECEVOIR
 // (src/app/pay.css) : il monte du bandeau, l'objet remonte au-dessus et reste visible ; en attendant l'abonnement, on y

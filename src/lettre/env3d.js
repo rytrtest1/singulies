@@ -85,44 +85,19 @@ export async function createEnvelope(gl, base = './') {
   // droite, chacune à sa profondeur, son balancement, son inclinaison (deux sinus lents non synchronisés, tirés par
   // enveloppe) ; un même fil noir passe sur chacune (sous le cachet) et s'affaisse de l'une à l'autre, avec une onde lente
   // — les membres, liés. (13/10) Le fil passe derrière chaque lettre, à mi-hauteur (il entre par un bord, ressort par
-  // l'autre) ; derrière elles, immobile, SINGULIES est écrit avec ce même fil, chaque lettre liée à la suivante, et le
-  // fil continue de chaque côté jusqu'aux bords — on le lit entre les lettres qui passent. Plus de tampon ni de logo.
-  const NG = 8, G_SP = EW * 1.32, G_V = 6.5, G_Z = -125;          // nombre, écart (unités), allure (unités / s), profondeur
-  const gar = Array.from({ length: NG }, (_, i) => ({ ph: rnd() * 6.283, ph2: rnd() * 6.283, seed: 23 + i * 13, dz: rnd.range(-16, 16), dy: rnd.range(-7, 7) }));
+  // l'autre). Pas de flottement de haut en bas (« cheap ») : chacune garde sa hauteur, seule son inclinaison vit.
+  // Sous la description, SINGULIES sur son fil (page.js : tag) coulisse à la même allure (flowPx).
+  const NG = 8, G_SP = EW * 1.32, G_V = 11, G_Z = -125;          // nombre, écart (unités), allure (unités / s), profondeur
+  const gar = Array.from({ length: NG }, (_, i) => ({ ph: rnd() * 6.283, ph2: rnd() * 6.283, seed: 23 + i * 13, dz: rnd.range(-16, 16), dy: rnd.range(-3, 3) }));
   const THR_Y = 0, THR_Z = -0.8;                                  // le fil : à mi-hauteur, derrière la lettre (mm, repère de l'enveloppe)
   // la ligne du regard : à la profondeur z, la hauteur qui se projette au milieu de la place de l'objet (même ligne à
   // l'écran pour les lettres et pour SINGULIES derrière elles)
   const lineY = z => -z * Math.tan(0.22) + 6;
-  // SINGULIES écrit avec le fil (13/10) : des capitales d'un seul trait (em : hauteur 1, ligne de base 0), chaque lettre
-  // reliée à la suivante comme à la main ; le fil arrive du bord gauche à mi-hauteur et repart vers le bord droit
-  const W_CAP = 18, W_Z = G_Z - 75, W_GAP = 0.52;
-  const wordPts = (() => {
-    const P = [], arc = (cx, cy, rx, ry, a0, a1, n = 18) => { for (let k = 0; k <= n; k++) { const a = (a0 + (a1 - a0) * k / n) * Math.PI / 180; P.push([cx + rx * Math.cos(a), cy + ry * Math.sin(a)]); } };
-    const ln = (x0, y0, x1, y1, n = 6) => { for (let k = 0; k <= n; k++) P.push([lerp(x0, x1, k / n), lerp(y0, y1, k / n)]); };
-    // le passage d'une lettre à la suivante : le fil, un peu détendu
-    const link = (x1, y1) => { const [x0, y0] = P[P.length - 1], n = 10, up = (y0 + y1) / 2 > 0.6 ? -1 : 1, sg = up * (0.07 + 0.06 * Math.abs(x1 - x0)); for (let k = 1; k < n; k++) { const u = k / n; P.push([lerp(x0, x1, u), lerp(y0, y1, u) - sg * Math.sin(Math.PI * u)]); } };   // (entre deux hauts de lettres, le fil passe au-dessus)
-    const S = x => { link(x + 0.04, 0.13); arc(x + 0.27, 0.27, 0.27, 0.26, 205, 450); arc(x + 0.27, 0.755, 0.24, 0.245, 270, 25); return x + 0.54; };
-    const Ib = x => { link(x, 0); ln(x, 0, x, 1); return x + 0.02; };       // de bas en haut
-    const It = x => { link(x, 1); ln(x, 1, x, 0); return x + 0.02; };       // de haut en bas
-    const N = x => { link(x, 0); ln(x, 0, x, 1); ln(x, 1, x + 0.62, 0, 8); ln(x + 0.62, 0, x + 0.62, 1); return x + 0.62; };
-    const G = x => { link(x + 0.63, 0.82); arc(x + 0.34, 0.5, 0.33, 0.5, 38, 350, 30); ln(x + 0.665, 0.41, x + 0.66, 0.47, 2); ln(x + 0.66, 0.47, x + 0.38, 0.47, 4); return x + 0.66; };
-    const U = x => { link(x, 1); ln(x, 1, x, 0.3); arc(x + 0.3, 0.3, 0.3, 0.3, 180, 360, 14); ln(x + 0.6, 0.3, x + 0.6, 1); return x + 0.6; };
-    const L = x => { link(x, 1); ln(x, 1, x, 0); ln(x, 0, x + 0.48, 0); return x + 0.48; };
-    const E = x => { link(x + 0.5, 1); ln(x + 0.5, 1, x, 1); ln(x, 1, x, 0.5); ln(x, 0.5, x + 0.42, 0.5); ln(x + 0.42, 0.485, x + 0.01, 0.485); ln(x, 0.485, x, 0); ln(x, 0, x + 0.5, 0); return x + 0.5; };
-    P.push([-14, 0.5]);
-    let x = 0;
-    for (const f of [S, It, N, G, U, L, Ib, E, S]) x = f(x) + W_GAP;
-    const w = x - W_GAP;
-    link(w + 14, 0.5);
-    P.push([w + 14, 0.5]);
-    // (en unités, centré ; une très légère respiration de profondeur pour qu'il vive)
-    return P.map(([u, v]) => [(u - w / 2) * W_CAP, (v - 0.5) * W_CAP]);
-  })();
   function garM(i, t, out) {
     const g = gar[i], L = NG * G_SP, mv = reduced ? 0 : 1;
     let x = ((i * G_SP + G_V * t * mv) % L + L) % L - L / 2;
     x *= 1 + 0.5 * out;                                            // (en partant : elles s'écartent)
-    const y = g.dy + mv * (5 * Math.sin(t * 0.21 + g.ph) + 2.5 * Math.sin(t * 0.37 + g.ph2));
+    const y = g.dy;
     const z = G_Z + g.dz + mv * 9 * Math.sin(t * 0.13 + g.ph) - 40 * out;
     const rz = mv * (0.045 * Math.sin(t * 0.17 + g.ph2) + 0.02 * Math.sin(t * 0.31 + g.ph));
     const ry = mv * 0.14 * Math.sin(t * 0.11 + g.ph) - x * 0.0009, rx = mv * 0.05 * Math.sin(t * 0.19 + g.ph2);
@@ -203,8 +178,9 @@ export async function createEnvelope(gl, base = './') {
   }
 
   // W, H : px du canvas ; cw, ch : px CSS ; t (s) ; tilt ; spin (en main) ; p : l'étape (glissée) ; pT : l'étape voulue
+  let tNow = 0;
   function frame(W, H, cw, ch, t = 0, tilt = { x: 0, y: 0 }, spin = { x: 0, y: 0 }, p = 0, pT = p) {
-    const moving = clock(pT);
+    const moving = clock(pT); tNow = t;
     const v = stageView(cw, ch);
     const bx = 0.6 * Math.sin(t * 0.53) + 0.4 * Math.sin(t * 1.21), by = 0.6 * Math.sin(t * 0.41) + 0.4 * Math.sin(t * 1.03);
     const rx = 0.03 * bx - 0.2 * tilt.y + spin.x, ry = 0.04 * by + 0.2 * tilt.x + spin.y, rz = 0.006 * Math.sin(t * 0.27);
@@ -239,13 +215,6 @@ export async function createEnvelope(gl, base = './') {
         }
         prev = b;
       }
-      // SINGULIES, écrit avec le fil, derrière les lettres, immobile
-      {
-        const yw = lineY(W_Z), mv = reduced ? 0 : 1;
-        const wp = wordPts.map(([x, y], k) => ap(R, [x, yw + y + mv * 0.6 * Math.sin(t * 0.5 + x * 0.02), W_Z + mv * 0.8 * Math.sin(t * 0.37 + x * 0.03)]));
-        fil.draw(v.vp, v.eye, P, wp, FIL_R * 2.2, { pitch: 1.0, fade: others });
-      }
-
     }
     if (r2 < 4.8 && r0 > 0.05) {
       // la feuille : elle monte au centre pendant que les lettres s'éloignent, puis se retourne (étape 1)
@@ -271,11 +240,17 @@ export async function createEnvelope(gl, base = './') {
     }
     return moving || (others > 0.01 && !reduced);   // (les lettres dérivent : on dessine toujours)
   }
+  // (13/10) le fil de SINGULIES, sous la description, coulisse avec celui des lettres : leur allure à l'écran (px), depuis
+  // le début ; et combien on le voit (l'étape 0)
+  function flowPx(cw, ch) {
+    const v = stageView(cw, ch), a = v.project(0, lineY(G_Z), G_Z), b = v.project(10, lineY(G_Z), G_Z);
+    return { x: (reduced ? 0 : G_V * tNow) * (b[0] - a[0]) / 10, sag: Math.sin(tNow * 0.4), o: 1 - span(0, 0.6, vt) };
+  }
   // la prise (px CSS) : la feuille debout, ou l'enveloppe ; le bas : toujours le même
   function rect(cw, ch, p) {
     const v = stageView(cw, ch), [hw, y0, y1] = vt < K[1] + 1.5 ? [SW / 2, -SHH / 2, SHH / 2] : [EW / 2, Y_B, Y_B + EH];
     const a = v.project(-hw, y1), c = v.project(hw, y0);
     return { l: a[0], t: a[1], r: c[0], b: c[1] };
   }
-  return { frame, rect, bottom: () => Y_B, keys: LKEYS, state: () => ({ vt }), seek: x => { vt = x; } };   // (essais)
+  return { frame, rect, flowPx, bottom: () => Y_B, keys: LKEYS, state: () => ({ vt }), seek: x => { vt = x; } };   // (essais)
 }

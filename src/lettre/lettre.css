@@ -121,3 +121,9 @@ a.lt-go { display: table; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .arw { animation: none; } }
 .lt-down { display: flex; align-items: center; justify-content: center; }
 
+
+/* (13/10) sous « exclusive aux membres » : SINGULIES sur son fil d'un bord à l'autre, qui coulisse avec les lettres */
+.lt-tagl { position: relative; height: 24px; margin: 2px 0 4px; opacity: 0; transition: opacity .4s ease; pointer-events: none; }
+.lt-tagl.on { opacity: 1; }
+.lt-tagl canvas { position: absolute; top: 0; }
+.lt-tagl span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding-left: .34em; font: 500 10.5px/14px 'SG Garamond', Georgia, serif; letter-spacing: .34em; color: #ece8e0; opacity: .62; white-space: nowrap; }
