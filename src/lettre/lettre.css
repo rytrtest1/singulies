@@ -121,8 +121,10 @@ a.lt-go { display: table; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .arw { animation: none; } }
 .lt-down { display: flex; align-items: center; justify-content: center; }
 
-/* (13/10) le mot posé sous l'objet, sur son fil d'un bord à l'autre (comme ETERNEL en bas) : SINGULIES, les membres liés */
-.lt-tag { position: fixed; left: 0; right: 0; top: 0; z-index: 2; height: 30px; margin-top: -15px; pointer-events: none; will-change: top, opacity; }
-.lt-tag canvas { position: absolute; left: 0; top: 0; }
-.lt-tag span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin-right: -.34em; padding: 0 0 0 .34em;
-  font: 500 10.5px/14px 'SG Garamond', Georgia, serif; letter-spacing: .34em; color: #ece8e0; opacity: .62; white-space: nowrap; }
+/* (13/10) au-dessus de l'objet, son nom souligné par le fil (mes livres) */
+.lt-head { position: fixed; left: 0; right: 0; z-index: 2; text-align: center; pointer-events: none; transform: translateY(-100%); opacity: 0; transition: opacity .28s ease; }
+.lt-head.on { opacity: 1; }
+.lt-head span { position: relative; display: inline-block; font: 500 13px/1.6 'SG Garamond', Georgia, serif; letter-spacing: .34em; margin-right: -.34em; color: rgba(236, 236, 236, .82); padding-bottom: 4px; }
+/* (13/10) un poème par mois : le logo en très grand, à peine visible, derrière les enveloppes */
+.lt-mark { position: fixed; z-index: 0; pointer-events: none; opacity: 0; will-change: opacity, top; }
+.lt-club { position: relative; margin: 2px 0 1px; font: 500 10.5px/14px 'SG Garamond', Georgia, serif; letter-spacing: .34em; margin-right: -.34em; color: #ece8e0; opacity: .62; white-space: nowrap; }

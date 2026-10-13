@@ -1,7 +1,7 @@
 // « Un poème par mois », l'objet en direct (12/10) : le vrai moteur des cartes, dans le monde commun (src/app/stage.js),
 // la même grammaire que la vitrine du poème — l'objet raconte, étape par étape, ce qu'on reçoit (Maxence 12/10) :
-//   0 « reçois une lettre exclusive aux membres » : le paquet des lettres des membres, liées par un fil noir (une croix,
-//     un nœud) ; SINGULIES écrit dessous sur son fil (tag → page.js) — le club, les liens
+//   0 « une lettre mensuelle exclusive aux membres » : les lettres des membres, cachetées, dérivent lentement de gauche
+//     à droite, liées par un même fil noir ; derrière, le logo SINGULIES en très grand, à peine visible (mark → page.js)
 //   1 « un poème inédit au recto, mes pensées de création au verso » : le paquet part, la feuille arrive (ses lignes :
 //     le fil noir cousu, comme sur la feuille du poème) et se retourne
 //   2 « le tout dans une enveloppe scellée à la cire » : l'enveloppe (C5, le dos sans rabat du bas) arrive de côté, la
@@ -14,7 +14,7 @@
 import { createCardRenderer, M4, CARD } from '../cards/cardRenderer.js';
 import { LOOK } from '../cards/scene.js';
 import { createThread } from '../vitrine/thread.js';
-import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, envPieces, stampInk } from '../sheet/envelope.js';
+import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, envPieces } from '../sheet/envelope.js';
 import { SHEET, LOGO_Y, LOGO_K } from '../sheet/sheet.js';
 import { stageLamp } from '../livres/book3d.js';
 import { stageView, MM } from '../app/stage.js';
@@ -80,27 +80,25 @@ export async function createEnvelope(gl, base = './') {
 
   // ---- les places (unités du monde, l'objet centré en x) ----
   const fil = createThread(gl);
-  // (13/10, Maxence : « le côté à la chaîne, pas vendeur ») étape 0 : les lettres du mois suspendues à un même fil noir,
-  // comme une guirlande — chacune y est accrochée par deux petits trous en haut, se balance à peine ; elles sont en arc
-  // (celle du centre devant, les autres reculent et se tournent vers elle). Le fil court de l'une à l'autre et s'affaisse
-  // entre elles : les membres, liés. Une fois posée, le tampon du logo SINGULIES tombe sur celle du centre (une seule
-  // fois, sec, elle rebondit). SINGULIES écrit dessous sur son fil (page.js : tag).
-  const GK = [-2, -1, 0, 1, 2], HOLE_X = A5.w / 2 - 16, HOLE_Y = A5.h / 2 - 7;
-  const hangM = (k, t, out, amp = 1) => {
-    const a = Math.abs(k), ph = k * 1.7 + 0.4;
-    const sw = reduced ? 0 : amp * (0.012 * Math.sin(t * 0.7 + ph) + 0.006 * Math.sin(t * 1.31 + ph * 2));
-    const x = k * SW * 1.0 * (1 + 0.4 * out), z = -a * 34 - out * 30, ry = -k * 0.26;
-    // (suspendue : elle pivote autour de son haut)
-    return M4.mul(M4.mul(T(x, SHH / 2 - 7 * SK, z), M4.model(amp * 0.008 * Math.sin(t * 0.53 + ph), ry, sw)), T(0, -(SHH / 2 - 7 * SK), 0));
-  };
-  let stamp0 = null;                                         // l'instant où l'étape 0 s'est posée (le tampon tombe après)
-  // le tampon : trois coups différents (angle, place, appui), frappés une fois
-  const STAMPS = [0, 1, 2].map(n => {
-    const PXs = 8, cv = new OffscreenCanvas(A5.w * PXs, A5.h * PXs), cx = cv.getContext('2d');
-    cx.fillStyle = '#000'; cx.fillRect(0, 0, cv.width, cv.height);
-    stampInk(cx, PXs, card.logoMask(), A5.w - 34 + rnd.range(-3, 3), 30 + rnd.range(-3, 3), (rnd() < 0.5 ? -1 : 1) * rnd.range(0.08, 0.45), (rnd() * 1e9) >>> 0);
-    return card.makeInk(cv, false);
-  });
+  // (13/10, Maxence : « pas à la chaîne… plutôt les enveloppes qui défilent lentement de gauche à droite, reliées par
+  // le fil, de façon belle, organique ») étape 0 : les lettres des membres, cachetées, dérivent lentement de gauche à
+  // droite, chacune à sa profondeur, son balancement, son inclinaison (deux sinus lents non synchronisés, tirés par
+  // enveloppe) ; un même fil noir passe sur chacune (sous le cachet) et s'affaisse de l'une à l'autre, avec une onde lente
+  // — les membres, liés. Derrière, le logo SINGULIES en très grand, à peine visible (page.js : mark). Plus de tampon.
+  const NG = 8, G_SP = EW * 1.14, G_V = 6.5, G_Z = -125;          // nombre, écart (unités), allure (unités / s), profondeur
+  const gar = Array.from({ length: NG }, (_, i) => ({ ph: rnd() * 6.283, ph2: rnd() * 6.283, seed: 23 + i * 13, dz: rnd.range(-16, 16), dy: rnd.range(-7, 7) }));
+  const THR_Y = -ENV.h * 0.3, THR_Z = 3.2;                         // le fil sur le dos (mm, repère de l'enveloppe)
+  function garM(i, t, out) {
+    const g = gar[i], L = NG * G_SP, mv = reduced ? 0 : 1;
+    let x = ((i * G_SP + G_V * t * mv) % L + L) % L - L / 2;
+    x *= 1 + 0.5 * out;                                            // (en partant : elles s'écartent)
+    const y = g.dy + mv * (5 * Math.sin(t * 0.21 + g.ph) + 2.5 * Math.sin(t * 0.37 + g.ph2));
+    const z = G_Z + g.dz + mv * 9 * Math.sin(t * 0.13 + g.ph) - 40 * out;
+    const rz = mv * (0.045 * Math.sin(t * 0.17 + g.ph2) + 0.02 * Math.sin(t * 0.31 + g.ph));
+    const ry = mv * 0.14 * Math.sin(t * 0.11 + g.ph) - x * 0.0009, rx = mv * 0.05 * Math.sin(t * 0.19 + g.ph2);
+    // (plus loin, plus haut : sur la ligne du regard, au milieu de la place de l'objet)
+    return { x, M: M4.mul(M4.model(rx, ry, rz, x, y - z * Math.tan(0.22) + 6, z), S(EK)) };
+  }
   const paperOf = k => ({ ...sheetV, seed: 51 + (((k % 7) + 7) % 7) * 9 });
   // l'enveloppe (repère : Me) : face, dos sans rabat du bas, rabat (fl : 0 ouvert → 1 fermé), cachet (us : sa pose)
   function drawEnv(v, P, Me, { seed = 23, ep = envPieces(1, 1), fl = 1, us = 1, F = F1, si = 0, fade = 1 } = {}) {
@@ -188,45 +186,40 @@ export async function createEnvelope(gl, base = './') {
     // la prise en main tourne tout l'objet autour du bas de l'objet relevé de la moitié de l'enveloppe
     const R = M4.mul(M4.mul(T(0, EY, -1 + dz), M4.model(rx, ry, rz)), T(0, -EY, 0));
     const r0 = Math.min(vt, K[1]), r2 = vt - K[1], r3 = vt - K[2];
-    // ---- 0 les lettres suspendues au fil ; 1 la lettre du centre se retourne ; 2 elle entre dans l'enveloppe ----
-    const tS = performance.now() / 1000;
-    if (vt <= 0.0001 && Math.round(pT) === 0) { if (stamp0 == null) stamp0 = tS; } else if (vt > 0.3) stamp0 = null;
-    const ts = stamp0 == null ? 99 : tS - stamp0 - 1.3;       // le tampon tombe 1,3 s après que l'étape s'est posée
-    const stampOn = vt > 0.0001 || ts > 0;
-    const dip = ts > 0 && ts < 0.6 ? -2.2 * Math.sin(Math.PI * Math.min(1, ts / 0.35)) * Math.exp(-ts * 5) : 0;
-    const out = ease(span(0.2, 1.0, r0)), others = 1 - span(0.2, 0.9, r0);
+    // ---- 0 les lettres des membres qui dérivent, liées par le fil ; 1 la feuille arrive et se retourne ; 2 elle entre
+    // dans l'enveloppe ----
+    const out = ease(span(0.1, 1.1, r0)), others = 1 - span(0.1, 0.9, r0);
     const fl = ease(span(1.5, 3.1, r0));
-    if (r2 < 4.8) {
-      const Mh = [];
-      for (const k of GK) {
-        if (k !== 0 && others < 0.01) continue;
-        // (celle du centre : son balancement s'éteint quand elle quitte le fil ; le coup du tampon l'enfonce, ses
-        // lignes de fil avec elle — même matrice)
-        const Ms = k === 0 ? M4.mul(R, M4.mul(M4.mul(hangM(0, t, 0, 1 - out), T(0, 0, dip)), sheetM(r0, r2)))
-          : M4.mul(R, M4.mul(hangM(k, t, out), S(SK)));
-        Mh.push([k, Ms]);
-        const fade = k === 0 ? 1 : others;
-        card.draw(v.vp, v.eye, P, { model: Ms, lod: 'sheetA5', ...paperOf(k), fade, ...(k === 0 && stampOn ? { inkBack: STAMPS[0] } : {}) });
-        // les lignes du poème au recto ; celles de la lettre au verso, seulement quand on la retourne (jamais au travers)
-        const flk = k === 0 ? (r2 > 0 ? 1 : fl) : 0;
-        if (r2 < 3.0) for (const L of sheetLines) if ((L.side > 0 && flk < 0.55) || (L.side < 0 && flk > 0.45)) fil.draw(v.vp, v.eye, P, L.pts.map(q => ap(Ms, q)), FIL_R, { pitch: 1.0, fade });
+    if (others > 0.01) {
+      const v0 = stageView(cw, ch), half = v0.Hw * cw / ch * 0.5;
+      const gs = gar.map((g, i) => ({ i, ...garM(i, t, out) })).sort((a, b) => a.x - b.x);
+      const pts = [];
+      const W2 = (m, x, y, z) => ap(M4.mul(R, m), [x, y, z]);
+      let prev = null;
+      for (const g of gs) {
+        const Mw = M4.mul(R, g.M);
+        // (seulement celles qu'on peut voir : leur fil, lui, court de l'une à l'autre)
+        if (Math.abs(g.x) < half * 2.2 + EW) drawEnv(v, P, Mw, { seed: gar[g.i].seed, si: g.i, fade: others });
+        const a = W2(g.M, -ENV.w / 2, THR_Y, THR_Z), b = W2(g.M, ENV.w / 2, THR_Y, THR_Z);
+        if (prev) {
+          const n = 16, len = Math.hypot(a[0] - prev[0], a[1] - prev[1]);
+          for (let k = 1; k < n; k++) { const u = k / n, sg = Math.sin(Math.PI * u);
+            pts.push([lerp(prev[0], a[0], u), lerp(prev[1], a[1], u) - sg * (len * 0.18 + 2 * Math.sin(t * 0.4 + g.i)), lerp(prev[2], a[2], u) + sg * 4 * Math.sin(t * 0.23 + g.i * 1.3)]); }
+        } else pts.push([a[0] - 220, a[1] - 30, a[2] - 20]);
+        for (let k = 0; k <= 20; k++) pts.push(W2(g.M, lerp(-ENV.w / 2, ENV.w / 2, k / 20), THR_Y + 0.6 * Math.sin(k * 1.1 + g.i), THR_Z));
+        prev = b;
       }
-      // le fil de la guirlande : de trou en trou, posé sur le haut de chaque feuille, affaissé entre deux
-      if (others > 0.01) {
-        const zt = SHEET.t / 2 + FIL_R / SK + 0.2, pts = [];
-        const sorted = Mh.slice().sort((a, b) => a[0] - b[0]);
-        const W2 = (m, x, y, z) => ap(m, [x, y, z]);
-        let prev = null;
-        for (const [k, M] of sorted) {
-          const a = W2(M, -HOLE_X, HOLE_Y, zt), b = W2(M, HOLE_X, HOLE_Y, zt);
-          if (prev) for (let n = 1; n < 12; n++) { const u = n / 12; pts.push([lerp(prev[0], a[0], u), lerp(prev[1], a[1], u) - 14 * Math.sin(Math.PI * u), lerp(prev[2], a[2], u) + 0.6 * Math.sin(Math.PI * u)]); }
-          else { pts.push([a[0] - 140, a[1] - 22, a[2] - 10]); for (let n = 1; n < 10; n++) { const u = n / 10; pts.push([lerp(a[0] - 140, a[0], u), lerp(a[1] - 22, a[1], u) + 4 * Math.sin(Math.PI * u), lerp(a[2] - 10, a[2], u)]); } }
-          for (let n = 0; n <= 16; n++) pts.push(W2(M, lerp(-HOLE_X, HOLE_X, n / 16), HOLE_Y + 0.4 * Math.sin(n * 1.3), zt));
-          prev = b;
-        }
-        if (prev) for (let n = 1; n <= 10; n++) { const u = n / 10; pts.push([lerp(prev[0], prev[0] + 140, u), lerp(prev[1], prev[1] - 22, u) + 4 * Math.sin(Math.PI * u), lerp(prev[2], prev[2] - 10, u)]); }
-        if (pts.length > 1) fil.draw(v.vp, v.eye, P, pts, FIL_R, { pitch: 1.0, fade: others });
-      }
+      if (prev) pts.push([prev[0] + 220, prev[1] - 30, prev[2] - 20]);
+      fil.draw(v.vp, v.eye, P, pts, FIL_R * 1.6, { pitch: 1.0, fade: others });
+    }
+    if (r2 < 4.8 && r0 > 0.05) {
+      // la feuille : elle monte au centre pendant que les lettres s'éloignent, puis se retourne (étape 1)
+      const uin = easeOut(span(0.3, 1.4, r0)), fade = r2 > 0 ? 1 : span(0.3, 1.0, r0);
+      const Ms = M4.mul(R, M4.mul(T(0, -36 * (1 - uin), -20 * (1 - uin)), sheetM(r0, r2)));
+      card.draw(v.vp, v.eye, P, { model: Ms, lod: 'sheetA5', ...paperOf(0), fade });
+      // les lignes du poème au recto ; celles de la lettre au verso, seulement retournée (jamais au travers)
+      const flk = r2 > 0 ? 1 : fl;
+      if (r2 < 3.0) for (const L of sheetLines) if ((L.side > 0 && flk < 0.55) || (L.side < 0 && flk > 0.45)) fil.draw(v.vp, v.eye, P, L.pts.map(q => ap(Ms, q)), FIL_R, { pitch: 1.0, fade });
     }
     // ---- 3 l'enveloppe, le cachet ; 4 le tirage ----
     if (r2 > 0) {
@@ -241,12 +234,12 @@ export async function createEnvelope(gl, base = './') {
         drawEnv(v, P, Me, i ? { seed: pile[i].seed, si: i } : { seed: pile[0].seed, ep: EP, fl: uFlap, us: uSe, F: Fm });
       }
     }
-    return moving;
+    return moving || (others > 0.01 && !reduced);   // (les lettres dérivent : on dessine toujours)
   }
-  // SINGULIES, écrit sous le paquet sur son fil (page.js le place) : où et combien on le voit
-  function tag(cw, ch) {
-    const v = stageView(cw, ch), q = v.project(0, -SHH / 2 - 16);
-    return { x: q[0], y: q[1], o: 1 - span(0, 0.6, vt) };
+  // le logo SINGULIES en très grand derrière les lettres de l'étape 0 (page.js le dessine) : où, quelle taille, combien
+  function mark(cw, ch) {
+    const v = stageView(cw, ch), q = v.project(0, 0), a = v.project(0, SHEET.h / 2), b = v.project(0, -SHEET.h / 2);
+    return { x: q[0], y: q[1], s: Math.min(cw * 1.05, (b[1] - a[1]) * 1.15), o: 0.075 * (1 - span(0, 0.8, vt)) };
   }
   // la prise (px CSS) : la feuille debout, ou l'enveloppe ; le bas : toujours le même
   function rect(cw, ch, p) {
@@ -254,5 +247,5 @@ export async function createEnvelope(gl, base = './') {
     const a = v.project(-hw, y1), c = v.project(hw, y0);
     return { l: a[0], t: a[1], r: c[0], b: c[1] };
   }
-  return { frame, rect, tag, bottom: () => Y_B, keys: LKEYS, state: () => ({ vt }), seek: x => { vt = x; } };   // (essais)
+  return { frame, rect, mark, bottom: () => Y_B, keys: LKEYS, state: () => ({ vt }), seek: x => { vt = x; } };   // (essais)
 }

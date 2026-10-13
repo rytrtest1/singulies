@@ -138,47 +138,10 @@ export async function mountStage(host, grab, make, { reduced = false, step = () 
   };
   addEventListener('touchend', ask, { passive: true });
   addEventListener('click', ask);
-  // l'objet en main : glisser le fait tourner (horizontal : autour de son axe vertical, sans limite ; vertical : il
-  // bascule, ±0,55 rad) ; lâché, il garde son élan, puis revient de face (au tour le plus proche) après 2 s
-  const spin = { x: 0, y: 0, vx: 0, vy: 0, held: false, at: 0 };
-  let hold = null;
-  grab.style.touchAction = 'none'; grab.style.cursor = 'grab';
-  grab.addEventListener('pointerdown', e => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    hold = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() };
-    try { grab.setPointerCapture(e.pointerId); } catch { /* */ }
-    spin.held = true; spin.vx = spin.vy = 0; grab.style.cursor = 'grabbing'; go();
-  });
-  grab.addEventListener('pointermove', e => {
-    if (!hold || e.pointerId !== hold.id) return;
-    const now = performance.now(), dt = Math.max(8, now - hold.t) / 1000, k = Math.PI / Math.max(220, grab.clientWidth);
-    const dy = (e.clientX - hold.x) * k, dx = (e.clientY - hold.y) * k;
-    spin.y += dy; spin.x = Math.max(-0.55, Math.min(0.55, spin.x + dx));
-    spin.vy = 0.5 * spin.vy + 0.5 * dy / dt; spin.vx = 0.5 * spin.vx + 0.5 * dx / dt;
-    hold.x = e.clientX; hold.y = e.clientY; hold.t = now; spin.at = now;
-    go();
-  });
-  const letGo = e => {
-    if (!hold || e.pointerId !== hold.id) return;
-    if (performance.now() - hold.t > 90) spin.vx = spin.vy = 0;          // tenu immobile avant de lâcher : pas d'élan
-    hold = null; spin.held = false; spin.at = performance.now(); grab.style.cursor = 'grab';
-    if (reduced) { spin.x = spin.y = spin.vx = spin.vy = 0; }
-    go();
-  };
-  grab.addEventListener('pointerup', letGo);
-  grab.addEventListener('pointercancel', letGo);
-  const stepSpin = (dt, now) => {
-    if (spin.held) return true;
-    const fr = Math.exp(-dt * 2.6);
-    spin.y += spin.vy * dt; spin.x = Math.max(-0.55, Math.min(0.55, spin.x + spin.vx * dt));
-    spin.vy *= fr; spin.vx *= fr;
-    if (now - spin.at > 2000 && Math.abs(spin.vy) < 0.4) {
-      const k = Math.min(1, dt * 1.8), ty = Math.round(spin.y / (2 * Math.PI)) * 2 * Math.PI;
-      spin.y += (ty - spin.y) * k; spin.x += (0 - spin.x) * k;
-      if (Math.abs(ty - spin.y) < 1e-3 && Math.abs(spin.x) < 1e-3) { spin.y = 0; spin.x = 0; }
-    }
-    return Math.abs(spin.y) > 1e-3 || Math.abs(spin.x) > 1e-3 || Math.abs(spin.vy) > 1e-3;
-  };
+  // (13/10, Maxence) plus de prise en main : le toucher ou la souris tenue ne font plus tourner l'objet (seuls le
+  // téléphone penché et la souris qui passe l'inclinent, comme la carte)
+  const spin = { x: 0, y: 0 };
+  const stepSpin = () => false;
   const draw = now => {
     raf = 0;
     if (lost) return;

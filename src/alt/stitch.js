@@ -141,3 +141,38 @@ function runFlow() {
   };
   flowRaf = requestAnimationFrame(f);
 }
+
+// (13/10) un mot sur son fil, d'un bord à l'autre de l'écran (comme ETERNEL en bas) : le fil sort d'un petit trou de
+// chaque côté du mot — SINGULIES sous REJOINDRE (« rejoindre SINGULIES »). el : l'élément du mot (position relative)
+export function threadWord(el, { seed = 83, TH = 1.2 } = {}) {
+  const cv = document.createElement('canvas');
+  cv.setAttribute('aria-hidden', 'true');
+  Object.assign(cv.style, { position: 'absolute', pointerEvents: 'none', top: '50%' });
+  el.appendChild(cv);
+  const x = cv.getContext('2d'), H = 20;
+  let w = 0, l = 0, r = 0, dpr = 1;
+  function layout() {
+    const box = el.getBoundingClientRect(); if (!box.width) return;
+    const ls = parseFloat(getComputedStyle(el).letterSpacing) || 0, rg = document.createRange();
+    const n = [...el.childNodes].find(c => c.nodeType === 3 && c.textContent.trim()); if (!n) return;
+    rg.selectNodeContents(n); const q = rg.getBoundingClientRect();
+    w = innerWidth; dpr = Math.min(3, window.devicePixelRatio || 1);
+    cv.width = Math.round(w * dpr); cv.height = Math.round(H * dpr);
+    Object.assign(cv.style, { width: w + 'px', height: H + 'px', left: -box.left + 'px', marginTop: -H / 2 + 'px' });
+    l = q.left - 5; r = q.right - ls + 5;
+    draw();
+  }
+  function draw() {
+    if (!w) return;
+    const t = performance.now() / 1000, fl = flowNow();
+    x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, H);
+    paintThread(x, -4, l, H / 2, seed, TH, { holes: [false, true], sag: 0.4 + 0.5 * Math.sin(t * 0.7), g0: -4 + fl });
+    paintThread(x, r, w + 4, H / 2, seed + 14, TH, { holes: [true, false], sag: 0.4 + 0.5 * Math.sin(t * 0.61 + 2), g0: r + fl });
+  }
+  const ro = new ResizeObserver(layout); ro.observe(el); addEventListener('resize', layout);
+  document.fonts && document.fonts.ready.then(layout);
+  layout();
+  const me = { tick: () => { if (cv.isConnected && cv.offsetParent !== null) draw(); } };
+  flows.add(me); runFlow();
+  return { layout, remove() { ro.disconnect(); cv.remove(); flows.delete(me); } };
+}

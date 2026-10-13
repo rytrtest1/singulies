@@ -6,7 +6,6 @@ import './offre.css';
 import { acrostic } from '../basique/basique.js';
 import { mountExemples } from './exemples.js';
 import { count } from '../app/count.js';
-import { stitch } from './stitch.js';
 import { PRIX, STRIPE, STRIPE_PK, PAIEMENT_URL, FEUILLE_PHOTO, SHEET_INSET, RESERVATION } from './config.js';
 
 const Q = new URLSearchParams(location.search);
@@ -698,8 +697,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   }, { passive: true });
   // en faisant défiler : une ombre en haut, sous la flèche retour (elle ne passe plus sur le texte)
   root.addEventListener('scroll', () => root.classList.toggle('scrolled', root.scrollTop > storyLen() + 24), { passive: true });
-  // (11/10) tout ce qui est souligné l'est par un bout de fil noir, cousu (stitch.js)
-  stitch(root.querySelector('.of-bar .of-go'), { seed: 'RECEVOIR'.length * 13 });
+  // (13/10, Maxence) plus de fil sous les signes qui vendent (RECEVOIR…) : le fil reste pour ce qui est artistique
 
   // gestes
   const go = root.querySelector('.of-go');

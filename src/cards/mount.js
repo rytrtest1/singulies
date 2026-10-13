@@ -460,7 +460,7 @@ export async function mountCards(opts) {
     let last = performance.now();
     function frame(n, manualDt) {
       if (vclock != null && manualDt == null) return;            // horloge pilotée : pas de boucle
-      const t = now(), dt = manualDt ?? Math.min(0.05, (n - last) / 1000); last = n;
+      const t = now(), dt = manualDt ?? Math.min(window.__dtMax || 0.05, (n - last) / 1000); last = n;   // (__dtMax : essais en rendu logiciel)
       const dpr = dpr3d(), W = canvas.clientWidth, H = canvas.clientHeight;
       if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
       gl.viewport(0, 0, canvas.width, canvas.height);

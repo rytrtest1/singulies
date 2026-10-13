@@ -60,6 +60,7 @@ if (RES) {
 await page.waitForFunction(() => window.__sg.cardsApi?.sheet?.state().env?.posted, null, { timeout: process.env.SWIFT ? 300000 : 60000 });
 out.fields = await page.evaluate(() => window.__sg.cardsApi.sheet.state().env.fields);
 await page.waitForTimeout(4000); await shot('3b-postee');
+if (process.env.PROBE) for (let i = 0; i < 12; i++) { const st = await page.evaluate(() => { const a = window.__sg.cardsApi; const e = a.sheet?.state().env; return { pp: a.sheet && a.sheet.debugPP ? a.sheet.debugPP() : null, posted: e?.posted, mail: !!document.querySelector('.sc-mail'), sheet: !!a.sheet }; }); console.log(JSON.stringify(st), errs.slice(0, 3)); if (st.mail) break; await page.waitForTimeout(15000); }
 await page.waitForSelector('.sc-mail', { state: 'attached', timeout: process.env.SWIFT ? 400000 : 60000 });
 out.placeholderAvant = await page.evaluate(() => document.querySelector('.sc-mail').classList.contains('ready'));
 await page.waitForSelector('.sc-mail.ready', { timeout: process.env.SWIFT ? 200000 : 30000 });
