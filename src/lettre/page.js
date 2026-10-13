@@ -80,7 +80,8 @@ export function buildStagePage(host, o) {
   const s1 = (x, y) => {
     if (sx == null) return; const dx = x - sx, dy = y - sy; sx = null;
     if (performance.now() - st0 > 900) return;
-    if (Math.abs(dx) > 42 && Math.abs(dx) > 1.4 * Math.abs(dy)) setStep(k + (dx < 0 ? 1 : -1));
+    // (13/10, Maxence : « cohérence PARTOUT ») depuis le dernier point, le geste vers la suite revient au premier
+    if (Math.abs(dx) > 42 && Math.abs(dx) > 1.4 * Math.abs(dy)) setStep(dx < 0 && k === N - 1 ? 0 : k + (dx < 0 ? 1 : -1));
     else if (Math.abs(dy) > 42 && Math.abs(dy) > 1.4 * Math.abs(dx)) setStep(k + (dy < 0 ? 1 : -1));
   };
   host.addEventListener('touchstart', e => { if (e.touches.length === 1) s0(e.touches[0].clientX, e.touches[0].clientY, e.target); else sx = null; }, { passive: true });
