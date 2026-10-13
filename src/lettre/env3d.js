@@ -269,7 +269,8 @@ export async function createEnvelope(gl, base = './') {
       card.draw(v.vp, v.eye, P, { model: Ms, lod: 'sheetA5', ...paperOf(0), fade });
       // les lignes du poème au recto ; celles de la lettre au verso, seulement retournée (jamais au travers)
       const flk = r2 > 0 ? 1 : fl;
-      if (r2 < 3.0 && (r2 > 0 || r0 > OUT_ON[0] + 0.25)) for (const L of sheetLines)   // (pas tant qu'elle est dans la poche) if ((L.side > 0 && flk < 0.55) || (L.side < 0 && flk > 0.45)) fil.draw(v.vp, v.eye, P, L.pts.map(q => ap(Ms, q)), FIL_R, { pitch: 1.0, fade });
+      // (ses lignes : pas tant qu'elle est dans la poche)
+      if (r2 < 3.0 && (r2 > 0 || r0 > OUT_ON[0] + 0.25)) for (const L of sheetLines) if ((L.side > 0 && flk < 0.55) || (L.side < 0 && flk > 0.45)) fil.draw(v.vp, v.eye, P, L.pts.map(q => ap(Ms, q)), FIL_R, { pitch: 1.0, fade });
     }
     // ---- 3 l'enveloppe, le cachet ; 4 le tirage ----
     if (r2 > 0) {
