@@ -10,8 +10,8 @@
 // o : { base, steps: [{ txt, price?, href?, label? }], sign: { label, href?, onClick(k) }, price(k), make(gl) →
 //       { frame(W, H, cssW, cssH, t, tilt, spin, p), rect(cssW, cssH, p) → { l, t, r, b }, bottom(p) (unités) },
 //       aspectLabel, onStep(k), extra (html sous la légende) }
-import { stitch, threadWord } from '../alt/stitch.js';
-import { captionShift, insetBottom, insetTop as insetTopPx } from '../app/stage.js';
+import { stitch } from '../alt/stitch.js';
+import { captionShift, insetBottom } from '../app/stage.js';
 import { mountStage } from '../livres/book3d.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -29,12 +29,11 @@ export function buildStagePage(host, o) {
       ${o.extra || ''}
       <p class="lt-done" role="status" aria-live="polite"></p>
     </div>
-    <div class="lt-bar">${o.sign.href ? `<a class="lt-sign" href="${esc(o.sign.href)}" target="_blank" rel="noopener">${esc(o.sign.label)}</a>` : `<button class="lt-sign" type="button">${esc(o.sign.label)}</button>`}${o.club ? `<div class="lt-club">${esc(o.club)}</div>` : ''}<div class="lt-pr"></div></div>
+    <div class="lt-bar">${o.sign.href ? `<a class="lt-sign" href="${esc(o.sign.href)}" target="_blank" rel="noopener">${esc(o.sign.label)}</a>` : `<button class="lt-sign" type="button">${esc(o.sign.label)}</button>`}<div class="lt-pr"></div></div>
   </main>`;
   const main = host.querySelector('.lt'), cap = main.querySelector('.lt-cap'), txt = main.querySelector('.lt-cap-t');
   const grab = main.querySelector('.lt-grab'), sign = main.querySelector('.lt-sign'), pr = main.querySelector('.lt-pr');
-  // (13/10, Maxence) sous REJOINDRE, SINGULIES sur son fil : « rejoindre SINGULIES pour 9 € par mois »
-  const club = main.querySelector('.lt-club'); if (club) threadWord(club);
+  stitch(sign, { seed: o.sign.label.length * 13 });
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // la boîte du texte a la hauteur de la plus longue description : les points restent à leur place
   txt.style.setProperty('--lines', Math.max(...o.steps.map(s => s.txt.split('\n').length)));
@@ -104,37 +103,8 @@ export function buildStagePage(host, o) {
   const place = () => {
     const W = innerWidth, H = innerHeight, sc = scene && scene.bottom ? captionShift(W, H, scene.bottom(p)) : 0;
     cap.style.top = `calc(100svh - ${insetBottom()}px + ${sc.toFixed(1)}px)`;
-    markPlace(W, H);
     const r = scene && scene.rect ? scene.rect(W, H, p) : null;
     if (r) Object.assign(grab.style, { left: r.l + 'px', top: r.t + 'px', width: (r.r - r.l) + 'px', height: (r.b - r.t) + 'px' });
-    headPlace(r);
-  };
-  // (13/10, Maxence) au-dessus de l'objet, son nom, souligné par le fil (mes livres : MON RECUEIL DE POEMES, MON JOURNAL
-  // INTIME) — le fil reste pour ce qui est artistique, jamais sous un signe qui vend
-  let headEl = null, headSp = null, headSt = null, headTxt = null, headT = 0;
-  const headPlace = r => {
-    const want = (o.steps[k] && o.steps[k].head) || '';
-    if (!headEl && !want) return;
-    if (!headEl) {
-      headEl = document.createElement('div'); headEl.className = 'lt-head';
-      headSp = document.createElement('span'); headEl.appendChild(headSp); main.appendChild(headEl);
-      headSt = stitch(headSp, { seed: 41, dy: 5 });
-    }
-    if (want !== headTxt) {
-      const first = headTxt == null; headTxt = want; clearTimeout(headT);
-      const put = () => { headSp.textContent = want; headSt.layout(); headEl.classList.toggle('on', !!want); };
-      if (first || reduced) put(); else { headEl.classList.remove('on'); headT = setTimeout(put, 280); }
-    }
-    if (r) headEl.style.top = Math.max(insetTopPx() + 8, r.t - 26).toFixed(1) + 'px';
-  };
-  // (13/10) un poème par mois : derrière la guirlande des enveloppes, le logo SINGULIES en très grand, à peine visible
-  // (gaufré à sec dans le noir : seul son bord accroche un peu de lumière) — l'objet dit où et combien (scene.mark)
-  let markEl = null;
-  const markPlace = (W, H) => {
-    if (!scene || !scene.mark) return;
-    const g = scene.mark(W, H), op = Math.max(0, Math.min(1, g.o));
-    if (!markEl) { markEl = embossLogo(o.base || './'); host.insertBefore(markEl, host.firstChild); }   // (sous le canvas de l'objet)
-    Object.assign(markEl.style, { left: (g.x - g.s / 2).toFixed(1) + 'px', top: (g.y - g.s / 2).toFixed(1) + 'px', width: g.s.toFixed(1) + 'px', height: g.s.toFixed(1) + 'px', opacity: op.toFixed(3) });
   };
   let scene = null, live = null;
   const step = dt => { const kk = reduced ? 1 : Math.min(1, dt * 3.2); p += (pT - p) * kk; if (Math.abs(pT - p) < 1e-3) p = pT; place(); return Math.abs(pT - p) > 1e-3; };
@@ -145,29 +115,7 @@ export function buildStagePage(host, o) {
     canvas: () => host.querySelector('.lt-cv'),
     // (le bandeau des pages) ce qui voyage : l'objet (le canvas et sa prise) ; le reste paraît sur place
     obj: () => [host.querySelector('.lt-cv'), grab].filter(Boolean),
-    rest: () => [cap, main.querySelector('.lt-bar'), headEl, markEl].filter(Boolean),
+    rest: () => [cap, main.querySelector('.lt-bar')].filter(Boolean),
     center: () => { const r = grab.getBoundingClientRect(); return r.height ? { y: r.top + r.height / 2, h: r.height } : null; } };
 }
 
-// le logo en très grand, gaufré à sec dans le noir (13/10) : tiré du champ de distance du logo des cartes (cards/logo.png,
-// canal rouge : 0 au cœur du trait, 255 loin), un relief éclairé d'en haut à gauche — seul le bord accroche la lumière
-function embossLogo(base) {
-  const cv = document.createElement('canvas'); cv.className = 'lt-mark'; cv.setAttribute('aria-hidden', 'true');
-  const im = new Image();
-  im.onload = () => {
-    const N = 512; cv.width = cv.height = N;
-    const x = cv.getContext('2d'); x.drawImage(im, 0, 0, N, N);
-    const src = x.getImageData(0, 0, N, N), d = src.data, h = new Float32Array(N * N);
-    // la hauteur : 1 dans le trait, 0 dehors, un bord adouci (le papier pressé)
-    for (let i = 0; i < N * N; i++) { const u = Math.min(1, Math.max(0, (150 - d[i * 4]) / 70)); h[i] = u * u * (3 - 2 * u); }
-    const out = x.createImageData(N, N), o = out.data, lx = -0.62, ly = -0.78;
-    for (let yy = 1; yy < N - 1; yy++) for (let xx = 1; xx < N - 1; xx++) {
-      const i = yy * N + xx, gx = h[i + 1] - h[i - 1], gy = h[i + N] - h[i - N], s = -(gx * lx + gy * ly) * 2.2;
-      const a = Math.max(0, s) * 255 + h[i] * 10;            // la lumière sur le bord tourné vers elle, un rien dans le plein
-      o[i * 4] = o[i * 4 + 1] = o[i * 4 + 2] = 255; o[i * 4 + 3] = Math.min(255, a);
-    }
-    x.putImageData(out, 0, 0);
-  };
-  im.src = base + 'cards/logo.png';
-  return cv;
-}

@@ -28,7 +28,7 @@ const PRICE = '9 €', PER = 'par mois';
 export function buildLettre(host, base = './') {
   const pg = buildStagePage(host, {
     base, steps: STEPS, fallback: () => 'simple/enveloppe-dos.jpg', aspectLabel: 'Une feuille, un poème tapé à la machine, glissée dans une enveloppe noire fermée par un cachet de cire argenté.',
-    sign: { label: 'REJOINDRE' }, club: 'SINGULIES', price: () => `<b>${PRICE}</b> ${PER}`,
+    sign: { label: 'REJOINDRE' }, price: () => `<b>${PRICE}</b> ${PER}`,
     make: gl => import('./env3d.js').then(m => m.createEnvelope(gl, base)),
   });
   const { main, sign, grab } = pg;

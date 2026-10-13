@@ -62,6 +62,8 @@ export function finalScreen(order, home) {
     ${home ? `<a class="mc-sign mc-retour" href="${esc(home)}">RETOUR</a>` : ''}`);
   d.classList.add('fin');
   typeInto(d.querySelector('.mc-type'), 'je te tiens au courant', { at: 900 });
+  const sign = d.querySelector('.mc-sign');
+  if (sign) import('./stitch.js').then(m => m.stitch(sign, { seed: 'RETOUR'.length * 13 })).catch(() => {});
   // le paquet en direct (sans WebGL2 : le signe et le lien suffisent)
   const deckBox = d.querySelector('.mc-deck');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
