@@ -138,8 +138,11 @@ export async function createEnvelope(gl, base = './') {
   function sheetM(r0, r2, x0 = 0) {
     const fl = ease(span(FLIP[0], FLIP[1], r0)), lift = 7 * Math.sin(Math.PI * fl);
     const a = ease(span(OUT_ON[0], OUT_ON[1], r0)), b = ease(span(OUT_C[0], OUT_C[1], r0));
-    const zin = SEL[2] + 0.8 * EK;                                   // dans la poche, entre ses deux faces
-    const y = lerp(lerp(SEL[1], SEL[1] + EH * 0.92, a), 0, b), z = lerp(zin + 4 * a, 0, b) + 9 * Math.sin(Math.PI * b);
+    // (dans la poche : derrière la face qu'on voit ; elle en sort tout entière par le haut avant de venir devant —
+    // jamais au travers de l'enveloppe)
+    const zin = SEL[2] - 0.8 * EK;
+    const fw = ease(span(OUT_C[0], OUT_C[0] + 0.35, r0)), bk = ease(span(OUT_C[0] + 0.5, OUT_C[1], r0));
+    const y = lerp(lerp(SEL[1], SEL[1] + EH + 4, a), 0, b), z = lerp(lerp(zin, SEL[2] + 7, fw), 0, bk);
     let M = M4.mul(T(x0, y, z + lift), M4.model(0, Math.PI * fl, 0));
     if (r2 > 0) {
       const rot = ease(span(0.3, 1.6, r2)), sl = ease(span(1.8, 3.2, r2));
@@ -257,7 +260,7 @@ export async function createEnvelope(gl, base = './') {
       const q = [lerp(g[0], 0, u), lerp(g[1], 0, u), lerp(g[2], 0, u), lerp(g[3], SEL[0], u), lerp(g[4], SEL[1], u) - 34 * dn, lerp(g[5], SEL[2], u) - 20 * dn];
       const Me = M4.mul(R, M4.mul(M4.model(...q), S(EK)));
       const flc = 1 - ease(span(1.0, 2.0, r0));
-      drawEnv(v, P, Me, { seed: gar[sel.i].seed, si: sel.i, fl: flc, ep: envPieces(0, flc), fade: 1 - dn });   // (à plat : la feuille dedans ne la traverse pas)
+      if (dn < 0.99) drawEnv(v, P, Me, { seed: gar[sel.i].seed, si: sel.i, fl: flc, ep: envPieces(0, flc), fade: 1 - dn });   // (à plat : la feuille dedans ne la traverse pas)
     }
     if (r2 < 4.8 && r0 > 0.9) {
       // la feuille : dans l'enveloppe ouverte, elle en sort, vient devant au centre, puis se retourne (étape 1)
@@ -266,7 +269,7 @@ export async function createEnvelope(gl, base = './') {
       card.draw(v.vp, v.eye, P, { model: Ms, lod: 'sheetA5', ...paperOf(0), fade });
       // les lignes du poème au recto ; celles de la lettre au verso, seulement retournée (jamais au travers)
       const flk = r2 > 0 ? 1 : fl;
-      if (r2 < 3.0) for (const L of sheetLines) if ((L.side > 0 && flk < 0.55) || (L.side < 0 && flk > 0.45)) fil.draw(v.vp, v.eye, P, L.pts.map(q => ap(Ms, q)), FIL_R, { pitch: 1.0, fade });
+      if (r2 < 3.0 && (r2 > 0 || r0 > OUT_ON[0] + 0.25)) for (const L of sheetLines)   // (pas tant qu'elle est dans la poche) if ((L.side > 0 && flk < 0.55) || (L.side < 0 && flk > 0.45)) fil.draw(v.vp, v.eye, P, L.pts.map(q => ap(Ms, q)), FIL_R, { pitch: 1.0, fade });
     }
     // ---- 3 l'enveloppe, le cachet ; 4 le tirage ----
     if (r2 > 0) {
