@@ -158,9 +158,10 @@ export async function createNameRelief(gl, paperTex, family = '"SG Garamond", se
     gl.depthMask(false);
   }
   function done() { gl.bindVertexArray(null); gl.depthMask(true); gl.disable(gl.BLEND); }
-  function draw(vp, eye, P, look, occ, time = 0) {
-    if (!count) return;
+  function draw(vp, eye, P, look, occ, time = 0, alpha = 1) {
+    if (!count || alpha <= 0.002) return;
     common(vp, eye, P, look, occ, time);
+    if (alpha < 1) gl.uniform1f(u.uAlpha, alpha);
     gl.bindVertexArray(vao);
     gl.drawArrays(gl.TRIANGLES, 0, count);
     done();

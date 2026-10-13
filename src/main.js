@@ -396,19 +396,10 @@ async function paidHere(order) {
     send({ name: order.name, kind: 'lien', text: '', id: null, mode: 'poste', address: [] });
     await fin.shareGift(order); order.lien = true; finishPaid(); return;
   }
-  // (12/10, Maxence) payé : un écran noir, le prénom, « à toi de jouer maintenant » tapé à la machine — pendant ce
-  // temps, dessous, la feuille se défait et le paquet vient au milieu ; puis le noir s'ouvre sur le jeu (il se mélange)
-  const line = order.gift ? { question: 'à toi de jouer pour ' + order.name.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase()), blanche: 'écris le thème de son poème', impro: 'j’improvise sur son prénom' }[how]
-    : 'à toi de jouer maintenant';
-  const cv = cardsReady && cardsReady !== 'failed' ? cardsReady.canvas : null;
-  if (cv) { cv.style.transition = 'opacity .6s ease'; cv.style.opacity = '0'; }
-  const ps = fin.playScreen(order.name, line);
-  // (10/10) l'adresse (tapée sur l'enveloppe avant de payer, ou venue du portefeuille) et l'email : la fin les tape seule
-  if (cv) cardsReady.afterPay(how, { fields: order.address || null, email: order.email || '' });
-  await Promise.all([ps.done, sleep(2600)]);
-  await sleep(1300);
-  fin.leave(ps.el);
-  if (cv) { cv.style.transition = 'opacity 1s ease'; cv.style.opacity = '1'; }
+  // (13/10, Maxence) payé : seulement le jeu — la feuille se défait, le paquet vient au milieu, se mélange et invite à
+  // tirer ; le prénom reparaît quand on tire (scene.js). (l'écran « à toi de jouer » est retiré)
+  // (10/10) l'adresse (panneau, champ de Stripe, portefeuille) et l'email : la fin les tape seule
+  if (cardsReady && cardsReady !== 'failed') cardsReady.afterPay(how, { fields: order.address || null, email: order.email || '' });
 }
 // la fin d'une commande payée ici : c'est noté (rechargée : merci.html, sans seconde demande)
 async function finishPaid() {

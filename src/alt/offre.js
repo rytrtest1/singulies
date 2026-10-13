@@ -241,7 +241,12 @@ function openPanel(name, ref) {
   // payé : ici même si la page sait enchaîner, sinon merci.html
   const paidNow = extra => paidHere(name, ref, { gift, ...extra });
   // (12/10, Maxence) le paiement de Stripe est en mode test : PASSER (test) va directement à la suite, sans rien payer
-  root.querySelector('.of-pay-skip').addEventListener('click', () => paidNow({ simule: true }));
+  // (13/10) ce qui a été écrit dans le panneau (email, adresse — même le champ d'adresse de Stripe, lu à chaque frappe)
+  // part aussi avec PASSER (test) : l'enveloppe s'écrit seule comme après un vrai paiement
+  let shipNow = {};
+  const typed = () => ({ ...(mailOk(mail.value) ? { email: mail.value.trim() } : {}), ...shipNow });
+  root.querySelector('.of-pay-skip').addEventListener('click', () => paidNow({ simule: true, ...typed(), ...(fake ? fakeAddrNow() : {}) }));
+  let fakeAddrNow = () => ({});
 
   const expressHost = root.querySelector('.of-express'), orEl = root.querySelector('.of-or');
   if (fake) {
@@ -258,6 +263,7 @@ function openPanel(name, ref) {
       const v = [...addrHost.querySelectorAll('input')].map(i => i.value.trim()), nm = (v[0] || '').split(/\s+/).filter(Boolean);
       return v[1] && v[2] && v[3] ? { address: { prenom: nm[0] || '', nom: nm.slice(1).join(' '), rue: v[1], cplt: '', cp: v[2], ville: v[3] } } : {};
     };
+    fakeAddrNow = fakeAddr;
     go.addEventListener('click', () => { if (!go.disabled) paidNow({ simule: true, email: mail.value.trim(), ...fakeAddr() }); });
     return;
   }
@@ -285,7 +291,11 @@ function openPanel(name, ref) {
         if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
       });
     } catch (e) { console.warn('portefeuille (panneau)', e); }   // jamais au détriment de la carte
-    checkout.createShippingAddressElement().mount(addrHost);
+    const shipEl = checkout.createShippingAddressElement();
+    shipEl.mount(addrHost);
+    // (13/10) l'adresse écrite dans le champ de Stripe, à chaque frappe (le nom, la rue, la ville, le code postal) : elle
+    // s'écrira seule sur l'enveloppe — même si la session ne la rend pas après le paiement
+    shipEl.on('change', e => { const v = e && e.value; shipNow = v ? sessionAddr({ session: { shippingAddress: v } }) : {}; });
     checkout.createPaymentElement().mount(pmHost);
     let busy = false;
     const upd = () => { go.disabled = busy || !mailOk(mail.value); };
@@ -297,7 +307,7 @@ function openPanel(name, ref) {
       // (10/10) sans redirection quand c'est possible (carte, Apple Pay, Google Pay) : la suite se joue ici ; sinon
       // (3-D Secure, PayPal…) Stripe ramène vers merci.html
       const r = await actions.confirm({ email: mail.value.trim(), redirect: 'if_required' });
-      if (r && r.type === 'success') { paidNow({ session: r.session?.id || '', email: mail.value.trim(), ...sessionAddr(r) }); return; }
+      if (r && r.type === 'success') { paidNow({ session: r.session?.id || '', email: mail.value.trim(), ...shipNow, ...sessionAddr(r) }); return; }
       if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
       busy = false; upd();
     });

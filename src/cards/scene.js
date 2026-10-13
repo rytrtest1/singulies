@@ -699,7 +699,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
         nameKey = key;
       }
       if (kb > 0.02) gl.disable(gl.DEPTH_TEST);           // clavier ouvert : le prénom reste devant
-      if (!sheetHidesName) nameR.draw(vp, eye, P, L, fadeQ > 0.5 ? occQ : null, t);
+      // (13/10, Maxence) après le paiement : d'abord le paquet seul, qui se mélange ; le prénom reparaît quand on tire
+      const nameA = shuf ? (shuf.done ? ease(clamp01((t - shuf.moveT - 0.3) / 1.1)) : 0) : 1;
+      if (!sheetHidesName) nameR.draw(vp, eye, P, L, fadeQ > 0.5 ? occQ : null, t, nameA);
       gl.enable(gl.DEPTH_TEST);
       snap.glow = g;
     }
