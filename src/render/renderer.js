@@ -209,51 +209,10 @@ void main() {
   o = vec4(vec3(v), v);
 }`;
 
-// (17/10, Maxence : « cheap — regarde la finesse de ce qu'on a produit en 3D ; on le voit trop ») le logo SINGULIES
-// n'est plus une lueur : un filet, tracé comme une gravure — son contour en trait fin, et un second filet plus pâle juste
-// à l'intérieur (comme le double filet du cachet). Il est posé DANS le champ, à une profondeur (u_z) : même perspective,
-// même flou de profondeur, même clarté que les lettres à cette distance ; les prénoms plus lointains passent derrière
-// lui, les plus proches devant (le champ est dessiné en deux fois, de part et d'autre de son plan). Une clarté lente
-// circule le long du trait, il respire.
-const LOGO_VS = /* glsl */`#version 300 es
-uniform vec4 u_rect;   // x0, y0, x1, y1 (px CSS)
-uniform vec2 u_view;
-out vec2 v_uv;
-void main() {
-  vec2 c = vec2(gl_VertexID & 1, gl_VertexID >> 1);
-  v_uv = c;
-  gl_Position = vec4((mix(u_rect.xy, u_rect.zw, c) / u_view * 2.0 - 1.0) * vec2(1.0, -1.0), 0.0, 1.0);
-}`;
-const LOGO_FS = /* glsl */`#version 300 es
-precision highp float;
-uniform sampler2D u_sdf;   // distance au bord du logo (mm, < 0 dedans ; ±2 mm)
-uniform float u_pxmm;      // px physiques par mm du logo
-uniform float u_sig;       // flou de profondeur (px physiques)
-uniform float u_lum, u_a, u_time;
-in vec2 v_uv;
-out vec4 o;
-${GLSL_COMMON}
-${NOISE}
-float filet(float dpx, float hw, float s) { return gaussCdf((dpx + hw) / s) - gaussCdf((dpx - hw) / s); }
-void main() {
-  float d = texture(u_sdf, v_uv).r;
-  float s = sqrt(u_sig * u_sig + 0.42 * 0.42);
-  float hw = max(0.55, 0.028 * u_pxmm);
-  float c1 = filet(d * u_pxmm, hw, s);
-  float c2 = filet((d + 0.62) * u_pxmm, hw * 0.75, s) * 0.42;
-  float cov = max(c1, c2);
-  if (cov < 0.002) discard;
-  // la clarté qui circule le long du trait (comme dans les lettres allumées), très lente
-  float n = fbm(v_uv * 3.2 + vec2(0.05, -0.03) * u_time) + 0.5 * fbm(v_uv * 7.0 - vec2(0.02, 0.04) * u_time);
-  float lum = u_lum * clamp(0.62 + 0.75 * n, 0.25, 1.5);
-  float a = cov * u_a;
-  o = vec4(vec3(a * lum), a);
-}`;
-
 const STRIDE = 12; // floats par instance
 
 export function createRenderer(canvas, gl, atlas) {
-  let res = null, logoPx = null;   // (logoPx : { n, m : forme adoucie, Uint8 })
+  let res = null;
   let cap = 64;
   let inst = new Float32Array(cap * STRIDE);
   let fcap = 1024;   // lettres du champ
@@ -302,36 +261,8 @@ export function createRenderer(canvas, gl, atlas) {
       gl.vertexAttribDivisor(i, 1);
     }
     gl.bindVertexArray(null);
-    const lp = program(gl, LOGO_VS, LOGO_FS);
-    res = { bg, gp, tex, btex, vao, buf, empty, fp, fvao, fbuf, ep, evao, ebuf, lp, logo: null };
-    if (logoPx) setLogo(logoPx);
+    res = { bg, gp, tex, btex, vao, buf, empty, fp, fvao, fbuf, ep, evao, ebuf };
   }
-  // le logo : sa distance au bord (mm, R16F filtrée) — refaite après une perte de contexte
-  function setLogo(px) {
-    logoPx = px;
-    if (!res || gl.isContextLost()) return;
-    const t = res.logo || gl.createTexture();
-    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, px.n, px.n, 0, gl.RED, gl.FLOAT, px.d);
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.activeTexture(gl.TEXTURE0);
-    res.logo = t;
-  }
-  // le filet du logo, dans le plan z du champ (f.logo : rect, pxmm, sig, lum, a)
-  function drawLogo(f) {
-    const lg = f.logo, { lp } = res;
-    gl.useProgram(lp.p);
-    gl.uniform4f(lp.u.u_rect, ...lg.rect); gl.uniform2f(lp.u.u_view, f.w, f.h);
-    gl.uniform1f(lp.u.u_pxmm, lg.pxmm * f.dpr); gl.uniform1f(lp.u.u_sig, lg.sig * f.dpr);
-    gl.uniform1f(lp.u.u_lum, lg.lum); gl.uniform1f(lp.u.u_a, lg.a * f.fade); gl.uniform1f(lp.u.u_time, (f.time ?? 0) % 1000);
-    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, res.logo); gl.uniform1i(lp.u.u_sdf, 2); gl.activeTexture(gl.TEXTURE0);
-    gl.bindVertexArray(res.empty);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  }
-
   init();
 
   // inst : liste de { box:[x0,y0,x1,y1], uv:[…] | null, alpha, pxEm }
@@ -355,6 +286,10 @@ export function createRenderer(canvas, gl, atlas) {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tex);
+
+    // (17/10) des lettres à plat sous le champ (le logo fait de prénoms : main.js, calligramme)
+    if (f.under && f.under.length) calls = glyphPass(f.under, f, calls);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
 
     // champ (instances déjà triées loin → proche)
     const fl = f.field;
@@ -381,21 +316,8 @@ export function createRenderer(canvas, gl, atlas) {
       gl.uniform1i(fp.u.u_blur, 1);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindVertexArray(fvao);
-      // le logo est dans le champ : les lettres plus lointaines que lui d'abord (le tableau va du loin au proche), lui,
-      // puis les plus proches
-      const lg = f.logo && res.logo && f.logo.a > 0.002 ? f.logo : null;
-      let split = fl.count;
-      if (lg) { split = 0; while (split < fl.count && fl.data[split * FSTRIDE + 2] >= lg.z) split++; }
-      if (split > 0) { gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, split); calls++; }
-      if (lg) {
-        drawLogo(f); calls++;
-        if (split < fl.count) {
-          gl.useProgram(fp.p); gl.bindVertexArray(fvao); gl.bindBuffer(gl.ARRAY_BUFFER, fbuf);
-          for (let i = 0; i < 6; i++) gl.vertexAttribPointer(i, 4, gl.FLOAT, false, FSTRIDE * 4, split * FSTRIDE * 4 + i * 16);
-          gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count - split); calls++;
-          for (let i = 0; i < 6; i++) gl.vertexAttribPointer(i, 4, gl.FLOAT, false, FSTRIDE * 4, i * 16);
-        }
-      }
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count);
+      calls++;
       gl.bindVertexArray(null);
     }
 
@@ -418,7 +340,11 @@ export function createRenderer(canvas, gl, atlas) {
       calls++;
     }
 
-    const list = f.glyphs;
+    return glyphPass(f.glyphs, f, calls);
+  }
+  // des lettres en espace écran (le prénom, le curseur, le calligramme) : un appel
+  function glyphPass(list, f, calls) {
+    const { gp, vao, buf } = res;
     if (!list.length) return calls;
     if (list.length > cap) {
       while (cap < list.length) cap *= 2;
@@ -445,5 +371,5 @@ export function createRenderer(canvas, gl, atlas) {
     return calls + 1;
   }
 
-  return { draw, restore: init, setLogo };
+  return { draw, restore: init };
 }

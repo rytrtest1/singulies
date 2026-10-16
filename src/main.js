@@ -13,6 +13,7 @@ import { loadState, saveValidated, clearStored, clearValidated, sessionName, sav
 import { installSend, settled, setOrder, send } from './app/send.js';
 import { installCount, count } from './app/count.js';
 import { createField, MODES, grayOf } from './field/field.js';
+import { NAMES } from './field/names.js';
 import { createRng } from './field/rng.js';
 import { createLight } from './field/light.js';
 import { sigmaPx, KB, ZF } from './field/camera.js';
@@ -277,21 +278,43 @@ function startTransition() {
   // (12/10, alt) la scène des cartes, déjà prête (préparée pendant qu'on écrivait), reçoit le prénom définitif
   if (ALT && cards) cards.then(() => { if (cardsReady && cardsReady !== 'failed') cardsReady.setName?.(shown.toUpperCase()); });
 }
-// (16/10, Maxence) le logo SINGULIES sur la page des prénoms ; (17/10, refait trois fois) un filet tracé comme une
-// gravure, posé dans le champ à la profondeur LOGO_Z (renderer.js, LOGO_FS) : les prénoms plus lointains passent
-// derrière, les proches devant. Sa distance au bord vient du logo des cartes (cards/logo.png : 16 bits, ±2 mm).
-const LOGO_BG = ALT && P.get('logo') === '1', LOGO_MM = 38.501, LOGO_K = +(P.get('logoK') || 1), LOGO_Z = +(P.get('logoZ') || 19);
+// (16/10, Maxence) le logo SINGULIES sur la page des prénoms ; (17/10, après quatre essais refusés — relief, lueur,
+// révélation, filet : « cheap », « on le voit trop ») un calligramme : le logo fait de prénoms. Des lignes de tout petits
+// prénoms, à la taille et dans le gris des plus lointains du champ, n'existent qu'à l'intérieur de sa forme ; chaque
+// ligne coulisse lentement (l'une vers la gauche, la suivante vers la droite, comme les nappes du champ) : en passant
+// le bord du logo, chaque lettre paraît ou s'efface — ce sont les prénoms qui en dessinent les contours. Aucun trait,
+// aucune lueur. Le sens : SINGULIES, ce sont les prénoms. Ils s'écartent du prénom qu'on écrit (zone vide) et
+// s'éteignent quand il part. ?logo=0 : rien ; ?logoK= : sa clarté.
+const LOGO_BG = ALT && P.get('logo') !== '0', LOGO_MM = 38.501, LOGO_K = +(P.get('logoK') || 1);
 const loadImg = src => new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = new URL(src, document.baseURI).href; });
+let logoD = null;   // { n, d } : distance au bord du logo (mm, < 0 dedans), échantillonnée par lettre
 async function loadLogoBg() {
   try {
     const im = await loadImg('cards/logo.png');
-    const n = 1024, cv = document.createElement('canvas'); cv.width = cv.height = n;
-    const x = cv.getContext('2d', { willReadFrequently: true }); x.imageSmoothingEnabled = false; x.drawImage(im, 0, 0, n, n);
+    const n = 256, cv = document.createElement('canvas'); cv.width = cv.height = n;
+    const x = cv.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, n, n);
     const px = x.getImageData(0, 0, n, n).data, d = new Float32Array(n * n);
     for (let i = 0; i < n * n; i++) d[i] = (2 * ((px[i * 4] * 256 + px[i * 4 + 1]) / 65535) - 1) * 2;
     return { n, d };
   } catch (e) { console.warn('logo', e); return null; }
 }
+// les lignes du calligramme : pour chacune, une suite de prénoms (sa propre graine), son allure (px/s, signe alterné)
+let calli = null;
+function calliLines(fs) {
+  const rnd = mulberry(91), names = NAMES.filter(n => n.length <= 8);
+  const lines = [];
+  for (let k = 0; k < 140; k++) {
+    let txt = '';
+    while (txt.length < 360) txt += names[Math.floor(rnd() * names.length)].toUpperCase() + '   ';
+    const ch = [...txt], xs = [], track = 0.16 * fs;
+    let x = 0;
+    for (const c of ch) { xs.push(x); x += (c === ' ' ? 0.32 : (atlas.glyphs[c]?.adv ?? 0.6)) * fs + track; }
+    lines.push({ ch, xs, P: x, v: (k % 2 ? -1 : 1) * (2.6 + 2.2 * rnd()), ph: rnd() * x });
+  }
+  return lines;
+}
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const dAt = (u, v) => { const n = logoD.n, x = Math.min(n - 1, Math.max(0, Math.round(u * (n - 1)))), y = Math.min(n - 1, Math.max(0, Math.round(v * (n - 1)))); return logoD.d[y * n + x]; };
 // pendant la recharge : seulement le réseau (module, papier, logo, police machine), aucun travail GPU
 let cardsModule = null;
 function prefetchCards() {
@@ -670,7 +693,6 @@ function frame(ts) {
   rafId = requestAnimationFrame(frame);
   const dt = Math.min(0.05, last ? (ts - last) / 1000 : 0);
   last = ts; S.t += dt;
-  if (S.sigHold) S.t = 0;                         // (la signature d'ouverture joue par-dessus)
   measure();
   if (S.phase === 'leaving' && S.t - S.phaseAt >= LEAVE_FADE) enterBlack(false);
 
@@ -923,19 +945,43 @@ function frame(ts) {
   const fl = field.emit(light, S.t, { x: cx, y: cy }, hook);
   // le logo du fond : loin derrière le champ (la parallaxe à peine), imposant ; la lampe rasante tourne lentement autour
   // et suit un peu la souris ; il paraît après l'ouverture, s'efface quand le prénom part
-  let logo = null;
-  if (LOGO_BG) {
-    // (17/10) dans le champ, à LOGO_Z : sa place suit la caméra comme celle d'un mot à cette profondeur ; sa clarté est
-    // celle des lettres à cette distance (grayOf), un peu en retrait ; il paraît après l'ouverture, respire, s'efface
-    // quand le prénom part
-    const side = Math.min(S.w * 1.12, S.h * 0.84, 980), t = S.t, mv = CFG.reduced ? 0 : 1;
-    const cxL = vx - field.cam.x * focal / LOGO_Z, cyL = vy + field.cam.y * focal / LOGO_Z;
-    const br = 0.86 + mv * (0.1 * Math.sin(t * 2 * Math.PI / 11) + 0.04 * Math.sin(t * 2 * Math.PI / 7 + 1.3));
-    const la = LOGO_K * smooth(OPEN_DARK + 0.6, OPEN_DARK + 6, S.t) * (T >= 0 ? 1 - smooth(0, 1.6, T) : 1);
-    logo = { z: LOGO_Z, rect: [cxL - side / 2, cyL - side / 2, cxL + side / 2, cyL + side / 2], pxmm: side / LOGO_MM,
-      sig: KB * focal * Math.abs(1 / LOGO_Z - 1 / ZF), lum: grayOf(LOGO_Z) * 0.9 * br, a: la };
+  // le calligramme (voir LOGO_BG) : loin derrière (la parallaxe à peine), à la taille et au gris des prénoms lointains
+  const under = [];
+  if (LOGO_BG && logoD) {
+    const ZL = 33, side = Math.min(S.w * 1.12, S.h * 0.84, 980), mv = CFG.reduced ? 0 : 1;
+    const cxL = vx - field.cam.x * focal / ZL, cyL = vy + field.cam.y * focal / ZL, x0 = cxL - side / 2, y0 = cyL - side / 2;
+    const fs = Math.max(3.4, side / 112), lh = fs * 1.3, cap = atlas.capHeight;   // (micro-typographie : une trame)
+    if (!calli || calli.fs !== fs) calli = { fs, lines: calliLines(fs) };
+    const br = 0.9 + mv * 0.1 * Math.sin(S.t * 2 * Math.PI / 11);
+    const A = LOGO_K * 0.5 * grayOf(ZL) / Math.max(0.01, grayOf(ZL)) * smooth(OPEN_DARK + 1.2, OPEN_DARK + 7, S.t) * (T >= 0 ? 1 - smooth(0, 1.4, T) : 1) * br;
+    const nb = S.nameBox, pad = 1.2 * fs;
+    if (A > 0.003) {
+      const nL = Math.ceil(side / lh);
+      for (let k = 0; k < nL; k++) {
+        const L = calli.lines[k % calli.lines.length], yb = y0 + (k + 0.5) * lh + 0.5 * cap * fs, vv = (yb - y0 - 0.5 * cap * fs) / side;
+        if (vv < 0 || vv > 1) continue;
+        const sh = ((L.ph + L.v * S.t * mv) % L.P + L.P) % L.P;
+        for (let i = 0; i < L.ch.length * 2; i++) {
+          const j = i % L.ch.length, c = L.ch[j]; if (c === ' ') continue;
+          const gm = atlas.glyphs[c]; if (!gm) continue;
+          const x = x0 + L.xs[j] + (i >= L.ch.length ? L.P : 0) - sh;
+          if (x < x0 - fs || x > x0 + side) continue;
+          const xc = x + (gm.x0 + gm.x1) / 2 * fs, u = (xc - x0) / side;
+          if (u < 0 || u > 1) continue;
+          // dedans : la lettre est là ; au bord (± 0,35 mm du logo), elle paraît / s'efface en passant
+          const d = dAt(u, vv), m = Math.min(1, Math.max(0, (0.05 - d) / 0.35));
+          if (m <= 0.01) continue;
+          // la zone vide autour du prénom (et du curseur)
+          let z = 1;
+          if (nb) { const dx = Math.max(nb[0] - pad - xc, 0, xc - nb[2] - pad), dy = Math.max(nb[1] - pad - yb, 0, yb - nb[3] - pad); z = Math.min(1, Math.hypot(dx, dy) / (3 * fs)); }
+          const a = A * m * z * grayOf(ZL) * 1.6;
+          if (a < 0.004) continue;
+          under.push({ box: [x + gm.x0 * fs, yb + gm.y0 * fs, x + gm.x1 * fs, yb + gm.y1 * fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: a, pxEm: fs });
+        }
+      }
+    }
   }
-  stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig, energy: R?.energy, logo,
+  stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig, energy: R?.energy, under,
     field: fl, cam: field.cam, focal, vx, vy, dim: S.dim, time: S.t });
   stats.letters = fl.count;
   stats.gpuMB = +((atlas.width * atlas.height * 2 + canvas.width * canvas.height * 4 * 2) / 1048576).toFixed(1);
@@ -1092,18 +1138,6 @@ function mountPortalPage() {
 let metrics = null;
 async function boot() {
   measure();
-  // (17/10, Maxence) la signature d'ouverture (src/alt/signature.js) : une carte du jeu dans le noir, la lampe la balaie
-  // une fois ; la page attend (son horloge reste à 0) jusqu'à ce que la carte s'éteigne
-  if (ALT && !EDIT && !stored.validated && S.phase === 'input' && P.get('signature') !== '0' && !CFG.reduced) {
-    let want = P.get('signature') === '1';
-    if (!want) try { want = !sessionStorage.getItem('sg.sig'); } catch { /* */ }
-    if (want) {
-      S.sigHold = true;
-      const free = () => { S.sigHold = false; };
-      setTimeout(free, 6000);                                   // (jamais bloquée)
-      import('./alt/signature.js').then(m => (m.wantSignature(P) || P.get('signature') === '1' ? m.playSignature({ base: './', onGo: free }) : free())).catch(free);
-    }
-  }
   // le portail d'abord ; le champ se prépare une fois les cartes posées (ou tout de suite si l'on choisit le poème)
   let gate = null;
   if (CFG.portal && S.phase === 'input') {
@@ -1138,7 +1172,7 @@ async function boot() {
     atlas = buildAtlas('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,', `"${FONT_FAMILY}", serif`, 500);   // (la virgule : UN PRENOM, UN POEME)
     metrics = { adv: (ch) => atlas.glyphs[ch]?.adv ?? 0.6, capHeight: atlas.capHeight };
     renderer = createRenderer(canvas, gl, atlas);
-    if (LOGO_BG) loadLogoBg().then(px => px && renderer.setLogo(px));
+    if (LOGO_BG) loadLogoBg().then(px => { logoD = px; });
     const t0 = performance.now();
     field = createField({ rng: createRng(CFG.seed), caseMode: CFG.caseMode, glyphs: atlas.glyphs, capHeight: atlas.capHeight, mode: CFG.mode });
     field.resize(S.w, S.h);   // inclut ≈ 700 s de champ « vécu »
@@ -1230,7 +1264,7 @@ if (ALT) {
     onCurrent: () => { if (!onNames() && !S.paid && !document.querySelector('.of.paying, .of.env')) editName(); },
     // (17/10, Maxence : « c'était bien de charger avant ») de nouveau tôt, aussi sur le portail : la préparation ne
     // bloque plus (shaders compilés en parallèle, gl.js programAsync)
-    calm: () => !S.sigHold && !document.querySelector('.of.paying, .of.env') && S.trans == null,   // (pas pendant la signature d'ouverture)
+    calm: () => !document.querySelector('.of.paying, .of.env') && S.trans == null,
     preAt: 0,
     quiet: () => (onNames() ? !S.typed : !!offerObj && offerObj.top < 30 && !document.querySelector('.of.paying, .of.env')),
     solo: () => !!offerObj && offerObj.top > offerObj.storyLen() + 40,
