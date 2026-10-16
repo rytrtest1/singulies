@@ -12,10 +12,10 @@ import { layoutName } from './name/layout.js';
 import { loadState, saveValidated, clearStored, clearValidated, sessionName, saveSessionName } from './app/storage.js';
 import { installSend, settled, setOrder, send } from './app/send.js';
 import { installCount, count } from './app/count.js';
-import { createField, MODES } from './field/field.js';
+import { createField, MODES, grayOf } from './field/field.js';
 import { createRng } from './field/rng.js';
 import { createLight } from './field/light.js';
-import { sigmaPx } from './field/camera.js';
+import { sigmaPx, KB, ZF } from './field/camera.js';
 import { planRecharge, fieldLetter, rechargeFrame, energyFrame, riseU, grayU, sm as smT, REST, RISE, NAME_GRAY, NAME_REST } from './transition/recharge.js';
 import { fpsMeter } from './app/perf.js';
 
@@ -277,24 +277,19 @@ function startTransition() {
   // (12/10, alt) la scène des cartes, déjà prête (préparée pendant qu'on écrivait), reçoit le prénom définitif
   if (ALT && cards) cards.then(() => { if (cardsReady && cardsReady !== 'failed') cardsReady.setName?.(shown.toUpperCase()); });
 }
-// (16/10, Maxence) le logo SINGULIES en fond de la page des prénoms ; (17/10 : « ça pollue — que les prénoms le
-// révèlent, sans qu'il ait de forme à lui seul ») il n'est jamais dessiné : les lettres du champ qui passent devant lui
-// s'éclairent un peu (renderer.js, u_logo). Sa forme vient du logo des cartes (cards/logo.png : distance au bord 16
-// bits, ±2 mm), adoucie ici une fois pour toutes (≈ 1,2 mm).
-const LOGO_BG = ALT && P.get('logo') !== '0', LOGO_MM = 38.501, LOGO_K = +(P.get('logoK') || 1);
-const LOGO_GLOW = +(P.get('logoGlow') || 1);
+// (16/10, Maxence) le logo SINGULIES sur la page des prénoms ; (17/10, refait trois fois) un filet tracé comme une
+// gravure, posé dans le champ à la profondeur LOGO_Z (renderer.js, LOGO_FS) : les prénoms plus lointains passent
+// derrière, les proches devant. Sa distance au bord vient du logo des cartes (cards/logo.png : 16 bits, ±2 mm).
+const LOGO_BG = ALT && P.get('logo') !== '0', LOGO_MM = 38.501, LOGO_K = +(P.get('logoK') || 1), LOGO_Z = +(P.get('logoZ') || 19);
 const loadImg = src => new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = new URL(src, document.baseURI).href; });
 async function loadLogoBg() {
   try {
     const im = await loadImg('cards/logo.png');
-    const n = 256, cv = document.createElement('canvas'); cv.width = cv.height = n;
-    const x = cv.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, n, n);
-    const d = x.getImageData(0, 0, n, n).data, m = new Uint8Array(n * n);
-    for (let i = 0; i < n * n; i++) {
-      const mm = (2 * ((d[i * 4] * 256 + d[i * 4 + 1]) / 65535) - 1) * 2, u = Math.max(-1, Math.min(1, mm / 1.2));
-      m[i] = Math.round(255 * (0.5 - 0.5 * Math.sin(u * Math.PI / 2)));
-    }
-    return { n, m };
+    const n = 1024, cv = document.createElement('canvas'); cv.width = cv.height = n;
+    const x = cv.getContext('2d', { willReadFrequently: true }); x.imageSmoothingEnabled = false; x.drawImage(im, 0, 0, n, n);
+    const px = x.getImageData(0, 0, n, n).data, d = new Float32Array(n * n);
+    for (let i = 0; i < n * n; i++) d[i] = (2 * ((px[i * 4] * 256 + px[i * 4 + 1]) / 65535) - 1) * 2;
+    return { n, d };
   } catch (e) { console.warn('logo', e); return null; }
 }
 // pendant la recharge : seulement le réseau (module, papier, logo, police machine), aucun travail GPU
@@ -929,12 +924,15 @@ function frame(ts) {
   // et suit un peu la souris ; il paraît après l'ouverture, s'efface quand le prénom part
   let logo = null;
   if (LOGO_BG) {
-    // (17/10) la force (lettres grises : jusqu’à × 2 au cœur du logo) respire lentement (≈ 11 / 7 s), comme la lampe des cartes
-    const ZL = 90, side = Math.min(S.w * 1.2, S.h * 0.9, 1040), t = S.t, mv = CFG.reduced ? 0 : 1;
-    const br = 0.78 + mv * (0.16 * Math.sin(t * 2 * Math.PI / 11) + 0.06 * Math.sin(t * 2 * Math.PI / 7 + 1.3));
-    const la = 1.0 * LOGO_K * br * smooth(OPEN_DARK + 0.6, OPEN_DARK + 6, S.t) * (T >= 0 ? 1 - smooth(0, 1.6, T) : 1);
-    // (17/10) la lueur (fond) et les prénoms qui la traversent ; ?logoGlow= pour la lueur seule
-    logo = { cx: vx - field.cam.x * focal / ZL, cy: vy + field.cam.y * focal / ZL, s: side, a: la, glow: LOGO_GLOW };
+    // (17/10) dans le champ, à LOGO_Z : sa place suit la caméra comme celle d'un mot à cette profondeur ; sa clarté est
+    // celle des lettres à cette distance (grayOf), un peu en retrait ; il paraît après l'ouverture, respire, s'efface
+    // quand le prénom part
+    const side = Math.min(S.w * 1.12, S.h * 0.84, 980), t = S.t, mv = CFG.reduced ? 0 : 1;
+    const cxL = vx - field.cam.x * focal / LOGO_Z, cyL = vy + field.cam.y * focal / LOGO_Z;
+    const br = 0.86 + mv * (0.1 * Math.sin(t * 2 * Math.PI / 11) + 0.04 * Math.sin(t * 2 * Math.PI / 7 + 1.3));
+    const la = LOGO_K * smooth(OPEN_DARK + 0.6, OPEN_DARK + 6, S.t) * (T >= 0 ? 1 - smooth(0, 1.6, T) : 1);
+    logo = { z: LOGO_Z, rect: [cxL - side / 2, cyL - side / 2, cxL + side / 2, cyL + side / 2], pxmm: side / LOGO_MM,
+      sig: KB * focal * Math.abs(1 / LOGO_Z - 1 / ZF), lum: grayOf(LOGO_Z) * 0.9 * br, a: la };
   }
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig, energy: R?.energy, logo,
     field: fl, cam: field.cam, focal, vx, vy, dim: S.dim, time: S.t });

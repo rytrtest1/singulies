@@ -21,11 +21,6 @@ uniform vec2 u_center;   // centre de la vignette, px physiques (y vers le bas)
 uniform float u_grain;   // 1 = charbon granuleux, 0 = noir pur
 uniform float u_fade;
 uniform float u_vig;     // force de la vignette (1 ; 0 = fond uni, comme la scène des cartes)
-// (17/10, Maxence : « on ne le voit pas, on doit le voir — de façon intelligente ») le logo SINGULIES est la lumière
-// lointaine de la scène : une lueur sans bord ni matière, comme une source vue à travers la brume, loin derrière les
-// prénoms (qui passent devant et s'y éclairent : FIELD_FS). Sa forme adoucie (R8, mipmaps), sa place, sa force
-uniform sampler2D u_logo;
-uniform vec4 u_logoR;    // centre (px physiques), demi-côté (px physiques), force (0 : aucune)
 out vec4 o;
 float hash(vec2 p) { // grain statique, stable d'une image à l'autre
   p = fract(p * vec2(443.897, 441.423));
@@ -41,16 +36,6 @@ void main() {
   float r = length((frag - u_center) / half_);
   float a = 0.66 * u_vig * clamp((r - 0.52) / 0.48, 0.0, 1.0);
   c *= (1.0 - a) * min(u_grain, 1.0);
-  if (u_logoR.w > 0.0) {
-    vec2 q = (frag - u_logoR.xy) / u_logoR.z;
-    if (abs(q.x) < 1.0 && abs(q.y) < 1.0) {
-      vec2 uv = q * 0.5 + 0.5;
-      // un cœur (la forme, adoucie) dans un halo plus large ; nul au bord du carré
-      float gl = 0.5 * texture(u_logo, uv, 1.6).r + 0.5 * texture(u_logo, uv, 3.4).r;
-      gl *= smoothstep(1.0, 0.85, max(abs(q.x), abs(q.y)));
-      c += u_logoR.w * gl * 11.0 / 255.0;
-    }
-  }
   c += (hash(frag + 31.7) - 0.5) / 255.0 * step(0.5, u_grain);   // tramage ±½ niveau : pas de bandes dans la vignette
   o = vec4(vec3(c * u_fade), 1.0);
 }`;
@@ -156,13 +141,6 @@ const FIELD_FS = /* glsl */`#version 300 es
 precision highp float;
 uniform sampler2D u_atlas, u_blur;
 uniform float u_fade, u_dim, u_time;
-// (16/10, Maxence ; 17/10 : « que les prénoms le révèlent, sans qu'il ait de forme à lui seul ») le logo SINGULIES n'est
-// pas dessiné : c'est une lumière très douce, loin derrière, qui n'éclaire que les lettres qui passent devant lui —
-// davantage les lointaines (près de lui) que celles du premier plan ; elle respire
-uniform sampler2D u_logo;          // sa forme, adoucie (R8, mipmaps)
-uniform vec4 u_logoR;              // centre (px CSS), demi-côté (px CSS), force (0 : aucun)
-uniform float u_vh;                // hauteur de la vue, px CSS
-uniform float u_dprF;
 in vec2 v_uv;
 flat in float v_sig, v_aa, v_alpha, v_gray, v_L, v_seed, v_m, v_nb, v_z;
 flat in vec2 v_uv0, v_uvEm;
@@ -186,13 +164,7 @@ void main() {
             + 0.5 * fbm(le * 4.5 - vec2(-0.05, 0.21) * u_time * fr + sd);
     Lc = v_L * clamp(0.55 + 1.4 * n, 0.15, 1.6);
   }
-  float rv = 0.0;
-  if (u_logoR.w > 0.0) {
-    vec2 fr = vec2(gl_FragCoord.x, u_vh * u_dprF - gl_FragCoord.y) / u_dprF;
-    vec2 q = (fr - u_logoR.xy) / u_logoR.z;
-    if (abs(q.x) < 1.0 && abs(q.y) < 1.0) rv = u_logoR.w * texture(u_logo, q * 0.5 + 0.5, 1.5).r * smoothstep(4.0, 22.0, v_z);
-  }
-  float lum = mix(min(1.0, (v_gray * u_dim * (1.0 + rv) + Lc * (1.0 + 0.35 * rv)) * ${LUM.gain.toFixed(3)}), v_nb, v_m);   // gain : ?lum (src/app/lum.js)
+  float lum = mix(min(1.0, (v_gray * u_dim + Lc) * ${LUM.gain.toFixed(3)}), v_nb, v_m);   // gain : ?lum (src/app/lum.js)
   // (ligne d'origine : mix(min(1.0, v_gray * u_dim + Lc), v_nb, v_m))   // allumée : s'ajoute au gris éteint ; en route : devient le prénom
   o = vec4(vec3(a * lum), a);
 }`;
@@ -235,6 +207,47 @@ void main() {
   float v = v_p.x * prof * env * clamp(0.62 + 0.9 * n, 0.0, 1.4) * u_fade;
   v = min(v, 0.62);
   o = vec4(vec3(v), v);
+}`;
+
+// (17/10, Maxence : « cheap — regarde la finesse de ce qu'on a produit en 3D ; on le voit trop ») le logo SINGULIES
+// n'est plus une lueur : un filet, tracé comme une gravure — son contour en trait fin, et un second filet plus pâle juste
+// à l'intérieur (comme le double filet du cachet). Il est posé DANS le champ, à une profondeur (u_z) : même perspective,
+// même flou de profondeur, même clarté que les lettres à cette distance ; les prénoms plus lointains passent derrière
+// lui, les plus proches devant (le champ est dessiné en deux fois, de part et d'autre de son plan). Une clarté lente
+// circule le long du trait, il respire.
+const LOGO_VS = /* glsl */`#version 300 es
+uniform vec4 u_rect;   // x0, y0, x1, y1 (px CSS)
+uniform vec2 u_view;
+out vec2 v_uv;
+void main() {
+  vec2 c = vec2(gl_VertexID & 1, gl_VertexID >> 1);
+  v_uv = c;
+  gl_Position = vec4((mix(u_rect.xy, u_rect.zw, c) / u_view * 2.0 - 1.0) * vec2(1.0, -1.0), 0.0, 1.0);
+}`;
+const LOGO_FS = /* glsl */`#version 300 es
+precision highp float;
+uniform sampler2D u_sdf;   // distance au bord du logo (mm, < 0 dedans ; ±2 mm)
+uniform float u_pxmm;      // px physiques par mm du logo
+uniform float u_sig;       // flou de profondeur (px physiques)
+uniform float u_lum, u_a, u_time;
+in vec2 v_uv;
+out vec4 o;
+${GLSL_COMMON}
+${NOISE}
+float filet(float dpx, float hw, float s) { return gaussCdf((dpx + hw) / s) - gaussCdf((dpx - hw) / s); }
+void main() {
+  float d = texture(u_sdf, v_uv).r;
+  float s = sqrt(u_sig * u_sig + 0.42 * 0.42);
+  float hw = max(0.55, 0.028 * u_pxmm);
+  float c1 = filet(d * u_pxmm, hw, s);
+  float c2 = filet((d + 0.62) * u_pxmm, hw * 0.75, s) * 0.42;
+  float cov = max(c1, c2);
+  if (cov < 0.002) discard;
+  // la clarté qui circule le long du trait (comme dans les lettres allumées), très lente
+  float n = fbm(v_uv * 3.2 + vec2(0.05, -0.03) * u_time) + 0.5 * fbm(v_uv * 7.0 - vec2(0.02, 0.04) * u_time);
+  float lum = u_lum * clamp(0.62 + 0.75 * n, 0.25, 1.5);
+  float a = cov * u_a;
+  o = vec4(vec3(a * lum), a);
 }`;
 
 const STRIDE = 12; // floats par instance
@@ -289,23 +302,34 @@ export function createRenderer(canvas, gl, atlas) {
       gl.vertexAttribDivisor(i, 1);
     }
     gl.bindVertexArray(null);
-    res = { bg, gp, tex, btex, vao, buf, empty, fp, fvao, fbuf, ep, evao, ebuf, logo: null };
+    const lp = program(gl, LOGO_VS, LOGO_FS);
+    res = { bg, gp, tex, btex, vao, buf, empty, fp, fvao, fbuf, ep, evao, ebuf, lp, logo: null };
     if (logoPx) setLogo(logoPx);
   }
-  // le logo : sa forme adoucie (R8, mipmaps : encore plus douce de loin) — refaite après une perte de contexte
+  // le logo : sa distance au bord (mm, R16F filtrée) — refaite après une perte de contexte
   function setLogo(px) {
     logoPx = px;
     if (!res || gl.isContextLost()) return;
     const t = res.logo || gl.createTexture();
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, t);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, px.n, px.n, 0, gl.RED, gl.UNSIGNED_BYTE, px.m);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, px.n, px.n, 0, gl.RED, gl.FLOAT, px.d);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
-    gl.generateMipmap(gl.TEXTURE_2D);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.activeTexture(gl.TEXTURE0);
     res.logo = t;
+  }
+  // le filet du logo, dans le plan z du champ (f.logo : rect, pxmm, sig, lum, a)
+  function drawLogo(f) {
+    const lg = f.logo, { lp } = res;
+    gl.useProgram(lp.p);
+    gl.uniform4f(lp.u.u_rect, ...lg.rect); gl.uniform2f(lp.u.u_view, f.w, f.h);
+    gl.uniform1f(lp.u.u_pxmm, lg.pxmm * f.dpr); gl.uniform1f(lp.u.u_sig, lg.sig * f.dpr);
+    gl.uniform1f(lp.u.u_lum, lg.lum); gl.uniform1f(lp.u.u_a, lg.a * f.fade); gl.uniform1f(lp.u.u_time, (f.time ?? 0) % 1000);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, res.logo); gl.uniform1i(lp.u.u_sdf, 2); gl.activeTexture(gl.TEXTURE0);
+    gl.bindVertexArray(res.empty);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
   init();
@@ -323,9 +347,6 @@ export function createRenderer(canvas, gl, atlas) {
     gl.uniform1f(bg.u.u_grain, f.grain);
     gl.uniform1f(bg.u.u_fade, f.fade);
     gl.uniform1f(bg.u.u_vig, f.vig ?? 1);
-    { const lg = f.logo && res.logo && f.logo.a > 0.002 ? f.logo : null;
-      gl.uniform4f(bg.u.u_logoR, lg ? lg.cx * f.dpr : 0, lg ? lg.cy * f.dpr : 0, lg ? lg.s / 2 * f.dpr : 1, lg ? lg.a * (lg.glow ?? 1) : 0);
-      if (lg) { gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, res.logo); gl.activeTexture(gl.TEXTURE0); gl.uniform1i(bg.u.u_logo, 2); } }
     gl.bindVertexArray(empty);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
@@ -354,18 +375,27 @@ export function createRenderer(canvas, gl, atlas) {
       gl.uniform1f(fp.u.u_fade, f.fade * (f.fieldFade ?? 1));
       gl.uniform1f(fp.u.u_dim, f.dim ?? 1);
       gl.uniform1f(fp.u.u_time, (f.time ?? 0) % 1000);
-      { const lg = f.logo && res.logo && f.logo.a > 0.002 ? f.logo : null;
-        gl.uniform4f(fp.u.u_logoR, lg ? lg.cx : 0, lg ? lg.cy : 0, lg ? lg.s / 2 : 1, lg ? lg.a : 0);
-        gl.uniform1f(fp.u.u_vh, f.h); gl.uniform1f(fp.u.u_dprF, f.dpr);
-        if (lg) { gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, res.logo); gl.activeTexture(gl.TEXTURE0); gl.uniform1i(fp.u.u_logo, 2); } }
       gl.uniform1i(fp.u.u_atlas, 0);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, res.btex);
       gl.uniform1i(fp.u.u_blur, 1);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindVertexArray(fvao);
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count);
-      calls++;
+      // le logo est dans le champ : les lettres plus lointaines que lui d'abord (le tableau va du loin au proche), lui,
+      // puis les plus proches
+      const lg = f.logo && res.logo && f.logo.a > 0.002 ? f.logo : null;
+      let split = fl.count;
+      if (lg) { split = 0; while (split < fl.count && fl.data[split * FSTRIDE + 2] >= lg.z) split++; }
+      if (split > 0) { gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, split); calls++; }
+      if (lg) {
+        drawLogo(f); calls++;
+        if (split < fl.count) {
+          gl.useProgram(fp.p); gl.bindVertexArray(fvao); gl.bindBuffer(gl.ARRAY_BUFFER, fbuf);
+          for (let i = 0; i < 6; i++) gl.vertexAttribPointer(i, 4, gl.FLOAT, false, FSTRIDE * 4, split * FSTRIDE * 4 + i * 16);
+          gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, fl.count - split); calls++;
+          for (let i = 0; i < 6; i++) gl.vertexAttribPointer(i, 4, gl.FLOAT, false, FSTRIDE * 4, i * 16);
+        }
+      }
       gl.bindVertexArray(null);
     }
 
