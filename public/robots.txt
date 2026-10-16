@@ -1,0 +1,14 @@
+# le site : le poème, un poème par mois, mes livres. le reste (essais, anciennes versions, fin de commande) n'a rien à
+# faire dans les moteurs.
+User-agent: *
+Disallow: /ancien
+Disallow: /alt
+Disallow: /basique-
+Disallow: /scene-
+Disallow: /cachet
+Disallow: /demande
+Disallow: /merci
+Disallow: /pour
+Allow: /
+
+Sitemap: https://singulies.com/sitemap.xml

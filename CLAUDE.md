@@ -408,3 +408,7 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 - **Pour moi / pour offrir** : après RECEVOIR (réservation, `askFor`) et dans REJOINDRE.
 - **Livres** : toucher = il s'ouvre à une double page tirée au hasard (vraies pages, encre blanche sur papier noir, `tools/livre-pages.py` → `public/livres/pages`), grand comme la feuille A4 ; toucher / glisser = une feuille tourne ; glisser vers le bas, Échap, toucher à côté = il se referme.
 - **Toucher l'objet = ce qu'il est vraiment** (dimensions, papier, façon) tapé à la place de la description ; encore = la description (`more` : OBJETS dans offre.js, STEPS dans lettre/content.js — faits sûrs seulement, à compléter).
+
+## Pages légales et 404 (17/10)
+- Mentions : hébergeur = Cloudflare Pages (copie sur GitHub Pages). Conditions : garanties légales, « un poème par mois » = liste d'attente ; **médiateur de la consommation en commentaire dans conditions.html, à décommenter une fois l'adhésion faite**. Confidentialité : PayPal (maintenant), Stripe via la fonction Cloudflare (plus tard), hébergeurs, transferts hors UE, prénom gardé le temps de la visite. À remettre en cohérence si `RESERVATION` passe à false (paiement sur le site).
+- `public/404.html` (chemins absolus), `public/robots.txt` (essais et anciennes versions exclus), `public/sitemap.xml`. Manquent encore aux mentions : téléphone de l'éditeur, SIRET (et « TVA non applicable, art. 293 B du CGI » une fois micro-entrepreneur).
