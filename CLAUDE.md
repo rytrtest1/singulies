@@ -396,3 +396,14 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 
 ## Prix (16/10, Maxence)
 - **39 € tout compris** (au lieu de 30 €) : `PRIX` (src/alt/config.js), conditions.html, `PRIX_CENTIMES` = 3900 (wrangler.toml, serveur/wrangler.toml, défaut de serveur/paiement.js). Si `PRIX_CENTIMES` est aussi réglé à la main dans Cloudflare (Variables et secrets), le changer là aussi.
+
+## Retours du 16/10 (font foi)
+- **Page des prénoms** : le gel à l'apparition du menu venait des pages voisines préparées à 7 s → seulement quand l'offre est posée (`calm`) ou au toucher du bandeau. **PRENOM en grisé** seulement 3,2 s après l'apparition du menu (`HINT_AFTER_NAV`). **Logo SINGULIES imposant en fond**, gaufré dans le noir, lumière rasante qui tourne et suit un peu la souris (renderer.js `u_logo`, `?logo=0`).
+- **Revenir au prénom** : toucher le prénom pendant qu'il part = la transition se rembobine (`rewind`), curseur au bout, le toucher ouvre le clavier (`S.edit`) ; depuis la feuille, toucher la colonne ou UN PRENOM UN POEME = la page se refait sur le champ, le prénom retapé, modifiable (`editName`, `sg.edit`).
+- **PASSER** sous la question (après paiement) : *(si tu veux t'exprimer librement)*.
+- **Bandeau PC** : le fil ne perce que pour les noms visibles (opacité).
+- **Paquet après paiement** : on coupe le paquet (la moitié du dessous sort vers le bas puis le haut, revient dessus) ; clarté et maillage selon la hauteur réelle ; lampe et projecteur sur le paquet là où il est.
+- **Un poème par mois, étape 2** : la feuille est dans la poche (entre face et dos), sort devant le rabat ouvert, l'enveloppe recule loin avant que la feuille redescende ; toucher une enveloppe = elle est choisie ; au retour elle reprend sa place vivante dans la guirlande ; SINGULIES (fil) s'efface avec la page (`--o`).
+- **Pour moi / pour offrir** : après RECEVOIR (réservation, `askFor`) et dans REJOINDRE.
+- **Livres** : toucher = il s'ouvre à une double page tirée au hasard (vraies pages, encre blanche sur papier noir, `tools/livre-pages.py` → `public/livres/pages`), grand comme la feuille A4 ; toucher / glisser = une feuille tourne ; glisser vers le bas, Échap, toucher à côté = il se referme.
+- **Toucher l'objet = ce qu'il est vraiment** (dimensions, papier, façon) tapé à la place de la description ; encore = la description (`more` : OBJETS dans offre.js, STEPS dans lettre/content.js — faits sûrs seulement, à compléter).
