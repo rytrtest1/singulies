@@ -52,6 +52,7 @@ const CSS = `
   font: 500 var(--nv-fs, 12px)/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; margin-right: -.3em; color: #ece8e0; opacity: .4;
   transition: opacity .6s; -webkit-tap-highlight-color: transparent; -webkit-user-drag: none; }
 .nv-l.cur { opacity: .9; cursor: default; }
+.nv.redo .nv-l.cur { cursor: pointer; }
 .nv-l.far { opacity: 0; pointer-events: none !important; }
 .nv.wide.many .nv-l.far.d2 { opacity: .2; pointer-events: auto !important; }
 .nv.solo .nv-l:not(.cur) { opacity: 0; pointer-events: none !important; }
@@ -117,7 +118,9 @@ export function installNav(opts) {
       a.draggable = false;
       if (d === 0) a.setAttribute('aria-current', 'page');
       // (par son nom, pas par son rang : un toucher pendant une transition vise la page qu'on voit)
-      a.addEventListener('click', e => { e.preventDefault(); if (swallow) { swallow = false; return; } stopReveal(); goTo(p.id); });
+      // (16/10) le nom de la page où l'on est : y revenir à son début (le poème : le champ de prénoms, pour le changer)
+      a.addEventListener('click', e => { e.preventDefault(); if (swallow) { swallow = false; return; } stopReveal();
+        if (p.id === ring(cur).id) { if (cur === home && opts.onCurrent) opts.onCurrent(); return; } goTo(p.id); });
       track.appendChild(a);
       return a;
     });
@@ -212,7 +215,10 @@ export function installNav(opts) {
       // les noms cousus : tous ceux qu'on voit, même en partie (le fil ne passe jamais sur des lettres : il plonge dans
       // le trou avant le nom) ; le fil court jusqu'aux deux bords
       const A = 0;
-      let P = solo ? [C] : items.map((_, i) => i).filter(i => sr(i) > A + 3 && sl(i) < W - A - 3);
+      // (16/10, Maxence : « sur PC il y a encore des trous, comme s'il y avait du texte ») seulement les noms qu'on voit
+      // vraiment : les copies lointaines de la boucle, cachées, ne percent pas le fil
+      const seen = i => i === C || parseFloat(getComputedStyle(items[i]).opacity) > 0.12;
+      let P = solo ? [C] : items.map((_, i) => i).filter(i => seen(i) && sr(i) > A + 3 && sl(i) < W - A - 3);
       if (!P.length) P = [C];
       const endL = -4, endR = W + 4;
       const holeL = Math.max(sl(P[0]) - 7, Math.min(endL + 8, A + 2)), holeR = Math.min(sr(P[P.length - 1]) + 7, Math.max(endR - 8, W - A - 2));
@@ -282,6 +288,7 @@ export function installNav(opts) {
     if (on !== shown) { shown = on; root.classList.toggle('on', on); if (on) { layout(); shownAt = performance.now(); } }
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
     root.classList.toggle('solo', solo);
+    root.classList.toggle('redo', atHome() && !!opts.redo?.());
     // (12/10) la démonstration du glissé : une fois par visite, sur la première page où le bandeau paraît (la feuille :
     // une fois l'offre posée ; ailleurs : 2,5 s après)
     if (on && !revealDone && !revealing && !busy && !drag) {
@@ -306,7 +313,13 @@ export function installNav(opts) {
   }
   // (préparées à un moment calme : la page voisine est déjà là quand on y va)
   const idle = window.requestIdleCallback || (f => setTimeout(f, 300));
-  setTimeout(() => idle(() => { for (const d of [1, -1]) ensure(ring(cur + d).id); }), 7000);
+  // (16/10, Maxence : « un freeze quand le menu va paraître ») monter une page voisine crée sa scène (WebGL) : un
+  // instant lourd. Jamais sur la page des prénoms ni pendant un geste : seulement quand la page le dit calme
+  // (opts.calm), ou au premier toucher du bandeau (on va sans doute y aller)
+  const preload = () => idle(() => { for (const d of [1, -1]) ensure(ring(cur + d).id); });
+  let preT = 0;
+  const preTry = () => { if (!opts.calm || opts.calm()) { clearInterval(preT); preload(); } };
+  setTimeout(() => { preTry(); if (opts.calm) preT = setInterval(preTry, 1500); }, 7000);
 
   const els = (pg, all) => ((all && pg.all ? pg.all() : pg.stage ? pg.stage() : []) || []).filter(Boolean);
   const T = `translate ${DUR}ms ${EASE}, scale ${DUR}ms ${EASE}, opacity ${Math.round(DUR * 0.8)}ms ease`;
@@ -429,10 +442,11 @@ export function installNav(opts) {
   // ---- (12/10, Maxence : « il faut pouvoir slide sur le menu du haut ») le bandeau suit le doigt (ou la souris tenue) ;
   //      au lâcher, le nom le plus proche du centre (élan compris) = la page ; aucun : le fil revient. Au-delà des noms
   //      posés, il résiste. Sur la page des prénoms (seulement UN PRENOM UN POEME), les voisins paraissent en glissant. ----
+  inner.addEventListener('pointerenter', e => { if (shown && e.pointerType === 'mouse') { clearInterval(preT); preload(); } });
   const rubber = r => 46 * (1 - Math.exp(-r / 110));
   inner.addEventListener('pointerdown', e => {
     if (!shown || (e.pointerType === 'mouse' && e.button !== 0)) return;
-    stopReveal();
+    stopReveal(); clearInterval(preT); preload();
     if (busy && fin) fin();
     if (busy) return;                                   // (une page se monte : un instant)
     const now = performance.now(), x0 = nameX(C, now);

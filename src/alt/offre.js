@@ -365,7 +365,7 @@ function slide(p) {
 // opts : { name (capitales), over (la vraie feuille est dessous, dans la scène des cartes), onPaid(order),
 //          scene : { vitrine, canvas } (la scène des cartes : la vitrine s'y joue) }
 // nav : le bandeau des pages (src/nav/nav.js) — glisser l'objet mène aux pages voisines
-export function mountOffer({ name, over = false, onPaid = null, scene = null, nav = null }) {
+export function mountOffer({ name, over = false, onPaid = null, scene = null, nav = null, onName = null }) {
   onPaidHere = onPaid;
   const root = document.createElement('div');
   root.id = 'offre'; root.className = 'of' + (over ? ' over' : '');
@@ -577,6 +577,10 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     const s0 = (x, y, tg) => { if (!inObj(x, y, tg)) { sx = null; return; } sx = x; sy = y; st = performance.now(); };
     const s1 = (x, y) => {
       if (sx == null) return; const dx = x - sx, dy = y - sy; sx = null;
+      // (16/10, Maxence) toucher le prénom sur la feuille = revenir au champ pour le changer (une faute, un autre prénom)
+      if (onName && Math.hypot(dx, dy) < 10 && performance.now() - st < 600 && root.scrollTop < 20) {
+        const b = onName.box(); if (b && x > b[0] && x < b[2] && y > b[1] && y < b[3]) { onName.go(); return; }
+      }
       if (Math.abs(dx) > 36 && Math.abs(dx) > 1.3 * Math.abs(dy) && performance.now() - st < 1500) goStep(dx < 0 ? 1 : -1, 1.5);
     };
     // (12/10) au doigt, le geste est décidé PENDANT qu'il se fait : en mode appli (écran d'accueil de l'iPhone), dès que

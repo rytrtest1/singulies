@@ -94,8 +94,9 @@ const HINT = P.get('indice') !== '0';   // (10/10) PRENOM en grisé si rien n'es
 const HINT_AFTER = 3.0, HINT_ALPHA = 0.2;   // s après l'apparition du champ ; clarté (fraction)
 // (10/10, version alternative) après ETERNEL : UN PRENOM / UN POEME en grisé (la grammaire de tout le site), qui
 // s'efface pour laisser le curseur seul au centre ; ailleurs : PRENOM, le curseur glisse devant
-const HINT_TEXT = ALT ? 'UN PRENOM UN POEME' : 'PRENOM';   // (deux lignes comme un prénom : coupure aux espaces, la plus équilibrée)
-const HINT_HOLD = 2.6, HINT_OUT = 1.3;   // (alt) s de lecture, s de fondu
+// (16/10, Maxence) alt : PRENOM aussi, mais seulement si l'on n'a toujours pas compris après l'apparition du menu
+const HINT_TEXT = 'PRENOM';
+const HINT_AFTER_NAV = 3.2;   // (alt) s après l'apparition du menu   // (deux lignes comme un prénom : coupure aux espaces, la plus équilibrée)
 const IDLE_GO = 3.5;   // (10/10) ordinateur : fini d'écrire sans Entrée → la suite après ce temps sans frappe
 // (10/10, version alternative) à l'ouverture, ETERNEL — mon nom — se tape à la machine à la place du prénom, le champ
 // s'allume avec lui (on voit ce que fait une frappe), puis il s'efface lettre à lettre : reste le curseur seul, qui
@@ -135,6 +136,11 @@ if (P.get('auto') !== '0') {
 const stored = loadState();
 // (11/10) alt.html : le prénom tapé dans cette visite est déjà écrit au rechargement (il se tape tout seul, puis la suite)
 if (ALT && !stored.name && !stored.validated) { const n = sessionName(); if (n) stored.name = n; }
+// (16/10, Maxence : « pouvoir retourner à la page des prénoms : une faute, changer d'avis, commander pour quelqu'un
+// d'autre ») revenu de la feuille pour corriger : le prénom se retape, le curseur au bout, rien ne repart tout seul
+const K_EDIT = 'sg.edit';
+let EDIT = null;
+if (ALT) { try { EDIT = sessionStorage.getItem(K_EDIT); sessionStorage.removeItem(K_EDIT); } catch { /* */ } if (EDIT) { stored.name = EDIT; stored.validated = null; } }
 const model = new NameModel(stored.validated ?? stored.name ?? '');
 const S = {
   phase: stored.validated ? 'scene' : 'input',   // input | scene (cartes) ; sans WebGL2 : leaving | black
@@ -150,7 +156,7 @@ const S = {
   inviteA: 0,             // essai voix : opacité de l'invitation
   dim: 1,
   slowAt: -9,
-  confirmed: !!(stored.name && !stored.validated),   // Entrée / remplissage auto / visiteur qui revient : prénom confirmé
+  confirmed: !!(stored.name && !stored.validated) && !EDIT,   // Entrée / remplissage auto / visiteur qui revient : prénom confirmé
   confirmedAt: stored.name && !stored.validated ? OPEN_DARK : -99,   // instant de la confirmation
   actAt: -99,             // dernier geste (le passage automatique attend 10 s sans toucher)
   trans: null,            // instant du départ de la transition vers les cartes
@@ -160,7 +166,10 @@ const S = {
   nameBox: null,          // boîte écran du prénom (le toucher = aller à la suite)
   boost: 0,               // avance/recul dans le champ (molette, glisser vertical)
   lat: 0, adv: 1,         // nappes latérales / avance (bascule progressive vers le mode visé ; initialisés ci-dessous)
+  edit: !!EDIT,           // (16/10) on corrige le prénom : curseur au bout, le toucher ouvre le clavier (pas la suite)
+  rw: false,              // (16/10) la transition se rembobine (prénom touché pendant qu'il part)
 };
+if (EDIT) { S.introOff = true; S.introEnd = 0; S.navNo = true; }
 
 [S.lat, S.adv] = MODES[CFG.mode];
 
@@ -378,7 +387,7 @@ function showOffer(over = false) {
   if (!over) { S.phase = 'offre'; S.phaseAt = S.t; emitValidated(S.validatedName, false); }
   backEl.classList.remove('on'); input.blur(); input.readOnly = true;
   const scene = over && cardsReady && cardsReady !== 'failed' ? { vitrine: cardsReady.vitrine, canvas: cardsReady.canvas } : null;
-  offer = offerModule().then(m => m.mountOffer({ name: S.validatedName.toUpperCase(), over, onPaid: over ? paidHere : null, scene, nav }))
+  offer = offerModule().then(m => m.mountOffer({ name: S.validatedName.toUpperCase(), over, onPaid: over ? paidHere : null, scene, nav, onName: { box: () => S.placeBox, go: editName } }))
     .then(o => { offerObj = o; return o.shown.then(() => { cancelAnimationFrame(rafId); rafId = 0; canvas.style.visibility = 'hidden'; names2d?.stop(); names2d = null; fallbackEl.style.display = 'none'; }); })
     .catch(e => { console.error(e); why('offre : ' + (e && e.message)); noCards(); });
 }
@@ -437,6 +446,37 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.defaultP
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !S.portal && document.activeElement !== input) goBack(); });
 
 // Toucher n'importe où : focus du champ (ouvre le clavier mobile, geste utilisateur)
+// (16/10, Maxence : « si on touche le prénom avant que la scène soit finie, on rembobine et on peut le modifier »)
+function inBox(b, e) { return b && e.clientX > b[0] && e.clientX < b[2] && e.clientY > b[1] && e.clientY < b[3]; }
+document.addEventListener('click', (e) => {
+  if (!ALT || S.portal || S.trans == null || S.rw || offer) return;
+  if (!(S.cStart == null && inBox(S.nameBox, e)) && !inBox(S.placeBox, e)) return;
+  if (S.cStart == null && S.handT == null && S.riseT == null) rewind(); else editName();
+});
+function rewind() {
+  S.rw = true; S.rwFrom = S.t - S.trans;
+  clearValidated(); saveSessionName(null);
+  count('alt/rembobine');
+}
+// la transition est revenue à son début : le prénom au centre, le curseur au bout, on peut corriger
+function rewound() {
+  S.rw = false; S.trans = null; plan = null; S.driftT = null; S.colT = null; S.placeBox = null;
+  S.confirmed = false; S.editAt = S.t; S.edit = true; S.editTap = false; S.validatedName = null;
+  input.readOnly = false; input.classList.remove('rest');
+  if (!TOUCH) input.focus({ preventScroll: true });
+}
+// (16/10) de la feuille (ou pendant qu'elle paraît) : on revient au champ pour corriger — la page se refait (la scène
+// des cartes ne se défait pas), le prénom s'y retape, le curseur au bout
+function editName() {
+  if (S.paid || S.editing) return;
+  S.editing = true;
+  try { sessionStorage.setItem(K_EDIT, S.validatedName || finalName(model.text) || ''); } catch { /* */ }
+  clearValidated(); saveSessionName(null); count('alt/corrige');
+  const v = document.createElement('div');
+  v.style.cssText = 'position:fixed;inset:0;z-index:99;background:#060606;opacity:0;transition:opacity .45s ease;pointer-events:none';
+  document.body.appendChild(v); requestAnimationFrame(() => { v.style.opacity = '1'; });
+  setTimeout(() => location.replace(location.href), 480);
+}
 document.addEventListener('click', (e) => {
   if (S.portal || S.phase !== 'input' || S.trans != null || e.target === backEl || backEl.contains(e.target) || nextEl.contains(e.target)) return;
   const b = S.nameBox;
@@ -446,6 +486,8 @@ document.addEventListener('click', (e) => {
   if (!inZone) return;
   // le clavier vient de se fermer et la suite allait partir : retoucher le prénom = le corriger (le clavier revient)
   if (blurGo) { clearTimeout(blurGo); blurGo = 0; if (!wheel) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); } return; }
+  // (16/10) on corrige : le premier toucher ouvre le clavier (le prénom est là, curseur au bout), pas la suite
+  if (S.edit && !S.editTap && !wheel) { S.editTap = true; input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); try { input.setSelectionRange(input.value.length, input.value.length); } catch { /* */ } return; }
   if (finalName(model.text) && !bridge.composing) { startTransition(); return; }
   if (!wheel && document.activeElement !== input) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); }
 });
@@ -525,7 +567,7 @@ const PAR = { tx: 0, ty: 0, x: 0, y: 0, vx: 0, vy: 0 };
 const BR = { p: 0, v: 0 };   // souffle de caméra à chaque frappe (ressort)
 const light = createLight({ reduced: CFG.reduced });
 // visiteur qui revient : son prénom se tape tout seul à l'arrivée, lettre par lettre (la lumière suit la frappe)
-if (stored.name && !stored.validated) { S.typed = true; startReveal(0, OPEN_DARK + 1.3); }
+if (stored.name && !stored.validated) { S.typed = true; startReveal(0, OPEN_DARK + (EDIT ? 0.35 : 1.3)); }
 window.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'mouse' || !S.w) return;
   PAR.tx = (e.clientX / S.w - 0.5) * 2; PAR.ty = (e.clientY / S.h - 0.5) * 2;
@@ -617,6 +659,12 @@ function frame(ts) {
   const v = field.view, focal = v.f * (1 + BR.p), vx = v.cx + field.offX, vy = v.cy + S.shiftY;
 
   // ---------- transition vers les cartes ----------
+  // (16/10) rembobiner : le temps de la transition remonte (vite, ≈ 1 s quel que soit le point atteint)
+  if (S.rw && S.trans != null) {
+    const back = dt * (1 + Math.max(1.6, S.rwFrom / 1.0));
+    S.trans += back; if (S.driftT != null) S.driftT += back;
+    if (S.t - S.trans <= 0) rewound();
+  }
   const T = S.trans != null ? S.t - S.trans : -1;
   // (11/10, Maxence : « homogénéiser ») alt : le fond du champ est le même noir uni que toutes les autres pages (6), sans
   // vignette — elle assombrissait les bords jusqu'à 2 : sous le bandeau et SINGULIES (posés sur un noir de 6), deux
@@ -644,28 +692,28 @@ function frame(ts) {
       S.colT = ct.length === here.length ? ct : 'non';
     }
     const drifting = DRIFT && Array.isArray(S.colT);
-    if (drifting && S.driftT == null && T >= plan.tEnd * DRIFT_AT) S.driftT = S.t;
+    if (drifting && S.driftT == null && T >= plan.tEnd * DRIFT_AT && !S.rw) S.driftT = S.t;
     const driftEnd = drifting && S.driftT != null ? S.driftT + DRIFT_GAP * (here.length - 1) + DRIFT_T : Infinity;
     // la scène des cartes se prépare quand tout est arrivé et que rien ne bouge (les lettres posées, le champ éteint) ;
     // (alt) d'ordinaire elle est déjà prête (préparée pendant qu'on écrivait), sinon dès le début de la dérive
-    if (T >= plan.tEnd && (!drifting || S.t >= driftEnd || S.driftT != null)) loadCards(S.validatedName.toUpperCase());
+    if (!S.rw && T >= plan.tEnd && (!drifting || S.t >= driftEnd || S.driftT != null)) loadCards(S.validatedName.toUpperCase());
     // (12/10, Maxence : « on dirait que le site charge ») la feuille paraît PENDANT que le prénom dérive : la scène des
     // cartes part SHEET_LEAD s avant l'arrivée, par-dessus l'accueil en mode « éclaircir » (max des deux images : le fond
     // est le même noir, la feuille paraît sous les lettres qui dérivent) ; chaque lettre de la colonne n'y paraît qu'à
     // l'instant où celle de l'accueil s'y pose
-    if (drifting && S.driftT != null && S.cStart == null && cardsReady && cardsReady !== 'failed' && S.t >= driftEnd - SHEET_LEAD) {
+    if (!S.rw && drifting && S.driftT != null && S.cStart == null && cardsReady && cardsReady !== 'failed' && S.t >= driftEnd - SHEET_LEAD) {
       S.cStart = S.t;
       const off = cardsReady.now() - S.t;
       cardsReady.landAt?.(here.map((_, i) => S.driftT + DRIFT_GAP * i + DRIFT_T + off));
       Object.assign(cardsReady.canvas.style, { transition: 'none', mixBlendMode: 'lighten', opacity: '1' });
       cardsReady.start();
     }
-    if (drifting && S.handT == null && S.t >= driftEnd + 0.05) {
+    if (!S.rw && drifting && S.handT == null && S.t >= driftEnd + 0.05) {
       if (cardsReady === 'failed') { S.trans = null; plan = null; validate(); return; }
       if (cardsReady && cardsReady.sheet && S.cStart != null && S.t - S.cStart > 0.12) handoff(true);
     }
     const restAt = plan.tEnd + (CFG.reduced ? 0.1 : ALT ? 0.15 : REST);
-    if (!drifting && S.riseT == null && T >= restAt) {
+    if (!S.rw && !drifting && S.riseT == null && T >= restAt) {
       if (cardsReady === 'failed') { S.trans = null; plan = null; validate(); return; }   // pas de cartes : la version simple (image suivante)
       else if (cardsReady) { S.riseT = S.t; S.targets = cardsReady.nameTargets(S.w, S.h); }
     }
@@ -724,6 +772,8 @@ function frame(ts) {
       : { letter: (w, i, dn, buf, o) => fieldLetter(plan, T, w, i, dn, buf, o), extra: () => R.inst || [] };
   }
   field.cam.y += camDY;
+  // (16/10) où est le prénom pendant qu'il part (le toucher le rembobine)
+  if (T >= 0 && place.length) { const m = (place[0].fs || 30); S.placeBox = [Math.min(...place.map(g => g.x)) - m, Math.min(...place.map(g => g.y)) - 1.6 * m, Math.max(...place.map(g => g.x)) + 1.6 * m, Math.max(...place.map(g => g.y)) + 0.8 * m]; }
 
   const glyphs = [];
   place.forEach((g, i) => {
@@ -750,7 +800,7 @@ function frame(ts) {
   // pas pendant la dérive) : la feuille peut ainsi paraître sous les lettres qui y glissent
   if (ALT && !cards && !CFG.reduced && S.phase === 'input' && S.typed && T < 0 && S.t - S.keyAt > 0.8 && finalName(model.text)) loadCards(finalName(model.text).toUpperCase());
   // (10/10) ordinateur : fini d'écrire sans Entrée → après IDLE_GO s sans frappe, la suite (comme « OK » sur téléphone)
-  if (!TOUCH && !wheel && !voice && !S.rev && S.phase === 'input' && T < 0 && S.trans == null && S.typed && S.keyAt > S.phaseAt
+  if (!TOUCH && !wheel && !voice && !S.rev && S.phase === 'input' && T < 0 && S.trans == null && S.typed && S.keyAt > Math.max(S.phaseAt, S.editAt ?? -99)
     && finalName(model.text) && !bridge.composing && S.t - S.keyAt > IDLE_GO && S.t >= Math.max(light.flyAt(), S.actAt + 2)) startTransition();
   if (CFG.debug) {   // croix au point de fuite
     glyphs.push({ box: [cx - 12, vy - 0.5, cx + 12, vy + 0.5], uv: null, alpha: 0.6, pxEm: 1 });
@@ -761,9 +811,10 @@ function frame(ts) {
   // indice (10/10) : rien d'écrit quelques secondes après l'apparition du champ → PRENOM en grisé, le curseur glisse
   // devant ; il s'efface à la première lettre (?indice=0 : jamais)
   if (S.hintT0 == null && S.phase === 'input' && !S.portal && nameFade > 0.99) S.hintT0 = S.t;
-  const hintAt = ALT ? Infinity : (S.hintT0 ?? Infinity) + HINT_AFTER;   // (alt : ETERNEL tapé puis effacé, puis le curseur seul)
+  // (alt : ETERNEL tapé puis effacé, le curseur seul, puis le menu ; PRENOM seulement après lui)
+  const hintAt = ALT ? (S.navOnAt != null ? S.navOnAt + HINT_AFTER_NAV : Infinity) : (S.hintT0 ?? Infinity) + HINT_AFTER;
   const hintA = HINT && Number.isFinite(hintAt) && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
-    ? smooth(hintAt, hintAt + 1.6, S.t) * (ALT ? 1 - smooth(hintAt + 1.6 + HINT_HOLD, hintAt + 1.6 + HINT_HOLD + HINT_OUT, S.t) : 1) : 0;
+    ? smooth(hintAt, hintAt + 1.6, S.t) : 0;
   let hintX = L.cursor.x;
   if (hintA > 0) {
     const H = layoutName(displayCase(HINT_TEXT, CFG.caseMode), metrics, { w: S.w, h: S.h, cx, cy });
@@ -771,16 +822,18 @@ function frame(ts) {
       const gm = atlas.glyphs[g.ch]; if (!gm) continue;
       glyphs.push({ box: [g.x + gm.x0 * g.fs, g.y + gm.y0 * g.fs, g.x + gm.x1 * g.fs, g.y + gm.y1 * g.fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: HINT_ALPHA * hintA * nameFade, pxEm: g.fs });
     }
-    if (!ALT) hintX = L.cursor.x + (H.lines[0].x0 - H.track * H.fs * 0.5 - L.cursor.x) * smooth(0, 1, hintA);
+    hintX = L.cursor.x + (H.lines[0].x0 - H.track * H.fs * 0.5 - L.cursor.x) * smooth(0, 1, hintA);
     const hx0 = Math.min(...H.lines.map(l => l.x0)), hx1 = Math.max(...H.lines.map(l => l.x1));
     S.nameBox = [Math.min(S.nameBox[0], hx0 - 30), Math.min(S.nameBox[1], H.top - 20), Math.max(S.nameBox[2], hx1 + 30), Math.max(S.nameBox[3], H.bottom + 20)];
   }
   const voiceHidesCursor = voice && !S.voiceTyped && (voice.state === 'idle' || voice.state === 'asking' || voice.state === 'listening');
-  if (!wheel && !voiceHidesCursor && !S.typed && !S.confirmed && S.phase === 'input') {
+  // (16/10) on corrige le prénom : le curseur respire au bout, tant qu'on n'a rien tapé
+  const editCur = S.edit && !S.rev && S.keyAt <= (S.editAt ?? 0) && T < 0 && !!text;
+  if (!wheel && !voiceHidesCursor && ((!S.typed && !S.confirmed) || editCur) && S.phase === 'input') {
     // respiration douce (pas de clignotement sec) : 0,2 → 0,9, période 1,6 s
     const ph = (S.t - OPEN_DARK) / 1.6 * Math.PI * 2;
     // (alt) le curseur s'efface sous UN PRENOM / UN POEME et revient seul quand il s'en va
-    const blink = (CFG.reduced ? 0.8 : 0.2 + 0.7 * Math.pow(0.5 + 0.5 * Math.cos(ph), 1.6)) * (ALT ? 1 - hintA : 1);
+    const blink = CFG.reduced ? 0.8 : 0.2 + 0.7 * Math.pow(0.5 + 0.5 * Math.cos(ph), 1.6);
     const cw = L.cursor.w;
     glyphs.push({ box: [hintX - cw / 2, L.cursor.y0, hintX + cw / 2, L.cursor.y1], uv: null, alpha: blink * nameFade, pxEm: 1, taper: 0.22 });
   }
@@ -1046,7 +1099,7 @@ if (ALT) {
     if (S.typed || document.activeElement === input) { S.navNo = true; return false; }
     if (!S.introOff || S.introEnd == null || S.trans != null) return false;
     const t0 = S.introEnd + NAV_IDLE, k = Math.ceil((t0 - OPEN_DARK) / BREATH - 0.5) + 0.5;
-    if (S.t >= OPEN_DARK + k * BREATH) S.navOn = true;
+    if (S.t >= OPEN_DARK + k * BREATH) { S.navOn = true; S.navOnAt = S.t; }
     return !!S.navOn;
   };
   let barAt = 0, navAt = 0;
@@ -1080,6 +1133,11 @@ if (ALT) {
       if (onNames()) { if (!idleNames() || S.typed) { navAt = 0; return false; } if (!navAt) navAt = performance.now(); return performance.now() - navAt > 1400; }
       const on = !!document.querySelector('#offre.on.bar-on'); if (!on) barAt = 0; else if (!barAt) barAt = performance.now(); return on && performance.now() - barAt > 1200;
     },
+    // (16/10) les pages voisines se préparent seulement quand l'offre est posée (jamais sur le portail des prénoms)
+    // (16/10, Maxence) depuis la feuille, toucher UN PRENOM UN POEME = revenir au champ pour changer de prénom
+    redo: () => !onNames() && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    onCurrent: () => { if (!onNames() && !S.paid && !document.querySelector('.of.paying, .of.env')) editName(); },
+    calm: () => !onNames() && !!document.querySelector('#offre.on.bar-on') && !document.querySelector('.of.paying, .of.env') && S.trans == null,
     quiet: () => (onNames() ? !S.typed : !!offerObj && offerObj.top < 30 && !document.querySelector('.of.paying, .of.env')),
     solo: () => !!offerObj && offerObj.top > offerObj.storyLen() + 40,
     side: () => !!document.querySelector('#offre.on.bar-on') && (!offerObj || offerObj.top < 30),

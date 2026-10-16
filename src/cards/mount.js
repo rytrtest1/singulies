@@ -141,7 +141,7 @@ export async function mountCards(opts) {
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');
   const giveEl = el('div', 'sc-sign', '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
   const passEl = el('div', 'sc-pass', 'PASSER<span class="sc-sub"></span>'); passEl.setAttribute('role', 'button');
-  const namePass = () => { passEl.setAttribute('aria-label', 'Passer : j’improvise ton poème avec ' + name); passEl.querySelector('.sc-sub').textContent = '(j’improvise ton poème avec ' + name + ')'; };
+  const namePass = () => { if (passEl._free) return; passEl.setAttribute('aria-label', 'Passer : j’improvise ton poème avec ' + name); passEl.querySelector('.sc-sub').textContent = '(j’improvise ton poème avec ' + name + ')'; };
   namePass();
   // l'enveloppe : POSTER (même signe que PASSER), dès que l'adresse a deux lignes, même clavier ouvert
   const postEl = el('div', 'sc-pass', 'POSTER'); postEl.setAttribute('role', 'button'); postEl.tabIndex = 0;
@@ -521,7 +521,9 @@ export async function mountCards(opts) {
       // que tu veux », sous laquelle PASSER revient : j'improvise)
       const paidQ = st.paidMode && st.mode === 'q' && !st.shuffling && st.active && !st.active.text && st.idle > 1.2;
       passEl.classList.toggle('on', !st.ended && ((st.mode === 'free' && st.freeFor > (st.paidMode ? 1.6 : 3)) || (st.paidMode ? paidQ : blankIn)));
-      passEl.classList.toggle('nosub', !!st.paidMode && st.mode === 'q');
+      // (16/10, Maxence : « PASSER pouvait faire penser à passer la carte en cours ») sous la question : on dit où il mène
+      { const free = !!st.paidMode && st.mode === 'q', sub = passEl.querySelector('.sc-sub');
+        if (free !== passEl._free) { passEl._free = free; if (free) { sub.textContent = '(si tu veux t’exprimer librement)'; passEl.setAttribute('aria-label', 'Passer : écrire librement'); } else namePass(); } }
       const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
       if (st.kb && r) passEl.style.top = Math.max(r.bottom + 2, (r.bottom + kbTop) / 2 - 22) + 'px';
       // (10/10) centré entre la question (et sa bande de réponse) et la carte blanche
