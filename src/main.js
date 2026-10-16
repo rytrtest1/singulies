@@ -280,7 +280,7 @@ function startTransition() {
 // (16/10, Maxence) le logo SINGULIES sur la page des prénoms ; (17/10, refait trois fois) un filet tracé comme une
 // gravure, posé dans le champ à la profondeur LOGO_Z (renderer.js, LOGO_FS) : les prénoms plus lointains passent
 // derrière, les proches devant. Sa distance au bord vient du logo des cartes (cards/logo.png : 16 bits, ±2 mm).
-const LOGO_BG = ALT && P.get('logo') !== '0', LOGO_MM = 38.501, LOGO_K = +(P.get('logoK') || 1), LOGO_Z = +(P.get('logoZ') || 19);
+const LOGO_BG = ALT && P.get('logo') === '1', LOGO_MM = 38.501, LOGO_K = +(P.get('logoK') || 1), LOGO_Z = +(P.get('logoZ') || 19);
 const loadImg = src => new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = new URL(src, document.baseURI).href; });
 async function loadLogoBg() {
   try {
@@ -670,6 +670,7 @@ function frame(ts) {
   rafId = requestAnimationFrame(frame);
   const dt = Math.min(0.05, last ? (ts - last) / 1000 : 0);
   last = ts; S.t += dt;
+  if (S.sigHold) S.t = 0;                         // (la signature d'ouverture joue par-dessus)
   measure();
   if (S.phase === 'leaving' && S.t - S.phaseAt >= LEAVE_FADE) enterBlack(false);
 
@@ -1091,6 +1092,18 @@ function mountPortalPage() {
 let metrics = null;
 async function boot() {
   measure();
+  // (17/10, Maxence) la signature d'ouverture (src/alt/signature.js) : une carte du jeu dans le noir, la lampe la balaie
+  // une fois ; la page attend (son horloge reste à 0) jusqu'à ce que la carte s'éteigne
+  if (ALT && !EDIT && !stored.validated && S.phase === 'input' && P.get('signature') !== '0' && !CFG.reduced) {
+    let want = P.get('signature') === '1';
+    if (!want) try { want = !sessionStorage.getItem('sg.sig'); } catch { /* */ }
+    if (want) {
+      S.sigHold = true;
+      const free = () => { S.sigHold = false; };
+      setTimeout(free, 6000);                                   // (jamais bloquée)
+      import('./alt/signature.js').then(m => (m.wantSignature(P) || P.get('signature') === '1' ? m.playSignature({ base: './', onGo: free }) : free())).catch(free);
+    }
+  }
   // le portail d'abord ; le champ se prépare une fois les cartes posées (ou tout de suite si l'on choisit le poème)
   let gate = null;
   if (CFG.portal && S.phase === 'input') {
@@ -1217,7 +1230,7 @@ if (ALT) {
     onCurrent: () => { if (!onNames() && !S.paid && !document.querySelector('.of.paying, .of.env')) editName(); },
     // (17/10, Maxence : « c'était bien de charger avant ») de nouveau tôt, aussi sur le portail : la préparation ne
     // bloque plus (shaders compilés en parallèle, gl.js programAsync)
-    calm: () => !document.querySelector('.of.paying, .of.env') && S.trans == null,
+    calm: () => !S.sigHold && !document.querySelector('.of.paying, .of.env') && S.trans == null,   // (pas pendant la signature d'ouverture)
     preAt: 0,
     quiet: () => (onNames() ? !S.typed : !!offerObj && offerObj.top < 30 && !document.querySelector('.of.paying, .of.env')),
     solo: () => !!offerObj && offerObj.top > offerObj.storyLen() + 40,
