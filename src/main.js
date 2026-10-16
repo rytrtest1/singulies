@@ -277,25 +277,43 @@ function startTransition() {
   // (12/10, alt) la scène des cartes, déjà prête (préparée pendant qu'on écrivait), reçoit le prénom définitif
   if (ALT && cards) cards.then(() => { if (cardsReady && cardsReady !== 'failed') cardsReady.setName?.(shown.toUpperCase()); });
 }
-// (16/10, Maxence) en fond de la page des prénoms, le logo SINGULIES imposant, gaufré dans le noir, lumière rasante :
-// peu visible mais bien présent. Sa distance au bord vient du logo des cartes (cards/logo.png : 16 bits, ±2 mm), rangée
-// en ±1 mm sur 8 bits (renderer.js)
-const LOGO_BG = ALT && P.get('logo') !== '0', LOGO_MM = 38.501;
-function loadLogoBg() {
-  return new Promise(res => {
-    const im = new Image();
-    im.onload = () => {
-      try {
-        const n = 512, cv = document.createElement('canvas'); cv.width = cv.height = n;
-        const x = cv.getContext('2d', { willReadFrequently: true }); x.imageSmoothingEnabled = false; x.drawImage(im, 0, 0, n, n);
-        const d = x.getImageData(0, 0, n, n).data, r8 = new Uint8Array(n * n);
-        for (let i = 0; i < n * n; i++) { const v = (d[i * 4] * 256 + d[i * 4 + 1]) / 65535, mm = (2 * v - 1) * 2; r8[i] = Math.max(0, Math.min(255, Math.round((mm * 0.5 + 0.5) * 255))); }
-        res({ n, r8 });
-      } catch (e) { console.warn('logo', e); res(null); }
+// (16/10, Maxence) en fond de la page des prénoms, le logo SINGULIES imposant : (17/10, « horrible », refait) un vrai
+// gaufrage à sec dans une grande feuille du même papier noir que les cartes, derrière toute la scène. Le relief est doux
+// (le papier s'étire sur la matrice : profil arrondi, pas de biseau net), la hauteur vient du logo des cartes
+// (cards/logo.png : distance au bord 16 bits, ±2 mm), adoucie ici une fois pour toutes ; le grain vient de la photo du
+// papier des cartes (cards/paper.jpg). Le fond plat reste exactement au noir du site (6) : seules les pentes du relief,
+// sous la lampe rasante, s'éclairent (et montrent les fibres) ou passent dans l'ombre (renderer.js).
+const LOGO_BG = ALT && P.get('logo') !== '0', LOGO_MM = 38.501, LOGO_K = +(P.get('logoK') || 1);
+const loadImg = src => new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = new URL(src, document.baseURI).href; });
+async function loadLogoBg() {
+  try {
+    const [im, pim] = await Promise.all([loadImg('cards/logo.png'), loadImg('cards/paper.jpg')]);
+    const n = 512, cv = document.createElement('canvas'); cv.width = cv.height = n;
+    const x = cv.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, n, n);
+    const d = x.getImageData(0, 0, n, n).data, pxmm = n / LOGO_MM;
+    // hauteur : 1 dedans, 0 dehors, transition en sinus sur ±0,5 mm, puis deux flous en boîte (≈ 0,14 mm) : un coussin
+    let h = new Float32Array(n * n);
+    for (let i = 0; i < n * n; i++) {
+      const mm = (2 * ((d[i * 4] * 256 + d[i * 4 + 1]) / 65535) - 1) * 2, u = Math.max(-1, Math.min(1, mm / 0.5));
+      h[i] = 0.5 - 0.5 * Math.sin(u * Math.PI / 2);
+    }
+    const blur = (a, r) => {
+      const b = new Float32Array(n * n), c = new Float32Array(n * n), k = 1 / (2 * r + 1), cl = i => Math.max(0, Math.min(n - 1, i));
+      for (let y = 0; y < n; y++) { let s = 0; for (let i = -r; i <= r; i++) s += a[y * n + cl(i)];
+        for (let xx = 0; xx < n; xx++) { b[y * n + xx] = s * k; s += a[y * n + cl(xx + r + 1)] - a[y * n + cl(xx - r)]; } }
+      for (let xx = 0; xx < n; xx++) { let s = 0; for (let i = -r; i <= r; i++) s += b[cl(i) * n + xx];
+        for (let y = 0; y < n; y++) { c[y * n + xx] = s * k; s += b[cl(y + r + 1) * n + xx] - b[cl(y - r) * n + xx]; } }
+      return c;
     };
-    im.onerror = () => res(null);
-    im.src = new URL('cards/logo.png', document.baseURI).href;
-  });
+    const r = Math.max(1, Math.round(0.14 * pxmm));
+    h = blur(blur(h, r), r);
+    // le papier : la luminance de la photo, en niveaux de gris
+    const pw = 1024, ph = Math.round(pw * pim.height / pim.width), pc = document.createElement('canvas'); pc.width = pw; pc.height = ph;
+    const px = pc.getContext('2d', { willReadFrequently: true }); px.drawImage(pim, 0, 0, pw, ph);
+    const pd = px.getImageData(0, 0, pw, ph).data, l8 = new Uint8Array(pw * ph);
+    for (let i = 0; i < pw * ph; i++) l8[i] = pd[i * 4 + 1];
+    return { n, h, paper: { w: pw, h: ph, l8 } };
+  } catch (e) { console.warn('logo', e); return null; }
 }
 // pendant la recharge : seulement le réseau (module, papier, logo, police machine), aucun travail GPU
 let cardsModule = null;
@@ -881,12 +899,13 @@ function frame(ts) {
   // et suit un peu la souris ; il paraît après l'ouverture, s'efface quand le prénom part
   let logo = null;
   if (LOGO_BG) {
-    const ZL = 90, side = Math.min(S.w * 1.15, S.h * 0.86, 980);
-    const la = smooth(OPEN_DARK + 0.6, OPEN_DARK + 4.5, S.t) * (T >= 0 ? 1 - smooth(0, 1.6, T) : 1);
+    // la lampe : celle des cartes — rasante, de côté (en haut à gauche), elle respire (≈ 19 / 9 s) et sa hauteur aussi
+    const ZL = 90, side = Math.min(S.w * 1.2, S.h * 0.9, 1040);
+    const la = LOGO_K * smooth(OPEN_DARK + 0.6, OPEN_DARK + 5.5, S.t) * (T >= 0 ? 1 - smooth(0, 1.6, T) : 1);
     const t = S.t, mv = CFG.reduced ? 0 : 1;
     logo = { cx: vx - field.cam.x * focal / ZL, cy: vy + field.cam.y * focal / ZL, s: side, mm: LOGO_MM, a: la,
-      az: 2.35 + mv * (0.45 * Math.sin(t * 0.071) + 0.2 * Math.sin(t * 0.163 + 1.3)) + 0.25 * PAR.x,
-      el: 0.3 + mv * 0.07 * Math.sin(t * 0.113 + 0.7) - 0.05 * PAR.y };
+      az: 2.3 + mv * (0.42 * Math.sin(t * 2 * Math.PI / 19) + 0.16 * Math.sin(t * 2 * Math.PI / 9 + 1.3)) + 0.3 * PAR.x,
+      el: 0.38 + mv * 0.08 * Math.sin(t * 2 * Math.PI / 13 + 0.7) - 0.06 * PAR.y };
   }
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig, energy: R?.energy, logo,
     field: fl, cam: field.cam, focal, vx, vy, dim: S.dim, time: S.t });

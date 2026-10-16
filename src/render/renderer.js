@@ -21,14 +21,18 @@ uniform vec2 u_center;   // centre de la vignette, px physiques (y vers le bas)
 uniform float u_grain;   // 1 = charbon granuleux, 0 = noir pur
 uniform float u_fade;
 uniform float u_vig;     // force de la vignette (1 ; 0 = fond uni, comme la scène des cartes)
-// (16/10, Maxence) le logo SINGULIES, imposant, gaufré dans le noir du fond : sa distance au bord (mm, R8 : ±1 mm), sa
-// place (centre et demi-côté, px physiques), sa clarté, la lampe (azimut, hauteur : rasante, elle respire)
+// (16/10, Maxence ; refait 17/10) le logo SINGULIES gaufré à sec dans une grande feuille du papier noir des cartes : sa
+// hauteur (0 dehors, 1 dedans, profil déjà adouci : R16F), sa place (centre et demi-côté, px physiques ; mm du logo par
+// px), la lampe (azimut, hauteur : rasante, elle respire, force) ; le papier (photo du dos des cartes, luminance)
 uniform sampler2D u_logo;
-uniform vec4 u_logoR;    // cx, cy, demi-côté (px), mm par px
+uniform sampler2D u_paper;
+uniform vec4 u_logoR;    // cx, cy, demi-côté (px), mm du logo par px
 uniform vec3 u_logoL;    // azimut, hauteur (rad), force
 out vec4 o;
-float logoD(vec2 uv) { return (texture(u_logo, uv).r * 2.0 - 1.0); }   // mm, < 0 dedans
-float logoH(vec2 uv, float w) { return 1.0 - smoothstep(-w, w, logoD(uv)); }
+float logoH(vec2 uv) { return texture(u_logo, uv).r; }
+// papier en miroir (onde triangulaire, jamais de raccord), en px CSS : le grain a la taille de celui des cartes à l'écran
+vec2 paperUV(vec2 p) { vec2 r = p / 460.0; vec2 tri = abs(fract(r * 0.5 + 0.25) * 2.0 - 1.0) * 2.0 - 1.0; return vec2(0.5 + 0.34 * tri.x, 0.5 + 0.34 * tri.y); }
+float paperHF(vec2 p) { vec2 uv = paperUV(p); return texture(u_paper, uv).r - texture(u_paper, uv, 3.0).r; }
 float hash(vec2 p) { // grain statique, stable d'une image à l'autre
   p = fract(p * vec2(443.897, 441.423));
   p += dot(p, p.yx + 19.19);
@@ -43,27 +47,33 @@ void main() {
   float r = length((frag - u_center) / half_);
   float a = 0.66 * u_vig * clamp((r - 0.52) / 0.48, 0.0, 1.0);
   c *= (1.0 - a) * min(u_grain, 1.0);
-  // le relief : la hauteur suit le bord du logo (un biseau de papier gaufré), la normale vient de sa pente ; seule la
-  // différence avec un fond plat éclairé pareil compte (le plat reste au noir du fond) : un côté accroche la lumière,
-  // l'autre tombe dans l'ombre
+  // le gaufrage : le papier plat, éclairé de biais, est le noir du fond ; une pente tournée vers la lampe reçoit plus de
+  // lumière (rapport des cosinus), une pente qui s'en détourne moins — jamais de trait noir : l'ombre descend au plus à
+  // un peu moins de la moitié du fond. Sur les pentes, les fibres du papier accrochent la lumière rasante (le plat reste uni).
   if (u_logoL.z > 0.0) {
     vec2 q = (frag - u_logoR.xy) / u_logoR.z;            // -1..1 sur le carré du logo
-    if (abs(q.x) < 1.02 && abs(q.y) < 1.02) {
+    if (abs(q.x) < 1.0 && abs(q.y) < 1.0) {
       vec2 uv = q * 0.5 + 0.5;
-      float e = 1.0 / u_logoR.z;                          // un px, en uv/2
-      float w = 0.42, hb = 0.55;                          // biseau (mm), hauteur (mm)
-      float h0 = logoH(uv, w);
-      float hx = logoH(uv + vec2(e, 0.0), w) - logoH(uv - vec2(e, 0.0), w);
-      float hy = logoH(uv + vec2(0.0, e), w) - logoH(uv - vec2(0.0, e), w);
-      float mmpx = u_logoR.w;
-      vec3 n = normalize(vec3(-hx * hb / (2.0 * mmpx), hy * hb / (2.0 * mmpx), 1.0));
+      float mmpx = u_logoR.w, st = max(1.0, 0.06 / mmpx);  // pas de la pente : ≈ 0,06 mm, jamais moins d'un px
+      float e = st / u_logoR.z * 0.5;
+      float hx = (logoH(uv + vec2(e, 0.0)) - logoH(uv - vec2(e, 0.0))) / (2.0 * st * mmpx);   // par mm du logo
+      float hy = (logoH(uv + vec2(0.0, e)) - logoH(uv - vec2(0.0, e))) / (2.0 * st * mmpx);
+      float H = 0.32;                                     // hauteur du gaufrage (mm du logo)
+      vec2 g = vec2(-hx, hy) * H;                         // pente (y vers le haut)
+      float sl = length(g);
+      // fibres : la pente du grain, seulement là où le papier est étiré
+      vec2 pp = (frag - u_logoR.xy) / u_dpr, pe = vec2(0.8, 0.0);
+      vec2 fg = vec2(paperHF(pp + pe.xy) - paperHF(pp - pe.xy), -(paperHF(pp + pe.yx) - paperHF(pp - pe.yx))) * 0.55;
+      float fm = smoothstep(0.02, 0.3, sl);
+      vec3 n = normalize(vec3(g + fg * fm, 1.0));
       vec3 L = vec3(cos(u_logoL.y) * cos(u_logoL.x), cos(u_logoL.y) * sin(u_logoL.x), sin(u_logoL.y));
-      float dif = max(dot(n, L), 0.0) - L.z;              // > 0 : le flanc éclairé ; < 0 : l'ombre
-      float spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 18.0) * (1.0 - n.z) * 6.0;
-      float top = h0 * 0.06 * (L.z);                      // le plateau, à peine plus clair (il est plus haut)
-      float edge = smoothstep(1.02, 0.96, max(abs(q.x), abs(q.y)));
-      c += u_logoL.z * edge * (dif * 0.075 + spec * 0.015 + top * 0.05) * (1.0 - 0.6 * a);
-      c = max(c, 1.2 / 255.0);
+      float r = max(dot(n, L), 0.0) / L.z - 1.0;           // 0 sur le plat
+      r = r > 0.0 ? r * 0.95 : r * 0.5;
+      // un lustre satiné à peine, quand la pente renvoie la lampe vers le regard
+      float sp = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 9.0) * smoothstep(0.03, 0.2, sl);
+      float alb = 1.0 + 0.25 * fm * (texture(u_paper, paperUV(pp)).r - 0.5);   // la matière du papier sur les pentes
+      c *= 1.0 + u_logoL.z * (r * alb + sp * 0.35);
+      c = max(c, 2.6 / 255.0);
     }
   }
   c += (hash(frag + 31.7) - 0.5) / 255.0 * step(0.5, u_grain);   // tramage ±½ niveau : pas de bandes dans la vignette
@@ -242,7 +252,7 @@ void main() {
 const STRIDE = 12; // floats par instance
 
 export function createRenderer(canvas, gl, atlas) {
-  let res = null, logoPx = null;
+  let res = null, logoPx = null;   // (logoPx : { n, h : hauteur Float32, paper : { w, h, l8 } })
   let cap = 64;
   let inst = new Float32Array(cap * STRIDE);
   let fcap = 1024;   // lettres du champ
@@ -291,22 +301,28 @@ export function createRenderer(canvas, gl, atlas) {
       gl.vertexAttribDivisor(i, 1);
     }
     gl.bindVertexArray(null);
-    res = { bg, gp, tex, btex, vao, buf, empty, fp, fvao, fbuf, ep, evao, ebuf, logo: null };
+    res = { bg, gp, tex, btex, vao, buf, empty, fp, fvao, fbuf, ep, evao, ebuf, logo: null, paper: null };
     if (logoPx) setLogo(logoPx);
   }
-  // le logo : sa distance au bord en mm (côté n), rangée en R8 (±1 mm) — refaite après une perte de contexte
+  // le logo : sa hauteur (R16F, filtrée) et le papier (R8, mipmaps : le grain fin = image − flou) — refaits après une
+  // perte de contexte
   function setLogo(px) {
     logoPx = px;
     if (!res || gl.isContextLost()) return;
+    const clamp = () => { gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); };
     const t = res.logo || gl.createTexture();
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, t);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, px.n, px.n, 0, gl.RED, gl.UNSIGNED_BYTE, px.r8);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, px.n, px.n, 0, gl.RED, gl.FLOAT, px.h);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); clamp();
+    const pt = res.paper || gl.createTexture();
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, pt);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, px.paper.w, px.paper.h, 0, gl.RED, gl.UNSIGNED_BYTE, px.paper.l8);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); clamp();
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.activeTexture(gl.TEXTURE0);
-    res.logo = t;
+    res.logo = t; res.paper = pt;
   }
 
   init();
@@ -327,8 +343,9 @@ export function createRenderer(canvas, gl, atlas) {
     const lg = f.logo && res.logo && f.logo.a > 0.002 ? f.logo : null;
     gl.uniform3f(bg.u.u_logoL, lg ? lg.az : 0, lg ? lg.el : 0, lg ? lg.a : 0);
     if (lg) {
-      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, res.logo); gl.activeTexture(gl.TEXTURE0);
-      gl.uniform1i(bg.u.u_logo, 2);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, res.logo);
+      gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, res.paper); gl.activeTexture(gl.TEXTURE0);
+      gl.uniform1i(bg.u.u_logo, 2); gl.uniform1i(bg.u.u_paper, 3);
       gl.uniform4f(bg.u.u_logoR, lg.cx * f.dpr, lg.cy * f.dpr, lg.s / 2 * f.dpr, lg.mm / (lg.s * f.dpr));
     }
     gl.bindVertexArray(empty);

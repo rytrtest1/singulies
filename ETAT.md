@@ -415,3 +415,6 @@ Voir « Point de reprise » en tête de fichier.
 - Vérifié (Chromium, 390 × 844 et 1440 × 900) : `freeze-check` (avant : une image de 1,8 s à 9 s ; après : aucune > 50 ms hors chargement), `edit-check` (rembobiner, corriger, revenir de la feuille), `alt-paid-check reserve offrir` (pour qui → comment je l'écris), `lettre-steps` (étape 2, rien ne se traverse), `shuffle-shot`, `logo-bg-shot`, `livre-open-shot`, `detail-check`.
 - À compléter par Maxence : les textes `more` (grammage, papier : seulement des faits sûrs pour l'instant).
 - Non fait : version simple (sans WebGL2) de ces changements.
+
+## 17/10 — logo du fond refait
+- « horrible » (biseau net, contour noir, autocollant) → gaufrage à sec dans le papier noir des cartes : hauteur adoucie (sinus ±0,5 mm, deux flous 0,14 mm, R16F), fibres de `cards/paper.jpg` seulement sur les pentes, lampe des cartes (rasante, haut gauche, respire). Mesuré (téléphone) : plat 6, pente éclairée ≈ 12, ombre ≥ 3. `?logoK=` force, `?logo=0`.

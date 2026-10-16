@@ -399,6 +399,7 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 
 ## Retours du 16/10 (font foi)
 - **Page des prénoms** : le gel à l'apparition du menu venait des pages voisines préparées à 7 s → seulement quand l'offre est posée (`calm`) ou au toucher du bandeau. **PRENOM en grisé** seulement 3,2 s après l'apparition du menu (`HINT_AFTER_NAV`). **Logo SINGULIES imposant en fond**, gaufré dans le noir, lumière rasante qui tourne et suit un peu la souris (renderer.js `u_logo`, `?logo=0`).
+- **Logo du fond, refait (17/10, Maxence : « horrible »)** : un gaufrage à sec dans une grande feuille du papier noir des cartes — profil arrondi (±0,5 mm + flou, `loadLogoBg`), grain de `cards/paper.jpg` seulement sur les pentes, lampe des cartes (rasante, en haut à gauche, respire 19 / 9 s, suit un peu la souris) ; le plat reste au noir du site (6), l’ombre jamais sous ≈ 3 (plus de contour noir). `?logoK=` pour la force, `?logo=0`. Essai : `node tools/logo-bg-shot.mjs`.
 - **Revenir au prénom** : toucher le prénom pendant qu'il part = la transition se rembobine (`rewind`), curseur au bout, le toucher ouvre le clavier (`S.edit`) ; depuis la feuille, toucher la colonne ou UN PRENOM UN POEME = la page se refait sur le champ, le prénom retapé, modifiable (`editName`, `sg.edit`).
 - **PASSER** sous la question (après paiement) : *(si tu veux t'exprimer librement)*.
 - **Bandeau PC** : le fil ne perce que pour les noms visibles (opacité).
