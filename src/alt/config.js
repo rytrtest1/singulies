@@ -10,7 +10,7 @@ export const SHEET_INSET = 214;
 // part par email marquée « réservation, à payer » avec sa référence, et je t'envoie ensuite le lien de paiement
 // (si STRIPE est rempli, la demande porte déjà le lien prérempli : référence + email). false → le paiement Stripe.
 // ?paiement=stripe (ou ?paiement=faux) : le paiement, même en réservation (essais).
-export const RESERVATION = false;   // (12/10, Maxence : le paiement Stripe en mode test, pour voir le vrai déroulement ; PASSER (test) dans le panneau)
+export const RESERVATION = true;   // (16/10, Maxence : pas encore de SIRET — réservation, il règle le paiement par PayPal en message)
 
 // Lien de paiement Stripe (Payment Link). Vide = paiement simulé (on va directement à merci.html).
 // Dans Stripe, « Après le paiement » → « Rediriger vers votre site » :
