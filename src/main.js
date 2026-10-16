@@ -277,6 +277,26 @@ function startTransition() {
   // (12/10, alt) la scène des cartes, déjà prête (préparée pendant qu'on écrivait), reçoit le prénom définitif
   if (ALT && cards) cards.then(() => { if (cardsReady && cardsReady !== 'failed') cardsReady.setName?.(shown.toUpperCase()); });
 }
+// (16/10, Maxence) en fond de la page des prénoms, le logo SINGULIES imposant, gaufré dans le noir, lumière rasante :
+// peu visible mais bien présent. Sa distance au bord vient du logo des cartes (cards/logo.png : 16 bits, ±2 mm), rangée
+// en ±1 mm sur 8 bits (renderer.js)
+const LOGO_BG = ALT && P.get('logo') !== '0', LOGO_MM = 38.501;
+function loadLogoBg() {
+  return new Promise(res => {
+    const im = new Image();
+    im.onload = () => {
+      try {
+        const n = 512, cv = document.createElement('canvas'); cv.width = cv.height = n;
+        const x = cv.getContext('2d', { willReadFrequently: true }); x.imageSmoothingEnabled = false; x.drawImage(im, 0, 0, n, n);
+        const d = x.getImageData(0, 0, n, n).data, r8 = new Uint8Array(n * n);
+        for (let i = 0; i < n * n; i++) { const v = (d[i * 4] * 256 + d[i * 4 + 1]) / 65535, mm = (2 * v - 1) * 2; r8[i] = Math.max(0, Math.min(255, Math.round((mm * 0.5 + 0.5) * 255))); }
+        res({ n, r8 });
+      } catch (e) { console.warn('logo', e); res(null); }
+    };
+    im.onerror = () => res(null);
+    im.src = new URL('cards/logo.png', document.baseURI).href;
+  });
+}
 // pendant la recharge : seulement le réseau (module, papier, logo, police machine), aucun travail GPU
 let cardsModule = null;
 function prefetchCards() {
@@ -857,7 +877,18 @@ function frame(ts) {
     S.lat += (lt - S.lat) * k; S.adv += (at - S.adv) * k; }
   field.step(dt, !CFG.reduced, speed * portraitSpeed * (1 + (T >= 0 ? 0 : S.boost)), S.lat, S.adv);
   const fl = field.emit(light, S.t, { x: cx, y: cy }, hook);
-  stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig, energy: R?.energy,
+  // le logo du fond : loin derrière le champ (la parallaxe à peine), imposant ; la lampe rasante tourne lentement autour
+  // et suit un peu la souris ; il paraît après l'ouverture, s'efface quand le prénom part
+  let logo = null;
+  if (LOGO_BG) {
+    const ZL = 90, side = Math.min(S.w * 1.15, S.h * 0.86, 980);
+    const la = smooth(OPEN_DARK + 0.6, OPEN_DARK + 4.5, S.t) * (T >= 0 ? 1 - smooth(0, 1.6, T) : 1);
+    const t = S.t, mv = CFG.reduced ? 0 : 1;
+    logo = { cx: vx - field.cam.x * focal / ZL, cy: vy + field.cam.y * focal / ZL, s: side, mm: LOGO_MM, a: la,
+      az: 2.35 + mv * (0.45 * Math.sin(t * 0.071) + 0.2 * Math.sin(t * 0.163 + 1.3)) + 0.25 * PAR.x,
+      el: 0.3 + mv * 0.07 * Math.sin(t * 0.113 + 0.7) - 0.05 * PAR.y };
+  }
+  stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig, energy: R?.energy, logo,
     field: fl, cam: field.cam, focal, vx, vy, dim: S.dim, time: S.t });
   stats.letters = fl.count;
   stats.gpuMB = +((atlas.width * atlas.height * 2 + canvas.width * canvas.height * 4 * 2) / 1048576).toFixed(1);
@@ -1048,6 +1079,7 @@ async function boot() {
     atlas = buildAtlas('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,', `"${FONT_FAMILY}", serif`, 500);   // (la virgule : UN PRENOM, UN POEME)
     metrics = { adv: (ch) => atlas.glyphs[ch]?.adv ?? 0.6, capHeight: atlas.capHeight };
     renderer = createRenderer(canvas, gl, atlas);
+    if (LOGO_BG) loadLogoBg().then(px => px && renderer.setLogo(px));
     const t0 = performance.now();
     field = createField({ rng: createRng(CFG.seed), caseMode: CFG.caseMode, glyphs: atlas.glyphs, capHeight: atlas.capHeight, mode: CFG.mode });
     field.resize(S.w, S.h);   // inclut ≈ 700 s de champ « vécu »

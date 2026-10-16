@@ -21,7 +21,14 @@ uniform vec2 u_center;   // centre de la vignette, px physiques (y vers le bas)
 uniform float u_grain;   // 1 = charbon granuleux, 0 = noir pur
 uniform float u_fade;
 uniform float u_vig;     // force de la vignette (1 ; 0 = fond uni, comme la scène des cartes)
+// (16/10, Maxence) le logo SINGULIES, imposant, gaufré dans le noir du fond : sa distance au bord (mm, R8 : ±1 mm), sa
+// place (centre et demi-côté, px physiques), sa clarté, la lampe (azimut, hauteur : rasante, elle respire)
+uniform sampler2D u_logo;
+uniform vec4 u_logoR;    // cx, cy, demi-côté (px), mm par px
+uniform vec3 u_logoL;    // azimut, hauteur (rad), force
 out vec4 o;
+float logoD(vec2 uv) { return (texture(u_logo, uv).r * 2.0 - 1.0); }   // mm, < 0 dedans
+float logoH(vec2 uv, float w) { return 1.0 - smoothstep(-w, w, logoD(uv)); }
 float hash(vec2 p) { // grain statique, stable d'une image à l'autre
   p = fract(p * vec2(443.897, 441.423));
   p += dot(p, p.yx + 19.19);
@@ -36,6 +43,29 @@ void main() {
   float r = length((frag - u_center) / half_);
   float a = 0.66 * u_vig * clamp((r - 0.52) / 0.48, 0.0, 1.0);
   c *= (1.0 - a) * min(u_grain, 1.0);
+  // le relief : la hauteur suit le bord du logo (un biseau de papier gaufré), la normale vient de sa pente ; seule la
+  // différence avec un fond plat éclairé pareil compte (le plat reste au noir du fond) : un côté accroche la lumière,
+  // l'autre tombe dans l'ombre
+  if (u_logoL.z > 0.0) {
+    vec2 q = (frag - u_logoR.xy) / u_logoR.z;            // -1..1 sur le carré du logo
+    if (abs(q.x) < 1.02 && abs(q.y) < 1.02) {
+      vec2 uv = q * 0.5 + 0.5;
+      float e = 1.0 / u_logoR.z;                          // un px, en uv/2
+      float w = 0.42, hb = 0.55;                          // biseau (mm), hauteur (mm)
+      float h0 = logoH(uv, w);
+      float hx = logoH(uv + vec2(e, 0.0), w) - logoH(uv - vec2(e, 0.0), w);
+      float hy = logoH(uv + vec2(0.0, e), w) - logoH(uv - vec2(0.0, e), w);
+      float mmpx = u_logoR.w;
+      vec3 n = normalize(vec3(-hx * hb / (2.0 * mmpx), hy * hb / (2.0 * mmpx), 1.0));
+      vec3 L = vec3(cos(u_logoL.y) * cos(u_logoL.x), cos(u_logoL.y) * sin(u_logoL.x), sin(u_logoL.y));
+      float dif = max(dot(n, L), 0.0) - L.z;              // > 0 : le flanc éclairé ; < 0 : l'ombre
+      float spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 18.0) * (1.0 - n.z) * 6.0;
+      float top = h0 * 0.06 * (L.z);                      // le plateau, à peine plus clair (il est plus haut)
+      float edge = smoothstep(1.02, 0.96, max(abs(q.x), abs(q.y)));
+      c += u_logoL.z * edge * (dif * 0.075 + spec * 0.015 + top * 0.05) * (1.0 - 0.6 * a);
+      c = max(c, 1.2 / 255.0);
+    }
+  }
   c += (hash(frag + 31.7) - 0.5) / 255.0 * step(0.5, u_grain);   // tramage ±½ niveau : pas de bandes dans la vignette
   o = vec4(vec3(c * u_fade), 1.0);
 }`;
@@ -212,7 +242,7 @@ void main() {
 const STRIDE = 12; // floats par instance
 
 export function createRenderer(canvas, gl, atlas) {
-  let res = null;
+  let res = null, logoPx = null;
   let cap = 64;
   let inst = new Float32Array(cap * STRIDE);
   let fcap = 1024;   // lettres du champ
@@ -261,7 +291,22 @@ export function createRenderer(canvas, gl, atlas) {
       gl.vertexAttribDivisor(i, 1);
     }
     gl.bindVertexArray(null);
-    res = { bg, gp, tex, btex, vao, buf, empty, fp, fvao, fbuf, ep, evao, ebuf };
+    res = { bg, gp, tex, btex, vao, buf, empty, fp, fvao, fbuf, ep, evao, ebuf, logo: null };
+    if (logoPx) setLogo(logoPx);
+  }
+  // le logo : sa distance au bord en mm (côté n), rangée en R8 (±1 mm) — refaite après une perte de contexte
+  function setLogo(px) {
+    logoPx = px;
+    if (!res || gl.isContextLost()) return;
+    const t = res.logo || gl.createTexture();
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, px.n, px.n, 0, gl.RED, gl.UNSIGNED_BYTE, px.r8);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.activeTexture(gl.TEXTURE0);
+    res.logo = t;
   }
 
   init();
@@ -279,6 +324,13 @@ export function createRenderer(canvas, gl, atlas) {
     gl.uniform1f(bg.u.u_grain, f.grain);
     gl.uniform1f(bg.u.u_fade, f.fade);
     gl.uniform1f(bg.u.u_vig, f.vig ?? 1);
+    const lg = f.logo && res.logo && f.logo.a > 0.002 ? f.logo : null;
+    gl.uniform3f(bg.u.u_logoL, lg ? lg.az : 0, lg ? lg.el : 0, lg ? lg.a : 0);
+    if (lg) {
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, res.logo); gl.activeTexture(gl.TEXTURE0);
+      gl.uniform1i(bg.u.u_logo, 2);
+      gl.uniform4f(bg.u.u_logoR, lg.cx * f.dpr, lg.cy * f.dpr, lg.s / 2 * f.dpr, lg.mm / (lg.s * f.dpr));
+    }
     gl.bindVertexArray(empty);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
@@ -364,5 +416,5 @@ export function createRenderer(canvas, gl, atlas) {
     return calls + 1;
   }
 
-  return { draw, restore: init };
+  return { draw, restore: init, setLogo };
 }
