@@ -8,7 +8,10 @@
 // Points d'entrée :
 //   POST /session  { prenom, ref, retour }  → { clientSecret, id }
 //   GET  /status?session_id=cs_…            → { status, payment_status, prenom, ref }
+//   POST /commande, /admin/…                → le suivi des commandes (commandes.js, base D1 « DB », ADMIN_TOKEN)
 // Stripe Tax : pas activé (artiste-auteur, à voir avec un comptable) ; il suffira d'ajouter automatic_tax[enabled]=true.
+
+import { postCommande, admin } from './commandes.js';
 
 const API = 'https://api.stripe.com/v1';
 
@@ -19,7 +22,7 @@ function cors(env, res, req) {
   const ok = sites(env);
   h.set('Access-Control-Allow-Origin', ok.includes(req.headers.get('Origin')) ? req.headers.get('Origin') : ok[0] || '');
   h.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  h.set('Access-Control-Allow-Headers', 'Content-Type');
+  h.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   h.set('Vary', 'Origin');
   return new Response(res.body, { status: res.status, headers: h });
 }
@@ -82,6 +85,12 @@ export default {
     try {
       if (req.method === 'POST' && url.pathname === '/session') return cors(env, await createSession(env, req), req);
       if (req.method === 'GET' && url.pathname === '/status') return cors(env, await status(env, url), req);
+      // une demande : seulement depuis le site (la page commandes.html, elle, passe par son mot de passe)
+      if (req.method === 'POST' && url.pathname === '/commande') {
+        if (!sites(env).includes(req.headers.get('Origin'))) return cors(env, json({ error: 'origine refusée' }, 403), req);
+        return cors(env, await postCommande(env, req), req);
+      }
+      if (url.pathname.startsWith('/admin/')) return cors(env, await admin(env, req, url, stripe), req);
       return cors(env, json({ error: 'introuvable' }, 404), req);
     } catch (e) {
       return cors(env, json({ error: String(e.message || e) }, 502), req);

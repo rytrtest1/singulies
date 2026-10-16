@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="fr" data-page="commandes">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#060606">
+<title>ETERNEL — commandes</title>
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+<style>
+  @font-face { font-family: 'SG Garamond'; src: url(./fonts/EBGaramond-500.woff2) format('woff2'); font-weight: 500; }
+  :root { --fond: #060606; --carte: #101010; --trait: #262626; --texte: #d8d8d8; --pale: #8a8a8a; --vif: #f2f2f2; }
+  html, body { margin: 0; background: var(--fond); color: var(--texte); }
+  body { font: 15px/1.5 'Courier Prime', 'Courier New', Courier, monospace; padding: 24px 16px 80px; max-width: 760px; margin: 0 auto; }
+  h1 { font: 500 22px 'SG Garamond', Georgia, serif; letter-spacing: .45em; text-align: center; margin: 8px 0 24px; color: var(--vif); }
+  button, select, input, textarea { font: inherit; color: var(--texte); background: transparent; border: 1px solid var(--trait); border-radius: 0; padding: 8px 10px; }
+  button { cursor: pointer; min-height: 40px; }
+  button:hover { border-color: #555; color: var(--vif); }
+  textarea { width: 100%; box-sizing: border-box; min-height: 44px; resize: vertical; }
+  .barre { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin-bottom: 20px; }
+  .barre .n { color: var(--pale); }
+  #login { display: none; text-align: center; }
+  #login.on { display: block; }
+  #login input { width: min(320px, 100%); box-sizing: border-box; margin: 12px 0; }
+  .msg { text-align: center; color: var(--pale); margin: 16px 0; min-height: 1.5em; }
+  .cmd { background: var(--carte); border: 1px solid var(--trait); padding: 16px; margin: 0 0 16px; }
+  .cmd.essai { opacity: .6; }
+  .tete { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+  .prenom { font: 500 20px 'SG Garamond', Georgia, serif; letter-spacing: .3em; color: var(--vif); }
+  .meta { color: var(--pale); font-size: 13px; }
+  .lbl { color: var(--pale); font-size: 12px; letter-spacing: .1em; margin-top: 12px; }
+  .txt { white-space: pre-wrap; }
+  .statuts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .statuts button { font-size: 13px; padding: 6px 10px; min-height: 36px; color: var(--pale); }
+  .statuts button.on { color: var(--fond); background: var(--texte); border-color: var(--texte); }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .actions button { font-size: 13px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row input { flex: 1; min-width: 0; }
+  a { color: var(--texte); }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--texte); color: var(--fond); padding: 8px 16px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<!-- (17/10) le suivi des commandes, pour Eternel seul : la liste vient de la fonction Cloudflare (serveur/commandes.js),
+     protégée par le mot de passe ADMIN_TOKEN (gardé dans ce navigateur seulement). Mode d'emploi : serveur/LISEZ-MOI.md -->
+<h1>COMMANDES</h1>
+<div id="login">
+  <div>le mot de passe (ADMIN_TOKEN, défini dans Cloudflare)</div>
+  <input id="tok" type="password" autocomplete="current-password" aria-label="mot de passe"><br>
+  <button id="go">ENTRER</button>
+</div>
+<div id="app" hidden>
+  <div class="barre">
+    <select id="filtre" aria-label="statut">
+      <option value="">toutes</option>
+      <option value="recue">reçue</option>
+      <option value="paiement">paiement envoyé</option>
+      <option value="payee">payée</option>
+      <option value="tapee">tapée</option>
+      <option value="postee">postée</option>
+    </select>
+    <label class="n"><input id="essais" type="checkbox"> essais</label>
+    <button id="rafraichir">rafraîchir</button>
+    <span class="n" id="compte"></span>
+    <button id="sortir">sortir</button>
+  </div>
+  <div id="liste"></div>
+</div>
+<div class="msg" id="msg"></div>
+<div class="toast" id="toast"></div>
+<script type="module" src="./src/admin/commandes.js"></script>
+</body>
+</html>

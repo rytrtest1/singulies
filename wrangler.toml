@@ -8,3 +8,13 @@ compatibility_date = "2025-09-01"
 [vars]
 SITE = "https://singulies.com,https://www.singulies.com,https://rytrtest1.github.io"
 PRIX_CENTIMES = "3900"
+# ton lien PayPal.me (ex. https://paypal.me/eternel) : la page commandes.html en fait « https://paypal.me/eternel/39EUR »
+PAYPAL = ""
+
+# Suivi des commandes (commandes.html) : la base D1. Mode d'emploi : serveur/LISEZ-MOI.md, « Suivi des commandes ».
+# Une fois la base créée, enlève les « # » des 4 lignes ci-dessous et colle son identifiant (Database ID).
+# Le mot de passe de la page, ADMIN_TOKEN, N'EST PAS ici : Variables et secrets → ADMIN_TOKEN (type Secret).
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "singulies-commandes"
+# database_id = "colle-ici-l-identifiant"

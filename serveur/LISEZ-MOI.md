@@ -46,3 +46,54 @@ vérifié (SIRET / statut artiste-auteur, banque). Stripe Tax n'est pas activé 
 Stripe → **Paiements** : chaque paiement porte le prénom (`prenom`) et la référence (`ref`, aussi dans
 `client_reference_id`), l'adresse de livraison et l'email. La demande (question, réponse) t'arrive par email comme avant,
 avec la même référence.
+
+---
+
+# Suivi des commandes — mise en route (≈ 15 min, une seule fois)
+
+Chaque demande faite sur le site est maintenant **aussi** gardée dans une petite base chez Cloudflare (D1, gratuite),
+en plus de l'email qui t'arrive comme avant. La page **singulies.com/commandes.html** les liste (les plus récentes
+d'abord), avec leur statut : **reçue → paiement envoyé → payée → tapée → postée**. Tant que la base n'est pas reliée,
+le site marche exactement comme avant (seul l'email part).
+
+## 1. Créer la base
+Cloudflare → **Stockage et bases de données → D1** → **Créer une base de données** → nom : `singulies-commandes` → Créer.
+Sur sa page, copie l'**identifiant** (Database ID, du genre `1a2b3c4d-…`). Il n'est pas secret.
+
+## 2. La relier au Worker
+Dans `serveur/wrangler.toml` **et** dans `wrangler.toml` (à la racine), tout en bas : enlève les `#` des quatre lignes
+`[[d1_databases]]`, `binding`, `database_name`, `database_id`, et colle l'identifiant à la place de
+`colle-ici-l-identifiant`. (Ou donne l'identifiant à Claude, il le fait.) La table se crée toute seule au premier appel.
+
+Si tu veux les liens PayPal tout prêts : mets ton lien PayPal.me dans `PAYPAL = "https://paypal.me/tonnom"` (même
+fichier). La page en fait `https://paypal.me/tonnom/39EUR`.
+
+## 3. Le mot de passe de la page
+Cloudflare → ton Worker **singulies** → **Paramètres → Variables et secrets → Ajouter** :
+nom `ADMIN_TOKEN`, type **Secret**, valeur : un long mot de passe que toi seul connais (au moins 12 caractères ; par
+exemple quatre mots au hasard). Il ne va **jamais** dans le dépôt ni dans un message.
+
+## 4. Déployer
+Publie sur GitHub (le Worker se redéploie seul), ou Déploiements → Réessayer. Puis ouvre
+**singulies.com/commandes.html**, tape le mot de passe : il reste gardé dans ce navigateur (bouton « sortir » pour l'oublier).
+
+## Ce que fait la page
+- **filtre** par statut ; « essais » montre aussi les demandes de test (site local, paiement simulé).
+- **statut** : un toucher le change. Passer à **postée** propose d'envoyer « ton poème est posté » à la personne.
+- **note** : gardée dès que tu quittes le champ. **facture** : un numéro, pour plus tard (pas de facture sans SIRET).
+- **copier l'adresse** : prête à écrire sur l'enveloppe (code postal et ville en capitales).
+- **copier le lien paypal** (si `PAYPAL` est rempli) ; **copier un lien stripe** (si la clé Stripe est dans Cloudflare) :
+  un paiement Stripe de 39 € au nom de la commande, valable 24 h.
+- **voir la feuille** : la demande rendue par le site (feuille, carte, enveloppe).
+
+## L'email « ton poème est posté »
+Sans rien faire : passer une commande à « postée » ouvre ta messagerie avec l'email déjà écrit (à envoyer toi-même).
+Pour qu'il parte tout seul, dans le style des autres emails : EmailJS → **Email Templates → Create New Template**, mode
+code, colle tout `ressources/email-poste.html`, puis : To Email `{{to_email}}`, From Name `ETERNEL`, Reply To ton adresse,
+Sujet `{{prenom}} — ton poème est posté`. Enregistre, et donne son identifiant (`template_…`) à Claude : il va dans
+`EMAILJS.poste` (src/app/send.js).
+
+## Essayer sur l'ordinateur (pour Claude)
+`npx wrangler@3 dev --local --port 8787` avec une configuration qui ajoute la base `DB`, `ADMIN_TOKEN` et
+`SITE = "http://localhost:5199"` ; le site avec `?envoi=local` (aucun email, la commande seule vers ce Worker local) ;
+la page `commandes.html?api=local`. Sous Windows, `--persist-to` doit être un chemin court (sinon SQLite refuse d'ouvrir).

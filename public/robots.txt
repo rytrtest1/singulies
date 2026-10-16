@@ -9,6 +9,7 @@ Disallow: /cachet
 Disallow: /demande
 Disallow: /merci
 Disallow: /pour
+Disallow: /commandes
 Allow: /
 
 Sitemap: https://singulies.com/sitemap.xml

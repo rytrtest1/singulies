@@ -419,3 +419,9 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 - **Délai** : `DELAI` (config.js) « je le poste dans la semaine qui suit ta commande » — questions et conditions, pas sur le bandeau.
 - **Vraies photos** : `public/vrai/` (mode d'emploi `LISEZ-MOI.txt`) ; `EN_VRAI` → section *en vrai* (absente tant que vide), `PORTRAIT`, `ACROSTICHES` (remplacent les exemples). Affichées en noir et blanc.
 - Mentions : téléphone de l'éditeur ajouté.
+
+## Suivi des commandes (17/10)
+- Chaque demande (`send` dans src/app/send.js) part aussi vers la fonction Cloudflare : `POST /commande` (`serveur/commandes.js`, base D1 liaison `DB`, table créée seule ; origines `SITE`, 16 ko max, piège `site`), en plus d'EmailJS ; même référence = la commande est complétée (cadeau : la réponse vient ensuite). File à part (`singulies.pendingCmd`) : un échec ne retient jamais l'email. `?envoi=0` = rien ; `?envoi=local` = aucun email, la commande vers `localhost:8787`.
+- **`commandes.html`** (noindex, robots) : mot de passe `ADMIN_TOKEN` (secret Cloudflare, gardé dans le navigateur), liste récente d'abord, filtre, statuts reçue → paiement envoyé → payée → tapée → postée, note, n° de facture (plus tard), copier l'adresse (enveloppe), lien PayPal (`PAYPAL`, wrangler.toml) ou Stripe (`/admin/lien-stripe`, 24 h), voir la feuille. `?api=local`.
+- « postée » → **« ton poème est posté »** : modèle EmailJS `EMAILJS.poste` (`ressources/email-poste.html`, à créer par Maxence) ; vide = email tout prêt dans sa messagerie.
+- **À faire par Maxence** (serveur/LISEZ-MOI.md, « Suivi des commandes ») : créer la base D1 et coller son identifiant dans les deux wrangler.toml (bloc commenté), définir `ADMIN_TOKEN`, `PAYPAL`, le modèle EmailJS.

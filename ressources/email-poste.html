@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<!-- Modèle EmailJS « ton poème est posté » (17/10) — envoyé à la personne depuis commandes.html, quand une commande
+     passe à « postée ». À créer dans EmailJS comme un troisième modèle, en mode code (copier tout ce fichier), avec :
+       To Email : {{to_email}}     Reply To : ton adresse     Sujet : {{prenom}} — ton poème est posté     From Name : ETERNEL
+     puis mettre son identifiant (template_…) dans EMAILJS.poste (src/app/send.js). Tant qu'il est vide, la page
+     commandes.html ouvre un email tout prêt (même texte) dans ta messagerie.
+     Paramètres : prenom, prenom_html (le prénom en images de lettres), ref, email_base, to_email. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>{{prenom}}</title>
+<style>
+  u + .body .gmail-screen { background: #000; mix-blend-mode: screen; }
+  u + .body .gmail-diff { background: #000; mix-blend-mode: difference; }
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
+  a { text-decoration: none; }
+  /* jamais de lien bleu (ni orange en mode sombre) : liens détectés par Gmail / Mail à la couleur du texte */
+  u + .body a, a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; font: inherit !important; }
+</style>
+</head>
+<body class="body" style="margin:0;padding:0;background:#060606;" bgcolor="#060606">
+<u></u>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#060606"
+  background="{{email_base}}fond.png"
+  style="background-color:#060606;background-image:url('{{email_base}}fond.png');background-repeat:repeat;">
+<tr><td align="center" style="padding:64px 16px 56px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:440px;">
+
+    <!-- le prénom, comme sur le site -->
+    <tr><td align="center" style="padding:0 0 44px;">
+      {{{prenom_html}}}
+    </td></tr>
+
+    <!-- le mot (à réécrire à sa façon) -->
+    <tr><td align="center" style="padding:0 18px 40px;font-family:'Courier Prime','Courier New',Courier,monospace;font-size:15px;line-height:26px;color:#cdcdcd;text-align:center;">
+      <div class="gmail-screen"><div class="gmail-diff">ton poème est parti.<br>je l’ai tapé à la machine, une seule fois,<br>glissé dans l’enveloppe noire, scellée à la cire.<br>il est à la poste depuis aujourd’hui ;<br>il arrive chez toi d’ici quelques jours.</div></div>
+    </td></tr>
+
+    <tr><td align="center" style="padding:0 0 8px;font-family:'Courier Prime','Courier New',Courier,monospace;font-size:15px;color:#cdcdcd;">
+      <div class="gmail-screen"><div class="gmail-diff">- ETERNEL -</div></div>
+    </td></tr>
+
+    <tr><td align="center" style="padding:28px 0 0;font-family:Georgia,serif;font-size:11px;letter-spacing:2px;color:#6e6e6e;">
+      <div class="gmail-screen"><div class="gmail-diff">réf. {{ref}}</div></div>
+    </td></tr>
+    <!-- le label (09/10) : le logo SS gaufré, puis SINGULIES, en petit, comme au dos d'un disque -->
+    <tr><td align="center" style="padding:30px 0 0;">
+      <img src="{{email_base}}sceau.png" width="44" height="44" alt="" style="display:block;border:0;width:44px;height:44px;margin:0 auto;">
+    </td></tr>
+    <tr><td align="center" style="padding:10px 0 0;font-family:'Courier New',Courier,monospace;font-size:10px;letter-spacing:6px;color:#454545;">
+      <div class="gmail-screen"><div class="gmail-diff">SINGULIES</div></div>
+    </td></tr>
+
+  </table>
+</td></tr>
+</table>
+</body>
+</html>

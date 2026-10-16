@@ -5,16 +5,22 @@
 import QUESTIONS from '../cards/questions.json';
 import { encodeDemande } from '../demande/lien.js';
 import LETTERS from '../../public/email/l/tailles.json';
-import { STRIPE } from '../alt/config.js';
+import { STRIPE, PAIEMENT_URL } from '../alt/config.js';
 import { rememberEmail } from './storage.js';
 
 export const EMAILJS = { service: 'service_8wqf489', template: 'template_cuh5tub', key: 'XreMhhJCN9l5J6V5J',   // identifiants publics (aucun secret)
   // confirmation envoyée à la personne (récapitulatif) : second modèle EmailJS, To = {{to_email}}
   // (ressources/email-confirmation.html)
-  confirm: 'template_lryyumd' };
+  confirm: 'template_lryyumd',
+  // (17/10) « ton poème est posté » : envoyé depuis commandes.html quand une commande passe à « postée » ;
+  // troisième modèle EmailJS (ressources/email-poste.html), To = {{to_email}} — vide : la page ouvre un email tout prêt
+  poste: '' };
 const K_PENDING = 'singulies.pending';
-const OFF = (() => { try { return new URLSearchParams(location.search).get('envoi') === '0'; } catch { return false; } })();
-const ready = () => !OFF && EMAILJS.service && EMAILJS.template && EMAILJS.key;
+const ENVOI = (() => { try { return new URLSearchParams(location.search).get('envoi') || ''; } catch { return ''; } })();
+const OFF = ENVOI === '0';
+// (17/10) ?envoi=local : aucun email ; la commande seule, vers la fonction lancée sur cet ordinateur (wrangler dev)
+const LOCAL = ENVOI === 'local';
+const ready = () => !OFF && !LOCAL && EMAILJS.service && EMAILJS.template && EMAILJS.key;
 // (10/10) merci.html : la commande payée (référence passée à Stripe, session) part avec la demande
 let ORDER = null;
 export function setOrder(o) { ORDER = o; }
@@ -155,8 +161,44 @@ export function send(detail) {
   // le récapitulatif à la personne, si elle a donné son email
   // (mêmes paramètres que la demande : prénom, question, réponse, et en mode test le prix et les retours)
   if (EMAILJS.confirm && p.to_email) items.push({ tpl: EMAILJS.confirm, p });
-  save([...load(), ...items]);
+  if (!LOCAL) save([...load(), ...items]);
   flush();
+  commande(detail, p);
+}
+
+// (17/10) le suivi des commandes : la même demande est aussi gardée par la fonction Cloudflare (serveur/commandes.js),
+// que la page commandes.html liste. File à part : un échec ici ne retient jamais l'email (gardée et renvoyée seulement
+// si le réseau manque ; refusée par le serveur — base pas encore reliée — elle est abandonnée, l'email suffit)
+const K_CMD = 'singulies.pendingCmd';
+const CMD_URL = LOCAL ? 'http://localhost:8787' : PAIEMENT_URL;
+const loadCmd = () => { try { return JSON.parse(localStorage.getItem(K_CMD) || '[]'); } catch { return []; } };
+const saveCmd = a => { try { a.length ? localStorage.setItem(K_CMD, JSON.stringify(a.slice(-10))) : localStorage.removeItem(K_CMD); } catch { /* */ } };
+function commande(d, p) {
+  if (!CMD_URL) return;
+  const o = d.order || null;
+  const body = {
+    ref: o?.ref || '', prenom: d.name || '', genre: d.kind || '', questionId: d.kind === 'reponse' ? String(d.id ?? '') : '',
+    question: p.question, reponse: d.text || '', adresse: d.address || [], email: d.email || '', contact: d.contact || '',
+    mode: o ? (o.reserve ? 'reservation' : o.simule ? 'simule' : 'paye') : d.test ? 'essai' : d.mode === 'direct' ? 'direct' : 'poste',
+    cadeau: !!(o && (o.gift || o.pour)), session: o?.session || '', lien: p.lien,
+    essai: !!(d.test || o?.simule || d.beta || import.meta.env.DEV), site: '',
+  };
+  saveCmd([...loadCmd(), body]);
+  flushCmd();
+}
+let cmdBusy = false;
+async function flushCmd() {
+  if (cmdBusy || !CMD_URL || OFF) return;
+  cmdBusy = true;
+  try {
+    for (let a = loadCmd(); a.length; a = loadCmd()) {
+      let r;
+      try { r = await fetch(CMD_URL + '/commande', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(a[0]) }); }
+      catch (e) { console.warn('commande', e); break; }                           // pas de réseau : on réessaiera
+      if (!r.ok) console.warn('commande : ' + r.status);
+      saveCmd(loadCmd().slice(1));
+    }
+  } finally { cmdBusy = false; }
 }
 
 // (11/10) un message du site (« me contacter ») ou une place réservée (« un poème par mois ») : le modèle des demandes
@@ -165,7 +207,7 @@ export function send(detail) {
 const NOTE = { message: 'message du site (me contacter)', club: 'liste d’attente : un poème par mois', clubOffert: 'liste d’attente : un poème par mois, à offrir' };
 export function sendNote(d) {
   rememberEmail(d.email);
-  if (OFF) return false;
+  if (OFF || LOCAL) return false;
   const p = params({ name: d.name || '', kind: 'note' });
   Object.assign(p, {
     genre: NOTE[d.kind] || d.kind, mode: NOTE[d.kind] || d.kind, prenom_html: p.prenom ? p.prenom_html : '', colonne_html: '',
@@ -187,6 +229,6 @@ export function installSend() {
   } catch { /* */ }
   addEventListener('singulies:address', e => send(e.detail));
   addEventListener('singulies:direct', e => send(e.detail));          // « en direct » : une fois le contact tapé
-  addEventListener('online', flush);
-  flush();
+  addEventListener('online', () => { flush(); flushCmd(); });
+  flush(); flushCmd();
 }

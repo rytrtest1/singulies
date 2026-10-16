@@ -29,6 +29,16 @@
         "5196"
       ],
       "port": 5196
+    },
+    {
+      "name": "singulies-commandes",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5199"
+      ],
+      "port": 5199
     }
   ]
 }
