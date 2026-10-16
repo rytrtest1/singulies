@@ -456,8 +456,17 @@ export async function mountCards(opts) {
   // paraissent quand celles de l'accueil s'y posent (landAt : instants de cette horloge, une par lettre)
   api.setName = n => { name = n; scene.setName(n); namePass(); };
   api.landAt = list => { landAt = list; };
+  // (17/10, Maxence : « rembobiner si l'on veut modifier le prénom, pas de fondu au noir ») la feuille se défait sans
+  // bruit (le canvas est déjà effacé par la page) ; au prochain départ, la scène rejoue la feuille seule avec le prénom
+  // corrigé (setName, landAt) — même canvas, même boucle
+  let redoPending = false;
+  api.redo = () => {
+    if (sheet) { for (const e of Object.values(fieldEls)) e.blur(); sheet.free(); sheet = null; api.sheet = null; placeHits(); }
+    api.sheetReady = false; landAt = null; redoPending = true;
+  };
   function start() {
-    if (started) return; started = true;
+    if (started) { if (redoPending) { redoPending = false; scene.start(now()); } return; }
+    started = true;
     scene.start(now());
     let last = performance.now();
     function frame(n, manualDt) {

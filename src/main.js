@@ -346,7 +346,7 @@ function enterScene() {
   canvas.style.visibility = 'hidden';
   if (cardsReady && cardsReady.canvas) cardsReady.canvas.style.mixBlendMode = '';   // (l'accueil caché : plus rien à mêler)
   // mémoire de l'accueil rendue plus tard, quand la première question est posée (pas pendant le retournement)
-  setTimeout(() => { try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* */ } }, 6000);
+  setTimeout(() => { try { if (S.phase === 'scene') { S.loseExt = gl?.getExtension('WEBGL_lose_context'); S.loseExt?.loseContext(); } } catch { /* */ } }, 6000);
   window.__sg.cards = cardsReady;
 }
 
@@ -508,7 +508,7 @@ function rewind() {
 // la transition est revenue à son début : le prénom au centre, le curseur au bout, on peut corriger
 function rewound() {
   S.rw = false; S.trans = null; plan = null; S.driftT = null; S.colT = null; S.placeBox = null;
-  S.confirmed = false; S.editAt = S.t; S.edit = true; S.editTap = false; S.validatedName = null;
+  S.confirmed = false; S.editAt = S.t; S.edit = true; S.editTap = false; S.validatedName = null; S.editing = false;
   input.readOnly = false; input.classList.remove('rest');
   if (!TOUCH) input.focus({ preventScroll: true });
 }
@@ -516,6 +516,24 @@ function rewound() {
 // des cartes ne se défait pas), le prénom s'y retape, le curseur au bout
 function editName() {
   if (S.paid || S.editing) return;
+  // (17/10, Maxence : « rembobiner, pas de fondu au noir, c'est laid ») depuis la feuille : l'offre s'efface, la feuille
+  // aussi, et le prénom fait le chemin inverse — de la colonne à sa place au centre, le champ se rallume ; on corrige
+  if (ALT && cardsReady && cardsReady !== 'failed' && cardsReady.redo && renderer && S.trans != null) {
+    S.editing = true;
+    clearValidated(); saveSessionName(null); count('alt/corrige');
+    offerObj?.hide(); offer = null; offerObj = null;
+    const cv = cardsReady.canvas;
+    Object.assign(cv.style, { transition: 'opacity .55s ease', pointerEvents: 'none' });
+    requestAnimationFrame(() => { cv.style.opacity = '0'; });
+    setTimeout(() => { cardsReady.redo(); cv.style.mixBlendMode = ''; }, 600);
+    if (gl.isContextLost() && S.loseExt) { try { S.loseExt.restoreContext(); } catch { /* */ } }
+    canvas.style.visibility = '';
+    S.phase = 'input'; S.phaseAt = S.t - 10; S.portal = false;
+    S.handT = null; S.cStart = null; S.riseT = null;
+    rewind();
+    if (!rafId && !gl.isContextLost()) { last = 0; rafId = requestAnimationFrame(frame); }
+    return;
+  }
   S.editing = true;
   try { sessionStorage.setItem(K_EDIT, S.validatedName || finalName(model.text) || ''); } catch { /* */ }
   clearValidated(); saveSessionName(null); count('alt/corrige');

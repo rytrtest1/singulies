@@ -32,7 +32,16 @@ await page.screenshot({ path: `${dir}/c-feuille.png` });
 const b2 = await page.evaluate(() => window.__sg.S.placeBox);
 console.log('feuille', JSON.stringify(await st()), JSON.stringify(b2));
 await page.mouse.click((b2[0] + b2[2]) / 2, (b2[1] + b2[3]) / 2);
-await page.waitForTimeout(4000);
+// (17/10) depuis la feuille : rembobinage (plus de rechargement) — quelques images, puis on corrige et l'on repart
+for (const [i, w] of [[1, 250], [2, 350], [3, 400]]) { await page.waitForTimeout(w); await page.screenshot({ path: `${dir}/d${i}-rembobine.png` }); }
+await page.waitForTimeout(2500);
 console.log('apres', JSON.stringify(await st()));
 await page.screenshot({ path: `${dir}/d-corrige.png` });
+await page.mouse.click(195, 422); await page.waitForTimeout(200);
+await page.keyboard.press('Backspace'); await page.keyboard.type('NA', { delay: 90 });
+await page.keyboard.press('Enter'); await page.waitForTimeout(400); await page.keyboard.press('Enter');
+await page.waitForFunction(() => document.querySelector('#offre.on.bar-on'), null, { timeout: 60000 });
+await page.waitForTimeout(1200);
+console.log('refaite', JSON.stringify(await st()));
+await page.screenshot({ path: `${dir}/e-refaite.png` });
 await browser.close(); server.httpServer.close();
