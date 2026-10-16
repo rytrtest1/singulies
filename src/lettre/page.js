@@ -58,6 +58,7 @@ export function buildStagePage(host, o) {
     j = Math.max(0, Math.min(N - 1, j));
     if (j === k) return;
     k = j; pT = j;
+    scene?.close?.();                                    // (un livre ouvert se referme quand on change d'objet)
     const s = o.steps[j];
     // (12/10) le titre de l'objet (capitales, Garamond) et sa ligne dessous, au-dessus de la description
     const ti = main.querySelector('.lt-ti'), su = main.querySelector('.lt-su');
@@ -83,6 +84,12 @@ export function buildStagePage(host, o) {
   const s1 = (x, y) => {
     if (sx == null) return; const dx = x - sx, dy = y - sy; sx = null;
     if (performance.now() - st0 > 900) return;
+    // (16/10) l'objet répond d'abord à ses propres gestes (le livre : ouvrir, feuilleter, refermer)
+    if (Math.hypot(dx, dy) < 10 && scene && scene.tap && scene.tap(x, y, innerWidth, innerHeight, p)) { live?.then(r => r && r.go()); return; }
+    if (scene && scene.isOpen && scene.isOpen()) {
+      if (Math.abs(dx) > 42 && Math.abs(dx) > 1.4 * Math.abs(dy)) { scene.swipe(dx < 0 ? 1 : -1); return; }
+      if (Math.abs(dy) > 42) { scene.close(); return; }
+    }
     // (16/10, Maxence) toucher une enveloppe de la guirlande : elle est choisie, l'étape suivante
     if (Math.hypot(dx, dy) < 10 && scene && scene.pick && k === 0) { const i = scene.pick(x, y, innerWidth, innerHeight); if (i >= 0) { scene.choose(i); setStep(1); return; } }
     // (13/10, Maxence : « cohérence PARTOUT ») depuis le dernier point, le geste vers la suite revient au premier
@@ -100,6 +107,7 @@ export function buildStagePage(host, o) {
     if (N < 2 || e.ctrlKey) return;
     const now = performance.now(); if (now - wAt > 260) wAcc = 0; wAt = now;
     wAcc += e.deltaY;
+    if (Math.abs(wAcc) > 60 && !host._wLock && scene?.isOpen?.()) { host._wLock = true; scene.close(); wAcc = 0; setTimeout(() => { host._wLock = false; }, 650); return; }
     if (Math.abs(wAcc) > 60 && !host._wLock) { host._wLock = true; setStep(k + Math.sign(wAcc)); wAcc = 0; setTimeout(() => { host._wLock = false; }, 650); }
   }, { passive: true });
 
@@ -135,6 +143,7 @@ export function buildStagePage(host, o) {
   const step = dt => { const kk = reduced ? 1 : Math.min(1, dt * 3.2); p += (pT - p) * kk; if (Math.abs(pT - p) < 1e-3) p = pT; place(); return Math.abs(pT - p) > 1e-3; };
   live = mountStage(host, grab, o.make, { reduced, step, p: () => p, pt: () => pT }).then(r => { scene = r && r.scene; if (!r) main.classList.add('flat'); place(); return r; });
   addEventListener('resize', place);
+  addEventListener('keydown', e => { if (e.key === 'Escape' && scene?.isOpen?.() && getComputedStyle(host).visibility !== 'hidden') scene.close(); });
   setStep(0, 'debut');
   return { main, grab, cap, sign, live, setStep, get step() { return k; },
     canvas: () => host.querySelector('.lt-cv'),

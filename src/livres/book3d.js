@@ -22,6 +22,7 @@ export const BOOK = { ...BOOKS[0], cover: 0.3, sheet: 0.1, spineR: 1.4, hinge: 7
 export const BOOK_ASPECT = 1000 / 1300;
 const PX = 8;                                              // carte d'encre : 8 px / mm
 const CAM_AZ = -Math.PI / 2;                               // le regard vient du bas de l'écran
+const ease = u => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
 const wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
 const S = k => new Float32Array([k, 0, 0, 0, 0, k, 0, 0, 0, 0, k, 0, 0, 0, 0, 1]);
 
@@ -63,8 +64,53 @@ export async function createBook(gl, base = './', list = BOOKS) {
     for (const [dx, dy] of [[0, 0], [0.8, 0], [0, 0.8]]) ix.drawImage(im, dx, dy, ink.width, ink.height);
     return { ...b, i, inkTex: card.makeInk(ink, false) };
   }));
+  // (16/10, Maxence : « pouvoir les feuilleter, qu'il s'ouvre à une page qu'on puisse lire ») toucher le livre l'ouvre à
+  // une double page tirée au hasard (les vraies pages du PDF, en encre blanche sur son papier noir : tools/livre-pages.py) ;
+  // la couverture et la moitié des pages tournent autour du dos ; toucher encore, ou glisser = la page suivante (une
+  // feuille tourne) ; glisser vers le bas, Échap, toucher à côté = il se referme. Téléphone : la page de droite au centre,
+  // un peu plus grande (on la lit), la gauche dépasse du bord ; ordinateur : la double page centrée.
+  for (const b of books) { card.addShape('bookhalf-' + b.id, { w: b.w, h: b.h, r: 0.6, t: b.t / 2, fine: null }); card.addShape('leaf-' + b.id, { w: b.w, h: b.h, r: 0.6, t: 0.12, fine: null }); }
+  const spreads = await fetch(base + 'livres/pages/pages.json').then(r => r.json()).catch(() => null);
+  const texs = new Map(), loading = new Map();
+  const pageTex = (b, name) => {
+    if (!loading.has(name)) loading.set(name, (async () => {
+      const im = new Image(); im.src = base + 'livres/pages/' + name; await im.decode();
+      const c = new OffscreenCanvas(Math.round(b.w * PX), Math.round(b.h * PX)); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      const tx = card.makeInk(c, false); texs.set(name, tx); return tx;
+    })().catch(e => { console.warn('page', name, e); loading.delete(name); return null; }));
+    return loading.get(name);
+  };
+  const spreadOf = (b, s) => spreads && spreads[b.id] && spreads[b.id][s];
+  const loadSpread = (b, s) => { const sp = spreadOf(b, s); return sp ? Promise.all(sp.map(n => pageTex(b, n))) : Promise.resolve(null); };
+  const OPEN_T = 1.25, TURN_T = 0.95;
+  const bk = { book: -1, s: 0, want: 0, u: 0, turn: null, busy: false };
+  const nowS = () => performance.now() / 1000;
+  async function openBook(i) {
+    const b = books[i], n = spreads && spreads[b.id] ? spreads[b.id].length : 0;
+    if (!n || bk.busy || bk.want) return false;
+    bk.busy = true;
+    const s = Math.floor(Math.random() * n);
+    await loadSpread(b, s);
+    bk.busy = false; bk.book = i; bk.s = s; bk.want = 1; bk.turn = null;
+    loadSpread(b, (s + 1) % n);
+    return true;
+  }
+  function closeBook() { if (!bk.want) return false; bk.want = 0; bk.turn = null; return true; }
+  async function turnPage(dir) {
+    if (!bk.want || bk.u < 0.98 || bk.turn || bk.busy || bk.book < 0) return false;
+    const b = books[bk.book], n = spreads[b.id].length, to = (bk.s + dir + n) % n;
+    bk.busy = true; await loadSpread(b, to); bk.busy = false;
+    if (!bk.want) return false;
+    bk.turn = { from: bk.s, to, dir, t0: nowS() };
+    loadSpread(b, (to + dir + n) % n);
+    return true;
+  }
+  let lastF = 0;
+  const tex = (b, s, k) => { const sp = spreadOf(b, s); return sp ? texs.get(sp[k]) || null : null; };
   // (posé : son bas sur celui de la feuille du poème)
   const baseY = b => -SH.h / 2 + b.h * MM / 2;
+  // ouvert : la place de la double page (décalage x, agrandissement) — portrait : la page de droite au centre, plus grande
+  const openFit = (b, cw, ch, e) => { const land = cw > ch * 0.95; return { sx: land ? b.w / 2 * MM * e * Math.min(1.5, 290 / b.h) : 0, k: 1 + (Math.min(1.5, 290 / b.h) - 1) * e }; };   // (aussi haut que la feuille A4 du poème : on lit)
   // l'écart entre deux livres : hors de l'écran (on n'en voit qu'un à la fois ; ils glissent de côté)
   const span = (v, W, H) => v.Hw * W / H * 0.62 + 70;
 
@@ -78,6 +124,10 @@ export async function createBook(gl, base = './', list = BOOKS) {
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     const sp = span(v, cw, ch);
+    { const tn = nowS(), dt = lastF ? Math.min(0.1, tn - lastF) : 0; lastF = tn;
+      bk.u = Math.max(0, Math.min(1, bk.u + (bk.want ? 1 : -1.3) * dt / OPEN_T));
+      if (bk.turn && tn - bk.turn.t0 >= TURN_T) { bk.s = bk.turn.to; bk.turn = null; }
+      if (!bk.want && bk.u <= 0) bk.book = -1; }
     for (const b of books) {
       const d = b.i - p;
       if (Math.abs(d) > 1.2) continue;
@@ -90,6 +140,7 @@ export async function createBook(gl, base = './', list = BOOKS) {
       const rx = 0.09 * bx - 0.2 * tilt.y * near + spin.x * near, ry = 0.42 * by + 0.2 * tilt.x * near + spin.y * near + 0.35 * d,   // (inclinaison : celle de la carte, 0,2)
         rz = 0.008 * Math.sin(t * 0.29 + ph);
       const dz = 2.2 * Math.sin(t * 0.29 + ph) * MM;
+      if (bk.book === b.i && bk.u > 0) { drawOpen(v, P, b, d * sp, dz, rx, ry, rz, cw, ch); continue; }
       card.draw(v.vp, v.eye, P, {
         model: M4.mul(M4.model(rx, ry, rz, d * sp, baseY(b), -b.t * MM / 2 + dz), S(MM)), lod: 'book-' + b.id, seed: 31 + b.i * 7, noLogo: true,
         paperXf: [0.8, -0.4, 0, 0], warp: [0, 0, 0], paperTile: 0.6 * 87 / 0.7, paperLo: 0.75,
@@ -97,13 +148,51 @@ export async function createBook(gl, base = './', list = BOOKS) {
       });
     }
   }
+  // le livre ouvert : le bloc du dessous (la page de droite), la couverture et la moitié des pages qui tournent autour du
+  // dos (la page de gauche dessous), et, quand on feuillette, une feuille qui tourne
+  function drawOpen(v, P, b, x0, dz, rx, ry, rz, cw, ch) {
+    const e = ease(bk.u), { sx, k } = openFit(b, cw, ch, e), calm = 1 - 0.85 * e;
+    const Mb = M4.mul(M4.model(rx * calm, ry * calm, rz * calm, x0 + sx, baseY(b) + (k - 1) * b.h * MM / 2, -b.t * MM / 2 + dz), S(MM * k));
+    const T = (x, y, z) => M4.model(0, 0, 0, x, y, z), Ry = a => M4.model(0, a, 0, 0, 0, 0);
+    const look = { seed: 31 + b.i * 7, noLogo: true, paperXf: [0.8, -0.4, 0, 0], warp: [0, 0, 0], paperTile: 0.6 * 87 / 0.7, paperLo: 0.75, fade: 1 };
+    const tr = bk.turn, tu = tr ? ease(Math.min(1, (nowS() - tr.t0) / TURN_T)) : 0;
+    // ce que montre chaque bloc pendant qu'une feuille tourne : dessous, la page d'arrivée ; la feuille, celles du départ
+    const sR = tr ? (tr.dir > 0 ? tr.to : tr.from) : bk.s, sL = tr ? (tr.dir > 0 ? tr.from : tr.to) : bk.s;
+    const half = { lod: 'bookhalf-' + b.id, book: [b.t / 2, BOOK.cover, BOOK.sheet, BOOK.spineR] };
+    card.draw(v.vp, v.eye, P, { model: M4.mul(Mb, T(0, 0, -b.t / 4)), ...half, ...look, inkBack: tex(b, sR, 1) });
+    const th = Math.PI * e;
+    card.draw(v.vp, v.eye, P, { model: M4.mul(Mb, M4.mul(M4.mul(T(-b.w / 2, 0, 0), Ry(-th)), T(b.w / 2, 0, b.t / 4))), ...half, ...look, seed: look.seed + 3,
+      inkBack: b.inkTex, ink: tex(b, sL, 0), hinge: th < Math.PI / 2 ? [BOOK.hinge, 0.09] : [0, 0] });
+    if (tr) {
+      // la feuille : sa face du dessus (sur la droite) = la page de droite qu'on quitte (ou qu'on retrouve), dessous la
+      // page de gauche d'arrivée (ou qu'on quitte) ; elle se soulève un peu en tournant
+      const a = Math.PI * (tr.dir > 0 ? tu : 1 - tu), lift = 2.5 * Math.sin(a);
+      const fR = tr.dir > 0 ? tex(b, tr.from, 1) : tex(b, tr.to, 1), fL = tr.dir > 0 ? tex(b, tr.to, 0) : tex(b, tr.from, 0);
+      card.draw(v.vp, v.eye, P, { model: M4.mul(Mb, M4.mul(M4.mul(T(-b.w / 2, 0, 0.07 + lift), Ry(-a)), T(b.w / 2, 0, 0.06))), lod: 'leaf-' + b.id, ...look, seed: look.seed + 9,
+        inkBack: fR, ink: fL });
+    }
+  }
   const cur = p => books[Math.max(0, Math.min(books.length - 1, Math.round(p)))];
   // la prise (px CSS) : le livre du centre ; son bas (unités) : pour la légende
-  function rect(cw, ch, p) { const v = stageView(cw, ch), b = cur(p), y = baseY(b), a = v.project(-b.w * MM / 2, y + b.h * MM / 2), c = v.project(b.w * MM / 2, y - b.h * MM / 2); return { l: a[0], t: a[1], r: c[0], b: c[1] }; }
+  function rect(cw, ch, p) {
+    const v = stageView(cw, ch), b = cur(p), y = baseY(b);
+    const e = bk.book === b.i ? ease(bk.u) : 0, { sx, k } = openFit(b, cw, ch, e), yc = y + (k - 1) * b.h * MM / 2;
+    const a = v.project(sx + (-b.w / 2 - b.w * e) * MM * k, yc + b.h * MM * k / 2), c = v.project(sx + b.w * MM * k / 2, yc - b.h * MM * k / 2);
+    return { l: a[0], t: a[1], r: c[0], b: c[1] };
+  }
+  // (16/10) les gestes sur le livre : toucher = l'ouvrir / la page suivante / (à côté) le refermer ; glisser de côté
+  // ouvert = feuilleter ; refermer (glisser vers le bas, Échap, changer de livre)
+  function tap(x, y, cw, ch, p) {
+    const r = rect(cw, ch, p), inB = x > r.l && x < r.r && y > r.t && y < r.b;
+    if (bk.want) { if (inB) turnPage(1); else closeBook(); return true; }
+    if (inB) { openBook(Math.max(0, Math.min(books.length - 1, Math.round(p)))); return true; }
+    return false;
+  }
+  const swipe = dir => (bk.want ? (turnPage(dir), true) : false);
   // (12/10, Maxence : « cohérence globale des zones ») chaque livre est posé sur la même ligne que le bas de la feuille du
   // poème : la description est au même endroit sur toutes les pages
   function bottom() { return -SH.h / 2; }
-  return { frame, rect, bottom };
+  return { frame, rect, bottom, tap, swipe, close: closeBook, isOpen: () => !!bk.want, moving: () => (bk.u > 0 && bk.u < 1) || !!bk.turn };
 }
 
 // (12/10) un objet en direct sur une page, dans le monde commun : un canvas TRANSPARENT qui couvre l'écran (l'objet y est
