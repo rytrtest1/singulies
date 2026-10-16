@@ -384,6 +384,8 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       <div class="of-rest">
       <!-- (12/10) chaque section de la suite porte son nom (data-nom) : le signe du bas l'annonce et y mène -->
       <section class="of-ex of-sec" data-nom="d’autres prénoms" aria-label="D’autres prénoms, d’autres poèmes"><div class="of-ex-host"></div></section>
+      <!-- (16/10) les pages légales, tout en bas, discrètes -->
+      <nav class="of-legal"><a href="./mentions.html">MENTIONS</a><a href="./conditions.html">CONDITIONS</a><a href="./confidentialite.html">CONFIDENTIALITE</a></nav>
       </div>
     </main>
     <div class="of-shade" aria-hidden="true"></div>

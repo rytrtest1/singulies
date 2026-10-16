@@ -9,7 +9,7 @@ export default defineConfig({
   build: { rollupOptions: { input: {
     // le site
     alt: 'alt.html', main: 'index.html', ancien: 'ancien.html', poeme: 'poeme.html', jeuPage: 'jeu.html', lettre: 'lettre.html', livres: 'livres.html',
-    merci: 'merci.html', pour: 'pour.html', confidentialite: 'confidentialite.html', demande: 'demande.html',
+    merci: 'merci.html', pour: 'pour.html', confidentialite: 'confidentialite.html', mentions: 'mentions.html', conditions: 'conditions.html', demande: 'demande.html',
     // scènes seules (essais, liens directs)
     cartes: 'scene-cartes.html', jeu: 'scene-jeu.html', cachet: 'cachet.html',
     // versions basiques (essai du 09/10)

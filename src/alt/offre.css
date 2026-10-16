@@ -344,3 +344,8 @@
 .mc.fin.play .mc-name { margin-bottom: 18px; }
 .of.arrows-off .of-up, .of.arrows-off .of-bar .of-down { opacity: 0 !important; pointer-events: none !important; }
 .of-bar, .of-bar .of-down { touch-action: pan-y; }
+
+/* (16/10) mentions, conditions, confidentialité : tout en bas de la page, sous les autres poèmes, au-dessus du bandeau */
+.of-legal { position: relative; z-index: 3; text-align: center; padding: 8px 16px calc(var(--inset, 212px) + env(safe-area-inset-bottom)); font: 500 10px/2.4 'SG Garamond', Georgia, serif; letter-spacing: .22em; }
+.of-legal a { color: #fff; opacity: .32; text-decoration: none; margin: 0 .45em; white-space: nowrap; }
+.of-legal a:hover { opacity: .55; }
