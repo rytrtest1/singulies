@@ -418,3 +418,7 @@ Voir « Point de reprise » en tête de fichier.
 
 ## 17/10 — logo du fond refait
 - « horrible » (biseau net, contour noir, autocollant) → gaufrage à sec dans le papier noir des cartes : hauteur adoucie (sinus ±0,5 mm, deux flous 0,14 mm, R16F), fibres de `cards/paper.jpg` seulement sur les pentes, lampe des cartes (rasante, haut gauche, respire). Mesuré (téléphone) : plat 6, pente éclairée ≈ 12, ombre ≥ 3. `?logoK=` force, `?logo=0`.
+
+## 17/10 — retours (suite)
+- Fait : logo = lueur lointaine sans bord derrière les prénoms (qui s'y éclairent) ; « aide » à toucher au lieu de PRENOM ; curseur visible si prénom vide ; plus de pour moi / pour offrir ; PASSER : plus d'air, caché sur les autres pages (`sg-away`) ; singuliés ; gel : préparation des pages voisines dès l'ouverture, shaders compilés en parallèle (`programAsync`), 1,7 s → ≤ 0,2 s ; paquet : éventail simple, lampe fixe ; corriger le prénom depuis la feuille = rembobinage (`cardsReady.redo`) ; un poème par mois : fil de la guirlande plus visible, l'élue garde ses bouts de fil qui se rejoignent en nœud, lignes de la feuille jamais au travers de l'enveloppe.
+- Reste : livre (double page cohérente, zoom sur une page, refermer), toucher l'objet = il s'élève, zoom, description ; version simple.

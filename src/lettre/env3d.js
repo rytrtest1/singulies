@@ -219,12 +219,31 @@ export async function createEnvelope(gl, base = './') {
     const r0 = Math.min(vt, K[1]), r2 = vt - K[1], r3 = vt - K[2];
     // ---- 0 les lettres des membres qui dérivent, liées par le fil ; 1 la feuille arrive et se retourne ; 2 elle entre
     // dans l'enveloppe ----
-    const out = ease(span(0.1, 1.1, r0)), others = 1 - span(0.1, 0.9, r0);
+    // (17/10, Maxence : « que le fil reste lié quand une part, organique, pas de sursaut ») les autres restent le temps
+    // de voir l'élue se détacher et le fil se renouer derrière elle, puis s'éloignent et s'effacent
+    const out = ease(span(0.5, 1.7, r0)), others = 1 - span(0.9, 1.9, r0);
     const fl = ease(span(FLIP[0], FLIP[1], r0));
     // l'enveloppe choisie : celle qui est au plus près du centre quand on quitte l'étape 0 (gardée jusqu'au retour)
     if (r0 <= 0.0001) sel = null;
     else if (!sel) { let bi = 0, bd = 1e9; gar.forEach((g, i) => { const d = Math.abs(garM(i, t, 0).x); if (d < bd) { bd = d; bi = i; } }); sel = { i: want >= 0 ? want : bi, t }; want = -1; }
     const selOn = !!sel && r2 < 4.8;
+    // l'élue : elle vient au centre, droite, depuis sa place VIVANTE dans la guirlande (au retour, elle y retourne
+    // exactement : la guirlande a continué de défiler), son rabat s'ouvre ; la feuille sortie, elle recule loin et s'efface
+    let selMe = null;
+    if (selOn && r2 <= 0) {
+      const g = garM(sel.i, t, 0).p, u = ease(span(COME[0], COME[1], r0)), aw = ease(span(AWAY[0], AWAY[1], r0));
+      const q = [lerp(g[0], 0, u), lerp(g[1], 0, u), lerp(g[2], 0, u), lerp(g[3], SEL[0], u), lerp(g[4], SEL[1], u) + 10 * aw, lerp(g[5], SEL[2], u) - 90 * aw];
+      selMe = M4.mul(R, M4.mul(M4.model(...q), S(EK)));
+    }
+    // le fil de la guirlande : plus épais et mieux éclairé (il est loin ; on le voyait moins que celui de SINGULIES)
+    const PF = { ...P, env: (P.env ?? 0.3) * 2.4 }, FR = FIL_R * 2.6;
+    // un brin, d'un point à l'autre, qui s'affaisse et ondule (u : 0 → 1)
+    const strand = (A, B, i, list) => {
+      const n = 16, len = Math.hypot(B[0] - A[0], B[1] - A[1]);
+      for (let k = 0; k <= n; k++) { const u = k / n, sg = Math.sin(Math.PI * u);
+        list.push([lerp(A[0], B[0], u), lerp(A[1], B[1], u) - sg * (len * 0.08 + 1.2 * Math.sin(t * 0.4 + i)), lerp(A[2], B[2], u) + sg * 3 * Math.sin(t * 0.23 + i * 1.3)]); }
+      return list;
+    };
     if (others > 0.01) {
       const v0 = stageView(cw, ch), half = v0.Hw * cw / ch * 0.5;
       const gs = gar.map((g, i) => ({ i, ...garM(i, t, out) })).sort((a, b) => a.x - b.x);
@@ -239,9 +258,16 @@ export async function createEnvelope(gl, base = './') {
       const inPile = i => ww < 1 && wrapMap && wrapMap.has(i);
       const pts = [];
       const W2 = (m, x, y, z) => ap(M4.mul(R, m), [x, y, z]);
-      let prev = null;
+      let prev = null, held = null;
+      const fadeF = others * (ww < 1 ? ease(span(0.5, 1, ww)) : 1);
+      // (l'élue se détache : ses deux bouts de fil la suivent un instant, puis glissent hors d'elle et se rejoignent au
+      // milieu, où ils se nouent — un petit nœud qui reste sur le fil)
+      const det = ease(span(0.35, 1.25, r0)), knot = ease(span(1.0, 1.5, r0));
       for (const g of gs) {
-        if (sel && g.i === sel.i) continue;                         // (elle quitte le fil)
+        if (sel && g.i === sel.i) {
+          if (selMe) held = { a: ap(selMe, [-ENV.w / 2 - 0.5, THR_Y, THR_Z]), b: ap(selMe, [ENV.w / 2 + 0.5, THR_Y, THR_Z]), prev };
+          prev = null; continue;
+        }
         const Mw = M4.mul(R, g.M);
         // (seulement celles qu'on peut voir : leur fil, lui, court de l'une à l'autre)
         if (inPile(g.i)) {
@@ -251,21 +277,27 @@ export async function createEnvelope(gl, base = './') {
           drawEnv(v, P, M4.mul(R, M4.mul(M4.model(...q), S(EK))), { seed: k ? pile[k].seed : pile[0].seed, si: k });
         } else if (Math.abs(g.x) < half * 2.2 + EW) drawEnv(v, P, Mw, { seed: gar[g.i].seed, si: g.i, fade: others * (ww < 1 ? ease(ww) : 1) });
         const a = W2(g.M, -ENV.w / 2 - 0.5, THR_Y, THR_Z), b = W2(g.M, ENV.w / 2 + 0.5, THR_Y, THR_Z);
-        if (prev) {
-          const n = 16, len = Math.hypot(a[0] - prev[0], a[1] - prev[1]);
-          for (let k = 0; k <= n; k++) { const u = k / n, sg = Math.sin(Math.PI * u);
-            pts.push([lerp(prev[0], a[0], u), lerp(prev[1], a[1], u) - sg * (len * 0.08 + 1.2 * Math.sin(t * 0.4 + g.i)), lerp(prev[2], a[2], u) + sg * 3 * Math.sin(t * 0.23 + g.i * 1.3)]); }
-          fil.draw(v.vp, v.eye, P, pts.splice(0), FIL_R * 1.6, { pitch: 1.0, fade: others * (ww < 1 ? ease(span(0.5, 1, ww)) : 1) });
-        }
+        if (held) {
+          // de la voisine de gauche à celle de droite, en passant par les deux bouts qui glissent vers le milieu
+          const L0 = held.prev, m = L0 ? [(L0[0] + a[0]) / 2, (L0[1] + a[1]) / 2 - 2, (L0[2] + a[2]) / 2] : a;
+          const A1 = held.a.map((c, k) => lerp(c, m[k], det)), B1 = held.b.map((c, k) => lerp(c, m[k], det));
+          if (L0) fil.draw(v.vp, v.eye, PF, strand(L0, A1, g.i + 0.5, []), FR, { pitch: 1.0, fade: fadeF });
+          fil.draw(v.vp, v.eye, PF, strand(B1, a, g.i, []), FR, { pitch: 1.0, fade: fadeF });
+          if (det > 0.02 && det < 0.999) fil.draw(v.vp, v.eye, PF, strand(A1, B1, g.i + 0.25, []), FR, { pitch: 1.0, fade: fadeF });
+          if (knot > 0.01) {
+            // le nœud : une petite boucle serrée et deux bouts courts qui pendent
+            const kr = 2.2 * knot, kp = [];
+            for (let k = 0; k <= 22; k++) { const an = k / 22 * Math.PI * 2.3 - 0.6; kp.push([m[0] + kr * Math.cos(an) * 0.9, m[1] + kr * Math.sin(an) * 0.75, m[2] + 0.6 * Math.sin(an * 2)]); }
+            fil.draw(v.vp, v.eye, PF, kp, FR, { pitch: 1.0, fade: fadeF });
+            for (const sd of [-1, 1]) fil.draw(v.vp, v.eye, PF, [[m[0], m[1], m[2]], [m[0] + sd * 1.6, m[1] - 3 * knot, m[2] + 0.4], [m[0] + sd * 2.4, m[1] - 6.5 * knot, m[2] + 0.2 * sd]], FR, { pitch: 1.0, fade: fadeF });
+          }
+          held = null;
+        } else if (prev) fil.draw(v.vp, v.eye, PF, strand(prev, a, g.i, pts.splice(0)), FR, { pitch: 1.0, fade: fadeF });
         prev = b;
       }
     }
-    if (selOn && r2 <= 0) {
-      // elle vient au centre, droite, depuis sa place VIVANTE dans la guirlande (au retour, elle y retourne exactement :
-      // la guirlande a continué de défiler), son rabat s'ouvre ; la feuille sortie, elle recule loin et s'efface
-      const g = garM(sel.i, t, 0).p, u = ease(span(COME[0], COME[1], r0)), aw = ease(span(AWAY[0], AWAY[1], r0));
-      const q = [lerp(g[0], 0, u), lerp(g[1], 0, u), lerp(g[2], 0, u), lerp(g[3], SEL[0], u), lerp(g[4], SEL[1], u) + 10 * aw, lerp(g[5], SEL[2], u) - 90 * aw];
-      const Me = M4.mul(R, M4.mul(M4.model(...q), S(EK)));
+    if (selMe) {
+      const Me = selMe;
       const flc = 1 - ease(span(FLAP_O[0], FLAP_O[1], r0));
       const fd = 1 - span(AWAY[0] + 0.35, AWAY[1], r0);
       if (fd > 0.01) drawEnv(v, P, Me, { seed: gar[sel.i].seed, si: sel.i, fl: flc, ep: envPieces(0, flc), fade: fd });
@@ -278,7 +310,14 @@ export async function createEnvelope(gl, base = './') {
       // les lignes du poème au recto ; celles de la lettre au verso, seulement retournée (jamais au travers)
       const flk = r2 > 0 ? 1 : fl;
       // (ses lignes : pas tant qu'elle est dans la poche)
-      if (r2 < 3.0 && (r2 > 0 || r0 > OUT_ON[0] + 0.3)) for (const L of sheetLines) if ((L.side > 0 && flk < 0.55) || (L.side < 0 && flk > 0.45)) fil.draw(v.vp, v.eye, P, L.pts.map(q => ap(Ms, q)), FIL_R, { pitch: 1.0, fade });
+      // (17/10, Maxence : « le fil des lignes dépasse de l'enveloppe ») une ligne n'existe qu'au-dessus de l'ouverture de
+      // l'enveloppe (la partie dans la poche est cachée : coupée au bord, dans le repère de l'objet, avant la prise en main)
+      const M0 = sheetM(r0, r2);
+      const yCut = r2 > 0 ? (r2 > 1.7 ? EY + EH / 2 : -1e9) : (r0 < OUT_ON[1] + 0.05 ? SEL[1] + EH / 2 : -1e9);
+      if (r2 < 3.4 && (r2 > 0 || r0 > OUT_ON[0] + 0.1)) for (const L of sheetLines) if ((L.side > 0 && flk < 0.55) || (L.side < 0 && flk > 0.45)) {
+        const w0 = L.pts.map(q => ap(M0, q));
+        if (w0.every(q => q[1] > yCut + 0.6)) fil.draw(v.vp, v.eye, P, L.pts.map(q => ap(Ms, q)), FIL_R, { pitch: 1.0, fade });
+      }
     }
     // ---- 3 l'enveloppe, le cachet ; 4 le tirage ----
     if (r2 > 0) {
