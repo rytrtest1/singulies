@@ -282,6 +282,7 @@ function startTransition() {
 // s'éclairent un peu (renderer.js, u_logo). Sa forme vient du logo des cartes (cards/logo.png : distance au bord 16
 // bits, ±2 mm), adoucie ici une fois pour toutes (≈ 1,2 mm).
 const LOGO_BG = ALT && P.get('logo') !== '0', LOGO_MM = 38.501, LOGO_K = +(P.get('logoK') || 1);
+const LOGO_GLOW = +(P.get('logoGlow') || 1);
 const loadImg = src => new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = new URL(src, document.baseURI).href; });
 async function loadLogoBg() {
   try {
@@ -914,7 +915,8 @@ function frame(ts) {
     const ZL = 90, side = Math.min(S.w * 1.2, S.h * 0.9, 1040), t = S.t, mv = CFG.reduced ? 0 : 1;
     const br = 0.78 + mv * (0.16 * Math.sin(t * 2 * Math.PI / 11) + 0.06 * Math.sin(t * 2 * Math.PI / 7 + 1.3));
     const la = 1.0 * LOGO_K * br * smooth(OPEN_DARK + 0.6, OPEN_DARK + 6, S.t) * (T >= 0 ? 1 - smooth(0, 1.6, T) : 1);
-    logo = { cx: vx - field.cam.x * focal / ZL, cy: vy + field.cam.y * focal / ZL, s: side, a: la };
+    // (17/10) la lueur (fond) et les prénoms qui la traversent ; ?logoGlow= pour la lueur seule
+    logo = { cx: vx - field.cam.x * focal / ZL, cy: vy + field.cam.y * focal / ZL, s: side, a: la, glow: LOGO_GLOW };
   }
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig, energy: R?.energy, logo,
     field: fl, cam: field.cam, focal, vx, vy, dim: S.dim, time: S.t });

@@ -21,6 +21,11 @@ uniform vec2 u_center;   // centre de la vignette, px physiques (y vers le bas)
 uniform float u_grain;   // 1 = charbon granuleux, 0 = noir pur
 uniform float u_fade;
 uniform float u_vig;     // force de la vignette (1 ; 0 = fond uni, comme la scène des cartes)
+// (17/10, Maxence : « on ne le voit pas, on doit le voir — de façon intelligente ») le logo SINGULIES est la lumière
+// lointaine de la scène : une lueur sans bord ni matière, comme une source vue à travers la brume, loin derrière les
+// prénoms (qui passent devant et s'y éclairent : FIELD_FS). Sa forme adoucie (R8, mipmaps), sa place, sa force
+uniform sampler2D u_logo;
+uniform vec4 u_logoR;    // centre (px physiques), demi-côté (px physiques), force (0 : aucune)
 out vec4 o;
 float hash(vec2 p) { // grain statique, stable d'une image à l'autre
   p = fract(p * vec2(443.897, 441.423));
@@ -36,6 +41,16 @@ void main() {
   float r = length((frag - u_center) / half_);
   float a = 0.66 * u_vig * clamp((r - 0.52) / 0.48, 0.0, 1.0);
   c *= (1.0 - a) * min(u_grain, 1.0);
+  if (u_logoR.w > 0.0) {
+    vec2 q = (frag - u_logoR.xy) / u_logoR.z;
+    if (abs(q.x) < 1.0 && abs(q.y) < 1.0) {
+      vec2 uv = q * 0.5 + 0.5;
+      // un cœur (la forme, adoucie) dans un halo plus large ; nul au bord du carré
+      float gl = 0.5 * texture(u_logo, uv, 1.6).r + 0.5 * texture(u_logo, uv, 3.4).r;
+      gl *= smoothstep(1.0, 0.85, max(abs(q.x), abs(q.y)));
+      c += u_logoR.w * gl * 11.0 / 255.0;
+    }
+  }
   c += (hash(frag + 31.7) - 0.5) / 255.0 * step(0.5, u_grain);   // tramage ±½ niveau : pas de bandes dans la vignette
   o = vec4(vec3(c * u_fade), 1.0);
 }`;
@@ -308,6 +323,9 @@ export function createRenderer(canvas, gl, atlas) {
     gl.uniform1f(bg.u.u_grain, f.grain);
     gl.uniform1f(bg.u.u_fade, f.fade);
     gl.uniform1f(bg.u.u_vig, f.vig ?? 1);
+    { const lg = f.logo && res.logo && f.logo.a > 0.002 ? f.logo : null;
+      gl.uniform4f(bg.u.u_logoR, lg ? lg.cx * f.dpr : 0, lg ? lg.cy * f.dpr : 0, lg ? lg.s / 2 * f.dpr : 1, lg ? lg.a * (lg.glow ?? 1) : 0);
+      if (lg) { gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, res.logo); gl.activeTexture(gl.TEXTURE0); gl.uniform1i(bg.u.u_logo, 2); } }
     gl.bindVertexArray(empty);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
