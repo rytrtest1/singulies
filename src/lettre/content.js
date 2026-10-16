@@ -11,12 +11,13 @@ import { buildStagePage } from './page.js';
 import '../app/pay.css';
 
 // (12/10, Maxence) l'objet raconte chaque étape (env3d.js) ; plus de titre UN POEME PAR MOIS (le bandeau le dit déjà)
+// (16/10) more : ce qu'on lit en touchant l'objet (seulement des faits sûrs)
 const STEPS = [
-  'une lettre mensuelle\nexclusive aux membres',
-  'un poème inédit au recto\nmes pensées de création au verso',
-  'le tout dans une\nenveloppe gaufrée',
-  'chaque mois une personne tirée au sort\nreçoit l’original',
-].map(txt => ({ txt }));
+  ['une lettre mensuelle\nexclusive aux membres', 'une lettre par mois, réservée aux membres\n9 € par mois, port compris, résiliable'],
+  ['un poème inédit au recto\nmes pensées de création au verso', 'tapé une fois à la machine, puis imprimé\nau dos, comment il est né'],
+  ['le tout dans une\nenveloppe gaufrée', 'glissé à la main dans une enveloppe noire\nle logo SINGULIES gaufré sur le rabat'],
+  ['chaque mois une personne tirée au sort\nreçoit l’original', 'la feuille tapée à la machine, l’unique\npart chez un membre tiré au sort'],
+].map(([txt, more]) => ({ txt, more }));
 
 // (12/10, Maxence : « la cohérence du paiement entre toutes les pages ») REJOINDRE ouvre le même panneau que RECEVOIR
 // (src/app/pay.css) : il monte du bandeau, l'objet remonte au-dessus et reste visible ; en attendant l'abonnement, on y

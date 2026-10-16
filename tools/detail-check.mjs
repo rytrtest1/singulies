@@ -1,0 +1,25 @@
+// Toucher l'objet = ce qu'il est vraiment (16/10) : la feuille (index), l'enveloppe d'un poème par mois (lettre).
+import { build, preview } from 'vite';
+import { chromium } from 'playwright';
+const PORT = 5203, OUT = 'C:/Users/maxen/AppData/Local/Temp/claude/detail-dist';
+await build({ logLevel: 'error', build: { outDir: OUT, emptyOutDir: true } });
+const server = await preview({ build: { outDir: OUT }, preview: { port: PORT, strictPort: true, host: 'localhost' }, logLevel: 'error' });
+const browser = await chromium.launch({ headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+page.on('pageerror', e => console.log('ERR', String(e)));
+await page.goto(`http://localhost:${PORT}/index.html?envoi=0&seed=3`);
+await page.waitForTimeout(5000);
+await page.mouse.click(195, 422); await page.keyboard.type('LEA', { delay: 90 });
+await page.keyboard.press('Enter'); await page.waitForTimeout(400); await page.keyboard.press('Enter');
+await page.waitForFunction(() => document.querySelector('#offre.on.bar-on'), null, { timeout: 60000 });
+await page.waitForTimeout(1500);
+const cap = () => page.evaluate(() => document.querySelector('.of-vit-t')?.getAttribute('aria-label'));
+console.log('avant', await cap());
+await page.mouse.click(300, 250); await page.waitForTimeout(400); console.log('touche', await cap());
+await page.mouse.click(300, 250); await page.waitForTimeout(400); console.log('encore', await cap());
+await page.goto(`http://localhost:${PORT}/lettre.html?envoi=0`); await page.waitForTimeout(3000);
+await page.evaluate(() => window.__lettre.setStep(2)); await page.waitForTimeout(5000);
+const g = await page.evaluate(() => { const r = document.querySelector('.lt-grab').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+await page.mouse.click(g[0], g[1]); await page.waitForTimeout(400);
+console.log('lettre', await page.evaluate(() => document.querySelector('.lt-cap-t').getAttribute('aria-label')));
+await browser.close(); server.httpServer.close();

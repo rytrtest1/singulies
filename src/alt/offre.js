@@ -24,11 +24,14 @@ const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o));
 // description (flèches de part et d'autre, ou glisser l'objet), RECEVOIR, le prix. Quatre étapes, la vue ne bouge pas,
 // un fil noir les relie (Maxence 11/10) ; un tour tout seul, il s'arrête sur la dernière ; dès qu'on touche aux flèches, plus de défilé automatique.
 // (11/10, Maxence) le cachet de cire AVANT la carte mystère ; les coupures de lignes sont choisies (\n)
+// (16/10, Maxence : « un tap permet de zoomer sur l'objet, en description : dimensions, papier, le process ») more :
+// ce qu'on lit quand on touche l'objet (un second toucher, ou glisser, rend la description) — À COMPLÉTER par Maxence
+// (grammage, papier) : seulement des faits sûrs ici
 const OBJETS = [
-  { id: 'feuille', txt: 'l’exemplaire unique de ton poème\ntapé à la machine à écrire' },
-  { id: 'carte', txt: 'une question du jeu SINGULIES\ntirée au hasard' },
-  { id: 'cachet', txt: 'le tout dans une enveloppe\nscellée à la cire' },
-  { id: 'mystere', txt: 'une carte mystère et un fil…\npour rester liés' },
+  { id: 'feuille', txt: 'l’exemplaire unique de ton poème\ntapé à la machine à écrire', more: 'une feuille noire A4, 21 × 29,7 cm\ntapée une seule fois : aucune copie' },
+  { id: 'carte', txt: 'une question du jeu SINGULIES\ntirée au hasard', more: 'une carte noire de 8,7 × 5,2 cm\nla question à l’encre blanche, logo gaufré' },
+  { id: 'cachet', txt: 'le tout dans une enveloppe\nscellée à la cire', more: 'une enveloppe noire fermée à la main\nun cachet de cire argentée de 27 mm' },
+  { id: 'mystere', txt: 'une carte mystère et un fil…\npour rester liés', more: 'une carte vierge pour m’écrire ton prénom\net un fil noir pour relier les singuliers' },
 ];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -499,9 +502,18 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // s'est posée dessus — on ne voit plus défiler les textes de toutes les étapes
   let txtT = 0;
   const txtFor = k => slideTxt(nbsp(OBJETS[k].txt), k === 0);
+  // (16/10) toucher l'objet : ce qu'il est vraiment (more), tapé à la place de la description ; encore = la description
+  let detail = false;
+  const toggleDetail = () => {
+    if (cur < 0 || !OBJETS[cur].more) return;
+    detail = !detail; clearTimeout(txtT);
+    slideTxt(nbsp(detail ? OBJETS[cur].more : OBJETS[cur].txt), false);
+    if (detail) count('alt/detail-' + OBJETS[cur].id);
+  };
   const show = k => {
     k = Math.max(0, Math.min(N - 1, k));
     if (k === cur) return;
+    detail = false;
     const back = cur >= 0 && k < cur; cur = k;
     dotsOn(k);
     root.classList.toggle('vit-last', k === N - 1);
@@ -590,6 +602,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       if (onName && Math.hypot(dx, dy) < 10 && performance.now() - st < 600 && root.scrollTop < 20) {
         const b = onName.box(); if (b && x > b[0] && x < b[2] && y > b[1] && y < b[3]) { onName.go(); return; }
       }
+      if (Math.hypot(dx, dy) < 10 && performance.now() - st < 600) { toggleDetail(); return; }
       if (Math.abs(dx) > 36 && Math.abs(dx) > 1.3 * Math.abs(dy) && performance.now() - st < 1500) goStep(dx < 0 ? 1 : -1, 1.5);
     };
     // (12/10) au doigt, le geste est décidé PENDANT qu'il se fait : en mode appli (écran d'accueil de l'iPhone), dès que
