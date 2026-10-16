@@ -298,20 +298,66 @@ async function loadLogoBg() {
     return { n, d };
   } catch (e) { console.warn('logo', e); return null; }
 }
-// les lignes du calligramme : pour chacune, une suite de prénoms (sa propre graine), son allure (px/s, signe alterné)
+// (17/10, Maxence : « plus organique ») les prénoms ne courent plus en lignes droites : ils suivent les courbes du logo,
+// comme les tailles d'une gravure — des contours parallèles au bord, à l'intérieur de chaque trait (un délié : une
+// ligne ; un plein : plusieurs), tirés une fois du champ de distance (carrés marchants), où les lettres coulent.
 let calli = null;
-function calliLines(fs) {
-  const rnd = mulberry(91), names = NAMES.filter(n => n.length <= 8);
-  const lines = [];
-  for (let k = 0; k < 140; k++) {
-    let txt = '';
-    while (txt.length < 360) txt += names[Math.floor(rnd() * names.length)].toUpperCase() + '   ';
-    const ch = [...txt], xs = [], track = 0.16 * fs;
-    let x = 0;
-    for (const c of ch) { xs.push(x); x += (c === ' ' ? 0.32 : (atlas.glyphs[c]?.adv ?? 0.6)) * fs + track; }
-    lines.push({ ch, xs, P: x, v: (k % 2 ? -1 : 1) * (2.6 + 2.2 * rnd()), ph: rnd() * x });
+function calliPaths(spacing) {
+  const { n, d } = logoD, paths = [];
+  for (let lev = -spacing / 2; lev > -1.9; lev -= spacing) {
+    const pt = new Map(), adj = new Map();
+    const key = (h, i, j) => (h ? 'h' : 'v') + i + ',' + j;
+    const P = (h, i, j) => {
+      const k = key(h, i, j);
+      if (!pt.has(k)) {
+        const a = d[j * n + i] - lev, b = h ? d[j * n + i + 1] - lev : d[(j + 1) * n + i] - lev, t = a / (a - b);
+        pt.set(k, h ? [(i + t) / (n - 1), j / (n - 1)] : [i / (n - 1), (j + t) / (n - 1)]);
+      }
+      return k;
+    };
+    const link = (a, b) => { (adj.get(a) || adj.set(a, []).get(a)).push(b); (adj.get(b) || adj.set(b, []).get(b)).push(a); };
+    const T = [[], [[3, 0]], [[0, 1]], [[3, 1]], [[1, 2]], [[3, 0], [1, 2]], [[0, 2]], [[3, 2]], [[2, 3]], [[0, 2]], [[0, 1], [2, 3]], [[1, 2]], [[1, 3]], [[0, 1]], [[3, 0]], []];
+    for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+      const v0 = d[j * n + i] < lev, v1 = d[j * n + i + 1] < lev, v2 = d[(j + 1) * n + i + 1] < lev, v3 = d[(j + 1) * n + i] < lev;
+      const c = v0 | (v1 << 1) | (v2 << 2) | (v3 << 3);
+      if (!T[c].length) continue;
+      const E = [() => P(1, i, j), () => P(0, i + 1, j), () => P(1, i, j + 1), () => P(0, i, j)];
+      for (const [ea, eb] of T[c]) link(E[ea](), E[eb]());
+    }
+    // les segments mis bout à bout (d'abord les bouts ouverts, puis les boucles)
+    const seen = new Set(), starts = [...adj.keys()].sort((x, y) => adj.get(x).length - adj.get(y).length);
+    for (const s0 of starts) {
+      if (seen.has(s0)) continue;
+      const line = [s0]; seen.add(s0);
+      let cur = s0;
+      for (;;) { const nx = adj.get(cur).find(k => !seen.has(k)); if (!nx) break; seen.add(nx); line.push(nx); cur = nx; }
+      const closed = line.length > 2 && adj.get(cur).includes(s0);
+      const pts = line.map(k => pt.get(k)); if (closed) pts.push(pts[0]);
+      const cum = [0]; for (let q = 1; q < pts.length; q++) cum.push(cum[q - 1] + Math.hypot(pts[q][0] - pts[q - 1][0], pts[q][1] - pts[q - 1][1]));
+      if (cum[cum.length - 1] > 0.03) paths.push({ pts, cum, L: cum[cum.length - 1], closed, lev });
+    }
   }
-  return lines;
+  return paths;
+}
+// le texte de chaque contour : des prénoms à la suite, son allure (px/s, sens alterné), sa phase
+function calliText(paths, fs, side) {
+  const rnd = mulberry(91), names = NAMES.filter(n => n.length <= 8);
+  return paths.map((p, k) => {
+    const Lpx = p.L * side;
+    let txt = '';
+    while (txt.length * fs * 0.8 < Lpx + 40) txt += names[Math.floor(rnd() * names.length)].toUpperCase() + '  ';
+    const ch = [...txt], xs = [], track = 0.14 * fs;
+    let x = 0;
+    for (const c of ch) { xs.push(x); x += (c === ' ' ? 0.34 : (atlas.glyphs[c]?.adv ?? 0.6)) * fs + track; }
+    return { ch, xs, v: (k % 2 ? -1 : 1) * (2.2 + 2.0 * rnd()), ph: rnd() * Lpx };
+  });
+}
+// un point d'un contour, à l'abscisse a (unités du logo) : position et tangente
+function onPath(p, a) {
+  const c = p.cum; let lo = 0, hi = c.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (c[m] <= a) lo = m; else hi = m; }
+  const A = p.pts[lo], B = p.pts[hi], t = (a - c[lo]) / Math.max(1e-9, c[hi] - c[lo]);
+  return [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, Math.atan2(B[1] - A[1], B[0] - A[0])];
 }
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const dAt = (u, v) => { const n = logoD.n, x = Math.min(n - 1, Math.max(0, Math.round(u * (n - 1)))), y = Math.min(n - 1, Math.max(0, Math.round(v * (n - 1)))); return logoD.d[y * n + x]; };
@@ -950,35 +996,37 @@ function frame(ts) {
   if (LOGO_BG && logoD) {
     const ZL = 33, side = Math.min(S.w * 1.12, S.h * 0.84, 980), mv = CFG.reduced ? 0 : 1;
     const cxL = vx - field.cam.x * focal / ZL, cyL = vy + field.cam.y * focal / ZL, x0 = cxL - side / 2, y0 = cyL - side / 2;
-    const fs = Math.max(3.4, side / 112), lh = fs * 1.3, cap = atlas.capHeight;   // (micro-typographie : une trame)
-    if (!calli || calli.fs !== fs) calli = { fs, lines: calliLines(fs) };
+    const fs = Math.max(3.4, side / 112), cap = atlas.capHeight;   // (micro-typographie : une trame)
+    // l'écart entre deux contours = une ligne de texte (en mm du logo)
+    const spacing = fs * 1.25 * LOGO_MM / side;
+    if (!calli || Math.abs(calli.fs - fs) > 0.05) { const paths = calliPaths(spacing); calli = { fs, paths, text: calliText(paths, fs, side) }; }
     const br = 0.9 + mv * 0.1 * Math.sin(S.t * 2 * Math.PI / 11);
-    const A = LOGO_K * 0.5 * grayOf(ZL) / Math.max(0.01, grayOf(ZL)) * smooth(OPEN_DARK + 1.2, OPEN_DARK + 7, S.t) * (T >= 0 ? 1 - smooth(0, 1.4, T) : 1) * br;
-    const nb = S.nameBox, pad = 1.2 * fs;
+    const A = LOGO_K * smooth(OPEN_DARK + 1.2, OPEN_DARK + 7, S.t) * (T >= 0 ? 1 - smooth(0, 1.4, T) : 1) * br;
+    // (17/10, Maxence : « pas de rectangle noir ; curseur seul, le signe entier ; en tapant, ça s'atténue selon les
+    // lettres ») un halo doux autour de chaque lettre du prénom, rien autour du curseur seul
+    const nameL = text ? place.filter(g => g.ch !== ' ') : [];
     if (A > 0.003) {
-      const nL = Math.ceil(side / lh);
-      for (let k = 0; k < nL; k++) {
-        const L = calli.lines[k % calli.lines.length], yb = y0 + (k + 0.5) * lh + 0.5 * cap * fs, vv = (yb - y0 - 0.5 * cap * fs) / side;
-        if (vv < 0 || vv > 1) continue;
-        const sh = ((L.ph + L.v * S.t * mv) % L.P + L.P) % L.P;
-        for (let i = 0; i < L.ch.length * 2; i++) {
-          const j = i % L.ch.length, c = L.ch[j]; if (c === ' ') continue;
+      calli.paths.forEach((p, k) => {
+        const tx = calli.text[k], Lpx = p.L * side, sh = tx.ph + tx.v * S.t * mv;
+        for (let i = 0; i < tx.ch.length; i++) {
+          const c = tx.ch[i]; if (c === ' ') continue;
+          if (tx.xs[i] > Lpx - fs) break;                                   // (un petit jour à la jonction, qui voyage)
           const gm = atlas.glyphs[c]; if (!gm) continue;
-          const x = x0 + L.xs[j] + (i >= L.ch.length ? L.P : 0) - sh;
-          if (x < x0 - fs || x > x0 + side) continue;
-          const xc = x + (gm.x0 + gm.x1) / 2 * fs, u = (xc - x0) / side;
-          if (u < 0 || u > 1) continue;
-          // dedans : la lettre est là ; au bord (± 0,35 mm du logo), elle paraît / s'efface en passant
-          const d = dAt(u, vv), m = Math.min(1, Math.max(0, (0.05 - d) / 0.35));
-          if (m <= 0.01) continue;
-          // la zone vide autour du prénom (et du curseur)
+          const cxl = (gm.x0 + gm.x1) / 2 * fs, w = (gm.x1 - gm.x0) * fs, h = (gm.y1 - gm.y0) * fs;
+          let apx = tx.xs[i] + sh + cxl;
+          if (p.closed) apx = ((apx % Lpx) + Lpx) % Lpx; else if (apx < 0 || apx > Lpx) continue;
+          const [u, v, th] = onPath(p, apx / side);
+          const ly = ((gm.y0 + gm.y1) / 2 + 0.5 * cap) * fs;
+          const xc = x0 + u * side - Math.sin(th) * ly, yc = y0 + v * side + Math.cos(th) * ly;
+          // la clarté vit un peu par endroits (deux ondes lentes), jamais uniforme
+          const org = 0.78 + 0.22 * Math.sin(u * 7.1 + v * 3.3 + S.t * 0.23 * mv) * Math.sin(v * 5.7 - u * 2.1 - S.t * 0.17 * mv);
           let z = 1;
-          if (nb) { const dx = Math.max(nb[0] - pad - xc, 0, xc - nb[2] - pad), dy = Math.max(nb[1] - pad - yb, 0, yb - nb[3] - pad); z = Math.min(1, Math.hypot(dx, dy) / (3 * fs)); }
-          const a = A * m * z * grayOf(ZL) * 1.6;
+          for (const g of nameL) { const r = Math.hypot(xc - (g.x + 0.35 * g.fs), yc - (g.y - 0.35 * g.fs)) / g.fs; if (r < 1.3) z = Math.min(z, Math.max(0, (r - 0.45) / 0.85)); }
+          const a = A * org * z * grayOf(ZL) * 1.6;
           if (a < 0.004) continue;
-          under.push({ box: [x + gm.x0 * fs, yb + gm.y0 * fs, x + gm.x1 * fs, yb + gm.y1 * fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: a, pxEm: fs });
+          under.push({ box: [xc - w / 2, yc - h / 2, xc + w / 2, yc + h / 2], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: a, pxEm: fs, rot: th });
         }
-      }
+      });
     }
   }
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig, energy: R?.energy, under,
