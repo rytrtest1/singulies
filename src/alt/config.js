@@ -35,3 +35,14 @@ export const ACROSTICHES = [];
 // Photo d'une feuille vierge prise bien à plat, de face ; zone = où taper, en % de la photo.
 // Exemple : { src: 'vrai/feuille-vierge.jpg', ratio: 1080 / 1440, zone: { left: 22, top: 17, width: 62, height: 66 } }
 export const FEUILLE_PHOTO = null;
+
+// (17/10) LES VRAIES PHOTOS, à déposer dans public/vrai/ (mode d'emploi : public/vrai/LISEZ-MOI.txt).
+// EN_VRAI : l'objet tel qu'il arrive (l'enveloppe fermée, le cachet, la feuille tapée, la carte, la machine…) — une
+// section « en vrai » sous la feuille, qui n'existe pas tant que la liste est vide. Photos en noir et blanc à l'écran.
+// Exemple : [{ src: 'vrai/enveloppe.jpg', legende: 'l’enveloppe, fermée à la cire' }, { src: 'vrai/machine.jpg', legende: 'la machine' }]
+export const EN_VRAI = [];
+// PORTRAIT : toi (à la machine, de préférence), pour « qui t'écrit » — vide = le texte seul.
+export const PORTRAIT = '';
+
+// (17/10, Maxence) le délai : dit dans les questions et les conditions (pas sur le bandeau)
+export const DELAI = 'je le poste dans la semaine qui suit ta commande';

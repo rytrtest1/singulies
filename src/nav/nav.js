@@ -104,9 +104,10 @@ export function installNav(opts) {
   inner.appendChild(track); root.append(tc, inner);
   const foot = document.createElement('div'); foot.className = 'nv-foot';
   const fcv = document.createElement('canvas'); fcv.setAttribute('aria-hidden', 'true');
-  const fsp = document.createElement('button'); fsp.type = 'button'; fsp.textContent = 'ETERNEL'; fsp.setAttribute('aria-label', 'ETERNEL, me contacter');   // (12/10, Maxence : SINGULIES est sous les enveloppes d'un poème par mois ; en bas, l'auteur)
+  const fsp = document.createElement('button'); fsp.type = 'button'; fsp.textContent = 'ETERNEL'; fsp.setAttribute('aria-label', 'ETERNEL, qui t’écrit');   // (12/10, Maxence : SINGULIES est sous les enveloppes d'un poème par mois ; en bas, l'auteur)
   // (11/10, Maxence) SINGULIES en bas = la signature du site, comme un pied de page : on y écrit (le jeu est dans le bandeau)
-  fsp.addEventListener('click', () => import('../menu/contact.js').then(m => m.openContact({ base: opts.base || './', reduced })));
+  // (17/10, Maxence : « il faut savoir qui je suis ») ETERNEL en bas = qui t'écrit (et de là, ECRIS-MOI)
+  fsp.addEventListener('click', () => import('../menu/auteur.js').then(m => m.openAuteur({ base: opts.base || './', reduced })));
   foot.append(fcv, fsp);
   const shadeT = document.createElement('div'), shadeB = document.createElement('div');
   shadeT.className = 'nv-shade t'; shadeB.className = 'nv-shade b';

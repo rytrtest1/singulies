@@ -1,0 +1,10 @@
+Les vraies photos du site (17/10).
+
+1. Déposer les photos ici (public/vrai/), en .jpg, 1600 px de large au plus (≈ 300 Ko chacune).
+2. Les déclarer dans src/alt/config.js :
+   - EN_VRAI  : l'objet tel qu'il arrive (section « en vrai » sous la feuille). Ex. :
+       export const EN_VRAI = [{ src: 'vrai/enveloppe.jpg', legende: 'l’enveloppe, fermée à la cire' }];
+   - PORTRAIT : toi, pour « qui t'écrit ». Ex. : export const PORTRAIT = 'vrai/eternel.jpg';
+   - ACROSTICHES : des poèmes déjà envoyés (avec l'accord des personnes) : ils remplacent les exemples de
+     « d'autres prénoms ». Ex. : ['vrai/acrostiche-1.jpg']
+3. Les photos s'affichent en noir et blanc (le site n'a pas de couleur). Fond sombre de préférence.

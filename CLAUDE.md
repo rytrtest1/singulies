@@ -412,3 +412,10 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 ## Pages légales et 404 (17/10)
 - Mentions : hébergeur = Cloudflare Pages (copie sur GitHub Pages). Conditions : garanties légales, « un poème par mois » = liste d'attente ; **médiateur de la consommation en commentaire dans conditions.html, à décommenter une fois l'adhésion faite**. Confidentialité : PayPal (maintenant), Stripe via la fonction Cloudflare (plus tard), hébergeurs, transferts hors UE, prénom gardé le temps de la visite. À remettre en cohérence si `RESERVATION` passe à false (paiement sur le site).
 - `public/404.html` (chemins absolus), `public/robots.txt` (essais et anciennes versions exclus), `public/sitemap.xml`. Manquent encore aux mentions : téléphone de l'éditeur, SIRET (et « TVA non applicable, art. 293 B du CGI » une fois micro-entrepreneur).
+
+## Qui t'écrit, questions, vraies photos (17/10, Maxence)
+- **ETERNEL en bas = « qui t'écrit »** (`src/menu/auteur.js`, `openAuteur`) : portrait (`PORTRAIT`), quelques lignes (`AUTEUR`, **texte provisoire à réécrire par Maxence**), ECRIS-MOI → la carte de contact, @e.t.ernel. Le même bloc est une section de la page du poème.
+- **Sections sous les autres poèmes** (le signe du bas les annonce) : *qui t'écrit*, *tes questions* (`src/alt/questions.js` : délai, c'est vraiment toi, offrir, date précise, prénom composé, hors de France, paiement selon `RESERVATION`, s'il ne plaît pas — une ouverte à la fois).
+- **Délai** : `DELAI` (config.js) « je le poste dans la semaine qui suit ta commande » — questions et conditions, pas sur le bandeau.
+- **Vraies photos** : `public/vrai/` (mode d'emploi `LISEZ-MOI.txt`) ; `EN_VRAI` → section *en vrai* (absente tant que vide), `PORTRAIT`, `ACROSTICHES` (remplacent les exemples). Affichées en noir et blanc.
+- Mentions : téléphone de l'éditeur ajouté.

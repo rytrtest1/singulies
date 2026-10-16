@@ -349,3 +349,20 @@
 .of-legal { position: relative; z-index: 3; text-align: center; padding: 8px 16px calc(var(--inset, 212px) + env(safe-area-inset-bottom)); font: 500 10px/2.4 'SG Garamond', Georgia, serif; letter-spacing: .22em; }
 .of-legal a { color: #fff; opacity: .32; text-decoration: none; margin: 0 .45em; white-space: nowrap; }
 .of-legal a:hover { opacity: .55; }
+
+/* (17/10) en vrai, qui t'écrit, tes questions : les sections du bas, dans la voix des pages légales */
+.of-sh { font: 500 15px/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; padding-left: .3em; color: #fff; opacity: .7; text-align: center; margin: 0 0 26px; font-weight: 500; }
+.of-vrai, .of-au, .of-qs { position: relative; z-index: 3; padding: 56px 16px 8px; }
+.of-vrai figure { margin: 0 auto 30px; max-width: 420px; }
+.of-vrai img { display: block; width: 100%; height: auto; filter: grayscale(1) brightness(.92); }
+.of-vrai figcaption { margin-top: 10px; text-align: center; font: 13px/1.6 'SG Machine', 'Courier New', monospace; color: rgba(255,255,255,.5); }
+.qs { max-width: 32em; margin: 0 auto; }
+.qs-i { border-top: 1px solid rgba(255,255,255,.08); }
+.qs-i:last-child { border-bottom: 1px solid rgba(255,255,255,.08); }
+.qs-i summary { list-style: none; cursor: pointer; padding: 13px 28px 13px 2px; position: relative; font: 500 16px/1.4 'SG Garamond', Georgia, serif; color: rgba(255,255,255,.82); }
+.qs-i summary::-webkit-details-marker { display: none; }
+.qs-i summary::after { content: ''; position: absolute; right: 6px; top: 50%; width: 7px; height: 7px; margin-top: -6px; border: solid rgba(255,255,255,.45);
+  border-width: 0 1px 1px 0; transform: rotate(45deg); transition: transform .3s ease, margin .3s ease; }
+.qs-i[open] summary::after { transform: rotate(-135deg); margin-top: -2px; }
+.qs-i summary:hover, .qs-i summary:focus-visible { color: #fff; outline: none; }
+.qs-i p { margin: 0 2px 16px; font: 14px/1.8 'SG Machine', 'Courier New', monospace; color: rgba(214,214,214,.86); }

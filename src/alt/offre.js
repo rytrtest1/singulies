@@ -7,7 +7,9 @@ import { acrostic } from '../basique/basique.js';
 import { mountExemples } from './exemples.js';
 import { count } from '../app/count.js';
 import { stitch } from './stitch.js';
-import { PRIX, STRIPE, STRIPE_PK, PAIEMENT_URL, FEUILLE_PHOTO, SHEET_INSET, RESERVATION } from './config.js';
+import { PRIX, STRIPE, STRIPE_PK, PAIEMENT_URL, FEUILLE_PHOTO, SHEET_INSET, RESERVATION, EN_VRAI } from './config.js';
+import { questionsHtml, wireQuestions } from './questions.js';
+import { auteurHtml, wireAuteur } from '../menu/auteur.js';
 
 const Q = new URLSearchParams(location.search);
 const TEST = Q.get('test') !== '0';
@@ -384,7 +386,11 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
       <div class="of-rest">
       <!-- (12/10) chaque section de la suite porte son nom (data-nom) : le signe du bas l'annonce et y mène -->
+      ${EN_VRAI.length ? `<section class="of-vrai of-sec" data-nom="en vrai" aria-label="En vrai"><h2 class="of-sh">en vrai</h2>${EN_VRAI.map(p => `<figure><img src="${esc(new URL(p.src, document.baseURI).href)}" alt="${esc(p.legende || '')}" loading="lazy" decoding="async" onerror="this.parentNode.remove()"><figcaption>${esc(p.legende || '')}</figcaption></figure>`).join('')}</section>` : ''}
       <section class="of-ex of-sec" data-nom="d’autres prénoms" aria-label="D’autres prénoms, d’autres poèmes"><div class="of-ex-host"></div></section>
+      <!-- (17/10, Maxence) qui écrit le poème, puis les questions qu'on se pose avant de commander -->
+      <section class="of-au of-sec" data-nom="qui t’écrit" aria-label="Qui t’écrit">${auteurHtml()}</section>
+      <section class="of-qs of-sec" data-nom="tes questions" aria-label="Tes questions"><h2 class="of-sh">tes questions</h2>${questionsHtml()}</section>
       <!-- (16/10) les pages légales, tout en bas, discrètes -->
       <nav class="of-legal"><a href="./mentions.html">MENTIONS</a><a href="./conditions.html">CONDITIONS</a><a href="./confidentialite.html">CONFIDENTIALITE</a></nav>
       </div>
@@ -398,6 +404,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     </div>`;
   document.body.appendChild(root);
   document.body.classList.add('of-open');
+  wireQuestions(root); wireAuteur(root, { name });
   // le fond de la page = celui du canvas (6) : quand la feuille remonte au défilement, aucune limite ne se voit
   document.documentElement.style.background = document.body.style.background = '#060606';
 
