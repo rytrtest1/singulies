@@ -4,7 +4,7 @@
 // Réglages (Cloudflare → ton Worker → Settings → Variables) :
 //   STRIPE_SECRET_KEY  (secret)  sk_test_… pour les essais, sk_live_… pour de vrai — tu la colles toi-même
 //   SITE               (texte)   https://singulies.com,https://www.singulies.com  (les origines autorisées, séparées par des virgules)
-//   PRIX_CENTIMES      (texte)   3000  (le prix est fixé ICI, jamais par la page)
+//   PRIX_CENTIMES      (texte)   3900  (le prix est fixé ICI, jamais par la page)
 // Points d'entrée :
 //   POST /session  { prenom, ref, retour }  → { clientSecret, id }
 //   GET  /status?session_id=cs_…            → { status, payment_status, prenom, ref }
@@ -53,7 +53,7 @@ async function createSession(env, req) {
     locale: 'fr',
     'line_items[0][quantity]': '1',
     'line_items[0][price_data][currency]': 'eur',
-    'line_items[0][price_data][unit_amount]': String(+env.PRIX_CENTIMES || 3000),
+    'line_items[0][price_data][unit_amount]': String(+env.PRIX_CENTIMES || 3900),
     'line_items[0][price_data][product_data][name]': 'Un prénom, un poème : ' + prenom,
     'line_items[0][price_data][product_data][description]': 'Acrostiche tapé à la machine par Eternel, posté chez toi (port compris).',
     'shipping_address_collection[allowed_countries][0]': 'FR',

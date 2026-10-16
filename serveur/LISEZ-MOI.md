@@ -25,7 +25,7 @@ Ensuite, chaque publication sur GitHub redéploie la fonction toute seule.
 
 **Sinon, sans GitHub** : Workers & Pages → Créer → **Commencer avec « Hello World »**, nomme-le, déploie ; **Modifier le
 code** : remplace tout par `serveur/paiement.js`, Déployer ; puis Variables et secrets : `STRIPE_SECRET_KEY` (Secret),
-`SITE` = `https://singulies.com,https://www.singulies.com`, `PRIX_CENTIMES` = `3000`.
+`SITE` = `https://singulies.com,https://www.singulies.com`, `PRIX_CENTIMES` = `3900`.
 
 Dans les deux cas, note l'adresse du Worker, du genre `https://singulies.toncompte.workers.dev`.
 

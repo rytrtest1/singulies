@@ -1,6 +1,6 @@
 // Version alternative (10/10) : le prénom avant de payer, la question après. À remplir par Maxence.
 
-export const PRIX = '30 €';                 // port compris
+export const PRIX = '39 €';                 // port compris
 // (10/10) la feuille se cadre au-dessus de ce qui viendra sous elle : RECEVOIR, la description, le prix (px, sans la
 // marge du bas de l'iPhone)
 export const SHEET_INSET = 214;
