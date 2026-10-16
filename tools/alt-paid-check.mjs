@@ -28,6 +28,8 @@ await page.waitForFunction(() => document.querySelector('#offre.bar-on'));
 await page.waitForTimeout(1200);
 out.barre = await page.evaluate(() => document.querySelector('.of-bar .of-go').textContent + ' / ' + document.querySelector('.of-price').textContent);
 await page.click('.of-bar .of-go');                 // RECEVOIR : directement le paiement (ou la réservation)
+// (16/10) réservation : pour moi / pour offrir
+await page.waitForTimeout(700); if (await page.$('.mc [data-for]')) { await page.screenshot({ path: 'captures/pour-qui.png' }); await page.click(`.mc [data-for="${process.argv.includes('offrir') ? 'offrir' : 'moi'}"]`); }
 await page.waitForTimeout(1500);
 if (!RES) {
   await page.waitForSelector('.of-pay .of-pin[type=email]');

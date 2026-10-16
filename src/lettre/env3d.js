@@ -96,7 +96,7 @@ export async function createEnvelope(gl, base = './') {
   function garM(i, t, out) {
     const g = gar[i], L = NG * G_SP, mv = reduced ? 0 : 1;
     let x = ((i * G_SP + G_V * t * mv) % L + L) % L - L / 2;
-    x *= 1 + 0.5 * out;                                            // (en partant : elles s'écartent)
+    x *= 1 + 1.6 * out;                                            // (en partant : elles s'écartent, loin de l'élue)
     const y = g.dy;
     const z = G_Z + g.dz + mv * 9 * Math.sin(t * 0.13 + g.ph) - 40 * out;
     const rz = mv * (0.045 * Math.sin(t * 0.17 + g.ph2) + 0.02 * Math.sin(t * 0.31 + g.ph));
@@ -134,15 +134,20 @@ export async function createEnvelope(gl, base = './') {
   // de l'enveloppe, et dedans
   // (13/10, Maxence) étape 1 : l'enveloppe du centre vient à sa place (SEL), son rabat s'ouvre, la feuille en sort par le
   // haut, vient au centre devant elle pendant que l'enveloppe s'en va, puis se retourne
-  const SEL = [0, -10, 2], OUT_ON = [1.9, 3.1], OUT_C = [2.9, 3.9], FLIP = [3.9, 5.5];
+  // (16/10, Maxence : « revois de A à Z : collisions, épaisseurs, transparence ») une seule règle : rien ne se
+  // traverse. On voit l'enveloppe par son dos (le rabat) : la poche est entre sa face (z 0) et son dos (z 1,6 mm) ; la
+  // feuille y est (z 0,8 mm), elle en sort par le haut DEVANT le rabat ouvert (qui est dans le plan de la face) ; une
+  // fois sortie tout entière, elle vient devant ; l'enveloppe recule loin derrière (et s'efface, loin) AVANT que la
+  // feuille ne redescende au centre ; puis elle se retourne.
+  const SEL = [0, -48, -8];                       // l'enveloppe choisie, au centre (bas sur celui de l'objet)
+  const COME = [0, 1.4], FLAP_O = [1.1, 2.0], OUT_ON = [1.9, 3.0], FWD = [3.0, 3.4], AWAY = [3.0, 4.0], DOWN = [3.4, 4.25], FLIP = [4.2, 5.6];
+  const OUT_Y = SEL[1] + EH / 2 + SHH / 2 + 2.5;  // la feuille tout juste sortie (son bas au-dessus de l'enveloppe)
+  const POCKET = 0.8 * EK;
   function sheetM(r0, r2, x0 = 0) {
     const fl = ease(span(FLIP[0], FLIP[1], r0)), lift = 7 * Math.sin(Math.PI * fl);
-    const a = ease(span(OUT_ON[0], OUT_ON[1], r0)), b = ease(span(OUT_C[0], OUT_C[1], r0));
-    // (dans la poche : derrière la face qu'on voit ; elle en sort tout entière par le haut avant de venir devant —
-    // jamais au travers de l'enveloppe)
-    const zin = SEL[2] - 0.8 * EK;
-    const fw = ease(span(OUT_C[0], OUT_C[0] + 0.35, r0)), bk = ease(span(OUT_C[0] + 0.5, OUT_C[1], r0));
-    const y = lerp(lerp(SEL[1], SEL[1] + EH + 4, a), 0, b), z = lerp(lerp(zin, SEL[2] + 7, fw), 0, bk);
+    const a = ease(span(OUT_ON[0], OUT_ON[1], r0)), f = ease(span(FWD[0], FWD[1], r0)), b = ease(span(DOWN[0], DOWN[1], r0));
+    const y = lerp(lerp(SEL[1], OUT_Y, a), 0, b);
+    const z = lerp(lerp(SEL[2] + POCKET, SEL[2] + 12, f), 0, b);
     let M = M4.mul(T(x0, y, z + lift), M4.model(0, Math.PI * fl, 0));
     if (r2 > 0) {
       const rot = ease(span(0.3, 1.6, r2)), sl = ease(span(1.8, 3.2, r2));
@@ -196,7 +201,7 @@ export async function createEnvelope(gl, base = './') {
   let wrapT = -1, wrapMap = null;
   function wrap() { if (vt < K[K.length - 1] - 0.5) return false; wrapT = performance.now() / 1000; wrapMap = null; vt = 0; lastT = null; return true; }
   const WRAP_D = 2.2;
-  let tNow = 0, sel = null;
+  let tNow = 0, sel = null, want = -1;
   function frame(W, H, cw, ch, t = 0, tilt = { x: 0, y: 0 }, spin = { x: 0, y: 0 }, p = 0, pT = p) {
     const moving = clock(pT); tNow = t;
     const v = stageView(cw, ch);
@@ -216,7 +221,7 @@ export async function createEnvelope(gl, base = './') {
     const fl = ease(span(FLIP[0], FLIP[1], r0));
     // l'enveloppe choisie : celle qui est au plus près du centre quand on quitte l'étape 0 (gardée jusqu'au retour)
     if (r0 <= 0.0001) sel = null;
-    else if (!sel) { let bi = 0, bd = 1e9; gar.forEach((g, i) => { const d = Math.abs(garM(i, t, 0).x); if (d < bd) { bd = d; bi = i; } }); sel = { i: bi, t }; }
+    else if (!sel) { let bi = 0, bd = 1e9; gar.forEach((g, i) => { const d = Math.abs(garM(i, t, 0).x); if (d < bd) { bd = d; bi = i; } }); sel = { i: want >= 0 ? want : bi, t }; want = -1; }
     const selOn = !!sel && r2 < 4.8;
     if (others > 0.01) {
       const v0 = stageView(cw, ch), half = v0.Hw * cw / ch * 0.5;
@@ -254,15 +259,16 @@ export async function createEnvelope(gl, base = './') {
       }
     }
     if (selOn && r2 <= 0) {
-      // elle vient au centre, droite (elle garde sa pose de dérive au moment du choix), son rabat s'ouvre ; la feuille
-      // sortie, elle descend et s'efface
-      const g = garM(sel.i, sel.t, 0).p, u = ease(span(0, 1.4, r0)), dn = ease(span(OUT_C[0], OUT_C[1] + 0.3, r0));
-      const q = [lerp(g[0], 0, u), lerp(g[1], 0, u), lerp(g[2], 0, u), lerp(g[3], SEL[0], u), lerp(g[4], SEL[1], u) - 34 * dn, lerp(g[5], SEL[2], u) - 20 * dn];
+      // elle vient au centre, droite, depuis sa place VIVANTE dans la guirlande (au retour, elle y retourne exactement :
+      // la guirlande a continué de défiler), son rabat s'ouvre ; la feuille sortie, elle recule loin et s'efface
+      const g = garM(sel.i, t, 0).p, u = ease(span(COME[0], COME[1], r0)), aw = ease(span(AWAY[0], AWAY[1], r0));
+      const q = [lerp(g[0], 0, u), lerp(g[1], 0, u), lerp(g[2], 0, u), lerp(g[3], SEL[0], u), lerp(g[4], SEL[1], u) + 10 * aw, lerp(g[5], SEL[2], u) - 90 * aw];
       const Me = M4.mul(R, M4.mul(M4.model(...q), S(EK)));
-      const flc = 1 - ease(span(1.0, 2.0, r0));
-      if (dn < 0.99) drawEnv(v, P, Me, { seed: gar[sel.i].seed, si: sel.i, fl: flc, ep: envPieces(0, flc), fade: 1 - dn });   // (à plat : la feuille dedans ne la traverse pas)
+      const flc = 1 - ease(span(FLAP_O[0], FLAP_O[1], r0));
+      const fd = 1 - span(AWAY[0] + 0.35, AWAY[1], r0);
+      if (fd > 0.01) drawEnv(v, P, Me, { seed: gar[sel.i].seed, si: sel.i, fl: flc, ep: envPieces(0, flc), fade: fd });
     }
-    if (r2 < 4.8 && r0 > 0.9) {
+    if (r2 < 4.8 && r0 > COME[1]) {
       // la feuille : dans l'enveloppe ouverte, elle en sort, vient devant au centre, puis se retourne (étape 1)
       const fade = 1;
       const Ms = M4.mul(R, sheetM(r0, r2));
@@ -270,7 +276,7 @@ export async function createEnvelope(gl, base = './') {
       // les lignes du poème au recto ; celles de la lettre au verso, seulement retournée (jamais au travers)
       const flk = r2 > 0 ? 1 : fl;
       // (ses lignes : pas tant qu'elle est dans la poche)
-      if (r2 < 3.0 && (r2 > 0 || r0 > OUT_ON[0] + 0.25)) for (const L of sheetLines) if ((L.side > 0 && flk < 0.55) || (L.side < 0 && flk > 0.45)) fil.draw(v.vp, v.eye, P, L.pts.map(q => ap(Ms, q)), FIL_R, { pitch: 1.0, fade });
+      if (r2 < 3.0 && (r2 > 0 || r0 > OUT_ON[0] + 0.3)) for (const L of sheetLines) if ((L.side > 0 && flk < 0.55) || (L.side < 0 && flk > 0.45)) fil.draw(v.vp, v.eye, P, L.pts.map(q => ap(Ms, q)), FIL_R, { pitch: 1.0, fade });
     }
     // ---- 3 l'enveloppe, le cachet ; 4 le tirage ----
     if (r2 > 0) {
@@ -299,5 +305,18 @@ export async function createEnvelope(gl, base = './') {
     const a = v.project(-hw, y1), c = v.project(hw, y0);
     return { l: a[0], t: a[1], r: c[0], b: c[1] };
   }
-  return { frame, rect, flowPx, wrap, bottom: () => Y_B, keys: LKEYS, state: () => ({ vt }), seek: x => { vt = x; } };   // (essais)
+  // (16/10, Maxence) toucher une enveloppe de la guirlande la choisit : celle sous le doigt (la plus proche)
+  function pick(x, y, cw, ch) {
+    if (vt > 0.01) return -1;
+    const v = stageView(cw, ch);
+    let best = -1, bz = -1e9;
+    gar.forEach((g, i) => {
+      const m = garM(i, tNow, 0), c = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => { const w = ap(m.M, [a * ENV.w / 2, b * ENV.h / 2, 0]); return v.project(w[0], w[1], w[2]); });
+      const l = Math.min(...c.map(q => q[0])), r = Math.max(...c.map(q => q[0])), t0 = Math.min(...c.map(q => q[1])), b0 = Math.max(...c.map(q => q[1]));
+      if (x > l && x < r && y > t0 && y < b0 && m.p[5] > bz) { bz = m.p[5]; best = i; }
+    });
+    return best;
+  }
+  function choose(i) { if (i >= 0 && vt <= 0.01) want = i; }
+  return { frame, rect, flowPx, wrap, pick, choose, bottom: () => Y_B, keys: LKEYS, state: () => ({ vt }), seek: x => { vt = x; } };   // (essais)
 }

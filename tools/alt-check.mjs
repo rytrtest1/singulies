@@ -27,6 +27,8 @@ await page.evaluate(() => { const o = document.getElementById('offre'); o.scroll
 await page.waitForTimeout(800); await shot('4-bas');
 await page.evaluate(() => { document.getElementById('offre').scrollTop = 0; });
 await page.click('.of-bar .of-go');
+// (16/10) réservation : pour moi / pour offrir
+await page.waitForTimeout(700); if (await page.$('.mc [data-for]')) { await page.screenshot({ path: 'captures/pour-qui.png' }); await page.click(`.mc [data-for="${process.argv.includes('offrir') ? 'offrir' : 'moi'}"]`); }
 await page.waitForTimeout(1200);
 if (FOR === 'offrir') await page.click('[data-for="offrir"]');
 await page.fill('.of-pay .of-pin[type=email]', 'essai@exemple.fr');

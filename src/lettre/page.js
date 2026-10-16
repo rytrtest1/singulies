@@ -83,6 +83,8 @@ export function buildStagePage(host, o) {
   const s1 = (x, y) => {
     if (sx == null) return; const dx = x - sx, dy = y - sy; sx = null;
     if (performance.now() - st0 > 900) return;
+    // (16/10, Maxence) toucher une enveloppe de la guirlande : elle est choisie, l'étape suivante
+    if (Math.hypot(dx, dy) < 10 && scene && scene.pick && k === 0) { const i = scene.pick(x, y, innerWidth, innerHeight); if (i >= 0) { scene.choose(i); setStep(1); return; } }
     // (13/10, Maxence : « cohérence PARTOUT ») depuis le dernier point, le geste vers la suite revient au premier
     // (13/10) l'objet peut enchaîner du dernier au premier sans rembobiner (un poème par mois : scene.wrap)
     if (Math.abs(dx) > 42 && Math.abs(dx) > 1.4 * Math.abs(dy)) { if (dx < 0 && k === N - 1) { wrapTo0(); return; } setStep(k + (dx < 0 ? 1 : -1)); }
@@ -120,7 +122,7 @@ export function buildStagePage(host, o) {
       host.insertBefore(wordEl, host.firstChild);                      // (sous le canvas de l'objet : derrière les lettres)
     }
     const f = scene.flowPx(W, innerHeight), op = Math.max(0, Math.min(1, f.o));
-    wordEl.style.top = f.y.toFixed(1) + 'px'; wordEl.style.opacity = op.toFixed(3);
+    wordEl.style.top = f.y.toFixed(1) + 'px'; wordEl.style.setProperty('--o', op.toFixed(3));
     if (op < 0.005) return;
     const cv = wordEl.querySelector('canvas'), sp = wordEl.querySelector('span'), d = Math.min(3, devicePixelRatio || 1), hh = 30;
     if (cv.width !== Math.round(W * d)) { cv.width = Math.round(W * d); cv.height = hh * d; Object.assign(cv.style, { width: W + 'px', height: hh + 'px' }); }

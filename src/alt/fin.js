@@ -87,6 +87,23 @@ export function finalScreen(order, home) {
   return d;
 }
 
+// (16/10, Maxence) dès RECEVOIR (réservation) : pour moi, ou pour offrir ? → true si offert, null si l'on revient
+export function askFor() {
+  return new Promise(res => {
+    const d = screen(`<p class="mc-k">ce poème,<br>c’est pour toi ?</p>
+      <div class="mc-how">
+        <button type="button" data-for="moi">pour moi</button>
+        <button type="button" data-for="offrir">pour offrir</button>
+      </div>
+      <p class="small"><a href="#" data-x>revenir</a></p>`, { over: true });
+    const end = v => { removeEventListener('keydown', esc_); leave(d); res(v); };
+    const esc_ = e => { if (e.key === 'Escape') end(null); };
+    addEventListener('keydown', esc_);
+    d.querySelectorAll('[data-for]').forEach(b => b.addEventListener('click', () => end(b.dataset.for === 'offrir'), { once: true }));
+    d.querySelector('[data-x]').addEventListener('click', e => { e.preventDefault(); end(null); });
+  });
+}
+
 // un poème offert, une fois payé : comment je l'écris ? → 'question' | 'lien' | 'blanche' | 'impro'
 export function askHow(name) {
   return new Promise(res => {

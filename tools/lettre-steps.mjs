@@ -6,7 +6,7 @@ const OUT = process.argv[2] || '.', VTS = (process.argv[3] || '0,0.8,1.6,2.6,3.6
 const PORT = 5204;
 const server = await createServer({ server: { port: PORT, strictPort: true, host: 'localhost' }, logLevel: 'error' });
 await server.listen();
-const browser = await chromium.launch({ headless: true, executablePath: '/opt/pw-browsers/chromium', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await chromium.launch({ headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
 page.setDefaultTimeout(300000);
 page.on('pageerror', e => console.error('page', e));

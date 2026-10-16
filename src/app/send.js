@@ -162,7 +162,7 @@ export function send(detail) {
 // (11/10) un message du site (« me contacter ») ou une place réservée (« un poème par mois ») : le modèle des demandes
 // (aucun nouveau modèle EmailJS), « genre » dit ce que c'est ; le message à la place du texte, l'email en lien
 // d : { kind: 'message' | 'club', text?, email, name? } ; rend false si rien n'est parti (essais : ?envoi=0)
-const NOTE = { message: 'message du site (me contacter)', club: 'liste d’attente : un poème par mois' };
+const NOTE = { message: 'message du site (me contacter)', club: 'liste d’attente : un poème par mois', clubOffert: 'liste d’attente : un poème par mois, à offrir' };
 export function sendNote(d) {
   rememberEmail(d.email);
   if (OFF) return false;

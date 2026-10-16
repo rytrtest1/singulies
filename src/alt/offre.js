@@ -327,7 +327,16 @@ function pay(name) {
   ref = ref || orderRef(name);
   try { localStorage.setItem(K_ORDER, JSON.stringify({ name, ref, at: Date.now(), gift: !!giftPref })); } catch { /* */ }
   // réservation : rien à payer, la suite tout de suite (la demande part marquée « à payer »)
-  if (RESERVE) { count('alt/reserve'); paidHere(name, ref, { reserve: true }); return; }
+  // (16/10, Maxence) avant la cérémonie : pour moi ou pour offrir (offert : après le tirage, « comment je l'écris ? »)
+  if (RESERVE) {
+    import('./fin.js').then(f => f.askFor()).then(g => {
+      if (g == null) return;
+      giftPref = g;
+      try { localStorage.setItem(K_ORDER, JSON.stringify({ name, ref, at: Date.now(), gift: g })); } catch { /* */ }
+      count('alt/reserve' + (g ? '/offrir' : '')); paidHere(name, ref, { reserve: true, gift: g });
+    });
+    return;
+  }
   count('alt/commander');
   if ((STRIPE_PK && PAIEMENT_URL) || Q.get('paiement') === 'faux' || (!STRIPE && onPaidHere)) { openPanel(name, ref); return; }
   if (STRIPE) {
