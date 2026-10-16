@@ -14,7 +14,7 @@ export const RESERVATION = true;   // (16/10, Maxence : pas encore de SIRET — 
 
 // Lien de paiement Stripe (Payment Link). Vide = paiement simulé (on va directement à merci.html).
 // Dans Stripe, « Après le paiement » → « Rediriger vers votre site » :
-//   https://rytrtest1.github.io/singulies/merci.html?session={CHECKOUT_SESSION_ID}
+//   https://singulies.com/merci.html?session={CHECKOUT_SESSION_ID}
 // et cocher « collecter l'adresse de livraison » (France) + l'email. Le prénom part dans client_reference_id.
 export const STRIPE = '';
 

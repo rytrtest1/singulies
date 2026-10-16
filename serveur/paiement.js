@@ -3,7 +3,7 @@
 // dessiné par le site (Checkout Sessions en mode « elements »).
 // Réglages (Cloudflare → ton Worker → Settings → Variables) :
 //   STRIPE_SECRET_KEY  (secret)  sk_test_… pour les essais, sk_live_… pour de vrai — tu la colles toi-même
-//   SITE               (texte)   https://rytrtest1.github.io  (l'origine autorisée ; à changer avec le nom de domaine)
+//   SITE               (texte)   https://singulies.com,https://www.singulies.com  (les origines autorisées, séparées par des virgules)
 //   PRIX_CENTIMES      (texte)   3000  (le prix est fixé ICI, jamais par la page)
 // Points d'entrée :
 //   POST /session  { prenom, ref, retour }  → { clientSecret, id }
@@ -12,9 +12,12 @@
 
 const API = 'https://api.stripe.com/v1';
 
-function cors(env, res) {
+// (16/10) plusieurs origines possibles (singulies.com, www, l'ancienne adresse github.io le temps de la bascule)
+const sites = env => String(env.SITE || '').split(',').map(s => s.trim()).filter(Boolean);
+function cors(env, res, req) {
   const h = new Headers(res.headers);
-  h.set('Access-Control-Allow-Origin', env.SITE);
+  const ok = sites(env);
+  h.set('Access-Control-Allow-Origin', ok.includes(req.headers.get('Origin')) ? req.headers.get('Origin') : ok[0] || '');
   h.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   h.set('Access-Control-Allow-Headers', 'Content-Type');
   h.set('Vary', 'Origin');
@@ -42,7 +45,7 @@ async function createSession(env, req) {
   if (!prenom) return json({ error: 'prénom manquant' }, 400);
   // retour après paiement : seulement vers le site (jamais une adresse fournie par un inconnu)
   let retour = String(body.retour || '');
-  if (!retour.startsWith(env.SITE + '/')) return json({ error: 'retour refusé' }, 400);
+  if (!sites(env).some(o => retour.startsWith(o + '/'))) return json({ error: 'retour refusé' }, 400);
   retour += (retour.includes('?') ? '&' : '?') + 'session={CHECKOUT_SESSION_ID}';
   const s = await stripe(env, 'POST', '/checkout/sessions', {
     ui_mode: 'elements',   // le formulaire est dessiné par le site (champs Stripe habillés à ses couleurs)
@@ -75,13 +78,13 @@ async function status(env, url) {
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
-    if (req.method === 'OPTIONS') return cors(env, new Response(null, { status: 204 }));
+    if (req.method === 'OPTIONS') return cors(env, new Response(null, { status: 204 }), req);
     try {
-      if (req.method === 'POST' && url.pathname === '/session') return cors(env, await createSession(env, req));
-      if (req.method === 'GET' && url.pathname === '/status') return cors(env, await status(env, url));
-      return cors(env, json({ error: 'introuvable' }, 404));
+      if (req.method === 'POST' && url.pathname === '/session') return cors(env, await createSession(env, req), req);
+      if (req.method === 'GET' && url.pathname === '/status') return cors(env, await status(env, url), req);
+      return cors(env, json({ error: 'introuvable' }, 404), req);
     } catch (e) {
-      return cors(env, json({ error: String(e.message || e) }, 502));
+      return cors(env, json({ error: String(e.message || e) }, 502), req);
     }
   },
 };

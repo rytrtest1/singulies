@@ -1,4 +1,4 @@
-# Cloudflare : seulement la fonction de paiement (serveur/paiement.js) — le site, lui, reste sur GitHub Pages.
+# Cloudflare : seulement la fonction de paiement (serveur/paiement.js) — le site, lui, est le projet Pages « singulies » (singulies.com).
 # (Même réglage que serveur/wrangler.toml, pour un Worker relié au dépôt depuis sa racine.)
 # La clé secrète Stripe N'EST PAS ici : Cloudflare → Worker → Paramètres → Variables et secrets → STRIPE_SECRET_KEY (Secret).
 name = "singulies"
@@ -6,5 +6,5 @@ main = "serveur/paiement.js"
 compatibility_date = "2025-09-01"
 
 [vars]
-SITE = "https://rytrtest1.github.io"
+SITE = "https://singulies.com,https://www.singulies.com,https://rytrtest1.github.io"
 PRIX_CENTIMES = "3000"

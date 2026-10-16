@@ -17,7 +17,7 @@ await page.goto(`http://localhost:${PORT}/email-assets.html`);
 await page.waitForFunction(() => window.__assets && window.__assets.ready);
 if (process.argv[2] !== 'q') for (const [name, url] of await page.evaluate(() => window.__assets.vignettes())) writeFileSync('public/' + name, Buffer.from(url.split(',')[1], 'base64'));
 // les questions : adresses absolues, à changer le jour du nom de domaine
-const SITE = 'https://rytrtest1.github.io/singulies/';
+const SITE = 'https://singulies.com/';
 const esc = t => t.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 mkdirSync('public/q', { recursive: true });
 for (const { id, q } of JSON.parse(readFileSync('src/cards/questions.json', 'utf8'))) {

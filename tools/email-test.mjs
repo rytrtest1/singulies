@@ -2,7 +2,7 @@
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
 
-const LIVE = 'https://rytrtest1.github.io/singulies/';
+const LIVE = 'https://singulies.com/';
 const PORT = 5194;
 const server = await createServer({ server: { port: PORT, strictPort: true, host: 'localhost' }, logLevel: 'error' });
 await server.listen();

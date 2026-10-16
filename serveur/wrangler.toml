@@ -7,5 +7,5 @@ main = "paiement.js"
 compatibility_date = "2025-09-01"
 
 [vars]
-SITE = "https://rytrtest1.github.io"
+SITE = "https://singulies.com,https://www.singulies.com,https://rytrtest1.github.io"
 PRIX_CENTIMES = "3000"

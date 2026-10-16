@@ -8,7 +8,7 @@ elle garde ta **clé secrète** Stripe et crée le paiement. La clé secrète ne
 2. **Développeurs → Clés API** : note la **clé publiable** `pk_test_…` (publique, sans danger) et garde la **clé secrète**
    `sk_test_…` pour l'étape 2 — tu la colleras toi-même, ne l'envoie à personne (ni à Claude).
 3. **Paramètres → Moyens de paiement** : active cartes, Apple Pay, Google Pay et, si proposé, PayPal.
-4. **Paramètres → Moyens de paiement → Domaines** : ajoute `rytrtest1.github.io` (nécessaire pour Apple Pay dans la page).
+4. **Paramètres → Moyens de paiement → Domaines** : ajoute `singulies.com` et `www.singulies.com` (nécessaire pour Apple Pay dans la page).
 5. Rien à régler côté apparence : le panneau de paiement est dessiné par le site (noir, Garamond, machine) ; les champs
    de Stripe (adresse, carte, Apple Pay / Google Pay) y sont habillés aux mêmes couleurs et polices.
 
@@ -25,7 +25,7 @@ Ensuite, chaque publication sur GitHub redéploie la fonction toute seule.
 
 **Sinon, sans GitHub** : Workers & Pages → Créer → **Commencer avec « Hello World »**, nomme-le, déploie ; **Modifier le
 code** : remplace tout par `serveur/paiement.js`, Déployer ; puis Variables et secrets : `STRIPE_SECRET_KEY` (Secret),
-`SITE` = `https://rytrtest1.github.io`, `PRIX_CENTIMES` = `3000`.
+`SITE` = `https://singulies.com,https://www.singulies.com`, `PRIX_CENTIMES` = `3000`.
 
 Dans les deux cas, note l'adresse du Worker, du genre `https://singulies.toncompte.workers.dev`.
 
