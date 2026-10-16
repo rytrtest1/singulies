@@ -1197,7 +1197,10 @@ if (ALT) {
     // (16/10, Maxence) depuis la feuille, toucher UN PRENOM UN POEME = revenir au champ pour changer de prénom
     redo: () => !onNames() && !S.paid && !document.querySelector('.of.paying, .of.env'),
     onCurrent: () => { if (!onNames() && !S.paid && !document.querySelector('.of.paying, .of.env')) editName(); },
-    calm: () => !onNames() && !!document.querySelector('#offre.on.bar-on') && !document.querySelector('.of.paying, .of.env') && S.trans == null,
+    // (17/10, Maxence : « c'était bien de charger avant ») de nouveau tôt, aussi sur le portail : la préparation ne
+    // bloque plus (shaders compilés en parallèle, gl.js programAsync)
+    calm: () => !document.querySelector('.of.paying, .of.env') && S.trans == null,
+    preAt: 0,
     quiet: () => (onNames() ? !S.typed : !!offerObj && offerObj.top < 30 && !document.querySelector('.of.paying, .of.env')),
     solo: () => !!offerObj && offerObj.top > offerObj.storyLen() + 40,
     side: () => !!document.querySelector('#offre.on.bar-on') && (!offerObj || offerObj.top < 30),

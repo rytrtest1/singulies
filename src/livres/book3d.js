@@ -54,8 +54,10 @@ export function stageLamp(L, v, t, tilt, kf = 1.25, az0 = 0, calm = false) {
 export async function createBook(gl, base = './', list = BOOKS) {
   const card = await createCardRenderer(gl, base);
   const L = { ...LOOK };
+  // (17/10) chaque maillage dans sa propre tâche : la préparation ne fait plus d'à-coup
+  const yieldT = () => new Promise(r => setTimeout(r, 0));
   const books = await Promise.all(list.map(async (b, i) => {
-    card.addShape('book-' + b.id, { w: b.w, h: b.h, r: 0.6, t: b.t, fine: null });
+    await yieldT(); card.addShape('book-' + b.id, { w: b.w, h: b.h, r: 0.6, t: b.t, fine: null });
     const im = new Image(); im.src = base + b.ink; await im.decode();
     const ink = new OffscreenCanvas(Math.round(b.w * PX), Math.round(b.h * PX)), ix = ink.getContext('2d');
     ix.fillStyle = '#000'; ix.fillRect(0, 0, ink.width, ink.height);
@@ -69,7 +71,7 @@ export async function createBook(gl, base = './', list = BOOKS) {
   // la couverture et la moitié des pages tournent autour du dos ; toucher encore, ou glisser = la page suivante (une
   // feuille tourne) ; glisser vers le bas, Échap, toucher à côté = il se referme. Téléphone : la page de droite au centre,
   // un peu plus grande (on la lit), la gauche dépasse du bord ; ordinateur : la double page centrée.
-  for (const b of books) { card.addShape('bookhalf-' + b.id, { w: b.w, h: b.h, r: 0.6, t: b.t / 2, fine: null }); card.addShape('leaf-' + b.id, { w: b.w, h: b.h, r: 0.6, t: 0.12, fine: null }); }
+  for (const b of books) { await yieldT(); card.addShape('bookhalf-' + b.id, { w: b.w, h: b.h, r: 0.6, t: b.t / 2, fine: null }); await yieldT(); card.addShape('leaf-' + b.id, { w: b.w, h: b.h, r: 0.6, t: 0.12, fine: null }); }
   const spreads = await fetch(base + 'livres/pages/pages.json').then(r => r.json()).catch(() => null);
   const texs = new Map(), loading = new Map();
   const pageTex = (b, name) => {

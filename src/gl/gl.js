@@ -25,11 +25,30 @@ export function program(gl, vs, fs) {
   gl.attachShader(p, shader(gl, gl.VERTEX_SHADER, vs));
   gl.attachShader(p, shader(gl, gl.FRAGMENT_SHADER, fs));
   gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS) && !gl.isContextLost()) throw new Error('link: ' + gl.getProgramInfoLog(p));
+  return linked(gl, p);
+}
+function linked(gl, p) {
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS) && !gl.isContextLost()) {
+    const sh = gl.getAttachedShaders(p) || [], log = sh.map(s => gl.getShaderInfoLog(s)).filter(Boolean).join('\n');
+    throw new Error('link: ' + gl.getProgramInfoLog(p) + (log ? '\n' + log : ''));
+  }
   const u = {};
   const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
   for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(p, info.name); }
   return { p, u };
+}
+
+// (17/10) la même chose sans bloquer la page : le pilote compile en parallèle (KHR_parallel_shader_compile) et l'on
+// attend, image après image, qu'il ait fini — le gros shader des objets bloquait 0,8 s par page voisine préparée (le
+// « gel » à l'apparition du menu). Sans l'extension : comme program().
+export async function programAsync(gl, vs, fs) {
+  const ext = gl.getExtension('KHR_parallel_shader_compile');
+  if (!ext) return program(gl, vs, fs);
+  const p = gl.createProgram(), mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); gl.attachShader(p, s); };
+  mk(gl.VERTEX_SHADER, vs); mk(gl.FRAGMENT_SHADER, fs);
+  gl.linkProgram(p);
+  while (!gl.isContextLost() && !gl.getProgramParameter(p, ext.COMPLETION_STATUS_KHR)) await new Promise(r => setTimeout(r, 16));
+  return linked(gl, p);
 }
 
 // Texture R16F filtrable à partir d'un Float32Array (distance signée de l'atlas).

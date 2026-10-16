@@ -74,6 +74,8 @@ body { -webkit-tap-highlight-color: transparent; }
 .aide.on:hover { opacity: .7; }
 .aide .aide-k { display: inline-block; padding: 12px 18px; }
 .aide.open .aide-k { display: none; }
-.aide .aide-t { display: block; white-space: pre-line; letter-spacing: .04em; font-size: 16px; padding: 0 0 12px; }
+.aide .aide-t { display: block; white-space: pre-line; letter-spacing: .04em; font-size: 16px; padding: 22px 8px 30px; }
+/* (les prénoms du champ passent derrière : un noir doux sous le texte pour qu'il se lise) */
+.aide.open { background: radial-gradient(closest-side, rgba(6,6,6,.92) 55%, rgba(6,6,6,0)); }
 .aide.open.on { opacity: .72; }
 .sg-away .aide { display: none; }

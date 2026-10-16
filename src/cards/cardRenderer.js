@@ -5,7 +5,7 @@
 // Matière : papier noir mat — diffusion d'Oren-Nayar, reflet GGX large, lustre velouté (sheen),
 // fibres qui scintillent ; tranche plus claire, bords un peu cassés, irréguliers.
 import '../app/compat.js';            // (Safari d'avant iOS 17 : de simples <canvas> à la place d'OffscreenCanvas)
-import { program } from '../gl/gl.js';
+import { programAsync } from '../gl/gl.js';
 import { LUM } from '../app/lum.js';
 import { RELIEF, MAILLE } from '../app/perf.js';
 
@@ -708,12 +708,24 @@ function imageTexture(gl, img) {
 }
 
 // relief du logo : PNG 16 bits (R fort, V faible) → distance signée en mm, texture R16F filtrable
+// (17/10) le relief du logo, décodé une seule fois pour toutes les scènes de la page (chaque objet des pages voisines a
+// la sienne : le recalcul faisait un à-coup)
+let logoData = null;
 async function logoTexture(gl, img) {
-  const bm = await createImageBitmap(img, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
-  const c = new OffscreenCanvas(bm.width, bm.height), x = c.getContext('2d');
-  x.drawImage(bm, 0, 0);
-  const d = x.getImageData(0, 0, bm.width, bm.height).data, n = bm.width * bm.height, f = new Float32Array(n);
-  for (let i = 0; i < n; i++) f[i] = ((d[4 * i] * 256 + d[4 * i + 1]) / 65535 * 2 - 1) * CARD.logoRange;
+  logoData = logoData || (async () => {
+    const bm = await createImageBitmap(img, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+    const c = new OffscreenCanvas(bm.width, bm.height), x = c.getContext('2d');
+    x.drawImage(bm, 0, 0);
+    const d = x.getImageData(0, 0, bm.width, bm.height).data, n = bm.width * bm.height, f = new Float32Array(n);
+    // (par tranches : jamais une image de plus de quelques ms)
+    for (let i0 = 0; i0 < n; i0 += 131072) {
+      for (let i = i0, e = Math.min(n, i0 + 131072); i < e; i++) f[i] = ((d[4 * i] * 256 + d[4 * i + 1]) / 65535 * 2 - 1) * CARD.logoRange;
+      await new Promise(r => setTimeout(r, 0));
+    }
+    return { width: bm.width, height: bm.height, f };
+  })();
+  const { f, ...bm } = await logoData;
+  await new Promise(r => setTimeout(r, 0));
   const t = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, t);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -727,7 +739,7 @@ async function logoTexture(gl, img) {
 
 export async function createCardRenderer(gl, base = './') {
   const [paperImg, logoImg] = await Promise.all([loadImage(base + 'cards/paper.jpg'), loadImage(base + 'cards/logo.png')]);
-  const prog = program(gl, VS, FS);
+  const prog = await programAsync(gl, VS, FS);   // (17/10) sans bloquer la page
   const meshes = {};
   function upload(name, mesh, dims = CARD) {
     const vao = gl.createVertexArray(), vbo = gl.createBuffer(), ibo = gl.createBuffer();

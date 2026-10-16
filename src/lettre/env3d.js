@@ -51,15 +51,17 @@ const RECTO = [0.62, 0.5, 0.66, 0.46, 0.58, 0.64, 0.44, 0.52];
 const VERSO = [0.9, 0.84, 0.92, 0.4, null, 0.88, 0.94, 0.86, 0.78, 0.3, null, 0.9, 0.82, 0.6];
 export async function createEnvelope(gl, base = './') {
   const card = await createCardRenderer(gl, base);
+  // (17/10) chaque maillage dans sa propre tâche : la préparation ne fait plus d'à-coup
+  const yieldT = () => new Promise(r => setTimeout(r, 0));
   card.addShape('env', { ...ENV, fine: null });
-  card.addShape('envBack', { ...ENV, h: ENV_BACK_H, fine: null });
-  card.addShape('flap', { ...ENV, h: FLAP_H, fine: null });
-  card.addShape('sheetA5', { w: A5.w, h: A5.h, r: SHEET.r, t: SHEET.t, fine: [10, 10, 0.25, 0, LOGO_A5] });
+  await yieldT(); card.addShape('envBack', { ...ENV, h: ENV_BACK_H, fine: null });
+  await yieldT(); card.addShape('flap', { ...ENV, h: FLAP_H, fine: null });
+  await yieldT(); card.addShape('sheetA5', { w: A5.w, h: A5.h, r: SHEET.r, t: SHEET.t, fine: [10, 10, 0.25, 0, LOGO_A5] });
   // le cachet : tiré une fois par visite (chaque cachet est différent), le logo droit
   let sd = (Math.random() * 1e9) >>> 0 || 11; const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
   rnd.range = (a, b) => a + (b - a) * rnd();
   const SD = sealDraw(rnd), SH = SEAL_SHAPE0, F1 = sealForm(1, SEAL_LOOK0, SH);
-  const sealLod = card.addShape('seal-lettre', { w: SEAL_D, h: SEAL_D, r: SEAL_D / 2, t: 0.2, fine: [SEAL_D / 2 + 1, SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: SEAL_WOB, wobPhase: SD.wobPhase, alwaysFine: true });
+  await yieldT(); const sealLod = card.addShape('seal-lettre', { w: SEAL_D, h: SEAL_D, r: SEAL_D / 2, t: 0.2, fine: [SEAL_D / 2 + 1, SEAL_D / 2 + 1, 0.2, 0, 0], seg: 48, wobble: SEAL_WOB, wobPhase: SD.wobPhase, alwaysFine: true });
   const envBase = { seed: 23, paperXf: [0.4, -0.3, 0, 0], warp: [0.1, -0.04, 0], paperTile: 0.6 * 87 / 0.7, paperLo: 0.6, noLogo: true };
   const sheetV = { seed: 51, paperXf: [1.2, -0.6, 0, 0], warp: [0.3, -0.16, 0.04], logoOff: [0, LOGO_A5], logoScale: [LOGO_K, LOGO_K], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.6 };
   // les autres enveloppes du tirage : chacune un peu de biais, son papier

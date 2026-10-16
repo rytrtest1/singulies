@@ -93,6 +93,7 @@ export function installNav(opts) {
   try { const a = JSON.parse(sessionStorage.getItem(K_NAV) || 'null'); if (a && a.to === opts.current && Date.now() - a.at < 6000) arrived = a.dir; sessionStorage.removeItem(K_NAV); } catch { /* */ }
 
   let cur = home;                            // la page qu'on regarde
+  const opSeen = new WeakMap();              // (opacité des noms, lue au plus tous les 250 ms)
   const pages = {};                          // id → page montée { stage(), all(), leave(), back(), foot, center() }
   pages[opts.current] = opts.host || { stage: () => [] };
 
@@ -217,8 +218,14 @@ export function installNav(opts) {
       const A = 0;
       // (16/10, Maxence : « sur PC il y a encore des trous, comme s'il y avait du texte ») seulement les noms qu'on voit
       // vraiment : les copies lointaines de la boucle, cachées, ne percent pas le fil
-      const seen = i => i === C || parseFloat(getComputedStyle(items[i]).opacity) > 0.12;
-      let P = solo ? [C] : items.map((_, i) => i).filter(i => seen(i) && sr(i) > A + 3 && sl(i) < W - A - 3);
+      // (17/10) l'opacité lue au plus tous les 250 ms (getComputedStyle à chaque image coûtait)
+      const seen = i => {
+        if (i === C) return true;
+        const c = opSeen.get(items[i]), n = performance.now();
+        if (c && n - c[0] < 250) return c[1];
+        const v = parseFloat(getComputedStyle(items[i]).opacity) > 0.12; opSeen.set(items[i], [n, v]); return v;
+      };
+      let P = solo ? [C] : items.map((_, i) => i).filter(i => sr(i) > A + 3 && sl(i) < W - A - 3 && seen(i));
       if (!P.length) P = [C];
       const endL = -4, endR = W + 4;
       const holeL = Math.max(sl(P[0]) - 7, Math.min(endL + 8, A + 2)), holeR = Math.min(sr(P[P.length - 1]) + 7, Math.max(endR - 8, W - A - 2));
@@ -319,7 +326,9 @@ export function installNav(opts) {
   const preload = () => idle(() => { for (const d of [1, -1]) ensure(ring(cur + d).id); });
   let preT = 0;
   const preTry = () => { if (!opts.calm || opts.calm()) { clearInterval(preT); preload(); } };
-  setTimeout(() => { preTry(); if (opts.calm) preT = setInterval(preTry, 1500); }, 7000);
+  // (17/10, Maxence : « c'était bien de charger avant ») dès l'ouverture : l'à-coup du premier dessin se perd dans le
+  // noir du chargement (opts.preAt, 7 s par défaut)
+  setTimeout(() => { preTry(); if (opts.calm) preT = setInterval(preTry, 1500); }, opts.preAt ?? 7000);
 
   const els = (pg, all) => ((all && pg.all ? pg.all() : pg.stage ? pg.stage() : []) || []).filter(Boolean);
   const T = `translate ${DUR}ms ${EASE}, scale ${DUR}ms ${EASE}, opacity ${Math.round(DUR * 0.8)}ms ease`;
@@ -521,7 +530,7 @@ export function installNav(opts) {
     void document.body.offsetWidth;
     for (const el of l) put(el, 0, 1, 1, c.y, true);
   }
-  const api = { go, goTo, enter, layout, get arrived() { return arrived; }, get wandered() { return wandered; }, get busy() { return busy; }, get page() { return ring(cur).id; },
+  const api = { go, goTo, enter, layout, preload: () => { clearInterval(preT); preload(); }, get arrived() { return arrived; }, get wandered() { return wandered; }, get busy() { return busy; }, get page() { return ring(cur).id; },
     home: () => goTo(opts.current) };
   return api;
 }
