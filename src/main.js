@@ -277,42 +277,23 @@ function startTransition() {
   // (12/10, alt) la scène des cartes, déjà prête (préparée pendant qu'on écrivait), reçoit le prénom définitif
   if (ALT && cards) cards.then(() => { if (cardsReady && cardsReady !== 'failed') cardsReady.setName?.(shown.toUpperCase()); });
 }
-// (16/10, Maxence) en fond de la page des prénoms, le logo SINGULIES imposant : (17/10, « horrible », refait) un vrai
-// gaufrage à sec dans une grande feuille du même papier noir que les cartes, derrière toute la scène. Le relief est doux
-// (le papier s'étire sur la matrice : profil arrondi, pas de biseau net), la hauteur vient du logo des cartes
-// (cards/logo.png : distance au bord 16 bits, ±2 mm), adoucie ici une fois pour toutes ; le grain vient de la photo du
-// papier des cartes (cards/paper.jpg). Le fond plat reste exactement au noir du site (6) : seules les pentes du relief,
-// sous la lampe rasante, s'éclairent (et montrent les fibres) ou passent dans l'ombre (renderer.js).
+// (16/10, Maxence) le logo SINGULIES en fond de la page des prénoms ; (17/10 : « ça pollue — que les prénoms le
+// révèlent, sans qu'il ait de forme à lui seul ») il n'est jamais dessiné : les lettres du champ qui passent devant lui
+// s'éclairent un peu (renderer.js, u_logo). Sa forme vient du logo des cartes (cards/logo.png : distance au bord 16
+// bits, ±2 mm), adoucie ici une fois pour toutes (≈ 1,2 mm).
 const LOGO_BG = ALT && P.get('logo') !== '0', LOGO_MM = 38.501, LOGO_K = +(P.get('logoK') || 1);
 const loadImg = src => new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = new URL(src, document.baseURI).href; });
 async function loadLogoBg() {
   try {
-    const [im, pim] = await Promise.all([loadImg('cards/logo.png'), loadImg('cards/paper.jpg')]);
-    const n = 512, cv = document.createElement('canvas'); cv.width = cv.height = n;
+    const im = await loadImg('cards/logo.png');
+    const n = 256, cv = document.createElement('canvas'); cv.width = cv.height = n;
     const x = cv.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, n, n);
-    const d = x.getImageData(0, 0, n, n).data, pxmm = n / LOGO_MM;
-    // hauteur : 1 dedans, 0 dehors, transition en sinus sur ±0,5 mm, puis deux flous en boîte (≈ 0,14 mm) : un coussin
-    let h = new Float32Array(n * n);
+    const d = x.getImageData(0, 0, n, n).data, m = new Uint8Array(n * n);
     for (let i = 0; i < n * n; i++) {
-      const mm = (2 * ((d[i * 4] * 256 + d[i * 4 + 1]) / 65535) - 1) * 2, u = Math.max(-1, Math.min(1, mm / 0.5));
-      h[i] = 0.5 - 0.5 * Math.sin(u * Math.PI / 2);
+      const mm = (2 * ((d[i * 4] * 256 + d[i * 4 + 1]) / 65535) - 1) * 2, u = Math.max(-1, Math.min(1, mm / 1.2));
+      m[i] = Math.round(255 * (0.5 - 0.5 * Math.sin(u * Math.PI / 2)));
     }
-    const blur = (a, r) => {
-      const b = new Float32Array(n * n), c = new Float32Array(n * n), k = 1 / (2 * r + 1), cl = i => Math.max(0, Math.min(n - 1, i));
-      for (let y = 0; y < n; y++) { let s = 0; for (let i = -r; i <= r; i++) s += a[y * n + cl(i)];
-        for (let xx = 0; xx < n; xx++) { b[y * n + xx] = s * k; s += a[y * n + cl(xx + r + 1)] - a[y * n + cl(xx - r)]; } }
-      for (let xx = 0; xx < n; xx++) { let s = 0; for (let i = -r; i <= r; i++) s += b[cl(i) * n + xx];
-        for (let y = 0; y < n; y++) { c[y * n + xx] = s * k; s += b[cl(y + r + 1) * n + xx] - b[cl(y - r) * n + xx]; } }
-      return c;
-    };
-    const r = Math.max(1, Math.round(0.14 * pxmm));
-    h = blur(blur(h, r), r);
-    // le papier : la luminance de la photo, en niveaux de gris
-    const pw = 1024, ph = Math.round(pw * pim.height / pim.width), pc = document.createElement('canvas'); pc.width = pw; pc.height = ph;
-    const px = pc.getContext('2d', { willReadFrequently: true }); px.drawImage(pim, 0, 0, pw, ph);
-    const pd = px.getImageData(0, 0, pw, ph).data, l8 = new Uint8Array(pw * ph);
-    for (let i = 0; i < pw * ph; i++) l8[i] = pd[i * 4 + 1];
-    return { n, h, paper: { w: pw, h: ph, l8 } };
+    return { n, m };
   } catch (e) { console.warn('logo', e); return null; }
 }
 // pendant la recharge : seulement le réseau (module, papier, logo, police machine), aucun travail GPU
@@ -483,6 +464,33 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.defaultP
 // Échap fonctionne aussi quand le champ n'a plus le focus (écran noir)
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !S.portal && document.activeElement !== input) goBack(); });
 
+// (17/10, Maxence : « on garde que le curseur après ETERNEL, et si la personne ne tape pas, plutôt une aide à toucher
+// qui explique ») « aide », discret sous le curseur ; touché : l'explication se tape à la machine à sa place. Elle
+// s'efface dès qu'on écrit.
+const AIDE_TXT = 'écris ton prénom.\nchaque lettre ouvre un vers :\nje tape ton poème à la machine\net je te l’envoie par la poste.';
+const aideEl = document.createElement('div');
+aideEl.className = 'aide'; aideEl.setAttribute('role', 'button'); aideEl.setAttribute('aria-label', 'aide : ' + AIDE_TXT.replace(/\n/g, ' '));
+aideEl.innerHTML = '<span class="aide-k">aide</span><span class="aide-t" aria-hidden="true"></span>';
+document.body.appendChild(aideEl);
+let aideOpen = false, aideTyp = 0;
+function aideTick(on, L) {
+  if (!on && aideOpen) { aideOpen = false; clearTimeout(aideTyp); aideEl.classList.remove('open'); aideEl.querySelector('.aide-t').textContent = ''; }
+  aideEl.classList.toggle('on', on);
+  if (on && L) aideEl.style.top = Math.round(L.cursor.y1 + Math.max(46, (S.h - L.cursor.y1) * 0.16)) + 'px';
+}
+aideEl.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); });
+aideEl.addEventListener('click', e => {
+  e.stopPropagation();
+  if (!aideEl.classList.contains('on')) return;
+  aideOpen = !aideOpen; aideEl.classList.toggle('open', aideOpen);
+  const t = aideEl.querySelector('.aide-t'); clearTimeout(aideTyp); t.textContent = '';
+  if (!aideOpen) return;
+  count('alt/aide');
+  let i = 0;
+  const strike = () => { if (!aideOpen || i > AIDE_TXT.length) return; t.textContent = AIDE_TXT.slice(0, i++); aideTyp = setTimeout(strike, CFG.reduced ? 0 : 38 + Math.random() * 60); };
+  strike();
+});
+
 // Toucher n'importe où : focus du champ (ouvre le clavier mobile, geste utilisateur)
 // (16/10, Maxence : « si on touche le prénom avant que la scène soit finie, on rembobine et on peut le modifier »)
 function inBox(b, e) { return b && e.clientX > b[0] && e.clientX < b[2] && e.clientY > b[1] && e.clientY < b[3]; }
@@ -516,7 +524,7 @@ function editName() {
   setTimeout(() => location.replace(location.href), 480);
 }
 document.addEventListener('click', (e) => {
-  if (S.portal || S.phase !== 'input' || S.trans != null || e.target === backEl || backEl.contains(e.target) || nextEl.contains(e.target)) return;
+  if (S.portal || S.phase !== 'input' || S.trans != null || e.target === backEl || backEl.contains(e.target) || nextEl.contains(e.target) || aideEl.contains(e.target)) return;
   const b = S.nameBox;
   // seule la zone du prénom / du curseur répond (ailleurs, plus tard : toucher un prénom du champ pour lire son
   // acrostiche) : prénom écrit → aller à la suite ; vide → écrire (le clavier sort)
@@ -851,7 +859,9 @@ function frame(ts) {
   if (S.hintT0 == null && S.phase === 'input' && !S.portal && nameFade > 0.99) S.hintT0 = S.t;
   // (alt : ETERNEL tapé puis effacé, le curseur seul, puis le menu ; PRENOM seulement après lui)
   const hintAt = ALT ? (S.navOnAt != null ? S.navOnAt + HINT_AFTER_NAV : Infinity) : (S.hintT0 ?? Infinity) + HINT_AFTER;
-  const hintA = HINT && Number.isFinite(hintAt) && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
+  // (17/10, Maxence) alt : plus de PRENOM grisé — le curseur seul, puis « aide » à toucher (aideTick)
+  aideTick(ALT && HINT && Number.isFinite(hintAt) && S.t > hintAt && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !S.portal, L);
+  const hintA = !ALT && HINT && Number.isFinite(hintAt) && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
     ? smooth(hintAt, hintAt + 1.6, S.t) : 0;
   let hintX = L.cursor.x;
   if (hintA > 0) {
@@ -867,7 +877,8 @@ function frame(ts) {
   const voiceHidesCursor = voice && !S.voiceTyped && (voice.state === 'idle' || voice.state === 'asking' || voice.state === 'listening');
   // (16/10) on corrige le prénom : le curseur respire au bout, tant qu'on n'a rien tapé
   const editCur = S.edit && !S.rev && S.keyAt <= (S.editAt ?? 0) && T < 0 && !!text;
-  if (!wheel && !voiceHidesCursor && ((!S.typed && !S.confirmed) || editCur) && S.phase === 'input') {
+  // (17/10, Maxence) le curseur reste visible s'il n'y a plus de prénom écrit (tout effacé)
+  if (!wheel && !voiceHidesCursor && ((!S.typed && !S.confirmed) || editCur || (!text && T < 0)) && S.phase === 'input') {
     // respiration douce (pas de clignotement sec) : 0,2 → 0,9, période 1,6 s
     const ph = (S.t - OPEN_DARK) / 1.6 * Math.PI * 2;
     // (alt) le curseur s'efface sous UN PRENOM / UN POEME et revient seul quand il s'en va
@@ -899,13 +910,11 @@ function frame(ts) {
   // et suit un peu la souris ; il paraît après l'ouverture, s'efface quand le prénom part
   let logo = null;
   if (LOGO_BG) {
-    // la lampe : celle des cartes — rasante, de côté (en haut à gauche), elle respire (≈ 19 / 9 s) et sa hauteur aussi
-    const ZL = 90, side = Math.min(S.w * 1.2, S.h * 0.9, 1040);
-    const la = LOGO_K * smooth(OPEN_DARK + 0.6, OPEN_DARK + 5.5, S.t) * (T >= 0 ? 1 - smooth(0, 1.6, T) : 1);
-    const t = S.t, mv = CFG.reduced ? 0 : 1;
-    logo = { cx: vx - field.cam.x * focal / ZL, cy: vy + field.cam.y * focal / ZL, s: side, mm: LOGO_MM, a: la,
-      az: 2.3 + mv * (0.42 * Math.sin(t * 2 * Math.PI / 19) + 0.16 * Math.sin(t * 2 * Math.PI / 9 + 1.3)) + 0.3 * PAR.x,
-      el: 0.38 + mv * 0.08 * Math.sin(t * 2 * Math.PI / 13 + 0.7) - 0.06 * PAR.y };
+    // (17/10) la force (lettres grises : jusqu’à × 2 au cœur du logo) respire lentement (≈ 11 / 7 s), comme la lampe des cartes
+    const ZL = 90, side = Math.min(S.w * 1.2, S.h * 0.9, 1040), t = S.t, mv = CFG.reduced ? 0 : 1;
+    const br = 0.78 + mv * (0.16 * Math.sin(t * 2 * Math.PI / 11) + 0.06 * Math.sin(t * 2 * Math.PI / 7 + 1.3));
+    const la = 1.0 * LOGO_K * br * smooth(OPEN_DARK + 0.6, OPEN_DARK + 6, S.t) * (T >= 0 ? 1 - smooth(0, 1.6, T) : 1);
+    logo = { cx: vx - field.cam.x * focal / ZL, cy: vy + field.cam.y * focal / ZL, s: side, a: la };
   }
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig, energy: R?.energy, logo,
     field: fl, cam: field.cam, focal, vx, vy, dim: S.dim, time: S.t });
@@ -1164,8 +1173,8 @@ if (ALT) {
       rest: () => (offerObj ? [offerObj.root] : [canvas, fallbackEl]),
       objRect: () => { const top = NAV_TOP + safeTop(), bot = innerHeight - SHEET_INSET - safeBottom(); return { cy: (top + bot) / 2, h: (bot - top) * 0.82 }; },
       // ailleurs : le champ s'arrête (comme sous un menu), il reprend au retour
-      leave: () => { input.blur(); if (onNames()) { S.portal = true; setTimeout(() => { if (S.portal && S.phase === 'input') { cancelAnimationFrame(rafId); rafId = 0; } }, 700); } },
-      back: () => { if (S.portal) { S.portal = false; if (S.phase === 'input' && booted && !rafId && !document.hidden) { last = 0; rafId = requestAnimationFrame(frame); } } },
+      leave: () => { input.blur(); document.body.classList.add('sg-away'); if (onNames()) { S.portal = true; setTimeout(() => { if (S.portal && S.phase === 'input') { cancelAnimationFrame(rafId); rafId = 0; } }, 700); } },
+      back: () => { document.body.classList.remove('sg-away'); if (S.portal) { S.portal = false; if (S.phase === 'input' && booted && !rafId && !document.hidden) { last = 0; rafId = requestAnimationFrame(frame); } } },
     },
     // (12/10, Maxence) sur l'accueil, le bandeau ne montre que UN PRENOM UN POEME (solo), avec SINGULIES en bas ; les
     // autres pages et les aiguilles paraissent avec la feuille

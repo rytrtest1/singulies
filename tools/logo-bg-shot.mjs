@@ -10,7 +10,7 @@ const browser = await chromium.launch({ headless: true, args: ['--use-angle=d3d1
 for (const [nm, vp] of [['tel', { width: 390, height: 844 }], ['pc', { width: 1440, height: 900 }]]) {
   const page = await browser.newPage({ viewport: vp, deviceScaleFactor: 2 });
   page.on('pageerror', e => console.log('ERR', String(e)));
-  await page.goto(`http://localhost:${PORT}/index.html?envoi=0&seed=3`);
+  await page.goto(`http://localhost:${PORT}/index.html?envoi=0&seed=3${process.env.Q || ''}`);
   for (const t of [6, 12]) { await page.waitForTimeout(t === 6 ? 6000 : 6000); await page.screenshot({ path: `${dir}/${nm}-${t}.png` }); }
   await page.close();
 }

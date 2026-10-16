@@ -24,7 +24,9 @@ const CSS = `
   font: 500 14px/44px 'SG Garamond', serif; letter-spacing: 0.45em; padding-left: 0.45em; color: #fff; }   /* (12/10 : le même interlettrage que tous les signes) */
 .sc-pass.on { opacity: .62; pointer-events: auto; }
 .sc-pass.nosub .sc-sub { display: none; }
-.sc-pass .sc-sub { display: block; margin-top: -12px; font-size: 13px; line-height: 1.2; letter-spacing: .04em; padding-left: 0; opacity: .55; }
+/* (17/10, Maxence) plus d'air entre PASSER et la parenthèse ; ailleurs (une autre page du bandeau) : rien des cartes */
+.sg-away .sc-pass, .sg-away .sc-sign { display: none; }
+.sc-pass .sc-sub { display: block; margin-top: 4px; font-size: 13px; line-height: 1.2; letter-spacing: .04em; padding-left: 0; opacity: .55; }
 .sc-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); }
 /* feuille : boutons accessibles (clavier, lecteur d'écran) posés sur la carte et la commande ; le toucher passe au canvas */
 .sc-hit { position: fixed; margin: 0; padding: 0; border: 0; background: transparent; color: transparent; font-size: 1px;

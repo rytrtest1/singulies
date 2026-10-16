@@ -56,9 +56,6 @@ export function buildLettre(host, base = './') {
       root.innerHTML = `<button class="of-pay-x" type="button" aria-label="Fermer">×</button>
         <div class="of-pay-body">
           <div class="of-pay-title"><span class="of-pay-sub">un poème par mois</span><span class="of-pay-p">${esc(PRICE)} ${esc(PER)}</span></div>
-          <div class="of-for" role="radiogroup" aria-label="Pour qui">
-            <button type="button" class="on" data-for="moi" role="radio" aria-checked="true">pour moi</button>
-            <button type="button" data-for="offrir" role="radio" aria-checked="false">pour offrir</button></div>
           <label class="of-pf"><span>ton email</span>
             <input class="of-pin" type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send"></label>
           <input class="lt-trap" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
@@ -68,12 +65,7 @@ export function buildLettre(host, base = './') {
       document.body.append(veil, root);
       const mail = root.querySelector('.of-pin'), go = root.querySelector('.of-pay-go'), trap = root.querySelector('.lt-trap');
       const known = knownEmail(); if (known) mail.value = known;
-      // (16/10, Maxence) pour moi / pour offrir, comme le poème
-      root.querySelectorAll('[data-for]').forEach(b => b.addEventListener('click', () => {
-        gift = b.dataset.for === 'offrir';
-        root.querySelectorAll('[data-for]').forEach(c => { const on = (c.dataset.for === 'offrir') === gift; c.classList.toggle('on', on); c.setAttribute('aria-checked', String(on)); });
-        root.querySelector('.of-pay-sub').textContent = gift ? 'un poème par mois · à offrir' : 'un poème par mois';
-      }));
+      // (17/10, Maxence) plus de « pour moi / pour offrir » pour le moment (gift reste faux)
       const ok = () => EMAIL_RE.test(mail.value.trim());
       const upd = () => { go.disabled = !ok(); };
       mail.addEventListener('input', upd); upd();

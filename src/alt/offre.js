@@ -31,7 +31,7 @@ const OBJETS = [
   { id: 'feuille', txt: 'l’exemplaire unique de ton poème\ntapé à la machine à écrire', more: 'une feuille noire A4, 21 × 29,7 cm\ntapée une seule fois : aucune copie' },
   { id: 'carte', txt: 'une question du jeu SINGULIES\ntirée au hasard', more: 'une carte noire de 8,7 × 5,2 cm\nla question à l’encre blanche, logo gaufré' },
   { id: 'cachet', txt: 'le tout dans une enveloppe\nscellée à la cire', more: 'une enveloppe noire fermée à la main\nun cachet de cire argentée de 27 mm' },
-  { id: 'mystere', txt: 'une carte mystère et un fil…\npour rester liés', more: 'une carte vierge pour m’écrire ton prénom\net un fil noir pour relier les singuliers' },
+  { id: 'mystere', txt: 'une carte mystère et un fil…\npour rester liés', more: 'une carte vierge pour m’écrire ton prénom\net un fil noir pour relier les singuliés' },
 ];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -205,9 +205,6 @@ function openPanel(name, ref) {
     <div class="of-pay-body">
       <div class="of-pay-title"><span class="of-pay-sub">un prénom, un poème</span>
         <span class="of-pay-p">${esc(PRIX)} tout compris</span></div>
-      <div class="of-for" role="radiogroup" aria-label="Pour qui">
-        <button type="button" class="on" data-for="moi" role="radio" aria-checked="true">pour moi</button>
-        <button type="button" data-for="offrir" role="radio" aria-checked="false">pour offrir</button></div>
       <div class="of-express"></div>
       <p class="of-or" hidden><span>ou par carte</span></p>
       <label class="of-pf"><span>ton email</span>
@@ -229,8 +226,9 @@ function openPanel(name, ref) {
   addEventListener('resize', () => { if (root.classList.contains('on')) liftSheet(true, root); });
   const mail = root.querySelector('.of-pin'), go = root.querySelector('.of-pay-go'), msg = t => { root.querySelector('.of-pay-msg').textContent = t || ''; };
   const addrHost = root.querySelector('.of-addr'), pmHost = root.querySelector('.of-pm');
-  // pour moi / pour offrir (10/10) : offert, le prénom écrit est le sien ; après le paiement, je demande comment l'écrire
-  let gift = giftPref ?? !!readOrder()?.gift;
+  // pour moi / pour offrir (10/10) : (17/10, Maxence : « friction en plus, le prénom est déjà écrit ») retiré pour le
+  // moment — toujours pour soi
+  let gift = false;
   const setFor = g => {
     gift = g;
     root.querySelectorAll('[data-for]').forEach(b => { const on = (b.dataset.for === 'offrir') === g; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
@@ -239,7 +237,6 @@ function openPanel(name, ref) {
     const o = readOrder(); if (o && o.ref === ref) saveOrder({ ...o, gift: g });
     giftPref = g; syncBarFor();
   };
-  root.querySelectorAll('[data-for]').forEach(b => b.addEventListener('click', () => setFor(b.dataset.for === 'offrir')));
   setFor(gift);
   // payé : ici même si la page sait enchaîner, sinon merci.html
   const paidNow = extra => paidHere(name, ref, { gift, ...extra });
@@ -330,16 +327,8 @@ function pay(name) {
   ref = ref || orderRef(name);
   try { localStorage.setItem(K_ORDER, JSON.stringify({ name, ref, at: Date.now(), gift: !!giftPref })); } catch { /* */ }
   // réservation : rien à payer, la suite tout de suite (la demande part marquée « à payer »)
-  // (16/10, Maxence) avant la cérémonie : pour moi ou pour offrir (offert : après le tirage, « comment je l'écris ? »)
-  if (RESERVE) {
-    import('./fin.js').then(f => f.askFor()).then(g => {
-      if (g == null) return;
-      giftPref = g;
-      try { localStorage.setItem(K_ORDER, JSON.stringify({ name, ref, at: Date.now(), gift: g })); } catch { /* */ }
-      count('alt/reserve' + (g ? '/offrir' : '')); paidHere(name, ref, { reserve: true, gift: g });
-    });
-    return;
-  }
+  // (17/10, Maxence) plus de « pour moi / pour offrir » (askFor dans fin.js, gardé) : la suite tout de suite
+  if (RESERVE) { giftPref = false; count('alt/reserve'); paidHere(name, ref, { reserve: true, gift: false }); return; }
   count('alt/commander');
   if ((STRIPE_PK && PAIEMENT_URL) || Q.get('paiement') === 'faux' || (!STRIPE && onPaidHere)) { openPanel(name, ref); return; }
   if (STRIPE) {
