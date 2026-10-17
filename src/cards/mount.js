@@ -41,6 +41,11 @@ const CSS = `
 .sc-who { position: fixed; z-index: 13; transform: translateY(-100%); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .8s;
   font: 500 16px/1.2 'SG Garamond', serif; color: #fff; }
 .sc-who.on { opacity: .62; }
+/* (18/10, décision 7) le portefeuille (Apple Pay / Google Pay) à l'enveloppe : un geste qui paie et donne l'adresse et l'email */
+.sc-wallet { position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: 230px; min-height: 46px; z-index: 14;
+  opacity: 0; pointer-events: none; transition: opacity .6s ease; }
+.sc-wallet.on { opacity: 1; pointer-events: auto; }
+.sg-away .sc-wallet { display: none; }
 .sg-away .sc-who { display: none; }
 /* (18/10, V3) la ligne sur l'enveloppe tient sur deux lignes au besoin */
 [data-version] .sc-who { white-space: normal; width: min(78vw, 17em); line-height: 1.3; }
@@ -175,6 +180,7 @@ export async function mountCards(opts) {
   namePass();
   // l'enveloppe : POSTER (même signe que PASSER), dès que l'adresse a deux lignes, même clavier ouvert
   const postEl = el('div', 'sc-pass', 'POSTER'); postEl.setAttribute('role', 'button'); postEl.tabIndex = 0;
+  const walletEl = el('div', 'sc-wallet', ''); walletEl.setAttribute('role', 'group'); walletEl.setAttribute('aria-label', 'Payer avec Apple Pay ou Google Pay');
   const whoEl = el('div', 'sc-who', '');
   whoEl.textContent = EST_VERSION ? 'à qui je l’envoie ? pour offrir, mets son adresse' : 'à qui je l’envoie ?';
   // pointerdown sans effet par défaut : le champ garde le focus, le clavier ne se ferme pas sous le doigt avant le clic
@@ -194,6 +200,21 @@ export async function mountCards(opts) {
           log('code postal refusé'); return;
         }
         noteEnv.taire();
+        // (18/10, décision 7) le paiement, à la fin : après la réponse, l'adresse et l'email, AVANT la cire. La page (main.js) donne
+        // l'étape (api.payStep) quand il y a quelque chose à payer ; elle rend l'email donné (qui se tapera seul à la fin), ou
+        // null si l'on referme le panneau (on reste sur l'enveloppe, rien n'est scellé)
+        const etape = api.payStep;                       // une fonction ({ fields }) → promesse, posée par la page ; absente : rien à payer
+        if (etape && !payDone) {
+          if (payBusy) return;
+          payBusy = true; answer.blur();
+          Promise.resolve(etape({ fields: { ...es.fields } })).then(r => {
+            payBusy = false;
+            if (!r) { log('paiement : refermé'); return; }
+            payDone = true; paidAuto = { fields: null, email: r.email || (paidAuto && paidAuto.email) || '' };
+            log('payé avant la cire'); postEl.click();
+          }, () => { payBusy = false; });
+          return;
+        }
       }
     }
     if (sheet && sheet.post(now())) { answer.blur(); log('postée'); }
@@ -477,7 +498,16 @@ export async function mountCards(opts) {
   // (10/10, alt.html) payé dans la page : la suite se joue ici, sans changer de page. how : 'question' (la feuille se
   // défait, le paquet arrive et tire), 'blanche' (la carte blanche d'emblée : un thème), 'impro' (la feuille part
   // telle quelle dans l'enveloppe). L'adresse est chez Stripe : l'enveloppe se ferme et part seule.
-  let paid = false, resumeHow = null, paidAuto = null;
+  let paid = false, resumeHow = null, paidAuto = null, payDone = false, payBusy = false, walletTried = false, walletOk = false;
+  // payé par le portefeuille : l'adresse et l'email viennent avec — l'enveloppe s'écrit seule, puis elle est scellée
+  const onWallet = r => {
+    payDone = true;
+    const f = r.address && fieldsReady(r.address) ? { ...r.address } : null;
+    paidAuto = { fields: f, email: r.email || '' };
+    walletEl.classList.remove('on'); answer.blur(); log('payé par le portefeuille');
+    if (f) autoAddress(f);
+    else if (sheet && sheet.state().env && sheet.state().env.canPost) postEl.click();
+  };
   function afterPay(how = 'question', auto = null) {
     paid = true;
     // (10/10) ce qu'on sait déjà : l'adresse (complète) et l'email — l'enveloppe et le champ de la fin les tapent seuls
@@ -571,6 +601,11 @@ export async function mountCards(opts) {
         const qw = fr && fr.prenom;
         // (17/10, Maxence : « enlève « à qui je l'envoie » : on comprend bien qu'il faut écrire son adresse ») plus d'indication ici
         whoEl.classList.toggle('on', !!(EST_VERSION && es && es.write && !es.posted));   // (V3 : la ligne revient, plus claire)
+        // le portefeuille à l'enveloppe (décision 7) : proposé dès qu'on peut écrire l'adresse, s'il en existe un sur l'appareil
+        if (EST_VERSION && es && es.write && !es.posted && !es.back && api.walletStep && !payDone) {
+          if (!walletTried) { walletTried = true; api.walletStep({ host: walletEl, done: onWallet }).then(ok => { walletOk = !!ok; }); }
+          walletEl.classList.toggle('on', walletOk);
+        } else walletEl.classList.remove('on');
         if (qw) Object.assign(whoEl.style, { left: qw.left + 'px', top: (qw.top - 6) + 'px' });
         if (mail) placeMail();
         const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };

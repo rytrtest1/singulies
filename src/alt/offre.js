@@ -2,6 +2,7 @@
 // photos, le prix, COMMANDER (Stripe). La question vient après le paiement (merci.html), jamais avant.
 import { vk, EST_VERSION } from '../core/version.js';
 import { LIGNE_PAIEMENT, etatPaiement } from '../core/paiement.js';
+import { knownEmail } from '../app/storage.js';
 import '../basique/basique.css';
 import '../app/pay.css';
 import './offre.css';
@@ -163,8 +164,8 @@ function paidHere(name, ref, extra = {}) {
   // commande « payée / réservée » dans le navigateur — elle ne l'est pas encore (la demande part à la fin, le paiement se
   // confirme plus tard) ; recharger ou revenir en arrière ne renvoie donc plus vers merci.html?reserve=1. L'objet complet
   // sert à la cérémonie en mémoire seulement. Et alt/paye ne part que pour un vrai paiement.
-  const vrai = !(extra.reserve || extra.simule);
-  if (EST_VERSION && !vrai) { const { paid, reserve, simule, ...garde } = o; saveOrder(garde); } else saveOrder(o);
+  const vrai = !(extra.reserve || extra.simule || extra.payLater);
+  if (EST_VERSION && !vrai) { const { paid, reserve, simule, payLater, ...garde } = o; saveOrder(garde); } else saveOrder(o);
   if (!EST_VERSION || vrai) count('alt/paye');
   if (!onPaidHere) { location.href = merciUrl(extra.reserve ? { reserve: '1' } : extra.simule ? { simule: '1' } : {}); return; }
   closePanel();
@@ -174,7 +175,7 @@ function paidHere(name, ref, extra = {}) {
 // enregistrée, navigateur d'Instagram, ordinateur sans Chrome…) : rien ne change, COMMANDER → le panneau (carte, PayPal).
 let barWallet = '';   // '' : pas essayé · 'pending' : bouton créé, réponse attendue · 'yes' : dans le bandeau · 'no' : aucun
 function barWalletSetup(root, name) {
-  if (RESERVE || !(STRIPE_PK && PAIEMENT_URL) || Q.get('paiement') === 'faux') return;
+  if (EST_VERSION || RESERVE || !(STRIPE_PK && PAIEMENT_URL) || Q.get('paiement') === 'faux') return;   // (versions : le portefeuille est dans le panneau de la fin)
   const bar = root.querySelector('.of-bar'), go = bar.querySelector('.of-go');
   const right = document.createElement('div'); right.className = 'of-bar-r';
   const host = document.createElement('div'); host.className = 'of-bar-wallet';
@@ -209,8 +210,8 @@ function barWalletSetup(root, name) {
   }).catch(e => { console.warn('portefeuille', e); host.remove(); card.remove(); });
 }
 
-function openPanel(name, ref) {
-  if (panel) { panel.root.classList.add('on'); panel.veil.classList.add('on'); requestAnimationFrame(() => liftSheet(true, panel.root)); return; }
+function openPanel(name, ref, late = null) {
+  if (panel) { panel.late = late; panel.root.classList.add('on'); panel.veil.classList.add('on'); if (!late) requestAnimationFrame(() => liftSheet(true, panel.root)); return; }
   const fake = Q.get('paiement') === 'faux' || !(STRIPE_PK && PAIEMENT_URL);   // ?paiement=faux : toujours le faux formulaire
   const veil = document.createElement('div'); veil.className = 'of-pay-veil';
   const root = document.createElement('div'); root.className = 'of-pay'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Paiement');
@@ -230,15 +231,18 @@ function openPanel(name, ref) {
       <p class="of-pay-legal">${fake ? 'paiement d’essai : rien n’est débité.<br>' : ''}paiement sécurisé par stripe.<br>un prénom, un poème : fait pour une personne, il ne peut être ni repris ni échangé.</p>
     </div>`;
   document.body.append(veil, root);
-  panel = { root, veil };
-  const close = () => { root.classList.remove('on'); veil.classList.remove('on'); liftSheet(false); };
+  panel = { root, veil, late };
+  // (18/10, décision 7) tardif : la scène derrière est l'enveloppe, qu'on ne remonte pas ; fermer = on reste sur l'enveloppe (rien n'est payé)
+  const close = () => { root.classList.remove('on'); veil.classList.remove('on'); if (!panel.late) liftSheet(false); const l = panel.late; panel.late = null; if (l) l.done(null); };
   closePanel = close;
   veil.addEventListener('click', close);
   root.querySelector('.of-pay-x').addEventListener('click', close);
-  void root.offsetWidth; setTimeout(() => { root.classList.add('on'); veil.classList.add('on'); liftSheet(true, root); }, 20);
-  addEventListener('resize', () => { if (root.classList.contains('on')) liftSheet(true, root); });
+  void root.offsetWidth; setTimeout(() => { root.classList.add('on'); veil.classList.add('on'); if (!late) liftSheet(true, root); }, 20);
+  addEventListener('resize', () => { if (root.classList.contains('on') && !panel.late) liftSheet(true, root); });
   const mail = root.querySelector('.of-pin'), go = root.querySelector('.of-pay-go'), msg = t => { root.querySelector('.of-pay-msg').textContent = t || ''; };
   const addrHost = root.querySelector('.of-addr'), pmHost = root.querySelector('.of-pm');
+  if (late) { addrHost.closest('.of-pf').hidden = true; }                  // (tardif) l'adresse est déjà sur l'enveloppe : le bloc n'existe pas
+  if (late) { mail.value = knownEmail() || ''; setTimeout(() => { mail.dispatchEvent(new Event('input')); }, 0); }   // (tardif) l'email déjà donné est repris
   // pour moi / pour offrir (10/10) : (17/10, Maxence : « friction en plus, le prénom est déjà écrit ») retiré pour le
   // moment — toujours pour soi
   let gift = false;
@@ -252,7 +256,8 @@ function openPanel(name, ref) {
   };
   setFor(gift);
   // payé : ici même si la page sait enchaîner, sinon merci.html
-  const paidNow = extra => paidHere(name, ref, { gift, ...extra });
+  // tardif : le résultat revient à la cérémonie (qui scelle l'enveloppe) au lieu d'en relancer une
+  const paidNow = extra => { if (panel.late) { const l = panel.late; panel.late = null; root.classList.remove('on'); veil.classList.remove('on'); l.done({ ...extra }); return; } paidHere(name, ref, { gift, ...extra }); };
   // (12/10, Maxence) le paiement de Stripe est en mode test : PASSER (test) va directement à la suite, sans rien payer
   // (13/10) ce qui a été écrit dans le panneau (email, adresse — même le champ d'adresse de Stripe, lu à chaque frappe)
   // part aussi avec PASSER (test) : l'enveloppe s'écrit seule comme après un vrai paiement
@@ -268,6 +273,7 @@ function openPanel(name, ref) {
     expressHost.querySelector('button').addEventListener('click', () => paidNow({ simule: true }));
     orEl.hidden = false;
     addrHost.innerHTML = ['prénom et nom', 'adresse', 'code postal', 'ville'].map(l => `<input class="of-pin of-fake-in" placeholder="${l}" aria-label="${l}">`).join('');
+    if (panel.late) addrHost.closest('.of-pf').hidden = true;      // (tardif : l'adresse est déjà sur l'enveloppe)
     pmHost.innerHTML = `<div class="of-fake-tabs"><span class="on">carte</span><span>apple pay</span><span>paypal</span></div>
       <input class="of-pin of-fake-in" placeholder="numéro de carte" aria-label="numéro de carte" inputmode="numeric">`;
     const upd = () => { go.disabled = !mailOk(mail.value); };
@@ -304,11 +310,11 @@ function openPanel(name, ref) {
         if (r && r.type === 'error') msg(r.error?.message || 'le paiement n’est pas passé.');
       });
     } catch (e) { console.warn('portefeuille (panneau)', e); }   // jamais au détriment de la carte
-    const shipEl = checkout.createShippingAddressElement();
-    shipEl.mount(addrHost);
+    const shipEl = panel.late ? null : checkout.createShippingAddressElement();
+    if (shipEl) shipEl.mount(addrHost); else addrHost.closest('.of-pf').hidden = true;   // (tardif : l'adresse est déjà sur l'enveloppe, elle part chez Stripe au paiement)
     // (13/10) l'adresse écrite dans le champ de Stripe, à chaque frappe (le nom, la rue, la ville, le code postal) : elle
     // s'écrira seule sur l'enveloppe — même si la session ne la rend pas après le paiement
-    shipEl.on('change', e => { const v = e && e.value; shipNow = v ? sessionAddr({ session: { shippingAddress: v } }) : {}; });
+    if (shipEl) shipEl.on('change', e => { const v = e && e.value; shipNow = v ? sessionAddr({ session: { shippingAddress: v } }) : {}; });
     checkout.createPaymentElement().mount(pmHost);
     let busy = false;
     const upd = () => { go.disabled = busy || !mailOk(mail.value); };
@@ -317,6 +323,8 @@ function openPanel(name, ref) {
     go.addEventListener('click', async () => {
       if (go.disabled) return;
       busy = true; upd(); msg('');
+      // (tardif) l'adresse tapée sur l'enveloppe est donnée à Stripe (la session la demande : livraison en France)
+      if (panel.late && panel.late.fields) await shipTo(actions, checkout, panel.late.fields).catch(e => console.warn('adresse de livraison', e));
       // (10/10) sans redirection quand c'est possible (carte, Apple Pay, Google Pay) : la suite se joue ici ; sinon
       // (3-D Secure, PayPal…) Stripe ramène vers merci.html
       const r = await actions.confirm({ email: mail.value.trim(), redirect: 'if_required' });
@@ -326,6 +334,46 @@ function openPanel(name, ref) {
     });
     panel.checkout = checkout;
   }).catch(e => { console.warn('paiement', e); fail(); });
+}
+// (18/10) l'adresse de l'enveloppe → l'adresse de livraison de la session Stripe
+async function shipTo(actions, checkout, f) {
+  const a = { name: [f.prenom, f.nom].filter(Boolean).join(' ').trim(), address: { line1: f.rue || '', line2: f.cplt || '', city: f.ville || '', postal_code: String(f.cp || '').replace(/\s+/g, ''), country: 'FR' } };
+  const fn = actions.updateShippingAddress || checkout.updateShippingAddress;
+  if (!fn) throw new Error('updateShippingAddress absent');
+  const r = await fn.call(actions.updateShippingAddress ? actions : checkout, a);
+  if (r && r.type === 'error') throw new Error(r.error?.message || 'adresse refusée');
+}
+// (18/10, décision 7) le chemin du portefeuille, à l'enveloppe : un bouton Apple Pay / Google Pay (s'il en existe un sur l'appareil)
+// qui paie ET donne l'adresse et l'email — l'enveloppe s'écrit alors toute seule, puis elle est scellée. host : l'élément où Stripe
+// pose son bouton ; done({ session, email, address }) : une fois payé. Rend true si un portefeuille est disponible.
+export function walletAtEnd({ name, host, done }) {
+  if (!(STRIPE_PK && PAIEMENT_URL) || Q.get('paiement') === 'faux' || barWallet) return Promise.resolve(false);
+  barWallet = 'pending';        // un seul bouton de portefeuille par session : le panneau n'en crée pas d'autre
+  const ref = ensureRef(name);
+  return stripeCtx(name, ref).then(({ checkout, actions }) => new Promise(res => {
+    const el = checkout.createExpressCheckoutElement({
+      buttonHeight: 46, buttonTheme: { applePay: 'white', googlePay: 'white' }, buttonType: { applePay: 'buy', googlePay: 'buy' },
+      paymentMethods: { applePay: 'auto', googlePay: 'auto', link: 'never', paypal: 'never', amazonPay: 'never', klarna: 'never' },
+      layout: { maxColumns: 1, maxRows: 1, overflow: 'never' },
+    });
+    el.mount(host);
+    let decided = false;
+    const decide = pm => { if (decided) return; decided = true; const ok = !!(pm && (pm.applePay || pm.googlePay)); barWallet = ok ? 'yes' : 'no'; if (ok) count('alt/portefeuille'); res(ok); };
+    el.on('ready', e => decide(e && e.availablePaymentMethods));
+    el.on('availablepaymentmethodschange', e => decide(e && e.paymentMethods));
+    el.on('confirm', async ev => {
+      const r = await actions.confirm({ expressCheckoutConfirmEvent: ev, redirect: 'if_required' });
+      if (r && r.type === 'success') done({ session: r.session?.id || '', ...walletOut(ev, r) });
+      else if (r && r.type === 'error') console.warn('portefeuille', r.error);
+    });
+    setTimeout(() => decide(null), 8000);        // pas de réponse : pas de portefeuille
+  })).catch(e => { console.warn('portefeuille (enveloppe)', e); barWallet = 'no'; return false; });
+}
+// (18/10, décision 7) le paiement, à la fin : après la réponse, l'adresse et l'email, avant la cire. fields : l'adresse de
+// l'enveloppe ; rend { email, session? | simule?, address? } une fois payé (ou passé, en test), ou null si l'on referme.
+export function payAtEnd({ name, fields = null }) {
+  const ref = ensureRef(name);
+  return new Promise(done => openPanel(name, ref, { fields, done }));
 }
 function goLink(ref) {
   const u = new URL(STRIPE);
@@ -343,6 +391,9 @@ function pay(name) {
   // (17/10, Maxence) plus de « pour moi / pour offrir » (askFor dans fin.js, gardé) : la suite tout de suite
   if (RESERVE) { giftPref = false; if (!EST_VERSION) count('alt/reserve'); paidHere(name, ref, { reserve: true, gift: false }); return; }
   count('alt/commander');
+  // (18/10, décision 7) dans les versions, le paiement est À LA FIN : RECEVOIR lance la cérémonie (la carte, la réponse, la feuille,
+  // l'adresse) ; le panneau — l'email, la carte, Apple Pay / Google Pay — s'ouvre au clic sur POSTER, avant la cire (payAtEnd)
+  if (EST_VERSION && onPaidHere) { giftPref = false; paidHere(name, ref, { payLater: true, gift: false }); return; }
   if ((STRIPE_PK && PAIEMENT_URL) || Q.get('paiement') === 'faux' || (!STRIPE && onPaidHere)) { openPanel(name, ref); return; }
   if (STRIPE) {
     const u = new URL(STRIPE);

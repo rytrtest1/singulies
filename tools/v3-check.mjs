@@ -29,7 +29,7 @@ await page.mouse.click(195, 422);
 // C5 : la machine dit ce qu'elle retire
 await page.keyboard.type('Léa7', { delay: 140 });
 await page.waitForTimeout(2500);
-out.noteNom = await page.evaluate(() => document.querySelector('.sg-note')?.textContent || '');
+out.noteNom = await page.evaluate(() => document.querySelector('.sg-note')?.getAttribute('aria-label') || '');   // la phrase entière (le texte tapé arrive lettre à lettre)
 ok('C5 note du prénom', /retir|accents/.test(out.noteNom), out.noteNom);
 await shot('1-note-prenom');
 await page.keyboard.press('Backspace'); await page.keyboard.press('Backspace'); await page.keyboard.press('Backspace'); await page.keyboard.press('Backspace');

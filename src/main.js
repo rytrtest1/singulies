@@ -466,7 +466,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function paidHere(order) {
   S.paid = order;
   histo.start();
-  setOrder({ ref: order.ref, session: order.session || '', simule: !!order.simule, gift: !!order.gift, reserve: !!order.reserve });
+  // (payLater : en attendant le paiement de la fin, « réservation » — il n'est confirmé qu'au paiement, settle)
+  setOrder({ ref: order.ref, session: order.session || '', simule: !!order.simule, gift: !!order.gift, reserve: !!order.reserve || !!order.payLater });
   offerObj?.hide();
   const fin = await import('./alt/fin.js');
   let how = 'question';
@@ -478,7 +479,21 @@ async function paidHere(order) {
   // (13/10, Maxence) payé : seulement le jeu — la feuille se défait, le paquet vient au milieu, se mélange et invite à
   // tirer ; le prénom reparaît quand on tire (scene.js). (l'écran « à toi de jouer » est retiré)
   // (10/10) l'adresse (panneau, champ de Stripe, portefeuille) et l'email : la fin les tape seule
-  if (cardsReady && cardsReady !== 'failed') cardsReady.afterPay(how, { fields: order.address || null, email: order.email || '' });
+  if (cardsReady && cardsReady !== 'failed') {
+    cardsReady.afterPay(how, { fields: order.address || null, email: order.email || '' });
+    // (18/10, décision 7) le paiement à la fin : l'étape que l'enveloppe demandera au clic sur POSTER (mount.js, api.payStep)
+    if (EST_VERSION && order.payLater && !order.settled) {
+      cardsReady.payStep = ({ fields }) => offerModule().then(m => m.payAtEnd({ name: order.name, fields })).then(r => { if (r) settle(order, r); return r; });
+      cardsReady.walletStep = ({ host, done }) => offerModule().then(m => m.walletAtEnd({ name: order.name, host, done: r => { settle(order, r); done(r); } }));
+    }
+  }
+}
+// le paiement de la fin est fait (ou passé, en test) : la commande n'est plus une réservation
+function settle(order, r) {
+  order.settled = true; order.payLater = false; if (r.simule) order.simule = true; if (r.session) order.session = r.session;
+  setOrder({ ref: order.ref, session: r.session || '', simule: !!r.simule, gift: !!order.gift, reserve: false });
+  if (!r.simule && r.session) count('alt/paye');       // seulement un vrai paiement
+  if (cardsReady && cardsReady !== 'failed') { cardsReady.payStep = null; cardsReady.walletStep = null; }
 }
 // (18/10, décision 8 ; correctifs C1) L'HISTORIQUE PAR ÉTAPE, dans les versions : pendant la cérémonie (le paquet, la carte
 // blanche, la feuille, l'enveloppe, l'email), le bouton retour du navigateur — comme la flèche ← du haut — ramène à l'étape
