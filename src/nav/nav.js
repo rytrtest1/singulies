@@ -155,7 +155,7 @@ export function installNav(opts) {
   hd.innerHTML = `<canvas aria-hidden="true"></canvas><button class="nv-bk" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19"/></svg></button>
     <button class="nv-br" type="button" aria-label="ETERNEL, l’accueil">ETERNEL</button>
     <button class="nv-mn" type="button" aria-label="Menu" aria-expanded="false"><i></i></button>`;
-  const hcv = hd.querySelector('canvas'), hbr = hd.querySelector('.nv-br'), hk = { m: 0 };
+  const hcv = hd.querySelector('canvas'), hbr = hd.querySelector('.nv-br');
   const pan = document.createElement('nav'); pan.className = 'nv-pan'; pan.setAttribute('aria-label', 'Menu'); pan.inert = true;
   const legal = [['MENTIONS', 'mentions.html'], ['CONDITIONS', 'conditions.html'], ['CONFIDENTIALITE', 'confidentialite.html']];
   pan.innerHTML = PAGES.map(p => `<a href="${url(p)}" data-p="${p.id}">${p.label}</a>`).join('') +
@@ -352,34 +352,17 @@ export function installNav(opts) {
       x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, fw, 46);
       if (r.width) {
         const ls = parseFloat(getComputedStyle(hbr).letterSpacing) || 0, l = r.left + 8, rr = r.right - 8 - ls, fl = flowNow(), yt = px => waveTop(px, t);
-        // (17/10, Maxence : « le fil se dédouble pour toucher les deux bouts de la flèche et du menu ») le fil d'ETERNEL va jusqu'aux
-        // signes (← et ≡, en trait fin) et, juste avant eux, se sépare en deux brins qui touchent leurs deux extrémités :
-        // les deux bouts de la pointe de ←, les deux traits de ≡ (qui se croisent à l'ouverture : le fil suit)
+        // (17/10, Maxence : piste « le fil ne touche pas les icônes ») le fil va d'une icône à l'autre : il sort d'un trou juste après ← (seulement
+        // quand il y a un retour ; sinon il court jusqu'au bord) et plonge dans un trou juste avant ≡. Rien derrière les icônes : plus de petits
+        // bouts de fil de dix pixels entre l'icône et le bord de l'écran.
         hbr.style.translate = `0 ${waveTop((l + rr) / 2, t).toFixed(2)}px`;
         const vis = el => el && parseFloat(getComputedStyle(el).opacity) > 0.15;
         const bk = hd.querySelector('.nv-bk'), mn = hd.querySelector('.nv-mn i'), sv = bk.querySelector('svg');
-        const ease = (c, g) => reduced || !dtS ? g : c + (g - c) * (1 - Math.exp(-dtS * 11));
-        hk.m = ease(hk.m, hd.classList.contains('open') ? 1 : 0);
-        const seg = (x1, y1, x2, y2, j, holes, g0, m = 0.3) => {
-          const len = Math.hypot(x2 - x1, y2 - y1); if (len < 3) return;
-          x.save(); x.translate(x1, y1); x.rotate(Math.atan2(y2 - y1, x2 - x1));
-          paintThread(x, 0, len, 0, 37 + j * 4, 1.2, { holes, sag: reduced ? 0.6 * m : (0.3 + 1.1 * breath(3 + j, t)) * m, sag2: 0, g0, yf: null });
-          x.restore();
-        };
-        // gauche : ← = la pointe M15 5 L8 12 L15 19 (viewBox 24) ; le fil est sa hampe : il arrive sur la pointe (relier les deux bouts
-        // refermait un losange, la flèche ne se lisait plus)
-        const q = vis(bk) && sv.getBoundingClientRect();
-        if (q && q.width) {
-          const u = q.width / 24, ax = q.left + 8 * u;
-          seg(ax, y, l, y, 0, [false, true], ax - fl, 1);
-        } else paintThread(x, -4, l, y, 37, 1.2, { holes: [false, true], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(3, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 2), g0: -4 - fl, yf: yt });
-        // droite : ≡ = deux traits (18 px, à 0 et 6 px) ; le fil se sépare vers leurs bouts de gauche
-        const m = mn.getBoundingClientRect(), km = hk.m;
-        if (m.width) {
-          const lx = m.left + 2.1 * km, e1 = m.top + 0.6 + (-2.3 - 0.6) * km, e2 = m.top + 6.6 + (9.3 - 6.6) * km, J = m.left - 15;
-          seg(rr, y, J, y, 3, [true, false], rr - fl, 1);
-          seg(J, y, lx, e1, 4, [false, false], 0); seg(J, y, lx, e2, 5, [false, false], 0);
-        }
+        const q = vis(bk) && sv.getBoundingClientRect(), m = mn.getBoundingClientRect();
+        const a0 = q && q.width ? q.right + 9 : -4, b1 = m.width ? m.left - 9 : fw + 4;
+        const sg = j => ({ sag: reduced ? 0.6 : 0.3 + 1.1 * breath(3 + j, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 2 + j), yf: yt, g0: (j ? rr : a0) - (j ? -fl : fl) });
+        paintThread(x, a0, l, y, 37, 1.2, { holes: [a0 > -4, true], ...sg(0) });
+        paintThread(x, rr, b1, y, 41, 1.2, { holes: [true, b1 < fw + 4], ...sg(1) });
       }
     }
   }
