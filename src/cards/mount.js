@@ -26,6 +26,11 @@ const CSS = `
 .sc-pass.nosub .sc-sub { display: none; }
 /* (17/10, Maxence) plus d'air entre PASSER et la parenthèse ; ailleurs (une autre page du bandeau) : rien des cartes */
 .sg-away .sc-pass, .sg-away .sc-sign { display: none; }
+/* (17/10, Maxence : « tire une carte, en police typewriter, au-dessus du jeu ») après la réservation, tapé à la machine au-dessus du paquet */
+.sc-tire { position: fixed; z-index: 13; left: 0; right: 0; text-align: center; white-space: pre; pointer-events: none; opacity: 0; transition: opacity .7s ease;
+  font: 15px/1.4 'SG Machine', 'Courier New', monospace; letter-spacing: .02em; color: rgb(226, 222, 214); }
+.sc-tire.on { opacity: .78; }
+.sc-pass .sc-sub { transition: opacity .55s ease; }
 .sc-pass .sc-sub { display: block; margin-top: 4px; font-size: 13px; line-height: 1.2; letter-spacing: .04em; padding-left: 0; opacity: .55; }
 .sc-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); }
 /* (17/10, Maxence) au-dessus de l'adresse : « a qui je l'envoie ? » — on comprend qu'on peut l'offrir */
@@ -147,8 +152,13 @@ export async function mountCards(opts) {
   }
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');
   const giveEl = el('div', 'sc-sign', '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
+  let passTop = null;
   const passEl = el('div', 'sc-pass', 'PASSER<span class="sc-sub"></span>'); passEl.setAttribute('role', 'button');
-  const namePass = () => { if (passEl._free) return; passEl.setAttribute('aria-label', 'Passer : j’improvise ton poème avec ' + name); passEl.querySelector('.sc-sub').textContent = '(j’improvise ton poème avec ' + name + ')'; };
+  const tireEl = el('div', 'sc-tire', ''); tireEl.setAttribute('aria-hidden', 'true');
+  // le texte entre parenthèses sous PASSER : il se fond (au noir) et laisse la place au suivant
+  let subT = 0;
+  const setSub = txt => { const sb = passEl.querySelector('.sc-sub'); if (sb.textContent === txt) return; clearTimeout(subT); if (!sb.textContent) { sb.textContent = txt; return; } sb.style.opacity = '0'; subT = setTimeout(() => { sb.textContent = txt; sb.style.opacity = ''; }, 580); };
+  const namePass = () => { if (passEl._free) return; passEl.setAttribute('aria-label', 'Passer : j’improvise ton poème avec ' + name); setSub('(j’improvise ton poème avec ' + name + ')'); };
   namePass();
   // l'enveloppe : POSTER (même signe que PASSER), dès que l'adresse a deux lignes, même clavier ouvert
   const postEl = el('div', 'sc-pass', 'POSTER'); postEl.setAttribute('role', 'button'); postEl.tabIndex = 0;
@@ -517,7 +527,8 @@ export async function mountCards(opts) {
         }
         // « à qui je l'envoie ? » au-dessus de la première ligne de l'adresse, tant qu'on l'écrit
         const qw = fr && fr.prenom;
-        whoEl.classList.toggle('on', !!(qw && es && es.write && !es.posted));
+        // (17/10, Maxence : « enlève « à qui je l'envoie » : on comprend bien qu'il faut écrire son adresse ») plus d'indication ici
+        whoEl.classList.toggle('on', false);
         if (qw) Object.assign(whoEl.style, { left: qw.left + 'px', top: (qw.top - 6) + 'px' });
         if (mail) placeMail();
         const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
@@ -537,19 +548,29 @@ export async function mountCards(opts) {
       // PASSER : 3 s après que la carte blanche a pris la place du paquet, toujours visible ; clavier ouvert : entre
       // le bas de la carte et le haut du clavier
       const mk = scene.marks();
+      scene.setNameFy(document.querySelector('.nv-hd.on') ? 0.13 : 0.11);   // (le prénom sous le bandeau des pages quand il est là)
+      // (17/10) « tire une carte », tapé à la machine au-dessus du paquet qui se mélange ; il s'efface quand on tire
+      { const on = !!st.shuffling;
+        if (on !== tireEl._on) {
+          tireEl._on = on; clearTimeout(tireEl._t);
+          if (on) { const msg = 'tire une carte'; let k = 0; tireEl.textContent = ''; tireEl.classList.add('on'); const step = () => { if (!tireEl._on) return; tireEl.textContent = msg.slice(0, ++k); if (k < msg.length) tireEl._t = setTimeout(step, 70 + Math.random() * 80); }; tireEl._t = setTimeout(step, 600); }
+          else tireEl.classList.remove('on');
+        }
+        if (on && mk && mk.deckTop != null) tireEl.style.top = Math.max(100, mk.deckTop - 46) + 'px'; }
       // (10/10) aussi quelques secondes après l'apparition de la carte blanche, même pas touchée (réponse vide)
       const blankIn = st.mode === 'q' && st.blankFor > 3.5 && !(st.active && st.active.text);
       // (12/10, Maxence) après le paiement : PASSER seul, sous la question posée (il mène à la carte vierge, « dis-moi ce
       // que tu veux », sous laquelle PASSER revient : j'improvise)
       const paidQ = st.paidMode && st.mode === 'q' && !st.shuffling && st.active && !st.active.text && st.idle > 1.2;
-      passEl.classList.toggle('on', !st.ended && ((st.mode === 'free' && st.freeFor > (st.paidMode ? 1.6 : 3)) || (st.paidMode ? paidQ : blankIn)));
+      passEl.classList.toggle('on', !st.ended && ((st.mode === 'free' && (st.paidMode ? passTop != null : st.freeFor > 3)) || (st.paidMode ? paidQ : blankIn)));   // (après le paiement : il reste, à la même place, pendant que la carte se retourne)
       // (16/10, Maxence : « PASSER pouvait faire penser à passer la carte en cours ») sous la question : on dit où il mène
       { const free = !!st.paidMode && st.mode === 'q', sub = passEl.querySelector('.sc-sub');
-        if (free !== passEl._free) { passEl._free = free; if (free) { sub.textContent = '(si tu veux t’exprimer librement)'; passEl.setAttribute('aria-label', 'Passer : écrire librement'); } else namePass(); } }
+        if (free !== passEl._free) { passEl._free = free; if (free) { setSub('(si tu veux t’exprimer librement)'); passEl.setAttribute('aria-label', 'Passer : écrire librement'); } else namePass(); } }
       const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
       if (st.kb && r) passEl.style.top = Math.max(r.bottom + 2, (r.bottom + kbTop) / 2 - 22) + 'px';
       // (10/10) centré entre la question (et sa bande de réponse) et la carte blanche
-      else if (st.mode === 'q' && mk && st.paidMode) passEl.style.top = ((mk.qBottom || mk.deckBottom) + 34) + 'px';
+      else if (st.mode === 'q' && mk && st.paidMode) { passTop = ((mk.qBottom || mk.deckBottom) + 34); passEl.style.top = passTop + 'px'; }
+      else if (st.mode === 'free' && st.paidMode && passTop != null) passEl.style.top = passTop + 'px';
       else if (st.mode === 'q' && mk) passEl.style.top = (((mk.qBottom || mk.deckBottom) + mk.blankTop) / 2 - (passEl.offsetHeight || 60) / 2) + 'px';
       else if (mk) passEl.style.top = (mk.deckBottom + 34) + 'px';
       // respiration : la lumière et la carte en focus bougent d'elles-mêmes, très peu (le vivant, sans gyroscope)

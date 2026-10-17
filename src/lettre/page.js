@@ -174,6 +174,16 @@ export function buildStagePage(host, o) {
   const step = dt => { const kk = reduced ? 1 : Math.min(1, dt * 3.2); p += (pT - p) * kk; if (Math.abs(pT - p) < 1e-3) p = pT; place(); return Math.abs(pT - p) > 1e-3; };
   live = mountStage(host, grab, o.make, { reduced, step, p: () => p, pt: () => pT }).then(r => { scene = r && r.scene; if (!r) main.classList.add('flat'); place(); return r; });
   addEventListener('resize', place);
+  // (17/10, Maxence) ordinateur : ← → vont d'un point de navigation à l'autre (du dernier : au premier)
+  addEventListener('keydown', e => {
+    if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || N < 2) return;
+    if (getComputedStyle(host).visibility === 'hidden' || host.scrollTop > 5) return;
+    const a = document.activeElement;
+    if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return;
+    if (document.querySelector('.nv-pan.on, .mn-au, .mn-ct, .mn-jeu')) return;
+    e.preventDefault();
+    if (e.key === 'ArrowRight') { if (k === N - 1) wrapTo0(); else setStep(k + 1); } else setStep(k - 1);
+  });
   addEventListener('keydown', e => { if (e.key === 'Escape' && scene?.isOpen?.() && getComputedStyle(host).visibility !== 'hidden') { scene.close(); setTimeout(syncOpen, 50); } });
   setStep(0, 'debut');
   return { main, grab, cap, sign, live, setStep, get step() { return k; }, top: () => host.scrollTop, up: () => driveTo(0, Math.max(innerHeight * 1.7, 900)),

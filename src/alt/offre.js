@@ -212,7 +212,7 @@ function openPanel(name, ref) {
       <p class="of-or" hidden><span>ou par carte</span></p>
       <label class="of-pf"><span>ton email</span>
         <input class="of-pin" type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next"></label>
-      <div class="of-pf"><span class="of-where">à qui je l’envoie ?</span><div class="of-addr"></div></div>
+      <div class="of-pf"><span class="of-where" hidden></span><div class="of-addr"></div></div>
       <div class="of-pf"><span>le paiement</span><div class="of-pm"></div></div>
       <button class="of-go of-pay-go" type="button" disabled>PAYER ${esc(PRIX)}</button>
       <button class="of-pay-skip" type="button">PASSER (test)</button>
@@ -236,7 +236,7 @@ function openPanel(name, ref) {
     gift = g;
     root.querySelectorAll('[data-for]').forEach(b => { const on = (b.dataset.for === 'offrir') === g; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
     root.querySelector('.of-pay-sub').textContent = g ? 'un prénom, un poème · à offrir' : 'un prénom, un poème';
-    root.querySelector('.of-where').textContent = 'à qui je l’envoie ?';   // (17/10, Maxence : on comprend qu'on peut l'offrir)
+    // (17/10, Maxence : « enlève « à qui je l'envoie » ») plus d'indication au-dessus de l'adresse
     const o = readOrder(); if (o && o.ref === ref) saveOrder({ ...o, gift: g });
     giftPref = g; syncBarFor();
   };
@@ -497,7 +497,10 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     } else box.innerHTML = '<span class="tw">' + [...s].map(ch => ch === '\n' ? '<br>' : `<b>${esc(ch)}</b>`).join('') + '</span>';
     const ks = [...box.querySelectorAll('b')];
     let n = 0;
-    vidPlay(true);                                   // (17/10) la machine tape : le film joue
+    // (17/10) la machine tape : le film joue. Revenu au premier point (« l'exemplaire unique… ») : les mains rejouent pendant que la
+    // première ligne paraît, le mécanisme part avec la frappe de la seconde — comme à l'entrée
+    if (intro && nl > 0 && vidStarted && vid) { try { vid.currentTime = 0; } catch { /* */ } }
+    vidPlay(true);
     const strike = () => {
       if (!box.isConnected) return;
       if (n >= ks.length) { vidPlay(false); return; }   // (la description est posée : la machine s'arrête, image figée)
@@ -781,7 +784,17 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     root.classList.toggle('arrows-off', busy);
   }, 250);
   const downAt = () => { let rv = false; try { rv = !!sessionStorage.getItem('sg.nav.reveal'); } catch { /* */ } return BAR_AT + (rv ? 1200 : 6500); };
-  setTimeout(() => setTimeout(() => { down.dataset.shown = '1'; if (!busyMode()) { down.classList.add('on'); peek(); } }, downAt() - BAR_AT), BAR_AT);
+  // (17/10, Maxence : « le signe vers le bas, seulement si l'utilisateur ne fait rien sur la page dézoomée normale ») la flèche paraît
+  // quand rien n'a bougé depuis 5 s, en haut de page, hors vue rapprochée, paiement ou enveloppe ; au moindre geste, elle repart
+  let lastAct = performance.now(), peeked = false;
+  for (const ev of ['pointerdown', 'touchstart', 'wheel', 'keydown']) addEventListener(ev, () => { lastAct = performance.now(); if (down.classList.contains('on')) down.classList.remove('on'); }, { passive: true, capture: true });
+  setTimeout(() => setTimeout(() => { down.dataset.shown = '1'; }, downAt() - BAR_AT), BAR_AT);
+  setInterval(() => {
+    if (!root.isConnected) return;
+    const idle = down.dataset.shown === '1' && performance.now() - lastAct > 5000 && !detail && !busyMode() && root.scrollTop < 8 && !drive;
+    if (idle && !down.classList.contains('on')) { down.classList.add('on'); if (!peeked) { peeked = true; peek(); } }
+    else if (!idle && down.classList.contains('on') && (detail || busyMode() || root.scrollTop >= 8)) down.classList.remove('on');
+  }, 300);
   // (17/10, Maxence) quand la flèche paraît, la page descend un peu, le temps de montrer ce qui suit (ETERNEL, qui
   // t'écrit), et remonte — une fois par visite ; ensuite, la flèche seule
   function peek() {
@@ -874,6 +887,16 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // (12/10, Maxence) pour moi / pour offrir : seulement au moment du paiement (le panneau)
   giftPref = !!readOrder()?.gift;
 
+  // (17/10, Maxence : « sur PC les flèches naviguent entre les points, on peut aussi cliquer sur les points ») ← → : le point d'avant / d'après
+  // (depuis le dernier, tout se rembobine) ; pas en écrivant, ni menu ou page de la section ouverts, ni passé l'histoire (les autres poèmes ont leurs flèches)
+  addEventListener('keydown', e => {
+    if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || busyMode() || !root.isConnected) return;
+    const a = document.activeElement;
+    if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !a.readOnly && getComputedStyle(a).opacity !== '0') return;
+    if (document.querySelector('.nv-pan.on, .mn-au, .mn-ct, .mn-jeu, .ex-veil3.on, .ex-veil.on, .of-vr.on')) return;
+    if (root.scrollTop > storyLen() + 30) return;
+    e.preventDefault(); goStep(e.key === 'ArrowRight' ? 1 : -1);
+  });
   // l'entrée : la couche se pose sur le prénom seul, puis l'acrostiche se tape, puis la barre du prix
   count('alt/offre');
   void root.offsetWidth; setTimeout(() => root.classList.add('on'), 20);

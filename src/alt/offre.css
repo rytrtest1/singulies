@@ -422,3 +422,24 @@
 /* (17/10) le bandeau du bas : plus de texte lisible à travers RECEVOIR et le prix quand la page défile (les questions passaient dessous) */
 .of-bar { padding-top: 70px; background: linear-gradient(to top, #060606 0, #060606 70%, rgba(6,6,6,.7) 84%, rgba(6,6,6,0)); }
 .of-ex-t { margin-top: 36px; }
+
+/* (17/10, Maxence : « la page de fin de remerciements : équilibrée, soignée, esthétique, cohérente ») une seule colonne centrée, sous la
+   ligne du haut et le bandeau : le prénom, sa référence, MERCI et ce que je fais ensuite (tapé), puis, au bas, le paquet du jeu et une
+   seule phrase ; tout paraît dans l'ordre, doucement. Plus de RETOUR : la flèche du haut, ETERNEL et le bandeau y suffisent. */
+.mc.fin { padding-top: calc(112px + env(safe-area-inset-top)); justify-content: flex-start; }
+.mc.fin .mc-name { margin: 5.5vh 0 14px; font-size: clamp(26px, 7.4vw, 36px); line-height: 1.55; text-align: center; max-width: 94vw; }
+.mc.fin .ref { margin: 0 0 6.5vh; font-size: 12px; letter-spacing: .12em; color: #6c675e; }
+.mc.fin .mc-merci { font: 500 14px/1 'SG Garamond', serif; letter-spacing: .6em; padding-left: .6em; text-transform: uppercase; color: #ece8e0; margin: 0 0 22px; }
+.mc.fin .mc-line { font-size: 17px; line-height: 1.8; color: #cfcac1; }
+.mc.fin .small { margin-top: 18px; font-size: 13px; color: #7d786f; }
+.mc.fin .mc-jeu { bottom: calc(58px + env(safe-area-inset-bottom)); }
+.mc.fin .mc-deck { height: min(26svh, 210px); }
+.mc.fin .mc-jeu-row { display: flex; align-items: center; justify-content: center; gap: 2px; margin: 4px 0 0; }
+.mc.fin .mc-share, .mc.fin .mc-jeu-t { margin-top: 0; }
+.mc.fin .mc-jeu-t { font-size: min(13px, 3.45vw); color: #b9b4aa; }
+.mc.fin > * { opacity: 0; transform: translateY(8px); transition: opacity 1.2s ease, transform 1.2s ease; }
+.mc.fin.on > * { opacity: 1; transform: none; }
+.mc.fin.on > .mc-name { transition-delay: .1s; } .mc.fin.on > .ref { transition-delay: .7s; } .mc.fin.on > .mc-merci { transition-delay: 1.1s; }
+.mc.fin.on > .mc-line { transition-delay: 1.4s; } .mc.fin.on > .small { transition-delay: 4s; } .mc.fin.on > .mc-jeu { transition-delay: 3.2s; }
+.mc.fin.away > :not(.mc-jeu) { opacity: 0 !important; transition-delay: 0s !important; }
+.mc.fin.back > * { transition-delay: 0s !important; }

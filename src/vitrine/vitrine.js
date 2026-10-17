@@ -18,6 +18,7 @@ import { M4, CARD } from '../cards/cardRenderer.js';
 import { ENV, PO, FLAP_H, SEAL_OFF } from '../sheet/envelope.js';
 const CARD_S = Math.SQRT1_2, CW = CARD.w * CARD_S, CH = CARD.h * CARD_S;   // (12/10) la feuille est une A4 : la carte à sa taille (sheet.js)
 import { createMystery } from './mystery.js';
+import { makeInkMap } from '../cards/ink.js';
 
 const clamp01 = u => Math.min(1, Math.max(0, u));
 const sstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
@@ -43,6 +44,9 @@ export function createVitrine(o) {
     logoOff: [rnd.range(-0.15, 0.15), rnd.range(-0.15, 0.15)], warp: [rnd.range(0.05, 0.3), rnd.range(-0.18, 0.04), rnd.range(-0.1, 0.1)],
     jx: rnd.range(-0.6, 0.6), jy: rnd.range(-0.5, 0.5), jr: rnd.range(-0.015, 0.015) });
   const vQ = o.top || variant();
+  // (17/10, Maxence : « la carte peut avoir écrit SINGULIES - LE JEU dessus, c'est mieux ») le dos de la carte du jeu, comme le paquet
+  let qBack = null;
+  try { qBack = o.card.makeInk(makeInkMap('SINGULIES, le jeu', Math.floor((vQ.seed || 1) * 1000) + 7, ['SINGULIES', 'le jeu'], true).canvas); } catch (e) { console.warn('dos de la carte', e); }
 
   // ---- l'horloge : go(k) va à l'étape à son rythme ; scrub(p) suit le défilement (p : 0 → 3, en étapes ; la page donne
   //      à chaque étape une longueur proportionnelle à sa durée : le défilement est le temps) ----
@@ -178,7 +182,7 @@ export function createVitrine(o) {
     // (après le paiement, o.noCard : la carte est celle de la personne, posée face visible — sheet.js la dessine)
     if (!o.noCard) {
       const Mq = M4.mul(M4.mul(Msheet, questionRel()), S(CARD_S));
-      card.draw(vp, eye, P, { model: Mq, lod: 'fine', ...vQ });
+      card.draw(vp, eye, P, { model: Mq, lod: 'fine', ...(qBack ? { inkBack: qBack } : {}), ...vQ });
       if (vt > 0.3 && vt < K[1] + 1.85) occ = { m: Mq, k: true, a: sstep(0.3, 1.6, vt) * (1 - sstep(K[1] + 1.45, K[1] + 1.85, vt)) };   // (17/10) en douceur
     }
     // (le repère de l'enveloppe sans son échelle : les mesures en mm)
@@ -188,5 +192,5 @@ export function createVitrine(o) {
 
   function free() { myst.free(); }
   const seek = v => { scrubbing = false; vt = target = Math.max(0, Math.min(VKEYS[VKEYS.length - 1], v)); };   // (essais : un instant précis)
-  return { on, looking: () => look > 0.0005 || lookT > 0, update, go, jump, scrub, seek, look: setLook, lookAmt: () => look, state: () => ({ vt, target, k, arrived: Math.abs(vt - target) < 1e-3, keys: VKEYS }), envState, sheetState, camera, focus, draw, free };
+  return { on, looking: () => look > 0.0005 || lookT > 0, update, go, jump, scrub, seek, look: setLook, lookAmt: () => look, lookStep: () => lookK, state: () => ({ vt, target, k, arrived: Math.abs(vt - target) < 1e-3, keys: VKEYS }), envState, sheetState, camera, focus, draw, free };
 }

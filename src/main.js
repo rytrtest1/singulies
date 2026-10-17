@@ -1232,11 +1232,15 @@ if (ALT) {
     // fondu au noir vers les bords ; le bandeau et SINGULIES paraissent avec la feuille
     // (12/10, Maxence) sur la feuille, les bandeaux paraissent avec RECEVOIR (après l'exemplaire original), sauf s'ils
     // avaient déjà paru sur le portail
-    show: () => booted && (onNames() ? idleNames() : (S.navOn || !!document.querySelector('#offre.txt-on, #offre.bar-on'))) && !S.paid && !document.querySelector('.of.paying, .of.env'),
-    foot: () => booted && (onNames() ? idleNames() : (S.navOn || !!document.querySelector('#offre.txt-on, #offre.bar-on'))) && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    // (17/10, Maxence : « pourquoi pas de flèche retour ni de bandeau sur l'écran d'après la réservation ? c'est important pour la
+    // cohérence et le bon placement ») le haut (ETERNEL, ←, ≡), le bandeau et SINGULIES restent aussi une fois payé / réservé
+    show: () => booted && (onNames() ? idleNames() : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt-on, #offre.bar-on'))) && !document.querySelector('.of.paying, .of.env'),
+    foot: () => booted && (onNames() ? idleNames() : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt-on, #offre.bar-on'))) && !document.querySelector('.of.paying, .of.env'),
+    // la flèche retour, une fois commandé : l'accueil (la commande est partie ; la cérémonie se reprend en rechargeant, merci.html)
+    canBack: () => !!S.paid,
     // (17/10) aussi sur la page du poème une fois qu'on a défilé : les autres prénoms et les questions s'effacent sous ETERNEL et le bandeau
     wideShade: () => onNames(),
-    shade: () => booted && (idleNames() || !!document.querySelector('#offre.scrolled')),
+    shade: () => booted && (idleNames() || !!document.querySelector('#offre.scrolled')) && !document.querySelector('.mc.fin'),
     // (12/10) les aiguilles : sur la feuille, une fois l'offre posée (2,5 s après le bandeau du bas) ; la démonstration
     // seulement en haut de la page, sans paiement ni enveloppe
     // (12/10, Maxence) sur la page des prénoms, si le menu paraît (rien n'est écrit), la démonstration part aussi
@@ -1250,7 +1254,7 @@ if (ALT) {
     redo: () => !onNames() && !S.paid && !document.querySelector('.of.paying, .of.env'),
     onCurrent: () => { if (!onNames() && !S.paid && !document.querySelector('.of.paying, .of.env')) editName(); },
     // (17/10) la flèche retour du haut : d'abord ce qui est ouvert sur la feuille (la vue rapprochée, la suite de la page)
-    onBack: () => !!(offerObj && offerObj.back && offerObj.back()),
+    onBack: () => { if (S.paid) { location.href = './'; return true; } return !!(offerObj && offerObj.back && offerObj.back()); },
     // (17/10, Maxence : « c'était bien de charger avant ») de nouveau tôt, aussi sur le portail : la préparation ne
     // bloque plus (shaders compilés en parallèle, gl.js programAsync)
     calm: () => !document.querySelector('.of.paying, .of.env') && S.trans == null,

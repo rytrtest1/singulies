@@ -14,7 +14,7 @@ import { handName } from '../text/accents.js';
 
 const Q = new URLSearchParams(location.search);
 export const SIMPLE = Q.get('simple') === '1' ? 'all' : Q.get('simple') === 'suite' ? 'suite' : null;
-const WHO = 'à qui je l’envoie ?';
+const WHO = '';   // (17/10, Maxence : plus d'indication au-dessus de l'adresse)
 const NOADDR = Q.get('adresse') === '0' || ['merci', 'pour'].includes(document.documentElement.dataset.page);   // merci.html, pour.html : l'adresse est chez Stripe
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const TOUCH = matchMedia('(pointer: coarse)').matches;

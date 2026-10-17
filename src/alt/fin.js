@@ -57,10 +57,9 @@ export function finalScreen(order, home) {
     ${order.reserve || knownEmail() ? `<p class="small">${[order.reserve ? 'rien n’a été débité' : '', knownEmail() ? 'tu as reçu une confirmation par email' : ''].filter(Boolean).join(' · ')}</p>` : ''}
     <div class="mc-jeu">
       <div class="mc-deck" role="button" tabindex="0" aria-label="Tirer une carte du jeu SINGULIES"></div>
-      <button class="mc-share" type="button" aria-label="Poser une question du jeu à quelqu’un"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v10h14V11h-1" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <span class="mc-jeu-t">pose une question à quelqu’un</span>
-    </div>
-    ${home ? `<a class="mc-sign mc-retour" href="${esc(home)}">RETOUR</a>` : ''}`);
+      <div class="mc-jeu-row"><button class="mc-share" type="button" aria-label="Poser une question du jeu à quelqu’un"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v10h14V11h-1" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <span class="mc-jeu-t">pose une question à quelqu’un</span></div>
+    </div>`);   // (17/10 : plus de RETOUR en bas — la flèche du haut, ETERNEL et le bandeau sont là)
   d.classList.add('fin');
   // (17/10, Maxence) ce qui va se passer, avec le délai
   typeInto(d.querySelector('.mc-type'), order.reserve
@@ -73,11 +72,21 @@ export function finalScreen(order, home) {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const base = new URL('./', document.baseURI).href;
   const jeuUrl = id => { const u = new URL('./jeu.html', document.baseURI), k = new URLSearchParams(); if (id != null) k.set('q', id); u.search = k.toString(); return u.href; };
-  let deck = null;
+  let deck = null, game = null, inGame = false;
   const toJeu = id => { location.href = jeuUrl(id); };
-  import('../jeu/deck3d.js').then(m => m.mountDeck(deckBox, { base, reduced, onDraw: toJeu })).then(r => { deck = r; if (!r) deckBox.classList.add('flat'); }).catch(() => deckBox.classList.add('flat'));
-  // (17/10) la page du jeu est une vraie page (src/jeu/page.js) : le paquet tire sa carte, puis on y va avec cette question
-  const open = () => { if (deck) deck.pull(); else toJeu(null); };
+  // (17/10, Maxence : « quand la carte se retourne ») le paquet en direct ; au toucher, la page du jeu — préparée d'avance par-dessus,
+  // en relais (game.js) — prend la carte du dessus là où elle est et la retourne sur une question, qui vient au centre : aucune coupure.
+  // Le retour (←) la repose sur le paquet. Sans relais (WebGL2 absent) : la page du jeu.
+  import('../jeu/deck3d.js').then(m => m.mountDeck(deckBox, { base, reduced, onDraw: id => { if (!game) toJeu(id); } })).then(r => {
+    deck = r; if (!r) { deckBox.classList.add('flat'); return; }
+    setTimeout(() => { if (d.isConnected) import('../jeu/game.js').then(m => m.mountGame({ base, reduced, relay: true, deck: () => deck,
+      onReturned: () => { inGame = false; d.classList.add('back'); d.classList.remove('away'); } })).then(g => { if (g && d.isConnected) game = g; else g?.root.remove(); }).catch(e => console.warn('jeu (relais)', e)); }, 1800);
+  }).catch(() => deckBox.classList.add('flat'));
+  const open = () => {
+    if (inGame) return;
+    if (deck && game) { inGame = true; d.classList.add('away'); game.takeOver(); return; }
+    if (deck) deck.pull(); else toJeu(null);
+  };
   d.querySelector('.mc-share').addEventListener('click', open);
   deckBox.addEventListener('click', open);
   deckBox.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });

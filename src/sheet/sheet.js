@@ -257,6 +257,9 @@ export function createSheetScene(gl, opts) {
     card.updateInk(sigTex, cv, Math.round(bx * PX), Math.round(by * PX)); releaseCanvas(cv);
     sigN = n;
   }
+  // (17/10, Maxence) le prénom en colonne et ses lignes ne s'effacent QUE quand on regarde la carte de près (le point 2) : pour la lisibilité ;
+  // sur la feuille (le point 1), rien ne s'efface
+  const lookCard = () => (VIT && VIT.lookAmt && VIT.lookStep && VIT.lookStep() === 1 ? Math.min(1, VIT.lookAmt() * 1.6) : 0);
   const cursorMM = first >= 0 ? { x: RULE_X0, y: baseOf(first) - 0.5 } : { x: 0, y: 0 };
 
   // ---- la commande ----
@@ -626,7 +629,7 @@ export function createSheetScene(gl, opts) {
       warp: sheetV.warp.map(x => x * (1 - uR)),
       // (plus de curseur à côté de l'acrostiche, 06/10 : on croyait devoir écrire)
     });
-    if (sIn > 0.004 && !hideInside) for (const [y, x0, u] of rulesOf(tu)) if (u > 0.002) fil.draw(vp, eye, P, rulePath(y, x0, u).map(p => apply(Msheet, p)), FIL_R, { pitch: 1.0, fade: sIn * sheetFade });
+    if (sIn > 0.004 && !hideInside) for (const [y, x0, u] of rulesOf(tu)) if (u > 0.002) fil.draw(vp, eye, P, rulePath(y, x0, u).map(p => apply(Msheet, p)), FIL_R, { pitch: 1.0, fade: sIn * sheetFade * (1 - lookCard()) });
     if (C && from.answer && tu < MERGE[1] + 0.05) {
       // la carte réponse se glisse exactement sous la question et s'y fond
       const u = span(MERGE, tu), under = M4.mul(Mc, M4.model(0, 0, 0, 0, 0, 0.9));
@@ -710,7 +713,7 @@ export function createSheetScene(gl, opts) {
       if (rk > 0) g += 0.5 * sstep(0, 0.5, rk) * Math.exp(-Math.max(0, rk - 0.5) / 1.6);
       // vue « commande » : la colonne passe au second plan
       // (17/10, Maxence : « les lettres de l'acrostiche dépassent et distraient en haut ») la vue rapprochée (toucher l'objet) : elles s'effacent
-      const lkF = 1 - (VIT && VIT.lookAmt ? Math.min(1, VIT.lookAmt() * 1.6) : 0);
+      const lkF = 1 - lookCard();
       list.push({ i: f.i, model: M, glow: g * (1 - 0.8 * sL) * sheetFade * lkF, alpha: (1 - 0.75 * sL) * sheetFade * lkF });
     }
     // avec le test de profondeur : le dos de l'enveloppe, dessiné ensuite, cache les lettres entrées dans la poche

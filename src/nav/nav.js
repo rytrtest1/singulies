@@ -82,6 +82,8 @@ const CSS = `
   font: 500 var(--nv-fs, 10.5px)/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; margin-right: -.3em; -webkit-tap-highlight-color: transparent; }
 .nv-sub-tr button.cur { opacity: .78; cursor: default; }
 .nv-sub-tr button:not(.cur):hover, .nv-sub-tr button:not(.cur):focus-visible { opacity: .75; outline: none; }
+/* (17/10) la flèche retour du haut est la seule : celle de la scène des cartes se retire quand la ligne du haut est là */
+body:has(.nv-hd.on) .sc-back, body:has(.nv-hd.on) #back { display: none !important; }
 /* (le retour du haut ferme la page ouverte : le leur fait double emploi) */
 .mn-au .au-back, .mn-ct .ct-back { display: none !important; }   /* (aussi sous les pages A PROPOS, CONTACT, SINGULIES) */
 .nv-foot canvas { position: absolute; left: 0; top: 0; }
@@ -635,17 +637,8 @@ export function installNav(opts) {
     let d = mod(t - cur, PAGES.length); if (d > PAGES.length / 2) d -= PAGES.length;
     go(d, { pop: true });
   });
-  // (ordinateur) ← → = la page voisine — sauf là où ← → parcourent une série visible (le défilé des autres poèmes,
-  // exemples.js) ; jamais pendant qu'on écrit
-  addEventListener('keydown', e => {
-    if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || !shown) return;
-    const a = document.activeElement;
-    if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !a.readOnly && getComputedStyle(a).opacity !== '0') return;
-    if (document.querySelector('.mn-ct')) return;
-    const r = document.querySelector('.ex-ring')?.getBoundingClientRect();
-    if (r && r.height && r.top < innerHeight * 0.6 && r.bottom > innerHeight * 0.4) return;
-    go(e.key === 'ArrowRight' ? 1 : -1);
-  });
+  // (17/10, Maxence) ordinateur : ← → ne changent plus de page — ils vont d'un point de navigation à l'autre (offre.js, lettre/page.js) ;
+  // les pages : le bandeau, qu'on touche ou qu'on glisse
   // revenu par le bouton retour après un rechargement (page rendue par le cache) : tout reprend sa place
   addEventListener('pageshow', e => {
     if (!e.persisted || !busy) return;
