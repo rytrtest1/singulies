@@ -352,10 +352,12 @@ export function installNav(opts) {
       x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, fw, 46);
       if (r.width) {
         const ls = parseFloat(getComputedStyle(hbr).letterSpacing) || 0, l = r.left + 8, rr = r.right - 8 - ls, fl = flowNow(), yt = px => waveTop(px, t);
-        const a = 52, b = fw - 52;   // (les deux signes, 44 px chacun, tiennent dans l'espace avant les trous)
+        // d'un bord à l'autre : le fil plonge dans un trou avant chaque signe (← s'il est là, ≡) et ressort après, comme avant un nom
+        const gl = el => { const q = el && el.getBoundingClientRect(); return q && q.width ? [q.left - 7, q.right + 7] : null; };
+        const bk = hd.querySelector('.nv-bk'), icB = bk.classList.contains('off') ? null : gl(bk.querySelector('svg')), icM = gl(hd.querySelector('.nv-mn i'));
         hbr.style.translate = `0 ${waveTop((l + rr) / 2, t).toFixed(2)}px`;
-        paintThread(x, a, l, y, 37, 1.2, { holes: [true, true], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(3, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 2), g0: a - fl, yf: yt });
-        paintThread(x, rr, b, y, 41, 1.2, { holes: [true, true], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(5, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.47 + 5), g0: rr - fl, yf: yt });
+        const stops = [[-4, icB ? icB[0] : l, 0], ...(icB ? [[icB[1], l, 1]] : []), [rr, icM ? icM[0] : fw + 4, 2], ...(icM ? [[icM[1], fw + 4, 3]] : [])];
+        stops.forEach(([a0, b0, j]) => paintThread(x, a0, b0, y, 37 + j * 4, 1.2, { holes: [a0 > -4, b0 < fw + 4], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(3 + j, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 2 + j), g0: a0 - fl, yf: yt }));
       }
     }
   }
