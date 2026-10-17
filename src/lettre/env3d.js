@@ -106,6 +106,10 @@ export async function createEnvelope(gl, base = './') {
     return { x, p: [rx, ry, rz, x, y + lineY(z), z], M: M4.mul(M4.model(rx, ry, rz, x, y + lineY(z), z), S(EK)) };
   }
   const paperOf = k => ({ ...sheetV, seed: 51 + (((k % 7) + 7) % 7) * 9 });
+  // (17/10, Maxence : « les lettres liées sont trop grises, trop éclairées, trop plates ») chacune reçoit la lampe comme
+  // l'objet du centre la reçoit — rasante, à la même distance (la lampe suit chaque lettre) — et un peu moins de
+  // lumière d'ambiance : elles sont plus loin, dans le noir, leurs reliefs se lisent
+  const garLamp = (P, g) => ({ ...P, lightPos: [P.lightPos[0] + g.p[3], P.lightPos[1] + g.p[4], P.lightPos[2] + g.p[5]], light: P.light * 0.8, env: (P.env ?? 0.3) * 0.45 });
   // l'enveloppe (repère : Me) : face, dos sans rabat du bas, rabat (fl : 0 ouvert → 1 fermé), cachet (us : sa pose)
   const SEALED = false, EMB_K = 0.86, FLAP_EMB = 24;              // (le cachet : SEALED = true)
   function drawEnv(v, P, Me, { seed = 23, ep = envPieces(1, 1), fl = 1, us = 1, F = F1, si = 0, fade = 1 } = {}) {
@@ -274,7 +278,7 @@ export async function createEnvelope(gl, base = './') {
           const k = wrapMap.get(g.i), [px, py, pz, pa] = pilePos(k, D[2]), u = ease(clamp01(ww * 1.15 - 0.04 * k));
           const q = [lerp(0, g.p[0], u), lerp(0, g.p[1], u), lerp(pa, g.p[2], u), lerp(px, g.p[3], u), lerp(EY + py, g.p[4], u), lerp(pz, g.p[5], u)];
           drawEnv(v, P, M4.mul(R, M4.mul(M4.model(...q), S(EK))), { seed: k ? pile[k].seed : pile[0].seed, si: k });
-        } else if (Math.abs(g.x) < half * 2.2 + EW) drawEnv(v, P, Mw, { seed: gar[g.i].seed, si: g.i, fade: others * (ww < 1 ? ease(ww) : 1) });
+        } else if (Math.abs(g.x) < half * 2.2 + EW) drawEnv(v, garLamp(P, g), Mw, { seed: gar[g.i].seed, si: g.i, fade: others * (ww < 1 ? ease(ww) : 1) });
         const a = W2(g.M, -ENV.w / 2 - 0.5, THR_Y, THR_Z), b = W2(g.M, ENV.w / 2 + 0.5, THR_Y, THR_Z);
         if (held) {
           // de la voisine de gauche à celle de droite, en passant par les deux bouts qui glissent vers le milieu

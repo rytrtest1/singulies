@@ -125,5 +125,5 @@ a.lt-go { display: table; text-decoration: none; }
 /* (13/10) derrière les lettres d'un poème par mois : SINGULIES en grand, sur son fil d'un bord à l'autre */
 .lt-word { position: fixed; left: 0; right: 0; height: 30px; margin-top: -15px; z-index: 0; pointer-events: none; will-change: top; --o: 0; }
 /* (16/10) la clarté de l'étape sur les enfants : l'élément lui-même s'efface quand on change de page (nav.js) */
-.lt-word canvas { position: absolute; left: 0; top: 0; opacity: var(--o); }
-.lt-word span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding-left: .34em; font: 500 26px/30px 'SG Garamond', Georgia, serif; letter-spacing: .34em; color: #ece8e0; opacity: calc(.5 * var(--o)); white-space: nowrap; }
+.lt-word canvas { position: absolute; left: 0; top: 0; opacity: calc(.6 * var(--o)); }
+.lt-word span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding-left: .34em; font: 500 26px/30px 'SG Garamond', Georgia, serif; letter-spacing: .34em; color: #ece8e0; opacity: calc(.2 * var(--o)); white-space: nowrap; }   /* (17/10, Maxence : « il vole presque la vedette ») */
