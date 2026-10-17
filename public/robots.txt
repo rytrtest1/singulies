@@ -3,6 +3,7 @@
 User-agent: *
 Disallow: /alt
 Disallow: /basique-
+Disallow: /epure
 Disallow: /scene-
 Disallow: /cachet
 Disallow: /demande

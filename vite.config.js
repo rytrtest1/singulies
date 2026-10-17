@@ -16,5 +16,7 @@ export default defineConfig({
     cartes: 'scene-cartes.html', cachet: 'cachet.html',
     // versions basiques (essai du 09/10)
     bBoutique: 'basique-boutique.html', bArtiste: 'basique-artiste.html', bFormulaire: 'basique-formulaire.html', bFeuille: 'basique-feuille.html',
+    // version épurée (17/10) : une boutique d'une page
+    epure: 'epure.html',
   } } },
 });

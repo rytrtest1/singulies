@@ -39,6 +39,16 @@
         "5199"
       ],
       "port": 5199
+    },
+    {
+      "name": "singulies-epure",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5197"
+      ],
+      "port": 5197
     }
   ]
 }
