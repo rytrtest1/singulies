@@ -406,7 +406,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   root.innerHTML = `
     <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
     <main>
-      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"><div class="of-mvw"><video class="of-mv" muted loop playsinline disablepictureinpicture preload="auto" tabindex="-1" poster="${esc(new URL('vrai/machine.jpg', document.baseURI).href)}" src="${esc(new URL('vrai/machine.mp4', document.baseURI).href)}"></video></div></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
+      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"><div class="of-mvw"><video class="of-mv" muted playsinline disablepictureinpicture preload="auto" tabindex="-1" poster="${esc(new URL('vrai/machine.jpg', document.baseURI).href)}" src="${esc(new URL('vrai/machine.mp4', document.baseURI).href)}"></video></div></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
       <div class="of-rest">
       <!-- (12/10) chaque section de la suite porte son nom (data-nom) : le signe du bas l'annonce et y mène -->
       <!-- (17/10, Maxence) plus de section « d'autres prénoms » ni « en vrai » : VOIR EN VRAI, sur l'objet (openVrai) -->
@@ -539,19 +539,26 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     if (ob.more) { clearTimeout(txtT); slideTxt(nbsp(detail ? ob.more : ob.txt), false); }
     if (detail) count('alt/detail-' + ob.id);
   };
-  // (17/10, Maxence : « la vidéo apparaît au bas de l'écran au moment de “tapé à la machine à écrire”, fondue au noir depuis
-  // l'endroit où la machine tape : c'est elle qui écrit ») la machine monte au bas de la feuille quand la ligne se tape,
-  // joue seule (muette, en boucle), et s'en va avec l'étape 0. Mouvement réduit : l'image fixe.
+  // (17/10, Maxence : « c'est la machine qui tape la description ») la machine (les mains sur les touches, puis le mécanisme
+  // seul) apparaît quand la première description se tape, et reste pendant TOUTES les étapes ; elle joue seule (muette) :
+  // les mains une fois, puis le mécanisme en boucle. Elle s'efface pendant l'enveloppe et le paiement. Mouvement réduit :
+  // l'image fixe.
   const vid = root.querySelector('.of-mv'), vidW = root.querySelector('.of-mvw');
-  let vidArmed = false;
+  let vidArmed = false, vidStarted = false;
+  const VID_LOOP = 2.2;                                  // (après les mains et le fondu : le début du mécanisme)
+  const vidLoop = () => { try { vid.currentTime = VID_LOOP; if (vidW.classList.contains('on')) { const p = vid.play(); p && p.catch(() => { /* */ }); } } catch { /* */ } };
+  if (vid) {
+    vid.addEventListener('timeupdate', () => { if (vid.duration && vid.currentTime > vid.duration - 0.3) vidLoop(); });
+    vid.addEventListener('ended', vidLoop);
+  }
   const vidSet = on => {
-    if (!vid) return;
+    if (!vid || on === vidW.classList.contains('on')) return;
     if (on) {
       vidW.classList.add('on');
-      if (!matchMedia('(prefers-reduced-motion: reduce)').matches) { try { vid.currentTime = 0; const p = vid.play(); p && p.catch(() => { /* */ }); } catch { /* */ } }
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches) { try { if (!vidStarted) vid.currentTime = 0; vidStarted = true; const p = vid.play(); p && p.catch(() => { /* */ }); } catch { /* */ } }
     } else {
       vidW.classList.remove('on');
-      setTimeout(() => { if (!vidW.classList.contains('on')) vid.pause(); }, 1300);
+      setTimeout(() => { if (!vidW.classList.contains('on')) vid.pause(); }, 1500);
     }
   };
   const show = k => {
@@ -559,7 +566,6 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     if (k === cur) return;
     detail = false; root.classList.remove('detail');
     const back = cur >= 0 && k < cur; cur = k;
-    if (vidArmed || k !== 0) vidSet(k === 0);
     dotsOn(k);
     root.classList.toggle('vit-last', k === N - 1);
     clearTimeout(txtT);
@@ -619,7 +625,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // (11/10) une seule grammaire : vertical = avancer dans la page (les étapes suivent le défilement) ; les pages : les
   // flèches du bandeau (12/10 : plus de glissé pour changer de page, nav.js)
   // pendant l'enveloppe et le paiement : la feuille
-  new MutationObserver(() => { if (busyMode()) vidSet(false);
+  new MutationObserver(() => { if (busyMode()) vidSet(false); else if (vidArmed) vidSet(true);
     if (busyMode() && cur !== 0) { cur = 0; txtFor(0); dotsOn(0); } }).observe(root, { attributes: true, attributeFilter: ['class'] });
   // un point = une étape : la page y défile, à l'allure de chaque étape traversée
   root.querySelectorAll('.of-dot').forEach(b => b.addEventListener('click', () => {
@@ -688,7 +694,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // démonstration du bandeau des pages (nav.js) ; puis la flèche vers le bas
   const INTRO_AT = over ? 600 : 900, BAR_AT = INTRO_AT + introMs(OBJETS[0].txt);
   setTimeout(() => show(0), INTRO_AT);
-  setTimeout(() => { vidArmed = true; if (cur === 0 && !busyMode()) vidSet(true); }, INTRO_AT + 1000);   // (quand la ligne « tapé à la machine » commence à se taper)
+  setTimeout(() => { vidArmed = true; if (!busyMode()) vidSet(true); }, INTRO_AT + 1000);   // (quand la première description commence à se taper)
   // (12/10, Maxence : « l'invitation à descendre n'est pas assez claire ») comme sur la plupart des sites : le signe du bas
   // dit où il mène — le nom de la section suivante (« d'autres prénoms »), sous une flèche vers le bas — et y va
   // directement (la scène s'efface le temps du saut, l'histoire est posée à sa fin). Les étapes de l'objet : les points,
