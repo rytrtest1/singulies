@@ -950,14 +950,13 @@ function frame(ts) {
   if (LOGO_BG && logoD) {
     const ZL = 33, side = Math.min(S.w * 1.12, S.h * 0.84, 980), mv = CFG.reduced ? 0 : 1;
     const cxL = vx - field.cam.x * focal / ZL, cyL = vy + field.cam.y * focal / ZL, x0 = cxL - side / 2, y0 = cyL - side / 2;
-    const fs = Math.max(3.4, side / 112), lh = fs * 1.3, cap = atlas.capHeight;   // (micro-typographie : une trame)
+    const fs = Math.max(3.4, side / 112), lh = fs * 1.7, cap = atlas.capHeight;   // (micro-typographie : une trame légère, lignes espacées)
     if (!calli || calli.fs !== fs) calli = { fs, lines: calliLines(fs) };
     const br = 0.9 + mv * 0.1 * Math.sin(S.t * 2 * Math.PI / 11);
-    // (17/10, Maxence : « trop visible, trop net — organique, discret, visible sans voler la vedette ») plus pâle ;
-    // la netteté d'un plan vu de très près : nette près d'un point qui dérive lentement, de plus en plus floue vers les
-    // côtés (le flou étale la lettre, jamais plus de lumière) ; le bord de la forme fondu, irrégulier, qui respire
+    // (17/10, Maxence : « trop visible — organique, discret, visible sans voler la vedette ») plus pâle, trame légère ;
+    // NET partout, comme les prénoms lointains : la mise au point de la scène est au fond, où il est (le flou ne dépend
+    // que de la profondeur, jamais de la place à l'écran) ; le bord de la forme fondu, irrégulier, qui respire
     const A = LOGO_K * 0.36 * smooth(OPEN_DARK + 1.2, OPEN_DARK + 7, S.t) * (T >= 0 ? 1 - smooth(0, 1.4, T) : 1) * br;
-    const fx = 0.5 + mv * 0.14 * Math.sin(S.t * 0.047 + 1.1), fy = 0.5 + mv * 0.12 * Math.sin(S.t * 0.061 + 0.3);
     // (17/10, Maxence) aucun rectangle : curseur seul, le signe entier ; en tapant, un halo doux autour de chaque lettre
     const nameL = text ? place.filter(g => g.ch !== ' ') : [];
     if (A > 0.003) {
@@ -981,8 +980,7 @@ function frame(ts) {
           for (const g of nameL) { const r = Math.hypot(xc - (g.x + 0.35 * g.fs), yb - 0.5 * cap * fs - (g.y - 0.35 * g.fs)) / g.fs; if (r < 1.3) z = Math.min(z, Math.max(0, (r - 0.45) / 0.85)); }
           const a = A * m * m * z * grayOf(ZL) * 1.6;
           if (a < 0.003) continue;
-          const r = Math.hypot(u - fx, (vv - fy) * 0.85), blur = fs * (0.12 + 0.95 * smooth(0.1, 0.52, r));
-          under.push({ box: [x + gm.x0 * fs, yb + gm.y0 * fs, x + gm.x1 * fs, yb + gm.y1 * fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: a, pxEm: fs, blur });
+          under.push({ box: [x + gm.x0 * fs, yb + gm.y0 * fs, x + gm.x1 * fs, yb + gm.y1 * fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: a, pxEm: fs });
         }
       }
     }
