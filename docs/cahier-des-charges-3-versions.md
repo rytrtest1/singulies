@@ -30,9 +30,10 @@ Chaque ligne = un constat dans le code actuel, et le correctif attendu partout.
 | C3 | « l'enveloppe est partie. ton email, puis COMMANDER » s'affiche avant l'envoi réel (`src/cards/mount.js:345`) ; le bouton final s'appelle TERMINER à l'écran mais COMMANDER pour les lecteurs d'écran (`mount.js:318`). | Rien n'annonce l'envoi avant qu'il soit fait. **Un seul nom** pour le bouton final, identique à l'écran et pour les lecteurs d'écran. |
 | C4 | Tab est bloqué sur l'accueil (`src/main.js:599` : Tab bascule le mode du champ) et sur l'enveloppe ; il faut cliquer pour commencer. | Tab n'est plus intercepté ; on peut **commencer à taper sans cliquer**. |
 | C5 | Un prénom tronqué à 22 caractères, un caractère refusé (écritures non latines) disparaissent **sans message**. Le code postal n'est pas vérifié : « ABC » est accepté (`src/sheet/envelope.js:102`, simple longueur ≤ 10). | Signaler la troncature et le refus. Code postal : **5 chiffres, France** (la règle existe déjà dans `src/epure/epure.js:354`). |
-| C6 | PASSER efface un thème déjà écrit. | PASSER **ne supprime jamais** un thème écrit (il devient « continuer »). |
+| C6 | PASSER efface un thème déjà écrit — **confirmé le 17/10 par la commande de test** : l'email reçu dit « improvisation (sur le prénom) » et ne contient pas le thème écrit avant PASSER. | PASSER **ne supprime jamais** un thème écrit (il devient « continuer »). |
 | C7 | COMMANDER du jeu SINGULIES ne fait rien (`src/jeu/game.js:47`). | Devient **« me prévenir »** (le jeu sort bientôt), avec une **liste d'attente par email**. |
 | C8 | Paiement : aucun débit, lien PayPal envoyé à la main. | Page de paiement **Stripe en mode test**, visible seulement en test (adresse ou réglage spécial), **qu'on peut passer**, prête à être activée pour tous. PayPal est temporaire. Apple Pay et Google Pay prévus : **un seul domaine** (`singulies.com`) est à enregistrer chez Stripe, les trois versions en profitent. |
+| C9 | **Email de confirmation envoyé à la personne** (modèle EmailJS `template_lryyumd`) : son **objet** arrive en anglais avec une variable vide, « Order Confirmed #! » — l'objet n'est pas dans le dépôt, il se règle dans EmailJS. Le corps parle de « réservation, pas encore payée » (libellé interne) alors que `confirmMode` (`src/app/send.js`) prévoit « commande notée, réf. … ». | Objet en français avec la référence (« ton poème : HELENE-55jzt2 »), corps cohérent avec `confirmMode`. À corriger dans EmailJS (action de Maxence), puis à vérifier par un envoi réel. |
 
 Filtre actuel du prénom, pour mémoire : tiret → espace (deux colonnes, voulu), apostrophe supprimée, ß → SS, écritures non latines refusées **sans message**, 22 caractères max.
 
@@ -136,27 +137,34 @@ Trois adresses au bout de l'URL (`singulies.com/v1/`, `/v2/`, `/v3/` — *révis
 
 ## 3. Questions ouvertes
 
-1. **Accord des prénoms** Julie, Isabelle, Anaïs, Marysol (poèmes réellement envoyés) : à confirmer auprès de chaque personne.
+1. ~~**Accord des prénoms** Julie, Isabelle, Anaïs, Marysol~~ — **réglé le 17/10** : Maxence confirme les accords (sur parole).
 2. **Compteur réel** : le chiffre exact, sa date, et ce qu'il compte (poèmes envoyés ? prénoms ? depuis quand ?).
 3. **Comment les visiteurs arrivent sur chaque version** : le lien en bio Instagram est unique. Répartition aléatoire (petit Worker sur le domaine principal) ? liens différents selon la story/vidéo ? à décider avant la phase de test.
 4. **Longueur du « mot »** pour offrir : 300 caractères proposés, à ajuster après essai.
 5. **Délai affiché** : « posté sous 7 jours » (V1) contre « dans la semaine » aujourd'hui (`DELAI` dans `src/alt/config.js`) — harmoniser. La ligne PayPal reste sans délai.
 6. **Stripe réel** : dépend du SIRET / statut. Tant qu'il manque, PayPal temporaire et ligne de paiement « rien n'est débité ».
-7. **Obligation européenne d'accessibilité** (directive 2019/882) : elle exempte probablement les micro-entreprises de services — **à vérifier** ; on vise l'AA de toute façon.
-8. **GoatCounter** : le plan gratuit est prévu pour un usage non commercial — à vérifier maintenant que le site vend.
+7. **Obligation européenne d'accessibilité** (directive 2019/882) : elle exempte probablement les micro-entreprises de services — **à vérifier plus tard** (Maxence, 17/10) ; on vise l'AA de toute façon.
+8. **GoatCounter** : le plan gratuit est prévu pour un usage non commercial. Le site **ne vend pas encore** (Maxence, 17/10) : à revoir au passage au paiement réel (Stripe).
 9. **Liste d'attente du jeu** : où l'email est gardé (proposition : même base D1 que les commandes), et mise à jour de la page de confidentialité.
 10. **Média « machine »** : une vidéo à feuille noire, sans ruban, éclairage rasant, caméra fixe est toujours à filmer (déjà noté dans `CLAUDE.md`).
 
 ## 4. Points en suspens à régler (hérités de l'audit)
 
-- **Commande de test réelle envoyée pendant l'audit** : référence **HELENE-55jzt2**, nom TEST AUDIT, code postal ABC, test-audit@example.com, avec un thème écrit avant un clic sur PASSER. → Vérifier que le thème est bien arrivé dans l'email (cela confirme le bug C6), puis **supprimer cette commande** (D1 / `commandes.html`).
+- **Commande de test réelle envoyée pendant l'audit** (HELENE-55jzt2, nom TEST AUDIT, code postal ABC, test-audit@example.com) : **vérifiée le 17/10** — l'email arrivé à l'auteur dit « improvisation (sur le prénom) » sans le thème : **le bug C6 est confirmé** ; le code postal « ABC » est bien passé (C5). L'email de confirmation à `test-audit@example.com` est revenu en erreur (le domaine example.com ne reçoit pas de courrier) : normal pour une fausse adresse. Reste à supprimer la commande côté suivi (`commandes.html`, si la base D1 est reliée) — par Maxence.
 - **Les statistiques GoatCounter contiennent les passages de l'audit** : les nouveaux chemins préfixés par version (`v1/…`) démarreront propres ; l'ancien tableau reste pollué pour la période de l'audit.
 - **Obligation d'accessibilité** : voir question 7.
 
-## 5. Médias attendus de Maxence
+## 5. Médias
 
-- **2 à 4 extraits de rue verticaux**, 10 à 30 s, MP4, **moins de 8 Mo chacun**, lisibles sans le son, droit à l'image respecté.
-- **Les liens des posts Instagram** concernés.
-- **Le chiffre exact du compteur**, sa date, et ce qu'il compte.
-- En option : **une photo** (de lui ou de ses mains).
-- Les accords des quatre prénoms d'exemple (voir question 1).
+**Reçus le 17/10 :**
+- **Cinq vidéos TikTok** de @e.t.ernel, sur le principe « acrostiche écrit à un inconnu » : SUZANNE (`…/video/7499134726918130966`, titre « écriture de poème à une inconnue »), ADELINE (`…7687927040628051232`), ISABELLE (`…7686924779785440544`), MARYSOL (`…7683572139525459233`), ISABELLE bis (`…7689880594007788832`). Je n'ai pu lire que leurs métadonnées (titre, format vertical 576 × 1024), pas les regarder : durée, lisibilité sans le son et droit à l'image restent à juger par Maxence.
+- **Trois photos** : les mains sur la machine, gros plan sur le mécanisme avec la feuille bleue (« it was never about love »), le tatouage ETERNEL sur la main ; un portrait en clair-obscur. Rangées localement dans `ressources/medias/` (non versionnées, non publiées).
+
+**Sélection proposée (2 à 4 extraits, à confirmer) :**
+1. **SUZANNE** — la plus claire : « à une inconnue », la preuve du principe ;
+2. **MARYSOL** et **ISABELLE** (une des deux) — ils correspondent à des exemples déjà montrés sur le site (continuité : « ce poème est devenu cette feuille ») ;
+3. **ADELINE** en réserve.
+
+Pour les placer sur le site, il faut les **fichiers MP4 d'origine** (sans filigrane TikTok), 10 à 30 s, moins de 8 Mo chacun — à exporter depuis le téléphone ou le montage, pas depuis TikTok. On les héberge nous-mêmes (pas de lecteur TikTok intégré : il ajouterait des scripts et cookies tiers).
+
+**Encore attendus :** le chiffre exact du compteur avec sa date et ce qu'il compte ; les liens des posts Instagram si on les cite.

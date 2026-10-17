@@ -41,14 +41,14 @@ Données brutes : `actuel-cpu4.json` (CPU ralenti ×4, 3 passages) et `actuel-cp
 
 Lecture : la transition prénom → feuille est le **moment le plus lourd** (préparation de la scène des cartes, textures, shaders) ; un rendu logiciel l'exagère beaucoup. Sur un vrai téléphone, `CLAUDE.md` rapporte un iPhone X d'abord à 9 i/s puis fluide après la correction du relief — le téléphone réel dira où l'on en est.
 
-## Protocole pour un vrai téléphone (≈ 5 min, à faire par toi)
+## Protocole pour un vrai téléphone (facultatif, tout à la fin — décision du 17/10 : la fluidité n'est pas une priorité)
 
 1. Sur ton téléphone (de préférence un Android milieu de gamme **et** ton iPhone), data mobile en 4G, navigateur **neuf ou cache vidé** : ouvre `https://singulies.com/?fps=1&envoi=0`.
 2. Le petit compteur en haut à droite donne **i/s** et **pire image**. Note-les (ou fais une capture) à chaque moment : **intro** · **saisie du prénom (3 lettres)** · **pendant le vol des lettres** · **feuille posée** · **après RECEVOIR** (cartes) · **enveloppe**.
 3. Chronomètre : du moment où tu valides le prénom jusqu'à ce que « RECEVOIR » soit utilisable.
 4. Envoie-moi les captures : je remplis la colonne « téléphone réel » et je fixe les objectifs de fluidité.
 
-## Objectifs chiffrés proposés (à ajuster après le téléphone réel)
+## Objectifs chiffrés proposés (poids et chargement d'abord ; la fluidité est facultative)
 
 | | V1 (DOM, sans 3D) | V2 et V3 (moteur actuel) |
 |---|---|---|

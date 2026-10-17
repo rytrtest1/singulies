@@ -84,8 +84,9 @@ Entonnoir commun (mêmes noms dans les trois, pour pouvoir comparer) :
 | **3 — Accessibilité** | AA : contrastes des éléments d'action, cibles 44 px, Tab/focus, libellés, mouvement réduit ; axe-core dans Playwright + passage manuel clavier et lecteur d'écran | 2a, 2b, 2c | en partie (V1 dès qu'elle existe) |
 | **4 — Paiement** | panneau Stripe test visible en test, « passer », ligne de paiement, Apple Pay / Google Pay sur le domaine, adresse du wallet | phase 1 + les trois fronts | dans chaque version dès que son parcours est stable |
 | **5 — Confiance et contenu** | médias de rue, compteur, Instagram, accords des prénoms, FAQ, pages À propos / Questions / Contact | médias de Maxence | dès réception, indépendamment du code |
-| **6 — Recette et mise en ligne** | test de bout en bout par version (`tests/e2e`), essai téléphone réel, mesures comparées aux budgets, déploiement des trois versions | tout ce qui précède | non |
+| **6 — Recette et mise en ligne** | test de bout en bout par version (`tests/e2e`), mesures de chargement comparées aux budgets, déploiement des trois versions | tout ce qui précède | non |
 | **7 — Essai** | décider comment le trafic est réparti (question ouverte n°3), lire les entonnoirs, trancher | phase 6 | — |
+| **8 — Facultatif, en tout dernier** | mesure de fluidité sur téléphone réel (protocole dans `docs/mesures/RESULTATS.md`) — Maxence, 17/10 : pas une priorité | tout | — |
 
 **Sessions en parallèle** : V1 (2c) est la seule vraie pièce indépendante — à confier à une session à part, en dossier de travail isolé (worktree). V3 puis V2 s'enchaînent dans une même session (mêmes fichiers). Les médias et l'accord des prénoms (phase 5) avancent côté Maxence pendant tout ce temps.
 
