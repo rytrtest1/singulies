@@ -64,6 +64,7 @@ const CSS = `
 .nv-foot.on { opacity: 1; }
 /* (17/10, Maxence : « on garde aussi SINGULIES à ce moment-là ») menu ouvert : SINGULIES, en bas, reste au-dessus du menu */
 .nv-foot.up { z-index: 47; }
+.nv-foot.up, body:has(.mn-au, .mn-ct:not(.ct-in)) .nv-foot { z-index: 47; }   /* (aussi sous les pages A PROPOS, CONTACT, SINGULIES) */
 .nv-foot canvas { position: absolute; left: 0; top: 0; }
 .nv-foot button { position: absolute; left: 50%; top: 2px; transform: translateX(-50%); margin: 0; padding: 8px 6px; border: 0; background: none; cursor: pointer;
   font: 500 var(--nv-ft, 13px)/14px 'SG Garamond', Georgia, serif; letter-spacing: .4em; margin-right: -.4em; color: #ece8e0; opacity: .6; white-space: nowrap;
@@ -175,9 +176,13 @@ export function installNav(opts) {
     if (!a) { if (e.target === pan) setPan(false); return; }
     if (a.dataset.p) { e.preventDefault(); setPan(false); const id = a.dataset.p; if (id === ring(cur).id) { if (cur === home && opts.onCurrent) opts.onCurrent(); } else goTo(id); return; }
     setPan(false);
-    if (a.dataset.x === 'auteur') import('../menu/auteur.js').then(m => m.openAuteur({ base, reduced }));
-    else if (a.dataset.x === 'singulies') import('../menu/singulies.js').then(m => m.openSingulies({ base, reduced }));
-    else import('../menu/contact.js').then(m => m.openContact({ base, reduced }));
+    // (17/10) une page du menu déjà ouverte se referme d'abord (sinon la suivante ne s'ouvrait pas)
+    const open = () => {
+      if (a.dataset.x === 'auteur') import('../menu/auteur.js').then(m => m.openAuteur({ base, reduced }));
+      else if (a.dataset.x === 'singulies') import('../menu/singulies.js').then(m => m.openSingulies({ base, reduced }));
+      else import('../menu/contact.js').then(m => m.openContact({ base, reduced }));
+    };
+    const cur = document.querySelector('.mn-au .au-back'); if (cur) { cur.click(); setTimeout(open, 420); } else open();
   });
   addEventListener('keydown', e => { if (e.key === 'Escape' && panOn) { e.preventDefault(); e.stopPropagation(); setPan(false); } }, true);
   // ETERNEL : l'accueil (le champ de prénoms) — d'une autre page du document, on y revient d'abord

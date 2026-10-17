@@ -10,7 +10,7 @@ export const FOV = 26 * Math.PI / 180, TILT = 0.22, TF = Math.tan(FOV / 2);
 export const SH = { w: 148, h: 210 };                 // la feuille (A4), en unités
 export const MM = Math.SQRT1_2;                       // unités par millimètre réel
 export const NAV_TOP = 92;   // (17/10) la ligne du haut (← SINGULIES menu) et le bandeau des pages
-export const stageZoom = (W, H) => (W < H ? 0.8 : 0.86);
+export const stageZoom = (W, H) => (W < H ? 0.8 : 0.92);
 
 let sb = null, st = null;
 const probe = side => { const d = document.createElement('div'); d.style.cssText = `position:fixed;${side}:0;width:1px;height:env(safe-area-inset-${side});visibility:hidden`; document.body.appendChild(d); const v = d.offsetHeight || 0; d.remove(); return v; };

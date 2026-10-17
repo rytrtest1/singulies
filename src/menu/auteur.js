@@ -23,8 +23,8 @@ const CSS = `
 .au-ig { display: block; font: 13px/1.6 'SG Machine', 'Courier New', monospace; color: rgba(255,255,255,.4); text-decoration: none; }
 .au-ig:hover { color: rgba(255,255,255,.65); }
 .mn-au { position: fixed; inset: 0; z-index: 44; background: #060606; opacity: 0; transition: opacity .35s ease; overflow-y: auto;
-  -webkit-overflow-scrolling: touch; padding: max(64px, env(safe-area-inset-top)) 0 calc(56px + env(safe-area-inset-bottom)); box-sizing: border-box;
-  display: flex; flex-direction: column; justify-content: center; }
+  -webkit-overflow-scrolling: touch; padding: calc(70px + env(safe-area-inset-top)) 0 calc(56px + env(safe-area-inset-bottom)); box-sizing: border-box;
+  display: flex; flex-direction: column; }   /* (17/10) plus de justify-content: center — le haut d'une page plus haute que l'écran restait coupé ; margin: auto centre sans rien couper */
 .mn-au.on { opacity: 1; }
 .mn-au .au { margin: auto; }
 .mn-au .au-back { position: fixed; left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); width: 44px; height: 44px;
@@ -43,7 +43,7 @@ export function style() {
 export function auteurHtml(base = './') {
   style();
   const ph = PORTRAIT ? `<img class="au-ph" src="${esc(new URL(base + PORTRAIT, document.baseURI).href)}" alt="Eternel" loading="lazy" decoding="async" onerror="this.remove()">` : '';
-  return `<div class="au">${ph}<h2 class="au-h">ETERNEL</h2>${AUTEUR.map(p => `<p>${esc(p)}</p>`).join('')}
+  return `<div class="au">${ph}<h2 class="au-h">A PROPOS</h2>${AUTEUR.map(p => `<p>${esc(p)}</p>`).join('')}
     <h3 class="au-go">ECRIS-MOI</h3><div class="au-ct"></div></div>`;
 }
 
@@ -59,7 +59,7 @@ export function openAuteur(opts = {}) {
   if (document.querySelector('.mn-au')) return;
   const { base = './' } = opts;
   const root = document.createElement('div'); root.className = 'mn-au';
-  root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'qui t’écrit');
+  root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'à propos');
   root.innerHTML = `<button class="au-back" type="button" aria-label="Retour">${BACK}</button>${auteurHtml(base)}`;
   document.body.appendChild(root);
   wireAuteur(root, opts);
@@ -70,7 +70,7 @@ export function openAuteur(opts = {}) {
     setTimeout(() => root.remove(), 380);
   };
   // Échap : seulement si la carte de contact n'est pas ouverte par-dessus (elle se ferme d'abord)
-  const onKey = e => { if (e.key === 'Escape' && !document.querySelector('.mn-ct')) { e.preventDefault(); e.stopPropagation(); close(); } };
+  const onKey = e => { if (e.key === 'Escape' && !document.querySelector('.mn-ct:not(.ct-in)')) { e.preventDefault(); e.stopPropagation(); close(); } };
   addEventListener('keydown', onKey, true);
   root.querySelector('.au-back').addEventListener('click', close);
 }

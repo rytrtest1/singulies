@@ -44,7 +44,7 @@ let safeT = null;
 const safeTop = () => { if (safeT == null) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;top:0;width:1px;height:env(safe-area-inset-top);visibility:hidden'; document.body.appendChild(d); safeT = d.offsetHeight || 0; d.remove(); } return safeT; };
 // (11/10) la réserve du bandeau des pages, en haut (px, sans la marge du haut de l'iPhone)
 const NAV_TOP = 92;   // (17/10) la ligne du haut (← SINGULIES menu) et le bandeau des pages
-const SHEET_ZOOM = (W, H) => (W < H ? 0.8 : 0.86);
+const SHEET_ZOOM = (W, H) => (W < H ? 0.8 : 0.92);   // (17/10) ordinateur : la feuille occupait moins de la moitié de la hauteur
 // (11/10, Maxence) alt : le prénom ne monte plus puis ne redescend plus — ses lettres dérivent directement vers la place
 // qu'elles prendront dans la colonne de la feuille, et les lettres des autres prénoms qui les rechargent encore les
 // suivent ; la feuille apparaît ensuite sous elles. Une dérive lente, en courbe douce, chaque lettre un peu après la
