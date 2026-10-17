@@ -395,3 +395,15 @@
 .of-vr-ph { display: flex; flex-direction: column; gap: 22px; align-items: center; max-height: calc(100svh - 120px); overflow-y: auto; }
 .of-vr-ph img { display: block; max-width: min(92vw, 520px); height: auto; filter: grayscale(1); }
 .of-vr-ph figcaption { font: 12.5px/1.6 'SG Machine', 'Courier New', monospace; color: #8a857c; text-align: center; }
+
+/* (17/10, Maxence) la machine, au bas de la feuille : elle apparaît quand « tapé à la machine à écrire » se tape, et se
+   fond dans le noir par le haut, depuis l'endroit où elle frappe (le bas de l'image) ; noir et blanc, sans cadre */
+.of-mvw { position: absolute; left: 0; right: 0; bottom: 56px; height: 52%; display: flex; justify-content: center; pointer-events: none; z-index: 1;
+  opacity: 0; transition: opacity 1.2s ease; }
+.of-mvw.on { opacity: 1; }
+.of-mv { display: block; height: 100%; width: auto; max-width: 100%; aspect-ratio: 9 / 9.9; object-fit: cover; object-position: 50% 68%; background: transparent;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 42%, #000 90%, transparent 100%), linear-gradient(to right, transparent 0, #000 16%, #000 84%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 42%, #000 90%, transparent 100%), linear-gradient(to right, transparent 0, #000 16%, #000 84%, transparent 100%);
+  mask-composite: intersect; }
+@media (prefers-reduced-motion: reduce) { .of-mvw { transition: none; } }
