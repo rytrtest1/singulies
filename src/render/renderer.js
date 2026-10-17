@@ -44,7 +44,7 @@ void main() {
 const GLYPH_VS = /* glsl */`#version 300 es
 layout(location=0) in vec4 a_box;    // x0,y0,x1,y1 en px CSS
 layout(location=1) in vec4 a_uv;     // u0,v0,u1,v1 (u0 < 0 : rectangle plein)
-layout(location=2) in vec4 a_p;      // alpha, px CSS par em, effilement des extrémités (rectangle), rotation (rad, lettres)
+layout(location=2) in vec4 a_p;      // alpha, px CSS par em, effilement des extrémités (rectangle) ou flou (px CSS, lettre), —
 uniform vec2 u_view;                 // taille CSS
 out vec2 v_uv; out vec2 v_px; flat out vec4 v_box; flat out vec4 v_p; flat out float v_rect;
 void main() {
@@ -52,8 +52,6 @@ void main() {
   bool rect = a_uv.x < 0.0;
   vec4 b = rect ? a_box + vec4(-1.0, -1.0, 1.0, 1.0) : a_box; // marge d'antialias du rectangle
   vec2 pos = mix(b.xy, b.zw, c);
-  // (17/10) une lettre posée sur une courbe (le calligramme) : tournée autour du centre de sa boîte
-  if (!rect && a_p.w != 0.0) { vec2 m = 0.5 * (b.xy + b.zw), d = pos - m; float cs = cos(a_p.w), sn = sin(a_p.w); pos = m + vec2(d.x * cs - d.y * sn, d.x * sn + d.y * cs); }
   v_uv = mix(a_uv.xy, a_uv.zw, c);
   v_px = pos; v_box = a_box; v_p = a_p; v_rect = rect ? 1.0 : 0.0;
   gl_Position = vec4(pos / u_view * 2.0 - 1.0, 0.0, 1.0) * vec4(1.0, -1.0, 1.0, 1.0);
@@ -78,8 +76,10 @@ void main() {
   } else {
     float dEm = texture(u_atlas, v_uv).r;
     float dPx = dEm * v_p.y * u_dpr;           // distance en px physiques
-    cov = clamp(dPx + 0.5, 0.0, 1.0);
-    cov = pow(cov, 0.8);                         // clair sur sombre : préserve les déliés
+    // (17/10) une lettre floue (le calligramme) : la transition du bord s'élargit — la lettre s'étale, jamais plus de lumière
+    float sw = min(1.0 + v_p.z * u_dpr, max(1.0, 1.9 * 0.375 * v_p.y * u_dpr));   // (jamais au-delà de la portée du champ : sinon le bord de la boîte se verrait)
+    cov = clamp(dPx / sw + 0.5, 0.0, 1.0);
+    cov = pow(cov, mix(0.8, 1.0, min(1.0, v_p.z)));   // clair sur sombre : préserve les déliés (lettre nette)
   }
   float a = cov * v_p.x * u_fade;
   o = vec4(vec3(a), a);
@@ -358,7 +358,7 @@ export function createRenderer(canvas, gl, atlas) {
       const g = list[i], o = i * STRIDE;
       inst.set(g.box, o);
       if (g.uv) inst.set(g.uv, o + 4); else inst.set([-1, -1, -1, -1], o + 4);
-      inst[o + 8] = g.alpha; inst[o + 9] = g.pxEm; inst[o + 10] = g.taper || 0; inst[o + 11] = g.rot || 0;
+      inst[o + 8] = g.alpha; inst[o + 9] = g.pxEm; inst[o + 10] = g.uv ? (g.blur || 0) : (g.taper || 0); inst[o + 11] = 0;
     }
     gl.useProgram(gp.p);
     gl.uniform2f(gp.u.u_view, f.w, f.h);
