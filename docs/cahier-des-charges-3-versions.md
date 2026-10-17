@@ -138,7 +138,7 @@ Trois adresses au bout de l'URL (`singulies.com/v1/`, `/v2/`, `/v3/` — *révis
 ## 3. Questions ouvertes
 
 1. ~~**Accord des prénoms** Julie, Isabelle, Anaïs, Marysol~~ — **réglé le 17/10** : Maxence confirme les accords (sur parole).
-2. **Compteur réel** : le chiffre exact, sa date, et ce qu'il compte (poèmes envoyés ? prénoms ? depuis quand ?).
+2. ~~**Compteur réel**~~ — **reporté** (Maxence, 18/10 : pas de compteur pour le moment) ; il viendra avec un chiffre exact, sa date et ce qu'il compte.
 3. **Comment les visiteurs arrivent sur chaque version** : le lien en bio Instagram est unique. Répartition aléatoire (petit Worker sur le domaine principal) ? liens différents selon la story/vidéo ? à décider avant la phase de test.
 4. **Longueur du « mot »** pour offrir : 300 caractères proposés, à ajuster après essai.
 5. **Délai affiché** : « posté sous 7 jours » (V1) contre « dans la semaine » aujourd'hui (`DELAI` dans `src/alt/config.js`) — harmoniser. La ligne PayPal reste sans délai.
