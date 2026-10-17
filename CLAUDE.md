@@ -448,3 +448,6 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 ## Titre en haut, signature en bas (17/10, Maxence)
 - **Haut : ETERNEL** (l'accueil), l'auteur que le public connaît ; **bas : SINGULIES** (la maison), qui ouvre une page décrivant singuliés (`src/menu/singulies.js`, `openSingulies`, **texte provisoire à réécrire par Maxence**, lien LE JEU). Menu du haut : pages · QUI T'ECRIT · ECRIS-MOI · SINGULIES · pages légales.
 - Hiérarchie : ETERNEL = l'auteur (confiance), « un prénom, un poème » = le produit, SINGULIES = l'univers (jamais dans le parcours d'achat). Domaines : `singulies.*` principal (possédé), `unprenomunpoeme.com` à acheter, en redirection 301 vers lui (adresses absolues, `SITE` de la fonction, Stripe, sitemap à changer au branchement).
+
+## Vidéo de la machine : idée gardée (17/10, Maxence)
+- **Pas de nouvelle étape dans la vitrine** (essayée et retirée le jour même). Deux pistes, à trancher : la vidéo **en dessous** (dans la page), ou **au bas de l'écran au moment de « tapé à la machine à écrire »**, fondue au noir depuis l'endroit où la machine tape (c'est elle qui écrit). Maxence refait la vidéo : **feuille noire, rien d'écrit dessus**. L'ancienne (3 min, avec texte) est dans `C:\Users\maxen\Videos\typewriter\`.
