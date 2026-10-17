@@ -362,12 +362,11 @@ export function installNav(opts) {
         const ease = (cur, tgt) => reduced || !dtS ? tgt : cur + (tgt - cur) * (1 - Math.exp(-dtS * 11));
         hk.b = ease(hk.b, bkOn); hk.m = ease(hk.m, mnOn);
         const sag = (j, m = 1) => ({ sag: reduced ? 0.6 * m : (0.3 + 1.1 * breath(3 + j, t)) * m, sag2: reduced ? 0 : 0.35 * m * Math.sin(t * 0.43 + 2 + j), yf: yt });
-        // (un trait de lumière sur les brins des signes : ils doivent se lire, comme le corps un peu plus clair des anciennes flèches)
+        // (le vrai fil, tel quel : seulement tourné pour suivre le brin)
         const seg = (x1, y1, x2, y2, j, holes, g0, m = 1, al = 1, lit = false) => {
           const len = Math.hypot(x2 - x1, y2 - y1); if (len < 4) return;
           x.save(); x.globalAlpha = al; x.translate(x1, y1); x.rotate(Math.atan2(y2 - y1, x2 - x1));
           paintThread(x, 0, len, 0, 37 + j * 4, 1.2, { holes, ...sag(j, m), yf: null, g0 });
-          if (lit) { x.beginPath(); x.moveTo(1.5, -0.35); x.lineTo(len - 1.5, -0.35); x.strokeStyle = 'rgba(214,209,198,.62)'; x.lineWidth = 0.9; x.lineCap = 'round'; x.stroke(); }
           x.restore();
         };
         const kb = hk.b, tipX = 20, tipL = -4 + (tipX + 4) * kb;
