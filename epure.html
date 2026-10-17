@@ -13,176 +13,161 @@
 <link rel="stylesheet" href="./src/epure/epure.css">
 </head>
 <body>
-<!-- Version épurée (17/10) : une boutique d'une seule page, sur le modèle des boutiques simples, dans la DA du site.
-     Tout se voit, tout se comprend : l'objet, le prix, un champ, un bouton. Script : src/epure/epure.js -->
-<div class="ann">tapé à la machine · posté chez toi</div>
-
+<!-- Version épurée (17/10) : une seule page, un seul chemin, tout visible — mais avec les matières du site : le prénom
+     se tape sur la feuille, les lignes sont le fil cousu, les textes se tapent à la machine, l'adresse s'écrit sur
+     l'enveloppe. Sans WebGL : les objets sont les images rendues par le moteur. Script : src/epure/epure.js -->
 <header class="hd">
-  <a class="logo" href="#top" aria-label="ETERNEL, haut de page">ETERNEL</a>
+  <a class="logo sew" href="#top">ETERNEL</a>
   <nav class="nv" aria-label="sections">
-    <a href="#poeme">POEME</a><a href="#mois">PAR MOIS</a><a href="#livres">LIVRES</a><a href="#contact">CONTACT</a>
+    <a href="#exemples">POEMES</a><a href="#aussi">PAR MOIS</a><a href="#livres">LIVRES</a><a href="#questions">QUESTIONS</a>
   </nav>
 </header>
 
 <main id="top">
-  <!-- le produit -->
-  <section class="pr" id="poeme" aria-label="un prénom, un poème">
-    <div class="gal">
-      <div class="track" id="track" tabindex="0" aria-label="images du poème">
-        <figure class="sl"><div class="sheet" id="sheet"><div class="ac empty" id="ac"></div><div class="hint">ton prénom ici</div></div></figure>
-        <figure class="sl"><img data-src="exemples/isabelle.jpg" alt="un poème envoyé : ISABELLE en colonne, les vers tapés à la machine, la carte question posée dessous"></figure>
-        <figure class="sl"><div class="qcard" id="qshow"><p></p></div><figcaption>une question du jeu SINGULIES</figcaption></figure>
-        <figure class="sl"><img data-src="simple/enveloppe-dos.jpg" alt="l’enveloppe noire, fermée par un cachet de cire argentée"></figure>
-      </div>
-      <div class="th" id="thumbs" role="group" aria-label="choisir une image">
-        <button data-k="0" aria-label="ta feuille" data-bg="simple/feuille.jpg" class="tall" aria-pressed="true"></button>
-        <button data-k="1" aria-label="un exemple" data-bg="exemples/isabelle.jpg" class="tall" aria-pressed="false"></button>
-        <button data-k="2" aria-label="la carte question" data-bg="simple/vierge.jpg" aria-pressed="false"></button>
-        <button data-k="3" aria-label="l’enveloppe" data-bg="simple/enveloppe-dos.jpg" aria-pressed="false"></button>
+  <!-- 1. le produit : la feuille, on y écrit son prénom -->
+  <section class="hero" aria-label="un prénom, un poème">
+    <div class="paper" id="paper">
+      <div class="sheet" id="sheet">
+        <canvas class="rules" id="rules" aria-hidden="true"></canvas>
+        <div class="col" id="col" aria-hidden="true"></div>
+        <span class="cur" id="cur" aria-hidden="true"></span>
+        <span class="inv" id="inv" aria-hidden="true"></span>
+        <input id="name" aria-label="ton prénom" autocomplete="given-name" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="40" enterkeyhint="done">
       </div>
     </div>
+    <p class="say" id="say"></p>
+    <a class="sign sew" id="go" href="#commande" role="button">RECEVOIR</a>
+    <p class="price"><span class="prix"></span> tout compris · <span class="delai"></span></p>
+  </section>
 
-    <div class="info">
-      <h1>UN PRENOM,<br>UN POEME</h1>
-      <p class="price"><span class="prix"></span> <span class="soft">· tout compris</span></p>
-      <p class="lead">chaque lettre de ton prénom ouvre un vers. je l’écris pour toi, je le tape une seule fois à la machine à écrire, et je te l’envoie dans une enveloppe scellée à la cire.</p>
-
-      <label class="fl"><span>ton prénom (ou le sien, pour l’offrir)</span>
-        <input id="name" autocomplete="given-name" autocapitalize="words" autocorrect="off" spellcheck="false" maxlength="30" enterkeyhint="done">
-      </label>
-      <p class="err" id="nameErr" hidden>écris d’abord un prénom.</p>
-      <button class="btn main" id="go">RECEVOIR · <span class="prix"></span></button>
-      <p class="small"><span class="delai"></span> · en france</p>
-
-      <div class="acc">
-        <details open><summary>comment ça se passe</summary>
-          <ol class="steps">
-            <li>tu écris le prénom.</li>
-            <li>une question du jeu SINGULIES est tirée pour toi : ta réponse sera le thème du poème. tu peux aussi la laisser vide, j’improvise.</li>
-            <li>tu me dis où l’envoyer.</li>
-            <li>j’écris le poème et je le tape à la machine, une seule fois. puis je le poste.</li>
-          </ol>
-        </details>
-        <details><summary>ce que tu reçois</summary>
-          <ul class="dash">
-            <li>l’exemplaire unique de ton poème, tapé à la machine sur une feuille noire A4</li>
-            <li>la carte de ta question, du jeu SINGULIES</li>
-            <li>le tout dans une enveloppe noire scellée à la cire</li>
-            <li>une carte mystère et un fil</li>
-          </ul>
-        </details>
-        <details><summary>questions</summary><div id="faq"></div></details>
-      </div>
+  <!-- 2. ce qu'on reçoit -->
+  <section class="sec" id="recois">
+    <h2 class="sew">CE QUE TU RECOIS</h2>
+    <div class="objs">
+      <figure class="ob"><div class="ob-i"><img data-src="exemples/isabelle.jpg" alt="un poème tapé à la machine, ISABELLE en colonne"></div><figcaption data-type="ton poème, écrit pour ton prénom\ntapé une seule fois à la machine"></figcaption></figure>
+      <figure class="ob"><div class="ob-i"><div class="qcard" id="qshow"><p></p></div></div><figcaption data-type="une question du jeu SINGULIES\nta réponse sera le thème du poème"></figcaption></figure>
+      <figure class="ob"><div class="ob-i"><img data-src="simple/enveloppe-dos.jpg" alt="l’enveloppe noire, cachetée à la cire argentée"></div><figcaption data-type="le tout dans une enveloppe noire\nscellée à la cire"></figcaption></figure>
+      <figure class="ob"><div class="ob-i"><img data-src="simple/dos.jpg" alt="une carte noire, le logo SINGULIES gaufré"></div><figcaption data-type="une carte mystère et un fil…\npour rester liés"></figcaption></figure>
     </div>
   </section>
 
-  <!-- des exemples -->
+  <!-- 3. comment -->
+  <section class="sec narrow" id="comment">
+    <h2 class="sew">COMMENT</h2>
+    <ol class="how">
+      <li><b>I</b><span>tu écris le prénom, le tien ou celui de quelqu’un à qui l’offrir.</span></li>
+      <li><b>II</b><span>une question du jeu SINGULIES est tirée pour toi. tu y réponds, ou tu me laisses improviser.</span></li>
+      <li><b>III</b><span>j’écris le poème, je le tape une seule fois à la machine, et je le poste dans la semaine.</span></li>
+    </ol>
+  </section>
+
+  <!-- 4. des poèmes envoyés -->
   <section class="sec" id="exemples">
-    <h2>DES PRENOMS, DES POEMES</h2>
-    <div class="ex" id="ex"></div>
+    <h2 class="sew">DES PRENOMS, DES POEMES</h2>
+    <div class="strip" id="ex"></div>
   </section>
 
-  <!-- les autres objets -->
+  <!-- 5. aussi -->
   <section class="sec" id="aussi">
-    <h2>AUSSI</h2>
-    <div class="grid">
-      <a class="it" id="mois" href="#mois" data-open="mois">
-        <div class="im"><img data-src="simple/enveloppe-dos.jpg" alt="une enveloppe noire, cachetée"></div>
+    <h2 class="sew">AUSSI</h2>
+    <div class="more">
+      <button class="mo" id="mois" type="button">
+        <div class="mo-i"><img data-src="simple/enveloppe.jpg" alt="une enveloppe noire"></div>
         <h3>UN POEME PAR MOIS</h3>
-        <p class="soft">9 € par mois · liste d’attente</p>
-      </a>
-      <a class="it" id="livres" href="https://www.amazon.fr/dp/B0DS8RF83H" target="_blank" rel="noopener" data-c="livres/recueil">
-        <div class="im"><img data-src="livres/livre.jpg" alt="PENSEES POETIQUES, couverture noire, un cadre fin"></div>
-        <h3>PENSEES POETIQUES</h3>
-        <p class="soft">recueil · 9,90 € sur amazon</p>
-      </a>
-      <a class="it" href="https://www.amazon.fr/dp/B0BYGNDTWB" target="_blank" rel="noopener" data-c="livres/journal">
-        <div class="im ink"><img data-src="livres/journal-encre.png" alt="JOURNAL, couverture noire, encre blanche"></div>
-        <h3>JOURNAL</h3>
-        <p class="soft">journal · 18,99 € sur amazon</p>
-      </a>
+        <p>un poème inédit, chaque mois, chez toi<br><span class="soft">9 € par mois · bientôt</span></p>
+      </button>
+      <div class="mo" id="livres">
+        <div class="mo-i books">
+          <a href="https://www.amazon.fr/dp/B0DS8RF83H" target="_blank" rel="noopener" data-c="livres/recueil"><img data-src="livres/livre.jpg" alt="PENSEES POETIQUES"></a>
+          <a class="jr" href="https://www.amazon.fr/dp/B0BYGNDTWB" target="_blank" rel="noopener" data-c="livres/journal"><img data-src="livres/journal-encre.png" alt="JOURNAL"></a>
+        </div>
+        <h3>MES LIVRES</h3>
+        <p><a href="https://www.amazon.fr/dp/B0DS8RF83H" target="_blank" rel="noopener" data-c="livres/recueil">pensées poétiques</a> · <a href="https://www.amazon.fr/dp/B0BYGNDTWB" target="_blank" rel="noopener" data-c="livres/journal">journal</a><br><span class="soft">sur amazon</span></p>
+      </div>
     </div>
   </section>
 
-  <!-- qui écrit -->
+  <!-- 6. qui écrit, questions, contact -->
   <section class="sec narrow" id="apropos">
-    <h2>QUI T’ECRIT</h2>
+    <h2 class="sew">QUI T’ECRIT</h2>
     <div class="txt" id="auteur"></div>
-    <p class="c"><a class="soft" href="https://www.instagram.com/e.t.ernel/" target="_blank" rel="noopener">@e.t.ernel</a></p>
   </section>
-
-  <!-- contact -->
+  <section class="sec narrow" id="questions">
+    <h2 class="sew">QUESTIONS</h2>
+    <div id="faq"></div>
+  </section>
   <section class="sec narrow" id="contact">
-    <h2>CONTACT</h2>
+    <h2 class="sew">ECRIS-MOI</h2>
     <form class="form" id="ct" novalidate>
-      <label class="fl"><span>ton message</span><textarea name="text" rows="4" required></textarea></label>
-      <label class="fl"><span>ton email, pour te répondre</span><input name="email" type="email" autocomplete="email" inputmode="email" required></label>
+      <label class="ln"><span>ton message</span><textarea name="text" rows="3" required></textarea></label>
+      <label class="ln"><span>ton email, pour te répondre</span><input name="email" type="email" autocomplete="email" inputmode="email" required></label>
       <input class="trap" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
       <p class="err" hidden></p>
-      <button class="btn">ENVOYER</button>
+      <button class="sign sew">ENVOYER</button>
     </form>
-    <p class="done" id="ctDone" hidden>reçu. je te réponds.</p>
+    <p class="done" id="ctDone" hidden></p>
   </section>
 </main>
 
 <footer class="ft">
-  <p class="sig">SINGULIES</p>
-  <p><a href="https://www.instagram.com/e.t.ernel/" target="_blank" rel="noopener">instagram</a> · <a href="./mentions.html">mentions</a> · <a href="./conditions.html">conditions</a> · <a href="./confidentialite.html">confidentialité</a></p>
-  <p><a href="./index.html">le site complet</a></p>
+  <p class="sig sew">SINGULIES</p>
+  <p><a href="https://www.instagram.com/e.t.ernel/" target="_blank" rel="noopener">@e.t.ernel</a></p>
+  <p class="soft"><a href="./mentions.html">mentions</a> · <a href="./conditions.html">conditions</a> · <a href="./confidentialite.html">confidentialité</a></p>
 </footer>
 
-<!-- la commande : un panneau qui glisse (de droite sur ordinateur, du bas sur téléphone) -->
-<div class="dw" id="dw" hidden>
-  <div class="dw-bg" data-close></div>
-  <div class="dw-p" role="dialog" aria-modal="true" aria-labelledby="dwT">
-    <button class="dw-x" data-close aria-label="fermer">×</button>
-    <div class="dw-in" id="dwOrder">
-      <h2 id="dwT">TA COMMANDE</h2>
-      <div class="rc rc-o"><div class="minibox" aria-hidden="true"><div class="sheet"><div class="ac" id="acMini"></div></div></div><b id="rcName"></b><span class="prix"></span></div>
-      <form class="form" id="order" novalidate>
-        <h4>ta question</h4>
-        <div class="qcard" id="qcard"><p></p></div>
-        <p class="qa"><button type="button" class="lk" id="qOther">une autre question</button></p>
-        <label class="fl"><span>ta réponse : elle sera le thème du poème</span><textarea name="text" rows="3" placeholder="facultatif : vide, j’improvise à partir du prénom"></textarea></label>
+<!-- la commande : une page par-dessus, posée sur les objets -->
+<div class="ov" id="ov" hidden role="dialog" aria-modal="true" aria-label="ta commande">
+  <button class="back" data-close aria-label="retour"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></button>
+  <div class="ov-in" id="vOrder">
+    <p class="who" id="oName"></p>
+    <p class="price"><span class="prix"></span> tout compris</p>
 
-        <h4>où je l’envoie</h4>
-        <label class="fl"><span>prénom et nom</span><input name="who" autocomplete="name" required></label>
-        <label class="fl"><span>adresse</span><input name="rue" autocomplete="address-line1" required></label>
-        <label class="fl"><span>complément <i class="soft">(facultatif)</i></span><input name="cplt" autocomplete="address-line2"></label>
-        <div class="r2">
-          <label class="fl"><span>code postal</span><input name="cp" autocomplete="postal-code" inputmode="numeric" required></label>
-          <label class="fl"><span>ville</span><input name="ville" autocomplete="address-level2" required></label>
-        </div>
-        <label class="fl"><span>ton email</span><input name="email" type="email" autocomplete="email" inputmode="email" required></label>
-        <p class="err" hidden></p>
-        <button class="btn main" id="send"></button>
-        <p class="small" id="payNote"></p>
-      </form>
-    </div>
-    <div class="dw-in" id="dwDone" hidden>
-      <h2>C’EST NOTE</h2>
-      <p class="big" id="doneName"></p>
-      <p class="txt" id="doneTxt"></p>
-      <p class="small" id="doneRef"></p>
-      <button class="btn" data-close>FERMER</button>
-    </div>
-    <div class="dw-in" id="dwMois" hidden>
-      <h2>UN POEME PAR MOIS</h2>
-      <ul class="dash" id="moisTxt"></ul>
-      <p class="rc"><b>9 €</b><span class="soft">par mois · port compris · résiliable</span></p>
-      <form class="form" id="club" novalidate>
-        <p class="small">pas encore ouvert : laisse ton email, je t’écris dès que ça commence. rien n’est débité.</p>
-        <label class="fl"><span>ton email</span><input name="email" type="email" autocomplete="email" inputmode="email" required></label>
-        <p class="err" hidden></p>
-        <button class="btn main">RESERVER MA PLACE</button>
-      </form>
-      <p class="done" id="clubDone" hidden>c’est noté. je t’écris dès que ça commence.</p>
-    </div>
+    <form id="order" novalidate>
+      <h4>une question du jeu SINGULIES</h4>
+      <div class="qcard" id="qcard"><p></p></div>
+      <p class="qa"><button type="button" class="lk" id="qOther">une autre question</button></p>
+      <div class="qcard ans"><textarea name="text" id="ans" rows="3" maxlength="400" aria-label="ta réponse"></textarea><span class="ph" id="ansPh">réponds ici</span></div>
+      <p class="note" id="improv"></p>
+
+      <h4>où je l’envoie</h4>
+      <div class="env" aria-hidden="true"><div class="addr" id="addr"></div></div>
+      <label class="ln"><span>prénom et nom</span><input name="who" autocomplete="name" required></label>
+      <label class="ln"><span>adresse</span><input name="rue" autocomplete="address-line1" required></label>
+      <label class="ln"><span>complément</span><input name="cplt" autocomplete="address-line2" placeholder="facultatif"></label>
+      <div class="r2">
+        <label class="ln"><span>code postal</span><input name="cp" autocomplete="postal-code" inputmode="numeric" maxlength="6" required></label>
+        <label class="ln"><span>ville</span><input name="ville" autocomplete="address-level2" required></label>
+      </div>
+      <label class="ln"><span>ton email</span><input name="email" type="email" autocomplete="email" inputmode="email" required></label>
+      <p class="err" hidden></p>
+      <button class="sign sew big" id="send">RESERVER</button>
+      <p class="note">rien n’est débité ici : je t’écris par email pour le paiement (<span class="prix"></span>), puis je l’écris et je le poste <span class="delai"></span>.</p>
+    </form>
+  </div>
+
+  <div class="ov-in" id="vDone" hidden>
+    <div class="seal"><img data-src="simple/enveloppe-dos.jpg" alt="l’enveloppe, cachetée"></div>
+    <p class="who" id="dName"></p>
+    <p class="typed" id="dTxt"></p>
+    <p class="note" id="dRef"></p>
+    <button class="sign sew" data-close>RETOUR</button>
+  </div>
+
+  <div class="ov-in" id="vMois" hidden>
+    <div class="seal"><img data-src="simple/enveloppe.jpg" alt="une enveloppe noire"></div>
+    <p class="who">UN POEME PAR MOIS</p>
+    <p class="typed" id="mTxt"></p>
+    <form id="club" novalidate>
+      <label class="ln"><span>ton email</span><input name="email" type="email" autocomplete="email" inputmode="email" required></label>
+      <p class="err" hidden></p>
+      <button class="sign sew">RESERVER MA PLACE</button>
+      <p class="note">9 € par mois, port compris, résiliable. pas encore ouvert : je t’écris dès que ça commence. rien n’est débité.</p>
+    </form>
+    <p class="typed" id="clubDone" hidden></p>
   </div>
 </div>
 
-<!-- un poème en grand -->
-<div class="lb" id="lb" hidden><img alt=""><button class="dw-x" aria-label="fermer">×</button></div>
+<div class="lb" id="lb" hidden><img alt=""></div>
 
 <script type="module" src="./src/epure/epure.js"></script>
 </body>
