@@ -14,6 +14,7 @@ import { handName } from '../text/accents.js';
 
 const Q = new URLSearchParams(location.search);
 export const SIMPLE = Q.get('simple') === '1' ? 'all' : Q.get('simple') === 'suite' ? 'suite' : null;
+const WHO = 'à qui je l’envoie ?';
 const NOADDR = Q.get('adresse') === '0' || ['merci', 'pour'].includes(document.documentElement.dataset.page);   // merci.html, pour.html : l'adresse est chez Stripe
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const TOUCH = matchMedia('(pointer: coarse)').matches;
@@ -657,6 +658,9 @@ export function mountSimpleFlow(opts) {
     f.style.display = 'none'; inputs[d.id] = f;
   }
   const poster = el('button', 'sp-sign', root, 'POSTER'); poster.type = 'button';
+  // (17/10, Maxence) au-dessus de l'adresse : « a qui je l'envoie ? » (comme le parcours 3D)
+  const who = el('div', '', face); who.textContent = WHO;
+  Object.assign(who.style, { position: 'absolute', whiteSpace: 'nowrap', font: "500 16px/1.2 'SG Garamond', serif", color: '#fff', opacity: '0', transition: 'opacity .8s', pointerEvents: 'none', transform: 'translateY(-100%)' });
   let E = null;                                            // { s (px/mm), ox, oy (coin haut-gauche de l'enveloppe, px) }
   function envGeom() {
     const { W, H } = size;
@@ -687,6 +691,7 @@ export function mountSimpleFlow(opts) {
       if (typed[d.id]) Object.assign(typed[d.id].style, { left: p.x + 'px', top: (p.y - fs * 0.97) + 'px', fontSize: fs + 'px', letterSpacing: ls + 'px' });
       Object.assign(f.style, { left: (bx + p.x) + 'px', top: (by + p.y - fsF * 1.05) + 'px', width: (d.chars * PITCH * g.s + 8) + 'px', height: (fsF * 1.3) + 'px', fontSize: fsF + 'px', letterSpacing: Math.max(-1.5, lsF) + 'px' });
     });
+    { const w = at(ADDR.x, ADDR.y - ADDR.lead * 0.95); Object.assign(who.style, { left: w.x + 'px', top: w.y + 'px' }); }
     const pb = at(ADDR.x + 15 * PITCH, ENV.h);
     poster.style.top = Math.min(by + pb.y + 14, size.H - 50) + 'px';
     poster.style.left = (bx + pb.x - 60) + 'px'; poster.style.right = 'auto'; poster.style.width = '160px';
@@ -708,6 +713,7 @@ export function mountSimpleFlow(opts) {
       if (NOADDR) { typeInto(sender, SENDER.lines.join('\n'), { ch: 55, nl: 280, later: R.later }).then(() => R.later(post, 600)); return; }
       typeInto(sender, SENDER.lines.join('\n'), { ch: 55, nl: 280, later: R.later });
       for (const d of FIELDS) inputs[d.id].style.display = '';
+      who.style.opacity = '.62';
       envBox.style.transition = '';
       R.say('l’enveloppe. écris l’adresse où envoyer ton poème, puis POSTER.');
       if (!TOUCH) inputs[FIELDS.find(d => !inputs[d.id].value)?.id || 'nom'].focus({ preventScroll: true });
@@ -738,6 +744,7 @@ export function mountSimpleFlow(opts) {
     const f = vals();
     detail = { name, kind: chosen.kind, id: chosen.id, text: chosen.text, mode: 'poste', ...fieldsOut(f), fields: f, ...(NOADDR ? { test: true } : {}) };
     for (const d of FIELDS) { inputs[d.id].blur(); inputs[d.id].style.display = 'none'; const u = unders[d.id]; if (!f[d.id]) u.style.opacity = '0'; }
+    who.style.opacity = '0';
     // ce qu'on a tapé reste écrit sur l'enveloppe (à la machine)
     FIELDS.forEach(d => { if (!f[d.id]) return; const t = el('div', 'sp-type', face); t.textContent = f[d.id]; t.style.color = 'rgba(240,240,240,.85)'; typed[d.id] = t; });
     layoutEnv();

@@ -1054,7 +1054,7 @@ export function createSheetScene(gl, opts) {
   return {
     frame, tap, press, release, scroll, back, setTilt, free, focusRect, gesture,
     // (10/10, alt) la vitrine : go(k) avance / recule d'une étape ; jump(k) y va d'un coup ; state()
-    vitrine: VIT ? { go: VIT.go, jump: VIT.jump, scrub: VIT.scrub, seek: VIT.seek, state: VIT.state } : null,
+    vitrine: VIT ? { go: VIT.go, jump: VIT.jump, scrub: VIT.scrub, seek: VIT.seek, look: VIT.look, state: VIT.state } : null,
     // (10/10, alt.html) payé, sans question (improvisation) : la feuille n'attend plus — la carte face cachée repart,
     // puis l'enveloppe, comme d'habitude
     unhold(t, o = {}) { if (VIT) VIT.jump(0); if (!HOLD) return; HOLD = false; if (o.noAddr) noAddr = true; if (C && C.faceDown && C.leaveT == null) C.leaveT = t; lastGesture = t - 1.5; },

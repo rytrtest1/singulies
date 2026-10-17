@@ -28,6 +28,11 @@ const CSS = `
 .sg-away .sc-pass, .sg-away .sc-sign { display: none; }
 .sc-pass .sc-sub { display: block; margin-top: 4px; font-size: 13px; line-height: 1.2; letter-spacing: .04em; padding-left: 0; opacity: .55; }
 .sc-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); }
+/* (17/10, Maxence) au-dessus de l'adresse : « a qui je l'envoie ? » — on comprend qu'on peut l'offrir */
+.sc-who { position: fixed; z-index: 13; transform: translateY(-100%); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .8s;
+  font: 500 16px/1.2 'SG Garamond', serif; color: #fff; }
+.sc-who.on { opacity: .62; }
+.sg-away .sc-who { display: none; }
 /* feuille : boutons accessibles (clavier, lecteur d'écran) posés sur la carte et la commande ; le toucher passe au canvas */
 .sc-hit { position: fixed; margin: 0; padding: 0; border: 0; background: transparent; color: transparent; font-size: 1px;
   pointer-events: none; z-index: 13; outline: none; }
@@ -147,6 +152,8 @@ export async function mountCards(opts) {
   namePass();
   // l'enveloppe : POSTER (même signe que PASSER), dès que l'adresse a deux lignes, même clavier ouvert
   const postEl = el('div', 'sc-pass', 'POSTER'); postEl.setAttribute('role', 'button'); postEl.tabIndex = 0;
+  const whoEl = el('div', 'sc-who', '');
+  whoEl.textContent = 'à qui je l’envoie ?';
   // pointerdown sans effet par défaut : le champ garde le focus, le clavier ne se ferme pas sous le doigt avant le clic
   postEl.addEventListener('pointerdown', e => { e.preventDefault(); });
   postEl.addEventListener('click', () => { if (sheet && sheet.post(now())) { answer.blur(); log('postée'); } });
@@ -254,7 +261,7 @@ export async function mountCards(opts) {
   let mail = null;
   function askMail(d) {
     try { localStorage.setItem('singulies.draft', JSON.stringify(d)); } catch { /* */ }
-    answer.blur(); postEl.classList.remove('on');
+    answer.blur(); postEl.classList.remove('on'); whoEl.classList.remove('on');
     if (mail) mail.drop();
     const box = el('div', 'sc-mail');
     const inp = document.createElement('input');
@@ -331,7 +338,7 @@ export async function mountCards(opts) {
   // ---- mode test (?test=1, et l'essai sans adresse ?adresse=0) : avant TERMINER, deux questions pour les testeurs ;
   // les réponses partent avec la demande (beta → contact_html, send.js). Rien d'obligatoire. ----
   function askBeta(d, then) {
-    answer.blur(); postEl.classList.remove('on'); backEl.classList.remove('on');
+    answer.blur(); postEl.classList.remove('on'); whoEl.classList.remove('on'); backEl.classList.remove('on');
     const box = el('div', 'sc-ask');
     const mk = (q, ph, label) => {
       const t = document.createElement('div'); t.className = 'ask-q'; t.textContent = q;
@@ -408,7 +415,7 @@ export async function mountCards(opts) {
     if (!sheet) return;
     useEl(ta);
     for (const e of Object.values(fieldEls)) { e.blur(); e.style.width = '1px'; e.style.height = '1px'; }
-    sheet.free(); sheet = null; api.sheet = null; placeHits(); postEl.classList.remove('on');
+    sheet.free(); sheet = null; api.sheet = null; placeHits(); postEl.classList.remove('on'); whoEl.classList.remove('on');
     answer.setAttribute('aria-label', srLabel); answer.setAttribute('enterkeyhint', 'done');
     answer.setAttribute('autocomplete', 'off'); answer.setAttribute('autocapitalize', 'none');
     scene.reopen(now());
@@ -447,7 +454,7 @@ export async function mountCards(opts) {
   let started = false, landAt = null;
   const api = { afterPay, scene, canvas, gl, now, started: () => started, frames: 0, start, nameTargets: (W, H) => scene.nameTargets(name, W, H),
     // (10/10, alt) la vitrine, jouée dans la scène de la feuille
-    vitrine: { go: k => sheet?.vitrine?.go(k), jump: k => sheet?.vitrine?.jump(k), scrub: p => sheet?.vitrine?.scrub(p), seek: v => sheet?.vitrine?.seek(v), state: () => sheet?.vitrine?.state() || null } };
+    vitrine: { go: k => sheet?.vitrine?.go(k), jump: k => sheet?.vitrine?.jump(k), scrub: p => sheet?.vitrine?.scrub(p), look: v => !!sheet?.vitrine?.look?.(v), seek: v => sheet?.vitrine?.seek(v), state: () => sheet?.vitrine?.state() || null } };
 
   // (11/10, alt) les lettres sont déjà dans la colonne (venues de l'accueil) : la scène des cartes ne dessine jamais le
   // prénom en haut, pas même un instant
@@ -508,6 +515,10 @@ export async function mountCards(opts) {
           const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
           Object.assign(postEl.style, { left: sa.x + 'px', top: Math.min(sa.y + 14, kbTop - 50) + 'px' });
         }
+        // « à qui je l'envoie ? » au-dessus de la première ligne de l'adresse, tant qu'on l'écrit
+        const qw = fr && fr.prenom;
+        whoEl.classList.toggle('on', !!(qw && es && es.write && !es.posted));
+        if (qw) Object.assign(whoEl.style, { left: qw.left + 'px', top: (qw.top - 6) + 'px' });
         if (mail) placeMail();
         const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
         sheet.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);

@@ -46,3 +46,4 @@ export const PORTRAIT = '';
 
 // (17/10, Maxence) le délai : dit dans les questions et les conditions (pas sur le bandeau)
 export const DELAI = 'je le poste dans la semaine qui suit ta commande';
+export const DELAI_COURT = 'posté dans la semaine';   // sous RECEVOIR, et à la fin

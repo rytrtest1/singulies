@@ -1,6 +1,7 @@
 // Les écrans de texte de la version alternative (10/10) : ce qui flotte au-dessus des objets (Garamond), sur le noir —
 // partagés par alt.html (payé dans la page), merci.html (retour de Stripe) et pour.html (la personne offerte).
 import './offre.css';
+import { knownEmail } from '../app/storage.js';
 
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const K_ORDER = 'singulies.order';
@@ -53,7 +54,7 @@ export function finalScreen(order, home) {
     ${order.ref ? `<div class="ref">réf. ${esc(order.ref)}</div>` : ''}
     <p class="mc-merci">merci</p>
     <p class="mc-line mc-type"></p>
-    ${order.reserve ? '<p class="small">rien n’a été débité.</p>' : ''}
+    ${order.reserve || knownEmail() ? `<p class="small">${[order.reserve ? 'rien n’a été débité' : '', knownEmail() ? 'tu as reçu une confirmation par email' : ''].filter(Boolean).join(' · ')}</p>` : ''}
     <div class="mc-jeu">
       <div class="mc-deck" role="button" tabindex="0" aria-label="Tirer une carte du jeu SINGULIES"></div>
       <button class="mc-share" type="button" aria-label="Poser une question du jeu à quelqu’un"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v10h14V11h-1" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -61,7 +62,10 @@ export function finalScreen(order, home) {
     </div>
     ${home ? `<a class="mc-sign mc-retour" href="${esc(home)}">RETOUR</a>` : ''}`);
   d.classList.add('fin');
-  typeInto(d.querySelector('.mc-type'), order.reserve ? 'je t’écris pour le paiement' : 'je te tiens au courant', { at: 900 });
+  // (17/10, Maxence) ce qui va se passer, avec le délai
+  typeInto(d.querySelector('.mc-type'), order.reserve
+    ? 'ta commande est notée.\nje t’écris par email pour le paiement.\nune fois payé, je le poste dans la semaine.'
+    : 'je le poste dans la semaine.\nje te tiens au courant.', { at: 900, step: 42 });
   const sign = d.querySelector('.mc-sign');
   if (sign) import('./stitch.js').then(m => m.stitch(sign, { seed: 'RETOUR'.length * 13 })).catch(() => {});
   // le paquet en direct (sans WebGL2 : le signe et le lien suffisent)

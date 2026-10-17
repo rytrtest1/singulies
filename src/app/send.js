@@ -152,6 +152,9 @@ function seen(d) {
   try { localStorage.setItem(K_SENT, JSON.stringify(a.slice(-20))); } catch { /* */ }
   return false;
 }
+const confirmMode = d => !d.order ? '' : d.order.reserve
+  ? 'commande notée, réf. ' + d.order.ref + ' · je t’écris pour le paiement · une fois payé, je le poste dans la semaine'
+  : 'commande payée, réf. ' + d.order.ref + ' · je le poste dans la semaine';
 export function send(detail) {
   if (OFF) return;
   if (ORDER) detail = { ...detail, test: false, order: ORDER };
@@ -160,7 +163,9 @@ export function send(detail) {
   const p = params(detail), items = [{ tpl: EMAILJS.template, p }];
   // le récapitulatif à la personne, si elle a donné son email
   // (mêmes paramètres que la demande : prénom, question, réponse, et en mode test le prix et les retours)
-  if (EMAILJS.confirm && p.to_email) items.push({ tpl: EMAILJS.confirm, p });
+  // (17/10, Maxence : « une réf. dans leur email aussi ») la ligne du bas du récapitulatif ({{mode}}) dit à la personne
+  // où en est sa commande, avec sa référence — pas la note interne (« à payer : lien à envoyer »)
+  if (EMAILJS.confirm && p.to_email) items.push({ tpl: EMAILJS.confirm, p: { ...p, mode: confirmMode(detail) || p.mode } });
   if (!LOCAL) save([...load(), ...items]);
   flush();
   commande(detail, p);

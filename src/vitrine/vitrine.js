@@ -58,7 +58,14 @@ export function createVitrine(o) {
   // (11/10, Maxence : « réactif, mais aucune partie en accéléré ») : l'histoire suit le défilement, sans jamais aller
   // plus vite que 2,2 × son allure réelle (3 × en rembobinant)
   const MAX_F = 2.2, MAX_B = 3;
+  // (17/10, Maxence : « toucher la carte mystère : juste on voit mieux la carte et le fil ») look(true) : la vue
+  // s'approche de la carte mystère et de son fil ; encore, ou une autre étape : elle revient
+  let look = 0, lookT = 0;
+  const setLook = v => { lookT = v && vt > K[2] + 1.2 ? 1 : 0; return !!lookT; };
   function update(dt) {
+    if (vt < K[2] + 1.2 || target < K[3] - 0.05) lookT = 0;
+    look += (lookT - look) * (1 - Math.exp(-dt * (reduced ? 60 : 3.2)));
+    if (Math.abs(lookT - look) < 1e-3) look = lookT;
     if (scrubbing) {
       const d = target - vt, mv = d * (1 - Math.exp(-dt * 8)), cap = (d > 0 ? MAX_F : MAX_B) * dt;
       vt += Math.sign(mv) * Math.min(Math.abs(mv), cap);
@@ -140,6 +147,12 @@ export function createVitrine(o) {
         c = { cx: lerp(c.cx, 0, near), cy: lerp(c.cy, YB + (c.cy - YB) * k2, near), lD: lerp(c.lD, c.lD + Math.log(k2), near) };
       }
     }
+    // la carte mystère de près (toucher l'objet à la dernière étape) : elle occupe ≈ 72 % de la largeur, son fil autour
+    if (look > 0) {
+      const [ex, ey] = envCenter(), my = ENV.h / 2 - FLAP_H + SEAL_OFF - 12 - CH / 2 - 6;
+      const fz = Math.min(1, CW / 0.72 * H / W / (Hw || 1)), u = ease(look);
+      c = { cx: lerp(c.cx, ex, u), cy: lerp(c.cy, SY + ey + my, u), lD: lerp(c.lD, c.lD + Math.log(fz), u) };
+    }
     return Number.isFinite(c.cx + c.cy + c.lD) ? c : null;
   }
   function focus() {
@@ -166,5 +179,5 @@ export function createVitrine(o) {
 
   function free() { myst.free(); }
   const seek = v => { scrubbing = false; vt = target = Math.max(0, Math.min(VKEYS[VKEYS.length - 1], v)); };   // (essais : un instant précis)
-  return { on, update, go, jump, scrub, seek, state: () => ({ vt, target, k, arrived: Math.abs(vt - target) < 1e-3, keys: VKEYS }), envState, sheetState, camera, focus, draw, free };
+  return { on, update, go, jump, scrub, seek, look: setLook, state: () => ({ vt, target, k, arrived: Math.abs(vt - target) < 1e-3, keys: VKEYS }), envState, sheetState, camera, focus, draw, free };
 }

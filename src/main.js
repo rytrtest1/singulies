@@ -97,7 +97,11 @@ const HINT_AFTER = 3.0, HINT_ALPHA = 0.2;   // s après l'apparition du champ ; 
 // s'efface pour laisser le curseur seul au centre ; ailleurs : PRENOM, le curseur glisse devant
 // (16/10, Maxence) alt : PRENOM aussi, mais seulement si l'on n'a toujours pas compris après l'apparition du menu
 const HINT_TEXT = 'PRENOM';
-const HINT_AFTER_NAV = 3.2;   // (alt) s après l'apparition du menu   // (deux lignes comme un prénom : coupure aux espaces, la plus équilibrée)
+const HINT_AFTER_NAV = 3.2;   // (alt) s après l'apparition du menu (plus utilisé : voir HINT_AFTER_ALT)
+// (17/10, Maxence : « on enlève "aide", ça pollue ; si vraiment la personne ne comprend pas, PRENOM en grisé à la
+// machine après un certain temps ») alt : 5 s après que le curseur est resté seul (ETERNEL effacé), PRENOM se tape
+// lettre à lettre en grisé, le curseur devant ; il s'efface à la première lettre tapée
+const HINT_AFTER_ALT = 5.0, HINT_STRIKE = 0.13;   // (deux lignes comme un prénom : coupure aux espaces, la plus équilibrée)
 const IDLE_GO = 3.5;   // (10/10) ordinateur : fini d'écrire sans Entrée → la suite après ce temps sans frappe
 // (10/10, version alternative) à l'ouverture, ETERNEL — mon nom — se tape à la machine à la place du prénom, le champ
 // s'allume avec lui (on voit ce que fait une frappe), puis il s'efface lettre à lettre : reste le curseur seul, qui
@@ -486,33 +490,6 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.defaultP
 // Échap fonctionne aussi quand le champ n'a plus le focus (écran noir)
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !S.portal && document.activeElement !== input) goBack(); });
 
-// (17/10, Maxence : « on garde que le curseur après ETERNEL, et si la personne ne tape pas, plutôt une aide à toucher
-// qui explique ») « aide », discret sous le curseur ; touché : l'explication se tape à la machine à sa place. Elle
-// s'efface dès qu'on écrit.
-const AIDE_TXT = 'écris ton prénom.\nchaque lettre ouvre un vers :\nje tape ton poème à la machine\net je te l’envoie par la poste.';
-const aideEl = document.createElement('div');
-aideEl.className = 'aide'; aideEl.setAttribute('role', 'button'); aideEl.setAttribute('aria-label', 'aide : ' + AIDE_TXT.replace(/\n/g, ' '));
-aideEl.innerHTML = '<span class="aide-k">aide</span><span class="aide-t" aria-hidden="true"></span>';
-document.body.appendChild(aideEl);
-let aideOpen = false, aideTyp = 0;
-function aideTick(on, L) {
-  if (!on && aideOpen) { aideOpen = false; clearTimeout(aideTyp); aideEl.classList.remove('open'); aideEl.querySelector('.aide-t').textContent = ''; }
-  aideEl.classList.toggle('on', on);
-  if (on && L) aideEl.style.top = Math.round(L.cursor.y1 + Math.max(46, (S.h - L.cursor.y1) * 0.16)) + 'px';
-}
-aideEl.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); });
-aideEl.addEventListener('click', e => {
-  e.stopPropagation();
-  if (!aideEl.classList.contains('on')) return;
-  aideOpen = !aideOpen; aideEl.classList.toggle('open', aideOpen);
-  const t = aideEl.querySelector('.aide-t'); clearTimeout(aideTyp); t.textContent = '';
-  if (!aideOpen) return;
-  count('alt/aide');
-  let i = 0;
-  const strike = () => { if (!aideOpen || i > AIDE_TXT.length) return; t.textContent = AIDE_TXT.slice(0, i++); aideTyp = setTimeout(strike, CFG.reduced ? 0 : 38 + Math.random() * 60); };
-  strike();
-});
-
 // Toucher n'importe où : focus du champ (ouvre le clavier mobile, geste utilisateur)
 // (16/10, Maxence : « si on touche le prénom avant que la scène soit finie, on rembobine et on peut le modifier »)
 function inBox(b, e) { return b && e.clientX > b[0] && e.clientX < b[2] && e.clientY > b[1] && e.clientY < b[3]; }
@@ -564,7 +541,7 @@ function editName() {
   setTimeout(() => location.replace(location.href), 480);
 }
 document.addEventListener('click', (e) => {
-  if (S.portal || S.phase !== 'input' || S.trans != null || e.target === backEl || backEl.contains(e.target) || nextEl.contains(e.target) || aideEl.contains(e.target)) return;
+  if (S.portal || S.phase !== 'input' || S.trans != null || e.target === backEl || backEl.contains(e.target) || nextEl.contains(e.target)) return;
   const b = S.nameBox;
   // seule la zone du prénom / du curseur répond (ailleurs, plus tard : toucher un prénom du champ pour lire son
   // acrostiche) : prénom écrit → aller à la suite ; vide → écrire (le clavier sort)
@@ -898,19 +875,20 @@ function frame(ts) {
   // devant ; il s'efface à la première lettre (?indice=0 : jamais)
   if (S.hintT0 == null && S.phase === 'input' && !S.portal && nameFade > 0.99) S.hintT0 = S.t;
   // (alt : ETERNEL tapé puis effacé, le curseur seul, puis le menu ; PRENOM seulement après lui)
-  const hintAt = ALT ? (S.navOnAt != null ? S.navOnAt + HINT_AFTER_NAV : Infinity) : (S.hintT0 ?? Infinity) + HINT_AFTER;
-  // (17/10, Maxence) alt : plus de PRENOM grisé — le curseur seul, puis « aide » à toucher (aideTick)
-  aideTick(ALT && HINT && Number.isFinite(hintAt) && S.t > hintAt && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !S.portal, L);
-  const hintA = !ALT && HINT && Number.isFinite(hintAt) && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
+  // (alt : le curseur seul — ETERNEL tapé puis effacé —, puis HINT_AFTER_ALT s ; PRENOM se tape à la machine)
+  const hintAt = ALT ? (S.hintT0 ?? Infinity) + 0.4 + INTRO.length * (I_TYPE + I_ERASE) + I_HOLD + HINT_AFTER_ALT : (S.hintT0 ?? Infinity) + HINT_AFTER;
+  const hintA = HINT && Number.isFinite(hintAt) && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
     ? smooth(hintAt, hintAt + 1.6, S.t) : 0;
   let hintX = L.cursor.x;
   if (hintA > 0) {
     const H = layoutName(displayCase(HINT_TEXT, CFG.caseMode), metrics, { w: S.w, h: S.h, cx, cy });
-    for (const g of H.glyphs) {
-      const gm = atlas.glyphs[g.ch]; if (!gm) continue;
-      glyphs.push({ box: [g.x + gm.x0 * g.fs, g.y + gm.y0 * g.fs, g.x + gm.x1 * g.fs, g.y + gm.y1 * g.fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: HINT_ALPHA * hintA * nameFade, pxEm: g.fs });
-    }
-    hintX = L.cursor.x + (H.lines[0].x0 - H.track * H.fs * 0.5 - L.cursor.x) * smooth(0, 1, hintA);
+    H.glyphs.forEach((g, i) => {
+      const gm = atlas.glyphs[g.ch]; if (!gm) return;
+      // (alt) à la machine : chaque lettre frappe à son tour (après le glissement du curseur) ; sinon, en fondu
+      const k = ALT && !CFG.reduced ? (S.t > hintAt + 0.5 + i * HINT_STRIKE ? 1 : 0) * smooth(hintAt, hintAt + 0.4, S.t) : hintA;
+      glyphs.push({ box: [g.x + gm.x0 * g.fs, g.y + gm.y0 * g.fs, g.x + gm.x1 * g.fs, g.y + gm.y1 * g.fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: HINT_ALPHA * k * nameFade, pxEm: g.fs });
+    });
+    hintX = L.cursor.x + (H.lines[0].x0 - H.track * H.fs * 0.5 - L.cursor.x) * (ALT ? smooth(hintAt, hintAt + 0.45, S.t) : smooth(0, 1, hintA));
     const hx0 = Math.min(...H.lines.map(l => l.x0)), hx1 = Math.max(...H.lines.map(l => l.x1));
     S.nameBox = [Math.min(S.nameBox[0], hx0 - 30), Math.min(S.nameBox[1], H.top - 20), Math.max(S.nameBox[2], hx1 + 30), Math.max(S.nameBox[3], H.bottom + 20)];
   }

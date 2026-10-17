@@ -426,3 +426,11 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 - **`commandes.html`** (noindex, robots) : mot de passe `ADMIN_TOKEN` (secret Cloudflare, gardé dans le navigateur), liste récente d'abord, filtre, statuts reçue → paiement envoyé → payée → tapée → postée, note, n° de facture (plus tard), copier l'adresse (enveloppe), lien PayPal (`PAYPAL`, wrangler.toml) ou Stripe (`/admin/lien-stripe`, 24 h), voir la feuille. `?api=local`.
 - « postée » → **« ton poème est posté »** : modèle EmailJS `EMAILJS.poste` (`ressources/email-poste.html`, à créer par Maxence) ; vide = email tout prêt dans sa messagerie.
 - **À faire par Maxence** (serveur/LISEZ-MOI.md, « Suivi des commandes ») : créer la base D1 et coller son identifiant dans les deux wrangler.toml (bloc commenté), définir `ADMIN_TOKEN`, `PAYPAL`, le modèle EmailJS.
+
+## Ce qu'on ne comprenait pas (17/10, Maxence)
+- **Accueil** : « aide » retiré ; si rien n'est tapé 5 s après que le curseur est seul (ETERNEL effacé), **PRENOM se tape à la machine en grisé**, le curseur devant (`HINT_AFTER_ALT`, `HINT_STRIKE` dans main.js ; `?indice=0`).
+- **Délai** : sous RECEVOIR, « 39 € tout compris · posté dans la semaine » (`DELAI_COURT`).
+- **Carte question, avant le jeu** : « une question du jeu SINGULIES / ta réponse sera le thème du poème » (vitrine). La carte réponse garde « réponds ici ».
+- **Carte mystère** : plus de précision au toucher ; toucher l'objet = la vue s'approche de la carte et du fil (`look` dans vitrine.js), encore = elle revient.
+- **« à qui je l'envoie ? »** au-dessus de l'adresse sur l'enveloppe (mount.js `sc-who`, version simple) et dans le panneau de paiement : on comprend qu'on peut l'offrir.
+- **Fin de réservation** : « ta commande est notée. / je t'écris par email pour le paiement. / une fois payé, je le poste dans la semaine. » ; dessous « rien n'a été débité · tu as reçu une confirmation par email » ; **le récapitulatif envoyé à la personne porte sa réf.** (`confirmMode` dans send.js, ligne `{{mode}}` du modèle).

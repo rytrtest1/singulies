@@ -7,7 +7,7 @@ import { acrostic } from '../basique/basique.js';
 import { mountExemples } from './exemples.js';
 import { count } from '../app/count.js';
 import { stitch } from './stitch.js';
-import { PRIX, STRIPE, STRIPE_PK, PAIEMENT_URL, FEUILLE_PHOTO, SHEET_INSET, RESERVATION, EN_VRAI } from './config.js';
+import { PRIX, STRIPE, STRIPE_PK, PAIEMENT_URL, FEUILLE_PHOTO, SHEET_INSET, RESERVATION, EN_VRAI, DELAI_COURT } from './config.js';
 import { questionsHtml, wireQuestions } from './questions.js';
 import { auteurHtml, wireAuteur } from '../menu/auteur.js';
 
@@ -31,9 +31,10 @@ const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o));
 // (grammage, papier) : seulement des faits sûrs ici
 const OBJETS = [
   { id: 'feuille', txt: 'l’exemplaire unique de ton poème\ntapé à la machine à écrire', more: 'une feuille noire A4, 21 × 29,7 cm\ntapée une seule fois : aucune copie' },
-  { id: 'carte', txt: 'une question du jeu SINGULIES\ntirée au hasard', more: 'une carte noire de 8,7 × 5,2 cm\nla question à l’encre blanche, logo gaufré' },
+  { id: 'carte', txt: 'une question du jeu SINGULIES\nta réponse sera le thème du poème', more: 'une carte noire de 8,7 × 5,2 cm\nla question à l’encre blanche, logo gaufré' },
   { id: 'cachet', txt: 'le tout dans une enveloppe\nscellée à la cire', more: 'une enveloppe noire fermée à la main\nun cachet de cire argentée de 27 mm' },
-  { id: 'mystere', txt: 'une carte mystère et un fil…\npour rester liés', more: 'une carte vierge pour m’écrire ton prénom\net un fil noir pour relier les singuliés' },
+  // (17/10, Maxence) la carte mystère garde son mystère : la toucher ne dit rien de plus, on la voit de près (look)
+  { id: 'mystere', txt: 'une carte mystère et un fil…\npour rester liés', look: true },
 ];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -211,7 +212,7 @@ function openPanel(name, ref) {
       <p class="of-or" hidden><span>ou par carte</span></p>
       <label class="of-pf"><span>ton email</span>
         <input class="of-pin" type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next"></label>
-      <div class="of-pf"><span class="of-where">où je te l’envoie</span><div class="of-addr"></div></div>
+      <div class="of-pf"><span class="of-where">à qui je l’envoie ?</span><div class="of-addr"></div></div>
       <div class="of-pf"><span>le paiement</span><div class="of-pm"></div></div>
       <button class="of-go of-pay-go" type="button" disabled>PAYER ${esc(PRIX)}</button>
       <button class="of-pay-skip" type="button">PASSER (test)</button>
@@ -235,7 +236,7 @@ function openPanel(name, ref) {
     gift = g;
     root.querySelectorAll('[data-for]').forEach(b => { const on = (b.dataset.for === 'offrir') === g; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
     root.querySelector('.of-pay-sub').textContent = g ? 'un prénom, un poème · à offrir' : 'un prénom, un poème';
-    root.querySelector('.of-where').textContent = g ? 'où je l’envoie' : 'où je te l’envoie';
+    root.querySelector('.of-where').textContent = 'à qui je l’envoie ?';   // (17/10, Maxence : on comprend qu'on peut l'offrir)
     const o = readOrder(); if (o && o.ref === ref) saveOrder({ ...o, gift: g });
     giftPref = g; syncBarFor();
   };
@@ -398,7 +399,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
       <button class="of-go" type="button">RECEVOIR</button>
-      <div class="of-price"><b>${esc(PRIX)}</b> tout compris</div>
+      <div class="of-price"><b>${esc(PRIX)}</b> tout compris · ${esc(DELAI_COURT)}</div>
       <!-- (12/10, Maxence) l'invitation à descendre, APRÈS l'action : la fin de cette section, le nom de la suivante -->
       <button class="of-down" type="button"><svg class="arw" viewBox="0 0 18 11" aria-hidden="true"><path d="M1.5 1.5 L9 9 L16.5 1.5"/></svg></button>
     </div>`;
@@ -501,6 +502,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // (16/10) toucher l'objet : ce qu'il est vraiment (more), tapé à la place de la description ; encore = la description
   let detail = false;
   const toggleDetail = () => {
+    if (cur >= 0 && OBJETS[cur].look && vit?.look) { detail = vit.look(!detail); if (detail) count('alt/detail-' + OBJETS[cur].id); return; }
     if (cur < 0 || !OBJETS[cur].more) return;
     detail = !detail; clearTimeout(txtT);
     slideTxt(nbsp(detail ? OBJETS[cur].more : OBJETS[cur].txt), false);
