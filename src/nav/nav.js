@@ -35,7 +35,7 @@ const EASE = 'cubic-bezier(.45,.05,.25,1)', DUR = 720;
 const PAD = 1600;                         // le fil dépasse le bandeau de chaque côté (il court d'un bord à l'autre)
 
 const CSS = `
-.nv { position: fixed; z-index: 26; left: 0; right: 0; top: 0; height: calc(48px + env(safe-area-inset-top)); pointer-events: none;
+.nv { position: fixed; z-index: 26; left: 0; right: 0; top: calc(30px + env(safe-area-inset-top)); height: 46px; pointer-events: none;
   opacity: 0; transition: opacity .7s ease; }
 /* (12/10) le fil et les flèches : un seul dessin, fixe à l'écran, refait à chaque image quand il bouge (nav.js) */
 .nv-tc { position: absolute; left: 0; bottom: 0; height: 44px; pointer-events: none; }
@@ -70,9 +70,43 @@ const CSS = `
 .nv-foot button:hover, .nv-foot button:focus-visible { opacity: .8; outline: none; }
 /* le noir derrière le bandeau et le bas (les prénoms du champ s'y effacent, ne passent jamais dessous) */
 .nv-shade { position: fixed; z-index: 25; left: 0; right: 0; pointer-events: none; opacity: 0; transition: opacity .7s ease; }
-.nv-shade.t { top: 0; height: calc(104px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 52%, rgba(6,6,6,0)); }
+.nv-shade.t { top: 0; height: calc(134px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 52%, rgba(6,6,6,0)); }
 .nv-shade.b { bottom: 0; height: calc(38px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 0, #060606 55%, rgba(6,6,6,0)); }   /* (12/10) seulement sous SINGULIES : le prix au-dessus reste lisible */
 .nv-shade.on { opacity: 1; }
+/* (17/10, Maxence : « revoir l'allure : SINGULIES tout en haut, qui ramène à l'accueil ; à gauche une flèche retour
+   toujours là ; un menu qu'on affiche / masque, en plus du bandeau ») la ligne du haut : ← · SINGULIES · menu */
+.nv-hd { position: fixed; z-index: 46; left: 0; right: 0; top: 0; height: calc(34px + env(safe-area-inset-top)); pointer-events: none;
+  opacity: 0; transition: opacity .7s ease; }
+.nv-hd.on { opacity: 1; }
+.nv-hd.on > * { pointer-events: auto; }
+.nv-hd > button { position: absolute; bottom: -4px; height: 42px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; color: #ece8e0;
+  -webkit-tap-highlight-color: transparent; transition: opacity .4s; }
+.nv-hd .nv-bk, .nv-hd .nv-mn { width: 44px; display: flex; align-items: center; justify-content: center; opacity: .55; }
+.nv-hd .nv-bk { left: max(4px, env(safe-area-inset-left)); }
+.nv-hd .nv-mn { right: max(4px, env(safe-area-inset-right)); }
+.nv-hd .nv-bk.off { opacity: 0; pointer-events: none; }
+.nv-hd .nv-br { left: 50%; transform: translateX(-50%); padding: 0 6px 0 calc(6px + .45em); font: 500 12px/42px 'SG Garamond', Georgia, serif; letter-spacing: .45em; opacity: .7; white-space: nowrap; }
+.nv-hd > button:hover, .nv-hd > button:focus-visible { opacity: .95; outline: none; }
+.nv-hd svg { display: block; overflow: visible; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; }
+.nv-mn i { position: relative; display: block; width: 18px; height: 7px; }
+.nv-mn i::before, .nv-mn i::after { content: ''; position: absolute; left: 0; right: 0; height: 1.2px; border-radius: 1px; background: currentColor; transition: transform .35s ease, top .35s ease; }
+.nv-mn i::before { top: 0; } .nv-mn i::after { top: 6px; }
+.nv-hd.open .nv-mn i::before { top: 3px; transform: rotate(40deg); } .nv-hd.open .nv-mn i::after { top: 3px; transform: rotate(-40deg); }
+.nv-hd.open { opacity: 1; }
+.nv-hd.open > * { pointer-events: auto; }
+/* le menu, par-dessus la page : les pages, qui t'écrit, écris-moi ; les pages légales, discrètes */
+.nv-pan { position: fixed; inset: 0; z-index: 45; background: rgba(6,6,6,.97); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  opacity: 0; pointer-events: none; transition: opacity .35s ease; }
+.nv-pan.on { opacity: 1; pointer-events: auto; }
+.nv-pan a, .nv-pan button { display: block; margin: 0; padding: 12px 8px 12px calc(8px + .45em); border: 0; background: none; cursor: pointer; text-decoration: none; color: #ece8e0;
+  font: 500 14px/1.2 'SG Garamond', Georgia, serif; letter-spacing: .45em; opacity: .6; -webkit-tap-highlight-color: transparent;
+  transform: translateY(6px); transition: opacity .4s, transform .5s ease; }
+.nv-pan.on a, .nv-pan.on button { transform: none; }
+.nv-pan .cur { opacity: .95; }
+.nv-pan a:hover, .nv-pan button:hover, .nv-pan a:focus-visible, .nv-pan button:focus-visible { opacity: .95; outline: none; }
+.nv-pan hr { width: 28px; height: 0; border: 0; border-top: 1px solid rgba(236,232,224,.18); margin: 14px 0; }
+.nv-pan .lg { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 6px; margin-top: 18px; padding: 0 12px; }
+.nv-pan .lg a { font-size: 9.5px; letter-spacing: .22em; padding: 8px 4px 8px calc(4px + .22em); opacity: .35; }
 `;
 
 // opts : { current (id de la page du document), base, host : la page du document { stage() (l'objet : il suit le doigt),
@@ -111,6 +145,50 @@ export function installNav(opts) {
   foot.append(fcv, fsp);
   const shadeT = document.createElement('div'), shadeB = document.createElement('div');
   shadeT.className = 'nv-shade t'; shadeB.className = 'nv-shade b';
+  // ---- (17/10) la ligne du haut : la flèche retour, SINGULIES (l'accueil), le menu ----
+  const hd = document.createElement('div'); hd.className = 'nv-hd';
+  hd.innerHTML = `<button class="nv-bk" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19"/></svg></button>
+    <button class="nv-br" type="button" aria-label="SINGULIES, l’accueil">SINGULIES</button>
+    <button class="nv-mn" type="button" aria-label="Menu" aria-expanded="false"><i></i></button>`;
+  const pan = document.createElement('nav'); pan.className = 'nv-pan'; pan.setAttribute('aria-label', 'Menu'); pan.inert = true;
+  const legal = [['MENTIONS', 'mentions.html'], ['CONDITIONS', 'conditions.html'], ['CONFIDENTIALITE', 'confidentialite.html']];
+  pan.innerHTML = PAGES.map(p => `<a href="${url(p)}" data-p="${p.id}">${p.label}</a>`).join('') +
+    `<hr><button type="button" data-x="auteur">QUI T’ECRIT</button><button type="button" data-x="contact">ECRIS-MOI</button>` +
+    `<div class="lg">${legal.map(([l, h]) => `<a href="${base}${h}">${l}</a>`).join('')}</div>`;
+  let panOn = false;
+  const setPan = on => {
+    panOn = on; pan.classList.toggle('on', on); pan.inert = !on; hd.classList.toggle('open', on);
+    hd.querySelector('.nv-mn').setAttribute('aria-expanded', String(on));
+    pan.querySelectorAll('[data-p]').forEach(a => a.classList.toggle('cur', a.dataset.p === ring(cur).id));
+  };
+  hd.querySelector('.nv-mn').addEventListener('click', () => setPan(!panOn));
+  pan.addEventListener('click', e => {
+    const a = e.target.closest('[data-p], [data-x]');
+    if (!a) { if (e.target === pan) setPan(false); return; }
+    if (a.dataset.p) { e.preventDefault(); setPan(false); const id = a.dataset.p; if (id === ring(cur).id) { if (cur === home && opts.onCurrent) opts.onCurrent(); } else goTo(id); return; }
+    setPan(false);
+    if (a.dataset.x === 'auteur') import('../menu/auteur.js').then(m => m.openAuteur({ base, reduced }));
+    else import('../menu/contact.js').then(m => m.openContact({ base, reduced }));
+  });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && panOn) { e.preventDefault(); e.stopPropagation(); setPan(false); } }, true);
+  // SINGULIES : l'accueil (le champ de prénoms) — d'une autre page du document, on y revient d'abord
+  hd.querySelector('.nv-br').addEventListener('click', () => {
+    setPan(false);
+    if (opts.current !== 'poeme') { location.href = new URL(base, document.baseURI).href; return; }
+    if (!atHome()) { goTo(opts.current); setTimeout(() => opts.onCurrent?.(), DUR + 400); }
+    else opts.onCurrent?.();
+  });
+  // la flèche retour : d'abord ce qui est ouvert sur la page (opts.onBack : une vue rapprochée, la suite de la page),
+  // puis la page d'avant (l'historique du site), puis, sur la feuille, le champ du prénom
+  let depth = 0;
+  const canBack = () => panOn || depth > 0 || !atHome() || !!opts.redo?.() || !!opts.canBack?.();
+  hd.querySelector('.nv-bk').addEventListener('click', () => {
+    if (panOn) { setPan(false); return; }
+    if (opts.onBack && opts.onBack()) return;
+    if (depth > 0) { history.back(); return; }
+    if (!atHome()) { goTo(opts.current); return; }
+    if (opts.redo?.()) opts.onCurrent?.();
+  });
   let items = [];
   function build() {
     track.replaceChildren();
@@ -129,7 +207,7 @@ export function installNav(opts) {
   }
   let swallow = false;                       // un glissé ne se termine pas en toucher sur un nom
   root.classList.toggle('many', PAGES.length > 3);
-  document.body.append(shadeT, shadeB, root, foot);
+  document.body.append(shadeT, shadeB, root, foot, pan, hd);
   build();
 
   // ---- mise en page : le nom courant au centre ; le fil cousu entre chaque nom, et jusqu'aux bords ----
@@ -294,6 +372,7 @@ export function installNav(opts) {
     const f = atHome() ? !!opts.foot?.() : pg.foot !== false;
     const sh = atHome() ? !!opts.shade?.() : !!pg.foot;
     if (on !== shown) { shown = on; root.classList.toggle('on', on); if (on) { layout(); shownAt = performance.now(); } }
+    hd.classList.toggle('on', on); hd.querySelector('.nv-bk').classList.toggle('off', !canBack());
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
     root.classList.toggle('solo', solo);
     root.classList.toggle('redo', atHome() && !!opts.redo?.());
@@ -402,7 +481,7 @@ export function installNav(opts) {
     for (const el of inObj) put(el, 0, 1, 1, c1.y, true);
     for (const el of inRest) fadeTo(el, 1, 460, inObj.length ? Math.round(DUR * 0.7) : 160);
 
-    if (!opt.pop) try { history.pushState({ sgPage: target.id }, '', STANDALONE ? location.href : url(target)); } catch { /* */ }
+    if (!opt.pop) { try { history.pushState({ sgPage: target.id }, '', STANDALONE ? location.href : url(target)); depth++; } catch { /* */ } } else depth = Math.max(0, depth - 1);
     // la fin : à son heure, ou d'un coup si l'on va déjà ailleurs (tout se pose à sa place, le bandeau sur son nom)
     let timer = 0;
     const done = () => {

@@ -43,7 +43,7 @@ const safeBottom = () => { if (safeB == null) { const d = document.createElement
 let safeT = null;
 const safeTop = () => { if (safeT == null) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;top:0;width:1px;height:env(safe-area-inset-top);visibility:hidden'; document.body.appendChild(d); safeT = d.offsetHeight || 0; d.remove(); } return safeT; };
 // (11/10) la réserve du bandeau des pages, en haut (px, sans la marge du haut de l'iPhone)
-const NAV_TOP = 46;
+const NAV_TOP = 78;   // (17/10) la ligne du haut (← SINGULIES menu) et le bandeau des pages
 const SHEET_ZOOM = (W, H) => (W < H ? 0.8 : 0.86);
 // (11/10, Maxence) alt : le prénom ne monte plus puis ne redescend plus — ses lettres dérivent directement vers la place
 // qu'elles prendront dans la colonne de la feuille, et les lettres des autres prénoms qui les rechargent encore les
@@ -1286,6 +1286,8 @@ if (ALT) {
     // (16/10, Maxence) depuis la feuille, toucher UN PRENOM UN POEME = revenir au champ pour changer de prénom
     redo: () => !onNames() && !S.paid && !document.querySelector('.of.paying, .of.env'),
     onCurrent: () => { if (!onNames() && !S.paid && !document.querySelector('.of.paying, .of.env')) editName(); },
+    // (17/10) la flèche retour du haut : d'abord ce qui est ouvert sur la feuille (la vue rapprochée, la suite de la page)
+    onBack: () => !!(offerObj && offerObj.back && offerObj.back()),
     // (17/10, Maxence : « c'était bien de charger avant ») de nouveau tôt, aussi sur le portail : la préparation ne
     // bloque plus (shaders compilés en parallèle, gl.js programAsync)
     calm: () => !document.querySelector('.of.paying, .of.env') && S.trans == null,

@@ -620,7 +620,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       if (busyMode() || root.classList.contains('past') || root.scrollTop > storyLen() + 30) return false;
       if (tg && tg.closest && tg.closest('a, button, input, .of-bar, .of-rest, .of-pay')) return false;
       const capTop = root.querySelector('.of-cap')?.getBoundingClientRect().top ?? innerHeight * 0.7;
-      return y > 46 && y < capTop;
+      return y > 78 && y < capTop;
     };
     const s0 = (x, y, tg) => { if (!inObj(x, y, tg)) { sx = null; return; } sx = x; sy = y; st = performance.now(); };
     const s1 = (x, y) => {
@@ -818,5 +818,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // (11/10) la description suit le doigt par son contenu, jamais par le bloc collant lui-même (.of-cap, sticky) : Safari
   // repositionne mal un élément collant qu'on a décalé puis remis — le texte restait décalé après un aller-retour
   const stage = () => [sceneCv() || root.querySelector('.of-sheet'), root.querySelector('.of-cap .of-vit')];
-  return { root, shown, hide, stage, storyLen, get top() { return root.scrollTop; } };
+  // (17/10) la flèche retour du haut : la vue rapprochée se referme ; descendu dans la page : on remonte
+  const back = () => { if (detail) { toggleDetail(); return true; } if (root.scrollTop > 30) { ascend(); return true; } return false; };
+  return { root, shown, hide, stage, storyLen, back, get top() { return root.scrollTop; } };
 }
