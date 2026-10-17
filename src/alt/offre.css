@@ -403,7 +403,7 @@
   pointer-events: none; z-index: 0; opacity: 0; transition: opacity 1.2s ease; }
 .of-mvw.on { opacity: 1; }
 .of-mv { display: block; height: 100%; width: auto; max-width: 100%; aspect-ratio: 720 / 512; object-fit: cover; background: transparent;
-  filter: brightness(.8);
-  -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 48%, transparent 100%);
-  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 48%, transparent 100%); }
+  filter: brightness(1.05);
+  -webkit-mask-image: radial-gradient(ellipse 52% 52% at 50% 50%, #000 52%, transparent 100%);
+  mask-image: radial-gradient(ellipse 52% 52% at 50% 50%, #000 52%, transparent 100%); }
 @media (prefers-reduced-motion: reduce) { .of-mvw { transition: none; } }
