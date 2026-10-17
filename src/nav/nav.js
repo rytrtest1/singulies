@@ -90,8 +90,9 @@ const CSS = `
 .nv-hd .nv-bk { left: max(4px, env(safe-area-inset-left)); }
 .nv-hd .nv-mn { right: max(4px, env(safe-area-inset-right)); }
 .nv-hd .nv-bk.off { opacity: 0; pointer-events: none; }
-.nv-hd .nv-bk::before, .nv-hd .nv-mn::before { content: ''; position: absolute; z-index: -1; left: 50%; top: 50%; width: 38px; height: 30px; transform: translate(-50%, -50%);
-  background: radial-gradient(closest-side, #060606 62%, rgba(6,6,6,0)); }
+/* (17/10, Maxence : « chaque icône faite du fil ») ← et ≡ sont dessinés par le fil lui-même (canvas) : les glyphes ne servent plus qu'à la zone du toucher */
+.nv-hd .nv-bk svg, .nv-hd .nv-mn i { opacity: 0; }
+.nv-hd .nv-bk, .nv-hd .nv-mn { opacity: 1; }
 .nv-hd .nv-br { left: 50%; transform: translateX(-50%); padding: 0 8px 0 calc(8px + .5em); font: 500 var(--nv-fe, 18px)/46px 'SG Garamond', Georgia, serif; letter-spacing: .5em; opacity: .86; white-space: nowrap; }
 .nv-hd > button:hover, .nv-hd > button:focus-visible { opacity: .95; outline: none; }
 .nv-hd svg { display: block; overflow: visible; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; }
@@ -157,7 +158,7 @@ export function installNav(opts) {
   hd.innerHTML = `<canvas aria-hidden="true"></canvas><button class="nv-bk" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19"/></svg></button>
     <button class="nv-br" type="button" aria-label="ETERNEL, l’accueil">ETERNEL</button>
     <button class="nv-mn" type="button" aria-label="Menu" aria-expanded="false"><i></i></button>`;
-  const hcv = hd.querySelector('canvas'), hbr = hd.querySelector('.nv-br');
+  const hcv = hd.querySelector('canvas'), hbr = hd.querySelector('.nv-br'), hk = { b: 0, m: 0 };
   const pan = document.createElement('nav'); pan.className = 'nv-pan'; pan.setAttribute('aria-label', 'Menu'); pan.inert = true;
   const legal = [['MENTIONS', 'mentions.html'], ['CONDITIONS', 'conditions.html'], ['CONFIDENTIALITE', 'confidentialite.html']];
   pan.innerHTML = PAGES.map(p => `<a href="${url(p)}" data-p="${p.id}">${p.label}</a>`).join('') +
@@ -354,9 +355,31 @@ export function installNav(opts) {
       x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, fw, 46);
       if (r.width) {
         const ls = parseFloat(getComputedStyle(hbr).letterSpacing) || 0, l = r.left + 8, rr = r.right - 8 - ls, fl = flowNow(), yt = px => waveTop(px, t);
-        // d'un bord à l'autre, sans dépendre des signes : le fil passe derrière ← et ≡, posés sur un petit noir qui l'efface autour d'eux
+        // le fil d'ETERNEL, d'un bord à l'autre ; ses deux bouts font les signes : à gauche il se replie en pointe (←, quand il y a un
+        // retour), à droite il se sépare en deux brins (≡) qui se croisent à l'ouverture (×)
         hbr.style.translate = `0 ${waveTop((l + rr) / 2, t).toFixed(2)}px`;
-        [[-4, l, 0], [rr, fw + 4, 1]].forEach(([a0, b0, j]) => paintThread(x, a0, b0, y, 37 + j * 4, 1.2, { holes: [a0 > -4, b0 < fw + 4], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(3 + j, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 2 + j), g0: a0 - fl, yf: yt }));
+        const bkOn = hd.querySelector('.nv-bk').classList.contains('off') ? 0 : 1, mnOn = hd.classList.contains('open') ? 1 : 0;
+        const ease = (cur, tgt) => reduced || !dtS ? tgt : cur + (tgt - cur) * (1 - Math.exp(-dtS * 11));
+        hk.b = ease(hk.b, bkOn); hk.m = ease(hk.m, mnOn);
+        const sag = (j, m = 1) => ({ sag: reduced ? 0.6 * m : (0.3 + 1.1 * breath(3 + j, t)) * m, sag2: reduced ? 0 : 0.35 * m * Math.sin(t * 0.43 + 2 + j), yf: yt });
+        // (un trait de lumière sur les brins des signes : ils doivent se lire, comme le corps un peu plus clair des anciennes flèches)
+        const seg = (x1, y1, x2, y2, j, holes, g0, m = 1, al = 1, lit = false) => {
+          const len = Math.hypot(x2 - x1, y2 - y1); if (len < 4) return;
+          x.save(); x.globalAlpha = al; x.translate(x1, y1); x.rotate(Math.atan2(y2 - y1, x2 - x1));
+          paintThread(x, 0, len, 0, 37 + j * 4, 1.2, { holes, ...sag(j, m), yf: null, g0 });
+          if (lit) { x.beginPath(); x.moveTo(1.5, -0.35); x.lineTo(len - 1.5, -0.35); x.strokeStyle = 'rgba(214,209,198,.62)'; x.lineWidth = 0.9; x.lineCap = 'round'; x.stroke(); }
+          x.restore();
+        };
+        const kb = hk.b, tipX = 20, tipL = -4 + (tipX + 4) * kb;
+        // gauche : le fil part du bord (pas de retour) ou de la pointe (↩ dès qu'il y a un retour) ; deux brins repliés la forment
+        seg(tipL, y, l, y, 0, [kb > 0.02, true], tipL - fl);
+        if (kb > 0.02) { const h = 8 * kb, w = 11 * kb; seg(tipX, y, tipX + w, y - h, 1, [false, true], 0, 0.3, kb, true); seg(tipX, y, tipX + w, y + h, 2, [false, true], 0, 0.3, kb, true); }
+        // droite : le fil vient d'ETERNEL jusqu'à la jonction, puis deux brins (≡) ; ouverts, ils se croisent (×)
+        const cx = fw - 26, km = hk.m, J = cx - 24, lerp = (a, b) => a + (b - a) * km;
+        seg(rr, y, J, y, 3, [true, false], rr - fl);
+        const A1 = [cx - 10, lerp(y - 4.2, y - 9)], B1 = [cx + 11 - 2 * km, lerp(y - 4.2, y + 9)], A2 = [A1[0], lerp(y + 4.2, y + 9)], B2 = [B1[0], lerp(y + 4.2, y - 9)];
+        seg(J, y, A1[0], A1[1], 4, [false, false], 0, 0.3, 1 - 0.85 * km, true); seg(J, y, A2[0], A2[1], 5, [false, false], 0, 0.3, 1 - 0.85 * km, true);
+        seg(A1[0], A1[1], B1[0], B1[1], 6, [false, true], 0, 0.3, 1, true); seg(A2[0], A2[1], B2[0], B2[1], 7, [false, true], 0, 0.3, 1, true);
       }
     }
   }
