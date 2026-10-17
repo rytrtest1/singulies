@@ -72,19 +72,12 @@ export function finalScreen(order, home) {
   const deckBox = d.querySelector('.mc-deck');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const base = new URL('./', document.baseURI).href;
-  const jeuUrl = id => { const u = new URL('./jeu', document.baseURI), k = new URLSearchParams(); if (id != null) k.set('q', id); u.search = k.toString(); return u.href; };
-  let deck = null, jeu = null, inJeu = false;
+  const jeuUrl = id => { const u = new URL('./jeu.html', document.baseURI), k = new URLSearchParams(); if (id != null) k.set('q', id); u.search = k.toString(); return u.href; };
+  let deck = null;
   const toJeu = id => { location.href = jeuUrl(id); };
-  // la page du jeu, préparée d'avance par-dessus (transparente) : au toucher, elle prend le paquet là où il est
-  const prep = () => import('../jeu/jeu.js').then(m => m.mountJeu({ base, reduced, relay: true, portal: () => deck,
-    onBack: () => { inJeu = false; d.classList.remove('away'); },
-    onReturned: () => deck?.takeDeck() })).then(j => { jeu = j; }).catch(e => console.warn('jeu', e));
-  import('../jeu/deck3d.js').then(m => m.mountDeck(deckBox, { base, reduced, onDraw: toJeu })).then(r => { deck = r; if (!r) { deckBox.classList.add('flat'); return; } setTimeout(prep, 1800); }).catch(() => deckBox.classList.add('flat'));
-  const open = () => {
-    if (inJeu) return;
-    if (deck && jeu) { inJeu = true; d.classList.add('away'); jeu.takeOver(); return; }
-    if (deck) deck.pull(); else toJeu(null);
-  };
+  import('../jeu/deck3d.js').then(m => m.mountDeck(deckBox, { base, reduced, onDraw: toJeu })).then(r => { deck = r; if (!r) deckBox.classList.add('flat'); }).catch(() => deckBox.classList.add('flat'));
+  // (17/10) la page du jeu est une vraie page (src/jeu/page.js) : le paquet tire sa carte, puis on y va avec cette question
+  const open = () => { if (deck) deck.pull(); else toJeu(null); };
   d.querySelector('.mc-share').addEventListener('click', open);
   deckBox.addEventListener('click', open);
   deckBox.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });

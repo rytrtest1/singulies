@@ -56,6 +56,7 @@ export function buildStagePage(host, o) {
   // (17/10, Maxence) le livre ouvert : sa fiche (format, papier) à la place de la description ; refermé : la description
   const syncOpen = () => {
     const op = !!(scene && scene.isOpen && scene.isOpen()), m = o.steps[k] && o.steps[k].more;
+    main.classList.toggle('book-open', op); host.classList.toggle('book-open', op);
     if (!m || op === detail) return;
     detail = op; type(nbsp(op ? m : o.steps[k].txt));
   };

@@ -1,0 +1,31 @@
+// Navigation depuis le menu (17/10) : enchaîne les pages, retour, accueil. node tools/nav-menu-check.mjs [pc] [port] → captures/navmenu/*.png
+import { chromium } from 'playwright';
+import { mkdirSync } from 'fs';
+const PC = process.argv[2] === 'pc', PORT = process.argv[3] || 5195, dir = 'captures/navmenu';
+mkdirSync(dir, { recursive: true });
+const browser = await chromium.launch({ headless: true, channel: 'msedge', args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
+const vp = PC ? { width: 1440, height: 900 } : { width: 390, height: 844 };
+const page = await browser.newPage({ viewport: vp, deviceScaleFactor: 1 });
+page.on('pageerror', e => console.log('ERR', String(e)));
+page.on('console', m => { if (m.type() === 'error') console.log('console', m.text().slice(0, 200)); });
+let n = 0;
+const shot = async tag => { await page.screenshot({ path: `${dir}/${String(++n).padStart(2, '0')}-${tag}.png` }); };
+const info = async tag => console.log(tag, await page.evaluate(() => ({ url: location.pathname + location.search, cur: document.querySelector('.nv-l.cur')?.textContent, pan: document.querySelector('.nv-pan')?.classList.contains('on'),
+  hdTitle: document.querySelector('.nv-br')?.textContent, vis: [...document.querySelectorAll('.ltp, #offre')].map(e => e.className.split(' ').slice(0, 3).join('.') + ':' + getComputedStyle(e).visibility), overlays: [...document.querySelectorAll('.mn-au, .mn-ct')].length })));
+const menu = async lab => { await page.click('.nv-mn', { force: true }); await page.waitForTimeout(800); await page.click(`.nv-pan a[data-p="${lab}"], .nv-pan button[data-x="${lab}"]`, { force: true }); await page.waitForTimeout(2600); };
+await page.goto(`http://localhost:${PORT}/?envoi=0&paiement=faux&seed=3`); await page.waitForTimeout(6000);
+await page.mouse.click(vp.width / 2, vp.height / 2); await page.keyboard.type('CLEMENCE', { delay: 80 }); await page.keyboard.press('Enter');
+await page.waitForFunction(() => document.querySelector('#offre.bar-on'), null, { timeout: 90000 }); await page.waitForTimeout(3000);
+await info('feuille'); await shot('feuille');
+await menu('livres'); await info('menu>livres'); await shot('livres');
+await menu('lettre'); await info('menu>lettre'); await shot('lettre');
+await menu('poeme'); await info('menu>poeme'); await shot('poeme');
+await menu('auteur'); await info('menu>apropos'); await shot('apropos');
+await page.keyboard.press('Escape'); await page.waitForTimeout(700); await info('esc'); 
+await menu('contact'); await info('menu>contact'); await shot('contact');
+await page.keyboard.press('Escape'); await page.waitForTimeout(700);
+await menu('singulies'); await info('menu>singulies'); await shot('singulies');
+await page.keyboard.press('Escape'); await page.waitForTimeout(700);
+await page.click('.nv-br', { force: true }); await page.waitForTimeout(1500); await info('ETERNEL'); await shot('eternel');
+await page.goBack(); await page.waitForTimeout(2500); await info('back'); await shot('back');
+await browser.close();

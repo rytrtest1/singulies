@@ -1096,58 +1096,20 @@ function toPortal() {
   (portal.back || portal.show)();
   setTimeout(() => { if (S.portal) { cancelAnimationFrame(rafId); rafId = 0; } }, 1000);
 }
-// « le jeu » : sa page par-dessus le portail (qui s'arrête une fois couvert) ; retour = le portail, qui redistribue
-// le jeu : sa page (le portail y hisse son paquet, la page se pose exactement dessus) ; retour = le portail
-// question partagée (jeu?q=…) : elle est tirée en premier, on y répond (jeu.js)
-let jeuShared = false;
+// (17/10, Maxence : « recoder le jeu clean, supprimer l'ancienne ») « le jeu » est une vraie page : jeu.html (src/jeu/page.js).
+// Question partagée (q=…) : tirée en premier quand on arrive sur le poème (jeuQ)
 let jeuQ = P.get('q') != null && /^\d+$/.test(P.get('q')) ? +P.get('q') : null;
-// retour : le portail, resté dessous (jamais le champ de prénoms), se rembobine
-const backToPortal = () => { showPath('./'); if (portal?.back) portal.back(); else portal?.show(); };
-const under = () => { if (portal?.pause) portal.pause(); else portal?.hide(); };
-// le jeu venu du portail (09/10) : une couche transparente préparée d'avance par-dessus le portail ; au toucher, elle
-// prend son paquet et la carte du dessus se retourne sur la question (jeu.js, relais) ; au retour, elle le lui rend
-let jeuRelay = null;
-function prepJeu() {
-  if (!jeuRelay) jeuRelay = SIMPLE === 'all' ? Promise.resolve(null) : import('./jeu/jeu.js')
-    .then(({ mountJeu }) => mountJeu({ base: './', reduced: CFG.reduced, relay: true, noIntro: true, portal: () => portal,
-      onBack: backToPortal, onReturned: () => portal?.takeDeck?.() }))
-    .catch(e => { console.warn('jeu (relais)', e); return null; });
-  return jeuRelay;
-}
-function openJeu(fromPortal = false) {
-  showPath('jeu');
-  if (fromPortal) {
-    prepJeu().then(j => {
-      if (!j || !j.takeOver) { openJeuPage(); return; }
-      j.takeOver();
-      setTimeout(() => { if (j.on) under(); }, 1700);          // le reste du portail parti : il s'arrête dessous
-    });
-    return;
-  }
-  openJeuPage();
-}
-// la page du jeu seule, par-dessus le portail (lien partagé, version simple, ou relais impossible)
-function openJeuPage() {
-  // question partagée (lien jeu?q=…) : à la première ouverture seulement, on y répond
-  const shared = PAGE === 'jeu' && jeuQ != null && !jeuShared; jeuShared = true;
-  const simple = () => simpleModule().then(m => m.mountSimpleJeu({ onBack: backToPortal, firstQ: shared ? jeuQ : null, answer: shared }));
-  import('./jeu/jeu.js').then(({ mountJeu }) => SIMPLE === 'all' ? null : mountJeu({ base: './', reduced: CFG.reduced, onBack: backToPortal,
-    firstQ: shared ? jeuQ : null, answer: shared }))
-    .then(j => j || simple())                                    // sans WebGL2 : le jeu en version simple
-    .catch(e => { console.warn('jeu', e); return simple(); })
-    .then(j => { if (j) setTimeout(under, 1000); })
-    .catch(e => console.warn('jeu simple', e));
-}
+const openJeu = () => { location.href = './jeu.html'; };
 function mountPortalPage() {
   S.portal = true;
   const go = new Promise(res => { portalGo = res; });
   const ready = new Promise(res => {
     import('./portal/portal.js')
-      .then(({ mountPortal }) => SIMPLE === 'all' ? null : mountPortal({ base: './', reduced: CFG.reduced, onReady: res, onPoem: enterFromPortal, onJeu: () => openJeu(true) }))
+      .then(({ mountPortal }) => SIMPLE === 'all' ? null : mountPortal({ base: './', reduced: CFG.reduced, onReady: res, onPoem: enterFromPortal, onJeu: openJeu }))
       .catch(e => { console.warn('portail', e); why('portail : ' + (e && e.message || e)); document.getElementById('portal')?.remove(); return null; })
       // sans WebGL2 (ou le portail en échec) : le portail en version simple — mêmes cartes, mêmes gestes
-      .then(p => p || (why('portail : version simple'), window.dispatchEvent(new CustomEvent('singulies:simple', { detail: { where: 'portail' } })), simpleModule().then(m => m.mountSimplePortal({ onReady: res, onPoem: enterFromPortal, onJeu: () => openJeu(false) }))))
-      .then(p => { portal = p; if (p && p.deckScreen && PAGE !== 'jeu') setTimeout(prepJeu, 6500); })   // (la donne finie)
+      .then(p => p || (why('portail : version simple'), window.dispatchEvent(new CustomEvent('singulies:simple', { detail: { where: 'portail' } })), simpleModule().then(m => m.mountSimplePortal({ onReady: res, onPoem: enterFromPortal, onJeu: openJeu }))))
+      .then(p => { portal = p; })
       .catch(e => { console.warn('portail simple', e); S.portal = false; portalGo(); res(); });
   });
   return { go, ready };
@@ -1161,7 +1123,6 @@ async function boot() {
   let gate = null;
   if (CFG.portal && S.phase === 'input') {
     gate = mountPortalPage();
-    if (PAGE === 'jeu') openJeu();                      // lien partagé vers le jeu : il s'ouvre par-dessus le portail
     // après la donne des cartes (dernière posée à ≈ 5,1 s) + un temps : la préparation du champ (lourde, ≈ 0,1–0,3 s
     // d'un bloc) faisait hoqueter la 3e carte juste avant qu'elle se pose (06/10) ; elle tombe maintenant au repos
     await Promise.race([gate.ready.then(() => new Promise(r => setTimeout(r, 6400))), gate.go]);

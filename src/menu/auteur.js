@@ -43,7 +43,7 @@ export function style() {
 export function auteurHtml(base = './') {
   style();
   const ph = PORTRAIT ? `<img class="au-ph" src="${esc(new URL(base + PORTRAIT, document.baseURI).href)}" alt="Eternel" loading="lazy" decoding="async" onerror="this.remove()">` : '';
-  return `<div class="au">${ph}<h2 class="au-h">A PROPOS</h2>${AUTEUR.map(p => `<p>${esc(p)}</p>`).join('')}
+  return `<div class="au">${ph}${AUTEUR.map(p => `<p>${esc(p)}</p>`).join('')}
     <h3 class="au-go">ECRIS-MOI</h3><div class="au-ct"></div></div>`;
 }
 
@@ -58,7 +58,7 @@ export function wireAuteur(root, { base = './', reduced = false, name = '' } = {
 export function openAuteur(opts = {}) {
   if (document.querySelector('.mn-au')) return;
   const { base = './' } = opts;
-  const root = document.createElement('div'); root.className = 'mn-au';
+  const root = document.createElement('div'); root.className = 'mn-au'; root.dataset.title = 'A PROPOS';
   root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'à propos');
   root.innerHTML = `<button class="au-back" type="button" aria-label="Retour">${BACK}</button>${auteurHtml(base)}`;
   document.body.appendChild(root);

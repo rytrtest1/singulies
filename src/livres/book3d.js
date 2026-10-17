@@ -187,10 +187,14 @@ export async function createBook(gl, base = './', list = BOOKS) {
   // la page rapprochée : son centre au centre de la vue (entre le bandeau et la légende), aussi grande que l'écran le permet
   // (repère du livre : le dos à x = −w/2, la page de droite centrée en 0, la gauche en −w)
   function zoomPose(b, v, cw, ch, sx, k) {
-    const Wv = v.Hw * cw / ch, Hf = (ch - v.ins - v.top) / ch * v.Hw;   // (la place libre, entre le bandeau et la légende)
-    const kz = Math.max(k, Math.min(0.94 * Wv / (b.w * MM), 0.9 * Hf / (b.h * MM)));
+    // (17/10, Maxence : « comment on fait mieux pour le livre sur PC ? ») sur ordinateur, la page prend toute la hauteur entre le
+    // bandeau et le signe du bas, et plus : la page déborde en haut et en bas (ses marges sont vides, le texte est au milieu) sous un
+    // fondu (lettre.css, .book-open) — le texte se lit ; la légende s'efface le temps de la lecture. Sur téléphone, comme avant
+    const land = cw > ch * 0.95, ins = land ? 150 : v.ins;
+    const Wv = v.Hw * cw / ch, Hf = (ch - ins - v.top) / ch * v.Hw;   // (la place libre)
+    const kz = Math.max(k, Math.min(0.94 * Wv / (b.w * MM), (land ? 1.75 : 0.9) * Hf / (b.h * MM)));
     const lx = bk.zside < 0 ? -b.w : 0;
-    return { x: -lx * MM * kz, y: -2, k: kz };
+    return { x: -lx * MM * kz, y: -2 - (v.ins - ins) / 2 * v.Hw / ch, k: kz };
   }
   const cur = p => books[Math.max(0, Math.min(books.length - 1, Math.round(p)))];
   // la prise (px CSS) : le livre du centre ; son bas (unités) : pour la légende

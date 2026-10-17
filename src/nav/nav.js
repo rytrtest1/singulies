@@ -64,7 +64,11 @@ const CSS = `
 .nv-foot.on { opacity: 1; }
 /* (17/10, Maxence : « on garde aussi SINGULIES à ce moment-là ») menu ouvert : SINGULIES, en bas, reste au-dessus du menu */
 .nv-foot.up { z-index: 47; }
-.nv-foot.up, body:has(.mn-au, .mn-ct:not(.ct-in)) .nv-foot { z-index: 47; }   /* (aussi sous les pages A PROPOS, CONTACT, SINGULIES) */
+.nv-foot.up, body:has(.mn-au, .mn-ct:not(.ct-in)) .nv-foot { z-index: 47; }
+.nv-foot.up::before, body:has(.mn-au, .mn-ct:not(.ct-in)) .nv-foot::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: calc(80px + env(safe-area-inset-bottom)); z-index: -1;
+  background: linear-gradient(to top, #060606 0, #060606 45%, rgba(6,6,6,0)); pointer-events: none; }
+/* (le retour du haut ferme la page ouverte : le leur fait double emploi) */
+.mn-au .au-back, .mn-ct .ct-back { display: none !important; }   /* (aussi sous les pages A PROPOS, CONTACT, SINGULIES) */
 .nv-foot canvas { position: absolute; left: 0; top: 0; }
 .nv-foot button { position: absolute; left: 50%; top: 2px; transform: translateX(-50%); margin: 0; padding: 8px 6px; border: 0; background: none; cursor: pointer;
   font: 500 var(--nv-ft, 13px)/14px 'SG Garamond', Georgia, serif; letter-spacing: .4em; margin-right: -.4em; color: #ece8e0; opacity: .6; white-space: nowrap;
@@ -123,7 +127,8 @@ const CSS = `
 //   shade() (le noir derrière le haut et le bas), center() ({ y, h } px : l'objet de la page, pour l'espace commun) }
 export function installNav(opts) {
   const base = opts.base || './';
-  const home = idx(opts.current);
+  // (17/10) headerOnly : une page qui n'est pas dans la boucle des pages (le jeu) — seulement la ligne du haut (titre, retour, menu)
+  const home = opts.headerOnly ? 0 : idx(opts.current);
   if (home < 0) return null;
   if (!document.getElementById('nv-style')) { const st = document.createElement('style'); st.id = 'nv-style'; st.textContent = CSS; document.head.appendChild(st); }
   const url = p => { const u = new URL(base + p.href, document.baseURI), k = new URLSearchParams(location.search); k.delete('q'); u.search = k.toString(); return u.href; };
@@ -168,13 +173,13 @@ export function installNav(opts) {
   const setPan = on => {
     panOn = on; pan.classList.toggle('on', on); pan.inert = !on; hd.classList.toggle('open', on); foot.classList.toggle('up', on);
     hd.querySelector('.nv-mn').setAttribute('aria-expanded', String(on));
-    pan.querySelectorAll('[data-p]').forEach(a => a.classList.toggle('cur', a.dataset.p === ring(cur).id));
+    pan.querySelectorAll('[data-p]').forEach(a => a.classList.toggle('cur', !opts.headerOnly && a.dataset.p === ring(cur).id));
   };
   hd.querySelector('.nv-mn').addEventListener('click', () => setPan(!panOn));
   pan.addEventListener('click', e => {
     const a = e.target.closest('[data-p], [data-x]');
     if (!a) { if (e.target === pan) setPan(false); return; }
-    if (a.dataset.p) { e.preventDefault(); setPan(false); const id = a.dataset.p; if (id === ring(cur).id) { if (cur === home && opts.onCurrent) opts.onCurrent(); } else goTo(id); return; }
+    if (a.dataset.p) { e.preventDefault(); setPan(false); const id = a.dataset.p; if (opts.headerOnly) { location.href = url(PAGES[idx(id)]); return; } if (id === ring(cur).id) { if (cur === home && opts.onCurrent) opts.onCurrent(); } else goTo(id); return; }
     setPan(false);
     // (17/10) une page du menu déjà ouverte se referme d'abord (sinon la suivante ne s'ouvrait pas)
     const open = () => {
@@ -182,12 +187,13 @@ export function installNav(opts) {
       else if (a.dataset.x === 'singulies') import('../menu/singulies.js').then(m => m.openSingulies({ base, reduced }));
       else import('../menu/contact.js').then(m => m.openContact({ base, reduced }));
     };
-    const cur = document.querySelector('.mn-au .au-back'); if (cur) { cur.click(); setTimeout(open, 420); } else open();
+    const openPg = document.querySelector('.mn-au .au-back'); if (openPg) { openPg.click(); setTimeout(open, 420); } else open();
   });
   addEventListener('keydown', e => { if (e.key === 'Escape' && panOn) { e.preventDefault(); e.stopPropagation(); setPan(false); } }, true);
   // ETERNEL : l'accueil (le champ de prénoms) — d'une autre page du document, on y revient d'abord
   hd.querySelector('.nv-br').addEventListener('click', () => {
     setPan(false);
+    if (opts.headerOnly || document.querySelector('.mn-au, .mn-ct:not(.ct-in)')) return;   // (le nom de la page : rien)
     if (opts.current !== 'poeme') { location.href = new URL(base, document.baseURI).href; return; }
     if (!atHome()) { goTo(opts.current); setTimeout(() => opts.onCurrent?.(), DUR + 400); }
     else opts.onCurrent?.();
@@ -195,9 +201,11 @@ export function installNav(opts) {
   // la flèche retour : d'abord ce qui est ouvert sur la page (opts.onBack : une vue rapprochée, la suite de la page),
   // puis la page d'avant (l'historique du site), puis, sur la feuille, le champ du prénom
   let depth = 0;
-  const canBack = () => panOn || depth > 0 || !atHome() || !!opts.redo?.() || !!opts.canBack?.();
+  const ovBack = () => document.querySelector('.mn-au .au-back, .mn-ct:not(.ct-in) .ct-back');
+  const canBack = () => panOn || !!ovBack() || depth > 0 || !atHome() || !!opts.redo?.() || !!opts.canBack?.();
   hd.querySelector('.nv-bk').addEventListener('click', () => {
     if (panOn) { setPan(false); return; }
+    { const ov = ovBack(); if (ov) { ov.click(); return; } }   // (une page du menu ouverte : on la ferme d'abord)
     if (opts.onBack && opts.onBack()) return;
     if (depth > 0) { history.back(); return; }
     if (!atHome()) { goTo(opts.current); return; }
@@ -379,7 +387,7 @@ export function installNav(opts) {
   const lively = () => !!slide || !!drag || settling();
   const loop = now => {
     raf = 0;
-    if (!(shown || footOn) || document.hidden) return;
+    if (!(shown || footOn || opts.headerOnly) || document.hidden) return;
     const live = lively();
     if (live || now - lastP > 40) { lastP = now; paint(now); }
     if (reduced && !live) return;
@@ -408,7 +416,10 @@ export function installNav(opts) {
     const f = atHome() ? !!opts.foot?.() : pg.foot !== false;
     const sh = atHome() ? !!opts.shade?.() : !!pg.foot;
     if (on !== shown) { shown = on; root.classList.toggle('on', on); if (on) { layout(); shownAt = performance.now(); } }
-    hd.classList.toggle('on', on); hd.querySelector('.nv-bk').classList.toggle('off', !canBack());
+    hd.classList.toggle('on', opts.headerOnly ? true : on); hd.querySelector('.nv-bk').classList.toggle('off', !canBack());
+    // (17/10, Maxence : « garde plutôt le nom de la page ») le titre du haut : ETERNEL, ou le nom de la page du menu ouverte
+    { const ov = document.querySelector('.mn-au, .mn-ct:not(.ct-in)'), t = (ov && ov.dataset.title) || opts.title || 'ETERNEL', b = hd.querySelector('.nv-br');
+      if (b.textContent !== t) { b.textContent = t; b.setAttribute('aria-label', t === 'ETERNEL' ? 'ETERNEL, l’accueil' : t); } }
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
     root.classList.toggle('solo', solo);
     root.classList.toggle('redo', atHome() && !!opts.redo?.());
@@ -420,7 +431,7 @@ export function installNav(opts) {
     }
     shadeT.classList.toggle('on', sh && on); shadeB.classList.toggle('on', sh && f);
     shadeT.classList.toggle('wide', atHome()); shadeB.classList.toggle('wide', atHome());
-    if (shown || footOn) wake();
+    if (shown || footOn || opts.headerOnly) wake();
   }
   setInterval(tick, 200); tick();
   document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
@@ -440,7 +451,7 @@ export function installNav(opts) {
   // (16/10, Maxence : « un freeze quand le menu va paraître ») monter une page voisine crée sa scène (WebGL) : un
   // instant lourd. Jamais sur la page des prénoms ni pendant un geste : seulement quand la page le dit calme
   // (opts.calm), ou au premier toucher du bandeau (on va sans doute y aller)
-  const preload = () => idle(() => { for (const d of [1, -1]) ensure(ring(cur + d).id); });
+  const preload = () => { if (opts.headerOnly) return; idle(() => { for (const d of [1, -1]) ensure(ring(cur + d).id); }); };
   let preT = 0;
   const preTry = () => { if (!opts.calm || opts.calm()) { clearInterval(preT); preload(); } };
   // (17/10, Maxence : « c'était bien de charger avant ») dès l'ouverture : l'à-coup du premier dessin se perd dans le

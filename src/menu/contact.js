@@ -13,6 +13,11 @@ const CSS = `
 .mn-ct .ct-stack { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; transition: transform .25s ease; }
 .mn-ct .ct-card { position: relative; transition: transform .9s cubic-bezier(.5,0,.2,1), opacity .9s ease; }
 .mn-ct .ct-card.gone { transform: translateY(-70vh) rotate(-3deg); opacity: 0; }
+.mn-ct .ct-3d { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; pointer-events: none; opacity: 0; transition: opacity .6s ease; }
+.mn-ct .ct-3d.on { opacity: 1; }
+/* la carte est dessinée en 3D : le champ ne montre rien (ni texte, ni invitation, ni caret) ; elle porte seulement le curseur */
+.mn-ct textarea.ct-3dok { color: transparent; caret-color: transparent; -webkit-text-fill-color: transparent; }
+.mn-ct textarea.ct-3dok::placeholder { color: transparent; }
 .mn-ct .ct-card img { display: block; width: 100%; height: auto; pointer-events: none; -webkit-user-drag: none; }
 .mn-ct textarea { position: absolute; margin: 0; padding: 0; border: 0; outline: none; resize: none; background: transparent;
   font: 15px/1.75 'SG Machine', 'Courier New', monospace; color: rgb(226,226,226); caret-color: rgba(255,255,255,.85);
@@ -65,7 +70,7 @@ function build(host, opts, inline) {
   const { base = './', reduced = false } = opts;
   if (!document.getElementById('ct-style')) { const st = el('style', '', document.head); st.id = 'ct-style'; st.textContent = CSS; }
   const root = el('div', 'mn-ct' + (inline ? ' ct-in on' : ''), host);
-  root.setAttribute('role', inline ? 'group' : 'dialog'); root.setAttribute('aria-label', 'me contacter');
+  root.setAttribute('role', inline ? 'group' : 'dialog'); root.setAttribute('aria-label', 'me contacter'); root.dataset.title = 'CONTACT';
   const back = inline ? null : el('button', 'ct-back', root, BACK);
   if (back) { back.type = 'button'; back.setAttribute('aria-label', 'Retour'); }
   const form = el('form', 'ct-stack', root); form.noValidate = true; form.setAttribute('autocomplete', 'on');
@@ -73,6 +78,16 @@ function build(host, opts, inline) {
   const img = el('img', '', card); img.src = new URL(base + 'simple/vierge.jpg', document.baseURI).href; img.alt = '';
   const ta = el('textarea', '', card); ta.placeholder = 'écris-moi ici'; ta.maxLength = 2000;
   ta.setAttribute('aria-label', 'ton message'); ta.spellcheck = true; ta.setAttribute('autocapitalize', 'off');
+  // (17/10) la carte en vraie 3D (card3d.js), à la place de l'image, quand WebGL2 est là ; sinon l'image reste
+  let c3 = null;
+  import('./card3d.js').then(m => m.mountWriteCard(card, { base, reduced, faceFrac: IMG.f })).then(c => {
+    if (!c) return;
+    if (!root.isConnected) { c.dispose(); return; }
+    c3 = c; ta.classList.add('ct-3dok'); ta.placeholder = ''; if (ta.value) c.setText(ta.value);
+    card.insertBefore(c.canvas, ta);
+    requestAnimationFrame(() => { c.canvas.classList.add('on'); setTimeout(() => { img.style.visibility = 'hidden'; }, 650); });
+  }).catch(e => console.warn('carte 3D', e));
+  ta.addEventListener('input', () => c3?.setText(ta.value));
   const trap = el('input', 'ct-trap', form); trap.name = 'site'; trap.tabIndex = -1; trap.autocomplete = 'off'; trap.setAttribute('aria-hidden', 'true');
   const mail = el('div', 'ct-mail', form);
   let email = knownEmail(), input = null;
@@ -125,7 +140,7 @@ function build(host, opts, inline) {
     removeEventListener('resize', layout); vv?.removeEventListener('resize', layout); vv?.removeEventListener('scroll', layout);
     removeEventListener('keydown', onKey, true);
     root.classList.remove('on'); root.inert = true;
-    setTimeout(() => root.remove(), 380);
+    setTimeout(() => { c3?.dispose(); root.remove(); }, 380);
   }
   const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); remove(); } };
   if (!inline) addEventListener('keydown', onKey, true);
@@ -145,7 +160,7 @@ function build(host, opts, inline) {
     }
     document.activeElement?.blur?.();
     go.classList.remove('on'); form.inert = true;
-    card.classList.add('gone');
+    card.classList.add('gone'); c3?.fly();
     for (const x of [mail, go, form.querySelector('.ct-alt')]) Object.assign(x.style, { transition: 'opacity .5s', opacity: '0' });
     // « reçu. je te réponds. » tapé à la machine
     const done = el('div', 'ct-done', root); done.setAttribute('role', 'status');
