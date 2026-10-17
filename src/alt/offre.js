@@ -31,6 +31,9 @@ const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o));
 // (grammage, papier) : seulement des faits sûrs ici
 const OBJETS = [
   { id: 'feuille', txt: 'l’exemplaire unique de ton poème\ntapé à la machine à écrire', more: 'une feuille noire A4 · 21 × 29,7 cm\ntapée une seule fois · l’original' },
+  // (17/10, Maxence : « la vidéo, comme étape de la vitrine ») le début de la vidéo de la machine : les mains, puis la frappe.
+  // Elle remplace la scène le temps de l'étape (la scène reste sur la feuille), joue seule, muette, en boucle (vrai/machine.mp4)
+  { id: 'machine', video: true, txt: 'je le tape moi-même\nlettre après lettre' },
   { id: 'carte', txt: 'une question du jeu SINGULIES\nla réponse inspire le poème', more: 'une carte noire · 8,7 × 5,2 cm\nencre blanche · logo gaufré au dos' },
   { id: 'cachet', txt: 'le tout dans une enveloppe\nscellée à la cire', more: 'une enveloppe noire fermée à la main\ncachet de cire argentée · 27 mm' },
   // (17/10, Maxence) la carte mystère garde son mystère : la toucher ne dit rien de plus, on la voit de près (look)
@@ -392,6 +395,10 @@ function openVrai() {
 
 export function mountOffer({ name, over = false, onPaid = null, scene = null, nav = null, onName = null }) {
   onPaidHere = onPaid;
+  // l'étape vidéo n'existe qu'avec la scène (sans WebGL2, pas de vitrine)
+  const OBJ = over && scene && scene.vitrine ? OBJETS : OBJETS.filter(o => !o.video);
+  const VI = OBJ.findIndex(o => o.video);                          // le rang de l'étape vidéo (−1 : aucune)
+  const vi = k => (VI < 0 || k < VI ? k : k === VI ? VI - 1 : k - 1);   // le rang correspondant dans la vitrine (la vidéo : la feuille)
   const root = document.createElement('div');
   root.id = 'offre'; root.className = 'of' + (over ? ' over' : '');
   root.style.setProperty('--inset', SHEET_INSET + 'px');
@@ -400,13 +407,13 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // comme descendre ; l'invitation à descendre : un fil vertical où une lueur coule vers le bas (pas une flèche)
   const CAP = `<div class="of-cap"><div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
         <p class="of-vit-t" aria-live="polite"></p>
-        <div class="of-dots">${OBJETS.map((o, i) => `<button class="of-dot" type="button" data-k="${i}" aria-label="${esc(o.txt.replace(/\n/g, ' '))}"><i></i></button>`).join('')}</div>
+        <div class="of-dots">${OBJ.map((o, i) => `<button class="of-dot" type="button" data-k="${i}" aria-label="${esc(o.txt.replace(/\n/g, ' '))}"><i></i></button>`).join('')}</div>
         <button class="of-vrai-go" type="button">VOIR EN VRAI</button>
       </div></div>`;
   root.innerHTML = `
     <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
     <main>
-      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
+      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true">${VI >= 0 ? `<div class="of-mvw"><video class="of-mv" muted loop playsinline disablepictureinpicture preload="none" tabindex="-1" poster="${esc(new URL('vrai/machine.jpg', document.baseURI).href)}"></video></div>` : ''}</div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
       <div class="of-rest">
       <!-- (12/10) chaque section de la suite porte son nom (data-nom) : le signe du bas l'annonce et y mène -->
       <!-- (17/10, Maxence) plus de section « d'autres prénoms » ni « en vrai » : VOIR EN VRAI, sur l'objet (openVrai) -->
@@ -452,10 +459,10 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const txt = root.querySelector('.of-vit-t'), hole = root.querySelector('.of-hole'), story = root.querySelector('.of-story');
   const vit = scene && scene.vitrine ? scene.vitrine : null;
   const busyMode = () => root.classList.contains('paying');
-  const N = OBJETS.length;
+  const N = OBJ.length;
   // (11/10, Maxence) le défilement EST le temps : chaque étape a une longueur de page proportionnelle à sa durée réelle
   // (la carte 1,8 s, l'enveloppe et la carte mystère 7 s, le cachet 2,4 s) — aucune partie en accéléré
-  const KEYS = vit ? vit.state().keys : OBJETS.map((o, i) => i);
+  const KEYS = vit ? (vk => VI < 0 ? vk : [...vk.slice(0, VI), ...vk.slice(VI - 1).map(x => x + 1.2)])(vit.state().keys) : OBJ.map((o, i) => i);
   const PXS = () => innerHeight * 0.18;                                      // px de défilement par seconde d'animation
   // (12/10, Maxence : « la carte mystère n'est pas assez sensible au scroll, on galère ») la dernière étape demande
   // moitié moins de défilement que sa durée (elle suit toujours le doigt, à 2,2 × au plus)
@@ -512,17 +519,46 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const nbsp = s => { const r = /(^|[\s\u00a0])(à|a|de|du|la|le|un|et|y|me|ton|pour|au) /gi, f = x => x.replace(r, (m, a, w) => a + w + '\u00a0'); return f(f(s)); };
   // revenir à la feuille d'un coup, sans qu'on voie le saut (RECEVOIR depuis une autre étape)
   const sceneCv = () => scene && scene.canvas;
+  // (17/10) l'étape vidéo : la vidéo remplace la scène (qui reste sur la feuille) le temps de l'étape ; elle joue seule,
+  // muette, en boucle. Mouvement réduit : l'image fixe seulement.
+  const vid = root.querySelector('.of-mv'), vidW = root.querySelector('.of-mvw');
+  let vidOn = false, vidSrc = false;
+  const vidLoad = () => {
+    if (!vid || vidSrc) return;
+    vidSrc = true; vid.preload = 'auto'; vid.src = new URL('vrai/machine.mp4', document.baseURI).href; vid.load();
+  };
+  const vidOff = () => {
+    if (!vidOn) return;
+    vidOn = false; vidW.classList.remove('on');
+    setTimeout(() => { if (!vidOn) vid.pause(); }, 600);
+  };
+  const syncVideo = (k, from) => {
+    if (VI < 0 || !vid) return;
+    const want = k === VI, c = sceneCv();
+    if (want === vidOn) return;
+    if (want) {
+      vidOn = true; vidLoad(); count('alt/machine');
+      if (c) { c.style.transition = 'opacity .45s ease'; c.style.opacity = '0'; }
+      if (from > VI) setTimeout(() => { if (vidOn) vit.jump(0); }, 480);   // revenu d'une étape suivante : la scène se remet sur la feuille, cachée
+      vidW.classList.add('on');
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches) { try { vid.currentTime = 0; const p = vid.play(); p && p.catch(() => { /* */ }); } catch { /* */ } }
+    } else {
+      vidOff();
+      if (c) { c.style.transition = 'opacity .45s ease'; c.style.opacity = '1'; }
+    }
+  };
   const fadeJump = (k, then) => {
     const c = sceneCv(); if (!c || !vit) { then && then(); return; }
+    vidOff();
     c.style.transition = 'opacity .3s ease'; c.style.opacity = '0';
-    setTimeout(() => { vit.jump(k); cur = k; slideTxt(nbsp(OBJETS[k].txt), k === 0); dotsOn(k); then && then(); setTimeout(() => { c.style.opacity = '1'; }, 60); }, 320);
+    setTimeout(() => { vit.jump(vi(k)); cur = k; slideTxt(nbsp(OBJ[k].txt), k === 0); dotsOn(k); then && then(); setTimeout(() => { c.style.opacity = '1'; }, 60); }, 320);
   };
   // la description de l'étape k (le défilement, lui, mène l'animation : scrub)
   // (12/10, Maxence) en reculant (on remonte, on glisse après le dernier point, on touche le premier), la description
   // s'efface et ne revient qu'une fois arrivé : l'étape 0 aussitôt (l'exemplaire original), une autre quand la page
   // s'est posée dessus — on ne voit plus défiler les textes de toutes les étapes
   let txtT = 0;
-  const txtFor = k => slideTxt(nbsp(OBJETS[k].txt), k === 0);
+  const txtFor = k => slideTxt(nbsp(OBJ[k].txt), k === 0);
   // (16/10) toucher l'objet : ce qu'il est vraiment (more), tapé à la place de la description ; encore = la description
   let detail = false;
   // (17/10, Maxence : « chaque toucher zoome sur l'objet touché, en image et en descriptif — dimensions, fiche
@@ -530,8 +566,8 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // description, VOIR EN VRAI paraît sous elle ; encore = la vue revient, la description aussi. La carte mystère garde
   // son mystère : on la voit de près, sans rien de plus.
   const toggleDetail = () => {
-    if (cur < 0) return;
-    const ob = OBJETS[cur], want = !detail;
+    if (cur < 0 || cur === VI) return;                 // (la vidéo : rien à rapprocher)
+    const ob = OBJ[cur], want = !detail;
     const zoomed = vit?.look ? vit.look(want) : false;
     if (want && !zoomed && !ob.more) return;
     detail = want;
@@ -592,7 +628,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   }
   root.addEventListener('scroll', () => { const y = root.scrollTop; if (Math.abs(y - sLast) > 0.5) sDir = Math.sign(y - sLast); sLast = y; if (!drive) armSettle(); }, { passive: true });
   // une étape : l'histoire y va à son allure (en reculant, vite) ; depuis la dernière, la suite revient au début
-  const goTo = k => { k = Math.max(0, Math.min(N - 1, k)); if (vit) vit.go(k); show(k); };
+  const goTo = k => { k = Math.max(0, Math.min(N - 1, k)); syncVideo(k, cur); if (vit) vit.go(vi(k)); show(k); };
   const goStep = d => {
     if (busyMode()) return;
     count('alt/vitrine');
@@ -603,7 +639,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // (11/10) une seule grammaire : vertical = avancer dans la page (les étapes suivent le défilement) ; les pages : les
   // flèches du bandeau (12/10 : plus de glissé pour changer de page, nav.js)
   // pendant l'enveloppe et le paiement : la feuille
-  new MutationObserver(() => { if (busyMode() && cur !== 0) { cur = 0; txtFor(0); dotsOn(0); } }).observe(root, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(() => { if (busyMode() && cur !== 0) { if (vidOn) { vidOff(); const c = sceneCv(); if (c) c.style.opacity = '1'; } cur = 0; txtFor(0); dotsOn(0); } }).observe(root, { attributes: true, attributeFilter: ['class'] });
   // un point = une étape : la page y défile, à l'allure de chaque étape traversée
   root.querySelectorAll('.of-dot').forEach(b => b.addEventListener('click', () => {
     if (busyMode()) return;
@@ -671,6 +707,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // démonstration du bandeau des pages (nav.js) ; puis la flèche vers le bas
   const INTRO_AT = over ? 600 : 900, BAR_AT = INTRO_AT + introMs(OBJETS[0].txt);
   setTimeout(() => show(0), INTRO_AT);
+  setTimeout(vidLoad, BAR_AT + 2500);                // (la vidéo se charge une fois la page posée : 2,2 Mo)
   // (12/10, Maxence : « l'invitation à descendre n'est pas assez claire ») comme sur la plupart des sites : le signe du bas
   // dit où il mène — le nom de la section suivante (« d'autres prénoms »), sous une flèche vers le bas — et y va
   // directement (la scène s'efface le temps du saut, l'histoire est posée à sa fin). Les étapes de l'objet : les points,
