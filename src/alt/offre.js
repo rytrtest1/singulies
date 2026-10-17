@@ -406,7 +406,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   root.innerHTML = `
     <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
     <main>
-      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"><div class="of-mvw"><video class="of-mv" muted playsinline disablepictureinpicture preload="auto" tabindex="-1" poster="${esc(new URL('vrai/machine.jpg', document.baseURI).href)}" src="${esc(new URL('vrai/machine.mp4', document.baseURI).href)}"></video></div></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
+      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"><div class="of-mvw"><video class="of-mv" muted playsinline disablepictureinpicture preload="auto" tabindex="-1" poster="${esc(new URL('vrai/machine-6.jpg', document.baseURI).href)}" src="${esc(new URL('vrai/machine-6.mp4', document.baseURI).href)}"></video></div></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
       <div class="of-rest">
       <!-- (12/10) chaque section de la suite porte son nom (data-nom) : le signe du bas l'annonce et y mène -->
       <!-- (17/10, Maxence) plus de section « d'autres prénoms » ni « en vrai » : VOIR EN VRAI, sur l'objet (openVrai) -->
@@ -551,9 +551,31 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     vid.addEventListener('timeupdate', () => { if (vid.duration && vid.currentTime > vid.duration - 0.3) vidLoop(); });
     vid.addEventListener('ended', vidLoop);
   }
+  // (17/10, Maxence : « sûr certain que c'est au bon endroit à chaque fois, chaque appareil ») la position n'est plus un
+  // décalage fixe : elle est MESURÉE sur les points de navigation (le haut de la vidéo juste sous eux), au chargement, à
+  // chaque changement de taille et quand la machine paraît ; seulement en haut de page (les points restent collés pendant
+  // que le reste défile : la mesure n'aurait plus de sens)
+  const vidPlace = () => {
+    if (!vidW || root.scrollTop > 2) return;
+    const d = root.querySelector('.of-dots'), h = root.querySelector('.of-hole');
+    if (!d || !h) return;
+    const dr = d.getBoundingClientRect(), hr = h.getBoundingClientRect();
+    if (!dr.height || !hr.height) return;
+    vidW.style.top = Math.round(dr.bottom - hr.top + 4) + 'px';
+  };
+  if (vidW) {
+    addEventListener('resize', vidPlace);
+    if (window.ResizeObserver) { const ro = new ResizeObserver(vidPlace); ro.observe(root); const c = root.querySelector('.of-cap'); if (c) ro.observe(c); }
+    document.fonts && document.fonts.ready && document.fonts.ready.then(vidPlace);
+    for (const t of [300, 1200, 2500, 5000]) setTimeout(vidPlace, t);
+    // (la mise en page peut bouger après l'événement — unités svh, polices, barre d'adresse du téléphone : on remesure
+    // aussi deux fois par seconde, deux lectures de position, sans coût)
+    const vidTick = setInterval(() => { if (!root.isConnected) clearInterval(vidTick); else vidPlace(); }, 400);
+  }
   const vidSet = on => {
     if (!vid || on === vidW.classList.contains('on')) return;
     if (on) {
+      vidPlace();
       vidW.classList.add('on');
       if (!matchMedia('(prefers-reduced-motion: reduce)').matches) { try { if (!vidStarted) vid.currentTime = 0; vidStarted = true; const p = vid.play(); p && p.catch(() => { /* */ }); } catch { /* */ } }
     } else {
