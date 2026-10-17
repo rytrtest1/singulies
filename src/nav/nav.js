@@ -138,22 +138,22 @@ export function installNav(opts) {
   inner.appendChild(track); root.append(tc, inner);
   const foot = document.createElement('div'); foot.className = 'nv-foot';
   const fcv = document.createElement('canvas'); fcv.setAttribute('aria-hidden', 'true');
-  const fsp = document.createElement('button'); fsp.type = 'button'; fsp.textContent = 'ETERNEL'; fsp.setAttribute('aria-label', 'ETERNEL, qui t’écrit');   // (12/10, Maxence : SINGULIES est sous les enveloppes d'un poème par mois ; en bas, l'auteur)
-  // (11/10, Maxence) SINGULIES en bas = la signature du site, comme un pied de page : on y écrit (le jeu est dans le bandeau)
-  // (17/10, Maxence : « il faut savoir qui je suis ») ETERNEL en bas = qui t'écrit (et de là, ECRIS-MOI)
-  fsp.addEventListener('click', () => import('../menu/auteur.js').then(m => m.openAuteur({ base: opts.base || './', reduced })));
+  const fsp = document.createElement('button'); fsp.type = 'button'; fsp.textContent = 'SINGULIES'; fsp.setAttribute('aria-label', 'SINGULIES, ce que c’est');
+  // (17/10, Maxence) l'auteur en haut (l'accueil), la maison en bas : SINGULIES = la page qui dit ce qu'est singuliés
+  // (qui t'écrit et ECRIS-MOI restent dans le menu)
+  fsp.addEventListener('click', () => import('../menu/singulies.js').then(m => m.openSingulies({ base: opts.base || './', reduced })));
   foot.append(fcv, fsp);
   const shadeT = document.createElement('div'), shadeB = document.createElement('div');
   shadeT.className = 'nv-shade t'; shadeB.className = 'nv-shade b';
   // ---- (17/10) la ligne du haut : la flèche retour, SINGULIES (l'accueil), le menu ----
   const hd = document.createElement('div'); hd.className = 'nv-hd';
   hd.innerHTML = `<button class="nv-bk" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19"/></svg></button>
-    <button class="nv-br" type="button" aria-label="SINGULIES, l’accueil">SINGULIES</button>
+    <button class="nv-br" type="button" aria-label="ETERNEL, l’accueil">ETERNEL</button>
     <button class="nv-mn" type="button" aria-label="Menu" aria-expanded="false"><i></i></button>`;
   const pan = document.createElement('nav'); pan.className = 'nv-pan'; pan.setAttribute('aria-label', 'Menu'); pan.inert = true;
   const legal = [['MENTIONS', 'mentions.html'], ['CONDITIONS', 'conditions.html'], ['CONFIDENTIALITE', 'confidentialite.html']];
   pan.innerHTML = PAGES.map(p => `<a href="${url(p)}" data-p="${p.id}">${p.label}</a>`).join('') +
-    `<hr><button type="button" data-x="auteur">QUI T’ECRIT</button><button type="button" data-x="contact">ECRIS-MOI</button>` +
+    `<hr><button type="button" data-x="auteur">QUI T’ECRIT</button><button type="button" data-x="contact">ECRIS-MOI</button><button type="button" data-x="singulies">SINGULIES</button>` +
     `<div class="lg">${legal.map(([l, h]) => `<a href="${base}${h}">${l}</a>`).join('')}</div>`;
   let panOn = false;
   const setPan = on => {
@@ -168,10 +168,11 @@ export function installNav(opts) {
     if (a.dataset.p) { e.preventDefault(); setPan(false); const id = a.dataset.p; if (id === ring(cur).id) { if (cur === home && opts.onCurrent) opts.onCurrent(); } else goTo(id); return; }
     setPan(false);
     if (a.dataset.x === 'auteur') import('../menu/auteur.js').then(m => m.openAuteur({ base, reduced }));
+    else if (a.dataset.x === 'singulies') import('../menu/singulies.js').then(m => m.openSingulies({ base, reduced }));
     else import('../menu/contact.js').then(m => m.openContact({ base, reduced }));
   });
   addEventListener('keydown', e => { if (e.key === 'Escape' && panOn) { e.preventDefault(); e.stopPropagation(); setPan(false); } }, true);
-  // SINGULIES : l'accueil (le champ de prénoms) — d'une autre page du document, on y revient d'abord
+  // ETERNEL : l'accueil (le champ de prénoms) — d'une autre page du document, on y revient d'abord
   hd.querySelector('.nv-br').addEventListener('click', () => {
     setPan(false);
     if (opts.current !== 'poeme') { location.href = new URL(base, document.baseURI).href; return; }

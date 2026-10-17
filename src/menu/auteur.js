@@ -34,7 +34,7 @@ const CSS = `
 const BACK = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function style() {
+export function style() {
   if (document.getElementById('au-style')) return;
   const st = document.createElement('style'); st.id = 'au-style'; st.textContent = CSS; document.head.appendChild(st);
 }

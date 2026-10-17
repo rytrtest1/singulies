@@ -444,3 +444,7 @@ Aucun texte d'interface, slogan, contenu commercial, photo, vidéo, particules, 
 - **Livre** : toucher l'ouvre, toucher une page la rapproche, toucher encore le referme ; glisser : une double page avant / après seulement.
 - **Flèche du bas** : quand elle paraît, la page descend un peu (montre ETERNEL, qui t'écrit) et remonte, une fois par visite ; chaque page a « qui t'écrit » dessous, avec la carte de contact directement sous ECRIS-MOI.
 - Paquet après paiement : éventail large et lent, la carte du dessus passe dessous (nouvelle carte à chaque mélange). Plus jamais de rabat du bas sur l'enveloppe.
+
+## Titre en haut, signature en bas (17/10, Maxence)
+- **Haut : ETERNEL** (l'accueil), l'auteur que le public connaît ; **bas : SINGULIES** (la maison), qui ouvre une page décrivant singuliés (`src/menu/singulies.js`, `openSingulies`, **texte provisoire à réécrire par Maxence**, lien LE JEU). Menu du haut : pages · QUI T'ECRIT · ECRIS-MOI · SINGULIES · pages légales.
+- Hiérarchie : ETERNEL = l'auteur (confiance), « un prénom, un poème » = le produit, SINGULIES = l'univers (jamais dans le parcours d'achat). Domaines : `singulies.*` principal (possédé), `unprenomunpoeme.com` à acheter, en redirection 301 vers lui (adresses absolues, `SITE` de la fonction, Stripe, sitemap à changer au branchement).
