@@ -810,7 +810,8 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // (17/10, Maxence : « le signe vers le bas, seulement si l'utilisateur ne fait rien sur la page dézoomée normale ») la flèche paraît
   // quand rien n'a bougé depuis 5 s, en haut de page, hors vue rapprochée, paiement ou enveloppe ; au moindre geste, elle repart
   let lastAct = performance.now(), peeked = false;
-  for (const ev of ['pointerdown', 'touchstart', 'wheel', 'keydown']) addEventListener(ev, () => { lastAct = performance.now(); if (down.classList.contains('on')) down.classList.remove('on'); }, { passive: true, capture: true });
+  for (const ev of ['pointerdown', 'touchstart', 'wheel', 'keydown']) addEventListener(ev, e => { lastAct = performance.now(); if (down.contains(e.target)) return;   /* (17/10, Maxence : la flèche ne marchait pas) toucher la flèche elle-même ne la retire plus : elle devenait intouchable (pointer-events) avant le clic */
+    if (down.classList.contains('on')) down.classList.remove('on'); }, { passive: true, capture: true });
   setTimeout(() => setTimeout(() => { down.dataset.shown = '1'; }, downAt() - BAR_AT), BAR_AT);
   setInterval(() => {
     if (!root.isConnected) return;

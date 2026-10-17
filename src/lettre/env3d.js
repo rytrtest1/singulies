@@ -113,20 +113,21 @@ export async function createEnvelope(gl, base = './') {
   // du centre ; garder la même lumière quand on touche une enveloppe ou qu'on passe à l'étape 2 ») la lampe est calmée (haute,
   // plus d'ambiance) ; une enveloppe reçoit la lampe de l'objet exactement au centre, et se rapproche de la lampe « d'à côté »
   // (plus sombre) à mesure qu'elle s'en éloigne — l'élue, qui vient au centre, fond l'une dans l'autre : aucun saut
-  const mixP = (A, B, k) => ({ ...A, lightPos: A.lightPos.map((a, i) => a + (B.lightPos[i] - a) * k), light: A.light + (B.light - A.light) * k, env: (A.env ?? 0.3) + ((B.env ?? 0.3) - (A.env ?? 0.3)) * k });
+  const mixP = (A, B, k) => ({ ...A, lightPos: A.lightPos.map((a, i) => a + (B.lightPos[i] - a) * k), light: A.light + (B.light - A.light) * k, env: (A.env ?? 0.3) + ((B.env ?? 0.3) - (A.env ?? 0.3)) * k, shadeK: (A.shadeK ?? 1) + ((B.shadeK ?? 1) - (A.shadeK ?? 1)) * k });
   const garLamp = (P, g) => {
-    // (17/10, Maxence : « plus un côté lampe torche : la lumière au centre, un peu sur les côtés, sans faire cheap ; cohérent avec le noir de
-    // l'enveloppe et la lumière de ce qui suit ») l'éclairage décroît en douceur (courbe en cloche, jamais un cercle net) avec la distance
-    // au centre : plein au milieu, les voisines encore bien éclairées, celles des bords plus sombres mais lisibles. Le centre = la lampe de
-    // l'objet seul (celle de l'enveloppe qui s'ouvre ensuite) : aucun saut.
-    const side = { ...P, lightPos: [P.lightPos[0] + g.p[3], P.lightPos[1] + g.p[4], P.lightPos[2] + g.p[5]], light: P.light * 0.5, env: (P.env ?? 0.3) * 0.32 };
-    const q = Math.abs(g.p[3]) / (EW * 1.7);
-    return mixP(P, side, 1 - Math.exp(-q * q));
+    // (17/10, Maxence : « celle du centre en évidence, celles sur le côté en retrait ; en allant vers la droite, la centrale passe
+    // progressivement en retrait et celle qui arrive de la gauche progressivement en avant ») chaque enveloppe reçoit la MÊME lampe,
+    // dans le même rapport à elle (aucune ombre qui change de sens, aucun grain de lumière faible) ; seule son éclat suit sa place :
+    // une courbe en cloche continue de la distance au centre (shadeK : plein au milieu, ≈ 0,35 aux bords) — elle s'éteint en glissant
+    const side = { ...P, lightPos: [P.lightPos[0] + g.p[3], P.lightPos[1] + g.p[4], P.lightPos[2] + g.p[5]] };
+    const q = g.p[3] / (EW * 1.25);
+    side.shadeK = 0.34 + 0.66 * Math.exp(-q * q);
+    return side;
   };
   // l'enveloppe (repère : Me) : face, dos sans rabat du bas, rabat (fl : 0 ouvert → 1 fermé), cachet (us : sa pose)
   const SEALED = false, EMB_K = 0.86, FLAP_EMB = 24;              // (le cachet : SEALED = true)
   function drawEnv(v, P, Me, { seed = 23, ep = envPieces(1, 1), fl = 1, us = 1, F = F1, si = 0, fade = 1 } = {}) {
-    const eb = { ...envBase, seed, fade };
+    const eb = { ...envBase, seed, fade, shade: P.shadeK ?? 1 };
     const th = Math.PI * fl, hz = 1.9 * fl;
     const Mf = M4.mul(Me, M4.mul(M4.mul(T(0, ENV.h / 2, hz), M4.model(th, 0, 0)), T(0, FLAP_H / 2, 0)));
     const occ = fl > 0.02 && fl < 0.995 ? { m: Mf, tri: [ENV.w / 2, FLAP_H] } : null;
