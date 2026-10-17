@@ -53,6 +53,12 @@ export function buildStagePage(host, o) {
     const strike = () => { if (!box.isConnected || n >= ks.length) return; ks[n++].classList.add('on'); typeT = setTimeout(strike, (ks[n - 1].textContent === ' ' ? 70 : 32) + Math.random() * 46); };
     typeT = setTimeout(strike, 140);
   };
+  // (17/10, Maxence) le livre ouvert : sa fiche (format, papier) à la place de la description ; refermé : la description
+  const syncOpen = () => {
+    const op = !!(scene && scene.isOpen && scene.isOpen()), m = o.steps[k] && o.steps[k].more;
+    if (!m || op === detail) return;
+    detail = op; type(nbsp(op ? m : o.steps[k].txt));
+  };
   const wrapTo0 = () => { if (scene && scene.wrap && scene.wrap()) { p = 0; } setStep(0); };
   const setStep = (j, from = 'geste') => {
     j = Math.max(0, Math.min(N - 1, j));
@@ -85,10 +91,10 @@ export function buildStagePage(host, o) {
     if (sx == null) return; const dx = x - sx, dy = y - sy; sx = null;
     if (performance.now() - st0 > 900) return;
     // (16/10) l'objet répond d'abord à ses propres gestes (le livre : ouvrir, feuilleter, refermer)
-    if (Math.hypot(dx, dy) < 10 && scene && scene.tap && scene.tap(x, y, innerWidth, innerHeight, p)) { live?.then(r => r && r.go()); return; }
+    if (Math.hypot(dx, dy) < 10 && scene && scene.tap && scene.tap(x, y, innerWidth, innerHeight, p)) { live?.then(r => r && r.go()); setTimeout(syncOpen, 700); return; }
     if (scene && scene.isOpen && scene.isOpen()) {
       if (Math.abs(dx) > 42 && Math.abs(dx) > 1.4 * Math.abs(dy)) { scene.swipe(dx < 0 ? 1 : -1); return; }
-      if (Math.abs(dy) > 42) { scene.close(); return; }
+      if (Math.abs(dy) > 42) { scene.close(); setTimeout(syncOpen, 50); return; }
     }
     // (16/10, Maxence) toucher une enveloppe de la guirlande : elle est choisie, l'étape suivante
     if (Math.hypot(dx, dy) < 10 && scene && scene.pick && k === 0) { const i = scene.pick(x, y, innerWidth, innerHeight); if (i >= 0) { scene.choose(i); setStep(1); return; } }
@@ -109,7 +115,7 @@ export function buildStagePage(host, o) {
     if (N < 2 || e.ctrlKey) return;
     const now = performance.now(); if (now - wAt > 260) wAcc = 0; wAt = now;
     wAcc += e.deltaY;
-    if (Math.abs(wAcc) > 60 && !host._wLock && scene?.isOpen?.()) { host._wLock = true; scene.close(); wAcc = 0; setTimeout(() => { host._wLock = false; }, 650); return; }
+    if (Math.abs(wAcc) > 60 && !host._wLock && scene?.isOpen?.()) { host._wLock = true; scene.close(); setTimeout(syncOpen, 50); wAcc = 0; setTimeout(() => { host._wLock = false; }, 650); return; }
     if (Math.abs(wAcc) > 60 && !host._wLock) { host._wLock = true; setStep(k + Math.sign(wAcc)); wAcc = 0; setTimeout(() => { host._wLock = false; }, 650); }
   }, { passive: true });
 
@@ -145,7 +151,7 @@ export function buildStagePage(host, o) {
   const step = dt => { const kk = reduced ? 1 : Math.min(1, dt * 3.2); p += (pT - p) * kk; if (Math.abs(pT - p) < 1e-3) p = pT; place(); return Math.abs(pT - p) > 1e-3; };
   live = mountStage(host, grab, o.make, { reduced, step, p: () => p, pt: () => pT }).then(r => { scene = r && r.scene; if (!r) main.classList.add('flat'); place(); return r; });
   addEventListener('resize', place);
-  addEventListener('keydown', e => { if (e.key === 'Escape' && scene?.isOpen?.() && getComputedStyle(host).visibility !== 'hidden') scene.close(); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && scene?.isOpen?.() && getComputedStyle(host).visibility !== 'hidden') { scene.close(); setTimeout(syncOpen, 50); } });
   setStep(0, 'debut');
   return { main, grab, cap, sign, live, setStep, get step() { return k; },
     canvas: () => host.querySelector('.lt-cv'),

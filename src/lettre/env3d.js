@@ -75,7 +75,7 @@ export async function createEnvelope(gl, base = './') {
     const t = performance.now() / 1000, target = K[Math.max(0, Math.min(K.length - 1, Math.round(pT)))], dt = lastT == null ? 0 : Math.min(0.1, Math.max(0, t - lastT)); lastT = t;
     if (reduced) vt = target;
     else if (vt < target) vt = Math.min(target, vt + dt);
-    else if (vt > target) vt = Math.max(target, vt - dt * Math.max(2.6, (vt - target) / 1.8));
+    else if (vt > target) vt = Math.max(target, vt - dt * Math.max(4, (vt - target) / 0.9));   // (17/10) le rembobinage, plus vite
     return vt !== target;
   }
 
