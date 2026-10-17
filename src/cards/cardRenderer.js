@@ -256,7 +256,7 @@ uniform vec2 uLogoOff;       // décalage du logo (mm), propre à chaque carte
 uniform vec2 uLogoScale;     // échelle du dessin (x, y) par rapport au SVG
 uniform vec3 uLightPos, uEye, uRoomUp;
 // ombre portée par une autre carte (la carte retournée au-dessus du paquet) : rectangle à la hauteur uOccZ
-uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc;
+uniform vec4 uOcc; uniform float uOccZ, uOccRot, uHasOcc, uOccA;   // uOccA : la force de l'ombre (17/10 : elle paraît en douceur)
 // cachet (même uniforme que le maillage) ; ombre de contact d'un objet posé (centre xy mm, rayon, force)
 uniform vec4 uSeal, uAO, uSealP, uSealQ;
 uniform vec4 uSealV, uSealF;
@@ -394,7 +394,7 @@ float occShadow(vec3 L, float dist) {
     d = length(max(e, 0.0)) + min(max(e.x, e.y), 0.0) - 3.0;     // distance au rectangle arrondi (mm)
   }
   float pen = max(0.4, s * uLightR / dist);
-  return 1.0 - 0.9 * (1.0 - smoothstep(-pen, pen, d));
+  return 1.0 - 0.9 * uOccA * (1.0 - smoothstep(-pen, pen, d));
 }
 
 // ombre fine sous le bord d'un rabat (triangle : force, y de la base, y de la pointe, demi-largeur ; repère de l'enveloppe)
@@ -810,7 +810,7 @@ export async function createCardRenderer(gl, base = './') {
     gl.uniform1f(u.uSeed, card.seed || 0);
     gl.uniform3fv(u.uLightPos, params.lightPos); gl.uniform3fv(u.uEye, eye);
     const oc = card.occ;
-    gl.uniform1f(u.uHasOcc, oc ? 1 : 0);
+    gl.uniform1f(u.uHasOcc, oc ? 1 : 0); gl.uniform1f(u.uOccA, oc ? (oc.a ?? 1) : 0);
     gl.uniform3fv(u.uSpotPos, params.spotPos || [0, 0, 1000]); gl.uniform3fv(u.uSpotDir, params.spotDir || [0, 0, -1]);
     gl.uniform1f(u.uSpot, params.spotI || 0); gl.uniform1f(u.uSpotCosOut, params.spotCosOut || 0.9); gl.uniform1f(u.uSpotCosIn, params.spotCosIn || 0.95);
     if (oc) { gl.uniform4f(u.uOcc, oc.x || 0, oc.y || 0, CARD.w / 2, CARD.h / 2); gl.uniform1f(u.uOccZ, oc.z || 0); gl.uniform1f(u.uOccRot, oc.rz || 0); }

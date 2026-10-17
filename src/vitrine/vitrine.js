@@ -170,7 +170,7 @@ export function createVitrine(o) {
     if (!o.noCard) {
       const Mq = M4.mul(M4.mul(Msheet, questionRel()), S(CARD_S));
       card.draw(vp, eye, P, { model: Mq, lod: 'fine', ...vQ });
-      if (vt > 1.5 && vt < K[1] + 1.85) occ = { m: Mq, k: true };
+      if (vt > 0.3 && vt < K[1] + 1.85) occ = { m: Mq, k: true, a: sstep(0.3, 1.6, vt) * (1 - sstep(K[1] + 1.45, K[1] + 1.85, vt)) };   // (17/10) en douceur
     }
     // (le repère de l'enveloppe sans son échelle : les mesures en mm)
     if (Menv && vt > K[2] + 0.2) myst.draw(vp, eye, P, M4.mul(Menv, S(1 / ENV_K)), r3());

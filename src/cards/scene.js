@@ -636,10 +636,26 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       if (i === n - 1 && !ended && !reduced) p.z += lift('deck');
       // (17/10, Maxence : « la coupe, cheap — le plus simple, rapide, efficace ») le mélange : les cartes s'écartent un
       // peu de côté, en éventail, chacune dans son plan (rien ne se croise, l'ordre ne change pas), puis se rassemblent
+      // (17/10, Maxence : « la carte du haut change, pour le hasard ; plus d'éventail, plus doucement ») l'éventail
+      // s'ouvre plus large et reste ouvert un moment ; la carte du dessus en sort de côté, passe sous le paquet (jamais
+      // à travers : elle est dégagée quand elle descend) et y revient, dessous ; les autres montent d'un cran — une
+      // nouvelle carte est sur le dessus (shuffleRot, à la fin du mélange)
       if (shufNow && !reduced) {
         const { u, side } = shufNow, k = (i - (n - 1) / 2) / Math.max(1, n - 1);
-        const w = Math.sin(Math.PI * clamp01(u)) ** 2;
-        p.x += side * k * 26 * w; p.rz += side * k * 0.16 * w;
+        const w = sstep(0, 0.3, u) * (1 - sstep(0.74, 1, u));
+        const rise = sstep(0.42, 0.56, u);
+        if (i === n - 1 && n > 1) {
+          // la carte qui passe dessous : dehors (dégagée), en bas, puis dessous, à la place de la carte du fond
+          const out = sstep(0.18, 0.42, u) * (1 - sstep(0.56, 0.74, u));
+          const kb = -0.5, lo = sstep(0.42, 0.56, u);
+          p.x += side * lerp(0.5, kb, sstep(0.56, 0.74, u)) * 44 * w + side * (CARD.w + 30) * out;
+          p.rz += side * lerp(0.5, kb, sstep(0.56, 0.74, u)) * 0.24 * w + side * 0.1 * out;
+          p.z = lerp(p.z, -PITCH * 0.5, lo);
+          p.y += 4 * out;
+        } else {
+          p.x += side * k * 44 * w; p.rz += side * k * 0.24 * w;
+          p.z += PITCH * rise;
+        }
       } else if (shuf && !shuf.done && shuf.hop >= 0 && i === n - 1 && !reduced) {
         const ph = shuf.hop % 1.2;
         p.z += 3.2 * sstep(0, 0.16, ph) * (1 - sstep(0.16, 0.45, ph)) + 1.1 * sstep(0.45, 0.57, ph) * (1 - sstep(0.57, 0.85, ph));
@@ -830,7 +846,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   // jamais à travers les autres), il sautille de temps en temps ; le toucher, ou glisser, et il tire : la carte se
   // retourne au-dessus, et le tout remonte à sa hauteur habituelle (la carte réponse, l'invitation à écrire)
   let shuf = null, lastGest = 0;
-  const SH_T = 0.75;                                  // un mélange (éventail, puis rassemblé)
+  const SH_T = 2.4;                                   // un mélange (l'éventail s'ouvre, tenu, la carte du dessus passe dessous, rassemblé)
   function resume(t, how = 'question') {
     sheetOnly = false;
     if (how === 'blanche') { blankAt = t + 1.4; pendingDraw = -1; return; }
@@ -838,13 +854,18 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     pendingDraw = -1;
   }
   // (17/10 : plus de coupe — l'ordre du paquet ne change pas pendant le mélange)
-  function cutStack() {}
+  // (17/10) un mélange fini : la carte du dessus est passée dessous (sous les cartes visibles)
+  function cutStack() {
+    const n = visibleStack(); if (n < 2) return;
+    const top = stack.pop(); stack.splice(STACK - n, 0, top);
+    if (preQ) { card.freeInk(preQ.ink); preQ = null; }
+  }
   function drawFromShuffle(t) {
     if (!shuf || shuf.done || ended) return false;
     // (une coupe en cours se termine, vite, avant qu'on tire)
     const fin = shuf.cur && shuf.cur.u > 0.02 ? { u0: shuf.cur.u, side: shuf.cur.side, t } : null;   // (il se rassemble, vite)
-    shuf.done = true; shuf.fin = fin; shuf.moveT = t + (fin ? 0.25 : 0); shuf.cyc = null; lastGest = t;
-    pendingDraw = t + (fin ? 0.3 : 0);
+    shuf.done = true; shuf.fin = fin; shuf.moveT = t + (fin ? 0.5 : 0); shuf.cyc = null; lastGest = t;
+    pendingDraw = t + (fin ? 0.55 : 0);
     emit('pioche', {});
     return true;
   }
@@ -854,7 +875,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (!shuf) { deckDY = 0; return null; }
     if (shuf.done) {
       if (shuf.fin) {
-        const u = shuf.fin.u0 + (1 - shuf.fin.u0) * clamp01((t - shuf.fin.t) / 0.25);
+        const u = shuf.fin.u0 + (1 - shuf.fin.u0) * clamp01((t - shuf.fin.t) / 0.5);
         if (u >= 1) { cutStack(); shuf.fin = null; } else { deckDY = mid; return { u, side: shuf.fin.side }; }
       }
       const u = ease(clamp01((t - shuf.moveT) / 1.3)); deckDY = mid * (1 - u); return null;
@@ -862,10 +883,10 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     deckDY = mid;
     // deux mélanges rapides, puis une pause où le paquet sautille (touche-moi), et ainsi de suite
     const T = t - shuf.t0; if (T < 0) { shuf.cur = null; return null; }
-    const PER = 2 * SH_T + 2.6, per = Math.floor(T / PER), ph = T - per * PER;
-    const done = per * 2 + Math.min(2, Math.floor(ph / SH_T));
+    const PER = SH_T + 2.4, per = Math.floor(T / PER), ph = T - per * PER;
+    const done = per + Math.min(1, Math.floor(ph / SH_T));
     while (shuf.k < done) { cutStack(); shuf.k++; }
-    if (ph >= 2 * SH_T) { shuf.hop = ph - 2 * SH_T; shuf.cur = null; return null; }
+    if (ph >= SH_T) { shuf.hop = ph - SH_T; shuf.cur = null; return null; }
     shuf.hop = -1;
     shuf.cur = { u: (ph % SH_T) / SH_T, side: done % 2 ? -1 : 1 };
     return shuf.cur;

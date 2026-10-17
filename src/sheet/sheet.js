@@ -586,7 +586,7 @@ export function createSheetScene(gl, opts) {
       const k = Math.max(1 - e, lv);
       Mc = M4.mul(M4.mul(Msheet, M4.model(0, 0, -0.03 - 0.28 * k, C.v.jx + 24 * k, FD_Y + C.v.jy * 2 - 125 * k, 2.2 + 26 * k)), S(CARD_S));
       C.fade = sstep(0, 0.35, u) * (1 - sstep(0.3, 1, lv));
-      C.occ = u > 0.9 && lv < 0.05 && !hideInside ? { m: Mc, k: true } : null;
+      C.occ = u > 0.35 && !hideInside ? { m: Mc, k: true, a: sstep(0.35, 1, u) * (1 - sstep(0, 0.25, lv)) } : null;   // (17/10) l'ombre paraît à mesure qu'elle approche
     } else if (C) {
       const rel = { x: lerp(C_POSE.x + C.v.jx, C_IN.x, uC), y: lerp(C_POSE.y + C.v.jy * 2, C_IN.y, uC), z: lerp(STORY ? 0.45 : 2.2, C_IN.z, uC) + 9 * Math.sin(Math.PI * uC), rz: lerp(C_POSE.rz, C_IN.rz, uC) };   // (histoire : à plat sur la feuille, elle entre dans l'enveloppe avec elle)
       const target2 = M4.mul(Msheet, M4.model(0, 0, rel.rz, rel.x, rel.y, rel.z));
@@ -607,7 +607,7 @@ export function createSheetScene(gl, opts) {
       // ombre de la carte sur la feuille
       // (09/10 : l'ombre suit la carte exactement, même soulevée ou inclinée — elle disparaissait d'un coup quand la
       // carte partait vers l'enveloppe ou se retournait)
-      C.occ = u > 0.9 && !hideInside ? { m: Mc, k: true } : null;
+      C.occ = u > 0.55 && !hideInside ? { m: Mc, k: true, a: sstep(0.55, 1, u) } : null;
     }
     // ---- dessin : enveloppe (fond), feuille, carte, lettres, puis le dos de l'enveloppe et le rabat (devant) ----
     // pleine : bombée une fois la feuille glissée dedans ; l'ombre du rabat du haut une fois fermé
@@ -723,8 +723,9 @@ export function createSheetScene(gl, opts) {
       // (12/10) l'ombre portée du rabat sur le dos, selon la lampe, pendant qu'il se ferme (plus de trait qui annonce où il tombe)
       const flapOcc = uFlap > 0.02 && uFlap < 0.995 ? { m: Mf, tri: [ENV.w / 2, FLAP_H] } : null;
       if (VE && VE.vNotch) card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.6)), lod: 'envBackV', ...EP.back, pillow: [EP.back.pillow[0], 0, 1, 1], triB: [0, 0, 0, 0], clip: [2, ENV.h / 2, VE.vNotch, ENV.w / 2], fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy), sealQ: pq.sealQ, occ: flapOcc });
-      else card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...EP.back, ...(VE && VE.noBot ? { triB: [0, 0, 0, 0] } : {}), fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy + (ENV.h - ENV_BACK_H) / 2), sealQ: pq.sealQ, occ: flapOcc });
-      if (!(VE && VE.noBot)) card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', ...EP.bot, fade: envFade, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2], ao: aoOf(sy), sealQ: pq.sealQ, occ: flapOcc });
+      else card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, -(ENV.h - ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...EP.back, triB: [0, 0, 0, 0], fade: envFade, shade: 1, ...envV.back, ao: aoOf(sy + (ENV.h - ENV_BACK_H) / 2), sealQ: pq.sealQ, occ: flapOcc });
+      // (17/10, Maxence : « l'enveloppe n'a jamais de second rabat en bas ») plus de rabat du bas, nulle part
+      if (false) card.draw(vp, eye, P, { model: M4.mul(Menv, T(0, 0, 1.74)), lod: 'botFlap', ...EP.bot, fade: envFade, shade: 1, ...botV, clip: [1, -ENV.h / 2, ENV.h * 0.58, ENV.w / 2], ao: aoOf(sy), sealQ: pq.sealQ, occ: flapOcc });
       card.draw(vp, eye, P, { model: Mf, lod: 'flap', ...EP.flap, fade: envFade, shade: 1, ...envV.flap, clip: [1, -FLAP_H / 2, FLAP_H, ENV.w / 2], ao: aoOf(FLAP_H / 2 - SEAL_OFF), sealQ: pq.sealQ });
       // le cachet se pose À CHEVAL sur la pointe du rabat fermé (06/10 : il était trop haut), il descend, s'écrase un peu ;
       // 09/10 : après POSTER, une fois l'enveloppe retournée et le rabat fermé (le geste de la personne le scelle)

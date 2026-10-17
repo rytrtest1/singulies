@@ -133,8 +133,7 @@
     const { vp, eye, P } = view(1000, 760, E.ENV.w, 0.9);
     const T = (x, y, z) => M4.model(0, 0, 0, x, y, z), Me = M4.model(0, 0, 0);
     card.draw(vp, eye, P, { model: Me, lod: 'env', ...envBase, ...EP.front });
-    card.draw(vp, eye, P, { model: M4.mul(Me, T(0, -(E.ENV.h - E.ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...envBase, seed: 31, ...EP.back });
-    card.draw(vp, eye, P, { model: M4.mul(Me, T(0, 0, 1.74)), lod: 'botFlap', ...envBase, seed: 37, clip: [1, -E.ENV.h / 2, E.ENV.h * 0.58, E.ENV.w / 2], ...EP.bot });
+    card.draw(vp, eye, P, { model: M4.mul(Me, T(0, -(E.ENV.h - E.ENV_BACK_H) / 2, 1.6)), lod: 'envBack', ...envBase, seed: 31, ...EP.back, triB: [0, 0, 0, 0] });   // (17/10) plus de rabat du bas
     const Mf = M4.mul(Me, M4.mul(M4.mul(T(0, E.ENV.h / 2, 1.9), M4.model(Math.PI, 0, 0)), T(0, E.FLAP_H / 2, 0)));
     card.draw(vp, eye, P, { model: Mf, lod: 'flap', ...envBase, seed: 43, clip: [1, -E.FLAP_H / 2, E.FLAP_H, E.ENV.w / 2], ...EP.flap });
     const Ms = M4.mul(Mf, T(0, E.FLAP_H / 2 - 7, -0.19 - EP.sealDz));
