@@ -417,3 +417,7 @@
   .of-bar .of-go { font-size: 18px; }
   .of-bar .of-price .p1 { font-size: 14.5px; } .of-bar .of-price .p1 b { font-size: 16px; } .of-bar .of-price .p2 { font-size: 13px; }
 }
+/* (17/10, Maxence) la machine s'efface au noir en défilant, comme la description */
+.of.past .of-mvw { opacity: 0; }
+/* (17/10) le bandeau du bas : plus de texte lisible à travers RECEVOIR et le prix quand la page défile (les questions passaient dessous) */
+.of-bar { padding-top: 70px; background: linear-gradient(to top, #060606 0, #060606 70%, rgba(6,6,6,.7) 84%, rgba(6,6,6,0)); }

@@ -14,5 +14,8 @@ for (const [n, u] of [['livres', 'livres.html'], ['lettre', 'lettre.html']]) {
   await page.goto(`http://localhost:${PORT}/${u}?envoi=0`);
   await page.waitForTimeout(9000); await shot('p-' + n);
 }
-await page.click('.nv-mn'); await page.waitForTimeout(900); await shot('p-menu');
+await page.click('.nv-mn', { force: true }); await page.waitForTimeout(900); await shot('p-menu');
+await page.keyboard.press('Escape'); await page.waitForTimeout(600);
+await page.goto(`http://localhost:${PORT}/livres.html?envoi=0`); await page.waitForTimeout(9000);
+await page.mouse.click(vp.width / 2, vp.height * 0.45); await page.waitForTimeout(3500); await shot('p-livre-ouvert');
 await browser.close();

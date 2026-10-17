@@ -13,7 +13,6 @@
 import { stitch, paintThread } from '../alt/stitch.js';
 import { captionShift, insetBottom } from '../app/stage.js';
 import { mountStage } from '../livres/book3d.js';
-import { auteurHtml, wireAuteur } from '../menu/auteur.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // les petits mots restent avec le suivant (jamais « à » seul en fin de ligne)
@@ -30,15 +29,10 @@ export function buildStagePage(host, o) {
       ${o.extra || ''}
       <p class="lt-done" role="status" aria-live="polite"></p>
     </div>
-    <div class="lt-bar">${o.sign.href ? `<a class="lt-sign" href="${esc(o.sign.href)}" target="_blank" rel="noopener">${esc(o.sign.label)}</a>` : `<button class="lt-sign" type="button">${esc(o.sign.label)}</button>`}<div class="lt-pr"></div>
-      <button class="lt-dn" type="button" aria-label="qui t’écrit"><svg class="arw" viewBox="0 0 18 11" aria-hidden="true"><path d="M1.5 1.5 L9 9 L16.5 1.5"/></svg></button></div>
-    <!-- (17/10, Maxence : « sur chaque page pareil ») sous l'objet, une section à part : qui t'écrit (ETERNEL) -->
-    <section class="lt-more" aria-label="Qui t’écrit">${auteurHtml(o.base || './')}</section>
+    <div class="lt-bar">${o.sign.href ? `<a class="lt-sign" href="${esc(o.sign.href)}" target="_blank" rel="noopener">${esc(o.sign.label)}</a>` : `<button class="lt-sign" type="button">${esc(o.sign.label)}</button>`}<div class="lt-pr"></div></div>
   </main>`;
   const main = host.querySelector('.lt'), cap = main.querySelector('.lt-cap'), txt = main.querySelector('.lt-cap-t');
   const grab = main.querySelector('.lt-grab'), sign = main.querySelector('.lt-sign'), pr = main.querySelector('.lt-pr');
-  const more = main.querySelector('.lt-more'), dn = main.querySelector('.lt-dn');
-  wireAuteur(more, { base: o.base || './' });
   stitch(sign, { seed: o.sign.label.length * 13 });
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // la boîte du texte a la hauteur de la plus longue description : les points restent à leur place
@@ -165,7 +159,6 @@ export function buildStagePage(host, o) {
     const y = host.scrollTop, cv = host.querySelector('.lt-cv');
     for (const el of [cv, grab, cap, wordEl]) if (el) el.style.translate = y > 0 ? `0 ${(-y).toFixed(1)}px` : '';
     main.classList.toggle('past', y > 30);
-    dn.classList.toggle('none', y > innerHeight * 0.25);
   };
   host.addEventListener('scroll', lift, { passive: true });
   let drv = 0;
@@ -176,17 +169,6 @@ export function buildStagePage(host, o) {
     drv = requestAnimationFrame(f);
   };
   for (const ev of ['wheel', 'touchstart']) host.addEventListener(ev, () => { cancelAnimationFrame(drv); drv = 0; }, { passive: true });
-  const moreTop = () => more.getBoundingClientRect().top - host.getBoundingClientRect().top + host.scrollTop;
-  const descend = () => driveTo(Math.max(0, moreTop() - 70), Math.max(innerHeight * 1.7, 900));
-  dn.addEventListener('click', descend);
-  setTimeout(() => {
-    dn.classList.add('on');
-    let seen = false; try { seen = !!sessionStorage.getItem('sg.peek.' + (o.id || 'page')); sessionStorage.setItem('sg.peek.' + (o.id || 'page'), '1'); } catch { /* */ }
-    if (seen || reduced || host.scrollTop > 2 || getComputedStyle(host).visibility === 'hidden') return;
-    const bh = main.querySelector('.lt-bar').getBoundingClientRect().height || 200;
-    const y = Math.max(60, Math.min(innerHeight * 0.42, moreTop() + 60 - (innerHeight - bh - 70)));
-    driveTo(y, 520, () => setTimeout(() => { if (!drv && Math.abs(host.scrollTop - y) < 4) driveTo(0, 620); }, 1300));
-  }, o.downAt ?? 5200);
   let scene = null, live = null;
   const step = dt => { const kk = reduced ? 1 : Math.min(1, dt * 3.2); p += (pT - p) * kk; if (Math.abs(pT - p) < 1e-3) p = pT; place(); return Math.abs(pT - p) > 1e-3; };
   live = mountStage(host, grab, o.make, { reduced, step, p: () => p, pt: () => pT }).then(r => { scene = r && r.scene; if (!r) main.classList.add('flat'); place(); return r; });

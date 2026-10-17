@@ -62,6 +62,8 @@ const CSS = `
 .nv-foot { position: fixed; z-index: 26; left: 0; right: 0; bottom: 0; height: calc(34px + env(safe-area-inset-bottom)); pointer-events: none;
   opacity: 0; transition: opacity .7s ease; }
 .nv-foot.on { opacity: 1; }
+/* (17/10, Maxence : « on garde aussi SINGULIES à ce moment-là ») menu ouvert : SINGULIES, en bas, reste au-dessus du menu */
+.nv-foot.up { z-index: 47; }
 .nv-foot canvas { position: absolute; left: 0; top: 0; }
 .nv-foot button { position: absolute; left: 50%; top: 2px; transform: translateX(-50%); margin: 0; padding: 8px 6px; border: 0; background: none; cursor: pointer;
   font: 500 var(--nv-ft, 13px)/14px 'SG Garamond', Georgia, serif; letter-spacing: .4em; margin-right: -.4em; color: #ece8e0; opacity: .6; white-space: nowrap;
@@ -146,7 +148,7 @@ export function installNav(opts) {
   const fsp = document.createElement('button'); fsp.type = 'button'; fsp.textContent = 'SINGULIES'; fsp.setAttribute('aria-label', 'SINGULIES, ce que c’est');
   // (17/10, Maxence) l'auteur en haut (l'accueil), la maison en bas : SINGULIES = la page qui dit ce qu'est singuliés
   // (qui t'écrit et ECRIS-MOI restent dans le menu)
-  fsp.addEventListener('click', () => import('../menu/singulies.js').then(m => m.openSingulies({ base: opts.base || './', reduced })));
+  fsp.addEventListener('click', () => { if (panOn) setPan(false); import('../menu/singulies.js').then(m => m.openSingulies({ base: opts.base || './', reduced })); });
   foot.append(fcv, fsp);
   const shadeT = document.createElement('div'), shadeB = document.createElement('div');
   shadeT.className = 'nv-shade t'; shadeB.className = 'nv-shade b';
@@ -159,11 +161,11 @@ export function installNav(opts) {
   const pan = document.createElement('nav'); pan.className = 'nv-pan'; pan.setAttribute('aria-label', 'Menu'); pan.inert = true;
   const legal = [['MENTIONS', 'mentions.html'], ['CONDITIONS', 'conditions.html'], ['CONFIDENTIALITE', 'confidentialite.html']];
   pan.innerHTML = PAGES.map(p => `<a href="${url(p)}" data-p="${p.id}">${p.label}</a>`).join('') +
-    `<hr><button type="button" data-x="auteur">QUI T’ECRIT</button><button type="button" data-x="contact">ECRIS-MOI</button><button type="button" data-x="singulies">SINGULIES</button>` +
+    `<hr><button type="button" data-x="auteur">A PROPOS</button><button type="button" data-x="contact">CONTACT</button><button type="button" data-x="singulies">SINGULIES</button>` +
     `<div class="lg">${legal.map(([l, h]) => `<a href="${base}${h}">${l}</a>`).join('')}</div>`;
   let panOn = false;
   const setPan = on => {
-    panOn = on; pan.classList.toggle('on', on); pan.inert = !on; hd.classList.toggle('open', on);
+    panOn = on; pan.classList.toggle('on', on); pan.inert = !on; hd.classList.toggle('open', on); foot.classList.toggle('up', on);
     hd.querySelector('.nv-mn').setAttribute('aria-expanded', String(on));
     pan.querySelectorAll('[data-p]').forEach(a => a.classList.toggle('cur', a.dataset.p === ring(cur).id));
   };

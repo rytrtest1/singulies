@@ -1271,9 +1271,10 @@ if (ALT) {
     // fondu au noir vers les bords ; le bandeau et SINGULIES paraissent avec la feuille
     // (12/10, Maxence) sur la feuille, les bandeaux paraissent avec RECEVOIR (après l'exemplaire original), sauf s'ils
     // avaient déjà paru sur le portail
-    show: () => booted && (onNames() ? idleNames() : (S.navOn || !!document.querySelector('#offre.bar-on'))) && !S.paid && !document.querySelector('.of.paying, .of.env'),
-    foot: () => booted && (onNames() ? idleNames() : (S.navOn || !!document.querySelector('#offre.bar-on'))) && !S.paid && !document.querySelector('.of.paying, .of.env'),
-    shade: () => booted && idleNames(),
+    show: () => booted && (onNames() ? idleNames() : (S.navOn || !!document.querySelector('#offre.txt-on, #offre.bar-on'))) && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    foot: () => booted && (onNames() ? idleNames() : (S.navOn || !!document.querySelector('#offre.txt-on, #offre.bar-on'))) && !S.paid && !document.querySelector('.of.paying, .of.env'),
+    // (17/10) aussi sur la page du poème une fois qu'on a défilé : les autres prénoms et les questions s'effacent sous ETERNEL et le bandeau
+    shade: () => booted && (idleNames() || !!document.querySelector('#offre.scrolled')),
     // (12/10) les aiguilles : sur la feuille, une fois l'offre posée (2,5 s après le bandeau du bas) ; la démonstration
     // seulement en haut de la page, sans paiement ni enveloppe
     // (12/10, Maxence) sur la page des prénoms, si le menu paraît (rien n'est écrit), la démonstration part aussi

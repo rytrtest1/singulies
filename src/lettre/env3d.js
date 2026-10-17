@@ -109,7 +109,15 @@ export async function createEnvelope(gl, base = './') {
   // (17/10, Maxence : « les lettres liées sont trop grises, trop éclairées, trop plates ») chacune reçoit la lampe comme
   // l'objet du centre la reçoit — rasante, à la même distance (la lampe suit chaque lettre) — et un peu moins de
   // lumière d'ambiance : elles sont plus loin, dans le noir, leurs reliefs se lisent
-  const garLamp = (P, g) => ({ ...P, lightPos: [P.lightPos[0] + g.p[3], P.lightPos[1] + g.p[4], P.lightPos[2] + g.p[5]], light: P.light * 0.8, env: (P.env ?? 0.3) * 0.45 });
+  // (17/10, Maxence : « beaucoup trop marqué l'effet de lumière ; bien d'avoir les deux enveloppes sur le côté plus sombres que celle
+  // du centre ; garder la même lumière quand on touche une enveloppe ou qu'on passe à l'étape 2 ») la lampe est calmée (haute,
+  // plus d'ambiance) ; une enveloppe reçoit la lampe de l'objet exactement au centre, et se rapproche de la lampe « d'à côté »
+  // (plus sombre) à mesure qu'elle s'en éloigne — l'élue, qui vient au centre, fond l'une dans l'autre : aucun saut
+  const mixP = (A, B, k) => ({ ...A, lightPos: A.lightPos.map((a, i) => a + (B.lightPos[i] - a) * k), light: A.light + (B.light - A.light) * k, env: (A.env ?? 0.3) + ((B.env ?? 0.3) - (A.env ?? 0.3)) * k });
+  const garLamp = (P, g) => {
+    const side = { ...P, lightPos: [P.lightPos[0] + g.p[3], P.lightPos[1] + g.p[4], P.lightPos[2] + g.p[5]], light: P.light * 0.8, env: (P.env ?? 0.3) * 0.45 };
+    return mixP(P, side, ease(clamp01(Math.abs(g.p[3]) / (EW * 1.1))));
+  };
   // l'enveloppe (repère : Me) : face, dos sans rabat du bas, rabat (fl : 0 ouvert → 1 fermé), cachet (us : sa pose)
   const SEALED = false, EMB_K = 0.86, FLAP_EMB = 24;              // (le cachet : SEALED = true)
   function drawEnv(v, P, Me, { seed = 23, ep = envPieces(1, 1), fl = 1, us = 1, F = F1, si = 0, fade = 1 } = {}) {
@@ -213,7 +221,7 @@ export async function createEnvelope(gl, base = './') {
     const bx = 0.6 * Math.sin(t * 0.27) + 0.4 * Math.sin(t * 0.61), by = 0.6 * Math.sin(t * 0.21) + 0.4 * Math.sin(t * 0.49);
     const rx = 0.06 * bx - 0.2 * tilt.y + spin.x, ry = 0.14 * by + 0.2 * tilt.x + spin.y, rz = 0.006 * Math.sin(t * 0.27);
     const dz = 1.5 * Math.sin(t * 0.29);
-    const P = objLamp(L, EW, t, tilt, 0.35);                     // (13/10) la lampe de la carte, à la mesure de l'enveloppe
+    const P = objLamp(L, EW, t, tilt, 0.35, true);                     // (13/10) la lampe de la carte, à la mesure de l'enveloppe
     gl.viewport(0, 0, W, H);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -232,11 +240,12 @@ export async function createEnvelope(gl, base = './') {
     const selOn = !!sel && r2 < 4.8;
     // l'élue : elle vient au centre, droite, depuis sa place VIVANTE dans la guirlande (au retour, elle y retourne
     // exactement : la guirlande a continué de défiler), son rabat s'ouvre ; la feuille sortie, elle recule loin et s'efface
-    let selMe = null;
+    let selMe = null, selP = P;
     if (selOn && r2 <= 0) {
       const g = garM(sel.i, t, 0).p, u = ease(span(COME[0], COME[1], r0)), aw = ease(span(AWAY[0], AWAY[1], r0));
       const q = [lerp(g[0], 0, u), lerp(g[1], 0, u), lerp(g[2], 0, u), lerp(g[3], SEL[0], u), lerp(g[4], SEL[1], u) + 10 * aw, lerp(g[5], SEL[2], u) - 90 * aw];
       selMe = M4.mul(R, M4.mul(M4.model(...q), S(EK)));
+      selP = mixP(garLamp(P, { p: g }), P, u);                  // (la lumière de sa place dans la guirlande → celle du centre)
     }
     // le fil de la guirlande : plus épais et mieux éclairé (il est loin ; on le voyait moins que celui de SINGULIES)
     const PF = { ...P, env: (P.env ?? 0.3) * 2.4 }, FR = FIL_R;   // (17/10) le même fil partout, à son épaisseur réelle
@@ -303,7 +312,7 @@ export async function createEnvelope(gl, base = './') {
       const Me = selMe;
       const flc = 1 - ease(span(FLAP_O[0], FLAP_O[1], r0));
       const fd = 1 - span(AWAY[0] + 0.35, AWAY[1], r0);
-      if (fd > 0.01) drawEnv(v, P, Me, { seed: gar[sel.i].seed, si: sel.i, fl: flc, ep: envPieces(0, flc), fade: fd });
+      if (fd > 0.01) drawEnv(v, selP, Me, { seed: gar[sel.i].seed, si: sel.i, fl: flc, ep: envPieces(0, flc), fade: fd });
     }
     if (r2 < 4.8 && r0 > COME[1]) {
       // la feuille : dans l'enveloppe ouverte, elle en sort, vient devant au centre, puis se retourne (étape 1)

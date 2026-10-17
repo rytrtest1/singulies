@@ -39,7 +39,7 @@ const S = k => new Float32Array([k, 0, 0, 0, 0, k, 0, 0, 0, 0, k, 0, 0, 0, 0, 1]
 // la carte fait 80 % de l'écran) ; ici, la même proportion pour un objet de largeur size (unités) — mêmes ombres
 // rasantes, même dégradé d'un bord à l'autre, même respiration (orbite ≈ 19 / 9 s, hauteur 17°–42°) — au lieu d'une
 // lampe lointaine et haute qui en faisait un aplat gris délavé (mesuré : livre ≈ 45 uniforme, carte 12–30)
-export const objLamp = (L, size, t, tilt, az0 = 0) => stageLamp(L, { Hw: size * 2.7 }, t, tilt, 1, az0, false);
+export const objLamp = (L, size, t, tilt, az0 = 0, calm = false) => stageLamp(L, { Hw: size * 2.7 }, t, tilt, 1, az0, calm);
 export function stageLamp(L, v, t, tilt, kf = 1.25, az0 = 0, calm = false) {
   const Hw = v.Hw, kk = Hw / 235 * kf, R = L.lightR0 * Hw * kf, Z = L.lightZ * kk, D0 = Math.hypot(R, Z), el0 = Math.atan2(Z, R);
   const back = CAM_AZ + Math.PI, lim = Math.PI - L.lampGap;
@@ -97,7 +97,8 @@ export async function createBook(gl, base = './', list = BOOKS) {
     bk.busy = true;
     const s = Math.floor(Math.random() * n);
     await loadSpread(b, s);
-    bk.busy = false; bk.book = i; bk.s = s; bk.s0 = s; bk.want = 1; bk.turn = null; bk.zoom = 0;
+    // (17/10, Maxence : « zoomer vraiment plus, que le texte soit lisible dès le premier clic ») le livre s'ouvre directement sur la page de droite, rapprochée
+    bk.busy = false; bk.book = i; bk.s = s; bk.s0 = s; bk.want = 1; bk.turn = null; bk.zoom = 1; bk.zside = 1;
     loadSpread(b, (s + 1) % n); loadSpread(b, (s - 1 + n) % n);
     return true;
   }
@@ -108,7 +109,6 @@ export async function createBook(gl, base = './', list = BOOKS) {
     // (une double page avant, une après : pas plus loin)
     const rel = ((to - bk.s0 + n + 1) % n) - 1;
     if (n > 2 && Math.abs(rel) > 1) return false;
-    bk.zoom = 0;
     bk.busy = true; await loadSpread(b, to); bk.busy = false;
     if (!bk.want) return false;
     bk.turn = { from: bk.s, to, dir, t0: nowS() };
@@ -188,7 +188,7 @@ export async function createBook(gl, base = './', list = BOOKS) {
   // (repère du livre : le dos à x = −w/2, la page de droite centrée en 0, la gauche en −w)
   function zoomPose(b, v, cw, ch, sx, k) {
     const Wv = v.Hw * cw / ch, Hf = (ch - v.ins - v.top) / ch * v.Hw;   // (la place libre, entre le bandeau et la légende)
-    const kz = Math.max(k, Math.min(0.94 * Wv / (b.w * MM), 0.98 * Hf / (b.h * MM)));
+    const kz = Math.max(k, Math.min(0.94 * Wv / (b.w * MM), 0.9 * Hf / (b.h * MM)));
     const lx = bk.zside < 0 ? -b.w : 0;
     return { x: -lx * MM * kz, y: -2, k: kz };
   }

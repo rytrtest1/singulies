@@ -9,7 +9,6 @@ import { count } from '../app/count.js';
 import { stitch } from './stitch.js';
 import { PRIX, STRIPE, STRIPE_PK, PAIEMENT_URL, FEUILLE_PHOTO, SHEET_INSET, RESERVATION, EN_VRAI, DELAI_COURT } from './config.js';
 import { questionsHtml, wireQuestions } from './questions.js';
-import { auteurHtml, wireAuteur } from '../menu/auteur.js';
 
 const Q = new URLSearchParams(location.search);
 const TEST = Q.get('test') !== '0';
@@ -410,8 +409,8 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       <div class="of-rest">
       <!-- (12/10) chaque section de la suite porte son nom (data-nom) : le signe du bas l'annonce et y mène -->
       <!-- (17/10, Maxence) plus de section « d'autres prénoms » ni « en vrai » : VOIR EN VRAI, sur l'objet (openVrai) -->
-      <!-- (17/10, Maxence) qui écrit le poème, puis les questions qu'on se pose avant de commander -->
-      <section class="of-au of-sec" data-nom="qui t’écrit" aria-label="Qui t’écrit">${auteurHtml()}</section>
+      <!-- (17/10, Maxence) d'autres prénoms (les preuves), puis les questions qu'on se pose avant de commander ; qui t'écrit : dans le menu (A PROPOS) -->
+      <section class="of-ex of-sec" data-nom="d’autres prénoms" aria-label="D’autres prénoms, d’autres poèmes"><div class="of-ex-host"></div></section>
       <section class="of-qs of-sec" data-nom="tes questions" aria-label="Tes questions"><h2 class="of-sh">tes questions</h2>${questionsHtml()}</section>
       <!-- (16/10) les pages légales, tout en bas, discrètes -->
       <nav class="of-legal"><a href="./mentions.html">MENTIONS</a><a href="./conditions.html">CONDITIONS</a><a href="./confidentialite.html">CONFIDENTIALITE</a></nav>
@@ -426,7 +425,9 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     </div>`;
   document.body.appendChild(root);
   document.body.classList.add('of-open');
-  wireQuestions(root); wireAuteur(root, { name });
+  wireQuestions(root);
+  // (17/10, Maxence : « en défilant, les poèmes avec les autres prénoms, comme avant : une preuve de plus ») les feuilles des autres
+  mountExemples(root.querySelector('.of-ex-host'));
   // le fond de la page = celui du canvas (6) : quand la feuille remonte au défilement, aucune limite ne se voit
   document.documentElement.style.background = document.body.style.background = '#060606';
 
@@ -497,8 +498,10 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     } else box.innerHTML = '<span class="tw">' + [...s].map(ch => ch === '\n' ? '<br>' : `<b>${esc(ch)}</b>`).join('') + '</span>';
     const ks = [...box.querySelectorAll('b')];
     let n = 0;
+    vidPlay(true);                                   // (17/10) la machine tape : le film joue
     const strike = () => {
-      if (!box.isConnected || n >= ks.length) return;
+      if (!box.isConnected) return;
+      if (n >= ks.length) { vidPlay(false); return; }   // (la description est posée : la machine s'arrête, image figée)
       ks[n++].classList.add('on');
       const ch = ks[n - 1].textContent;
       typeT = setTimeout(strike, (ch === ' ' ? 70 : 32) + Math.random() * 46);
@@ -507,7 +510,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   };
   // (le temps de l'entrée de l'étape 0 : fondu + frappe)
   const introMs = s => 1000 + Math.max(0, s.length - s.indexOf('\n')) * 56 + 200;
-  const clearTxt = () => { clearTimeout(typeT); for (const old of txt.querySelectorAll('i:not(.out)')) { old.classList.add('out'); old.style.opacity = '0'; setTimeout(() => old.remove(), 400); } };
+  const clearTxt = () => { clearTimeout(typeT); vidPlay(false); for (const old of txt.querySelectorAll('i:not(.out)')) { old.classList.add('out'); old.style.opacity = '0'; setTimeout(() => old.remove(), 400); } };
   // les petits mots restent avec le suivant (jamais « à » seul en fin de ligne)
   const nbsp = s => { const r = /(^|[\s\u00a0])(à|a|de|du|la|le|un|et|y|me|ton|pour|au) /gi, f = x => x.replace(r, (m, a, w) => a + w + '\u00a0'); return f(f(s)); };
   // revenir à la feuille d'un coup, sans qu'on voie le saut (RECEVOIR depuis une autre étape)
@@ -546,11 +549,28 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const vid = root.querySelector('.of-mv'), vidW = root.querySelector('.of-mvw');
   let vidArmed = false, vidStarted = false;
   const VID_LOOP = 2.2;                                  // (après les mains et le fondu : le début du mécanisme)
-  const vidLoop = () => { try { vid.currentTime = VID_LOOP; if (vidW.classList.contains('on')) { const p = vid.play(); p && p.catch(() => { /* */ }); } } catch { /* */ } };
+  const vidLoop = () => { try { vid.currentTime = VID_LOOP; if (vidW.classList.contains('on') && !vid.paused) { const p = vid.play(); p && p.catch(() => { /* */ }); } } catch { /* */ } };
   if (vid) {
-    vid.addEventListener('timeupdate', () => { if (vid.duration && vid.currentTime > vid.duration - 0.3) vidLoop(); });
+    vid.addEventListener('timeupdate', () => { if (vid.duration && !vid.paused && vid.currentTime > vid.duration - 0.3) vidLoop(); });
     vid.addEventListener('ended', vidLoop);
   }
+  // (17/10, Maxence : « la machine réelle l'écrit ») le film ne joue que pendant la frappe de la description ; dès qu'elle est
+  // posée, l'image se fige ; elle repart avec la description suivante. Au début : les mains pendant que « l'exemplaire unique
+  // de ton poème » paraît (lues deux fois plus vite : elles finissent quand la frappe commence), puis le mécanisme avec
+  // « tapé à la machine à écrire ».
+  const vidPlay = on => {
+    if (!vid) return;
+    if (!on) { vid.pause(); return; }
+    if (!vidW.classList.contains('on') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    try { const p = vid.play(); p && p.catch(() => { /* */ }); } catch { /* */ }
+  };
+  let handsRaf = 0;
+  const hands = () => {
+    cancelAnimationFrame(handsRaf);
+    vid.playbackRate = 2.2;
+    const f = () => { if (vid.currentTime >= VID_LOOP - 0.05 || vid.ended) { vid.playbackRate = 1; return; } handsRaf = requestAnimationFrame(f); };
+    handsRaf = requestAnimationFrame(f);
+  };
   // (17/10, Maxence : « sûr certain que c'est au bon endroit à chaque fois, chaque appareil ») la position n'est plus un
   // décalage fixe : elle est MESURÉE sur les points de navigation (le haut de la vidéo juste sous eux), au chargement, à
   // chaque changement de taille et quand la machine paraît ; seulement en haut de page (les points restent collés pendant
@@ -577,7 +597,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     if (on) {
       vidPlace();
       vidW.classList.add('on');
-      if (!matchMedia('(prefers-reduced-motion: reduce)').matches) { try { if (!vidStarted) vid.currentTime = 0; vidStarted = true; const p = vid.play(); p && p.catch(() => { /* */ }); } catch { /* */ } }
+      if (!vidStarted && !matchMedia('(prefers-reduced-motion: reduce)').matches) { vidStarted = true; try { vid.currentTime = 0; } catch { /* */ } hands(); vidPlay(true); }
     } else {
       vidW.classList.remove('on');
       setTimeout(() => { if (!vidW.classList.contains('on')) vid.pause(); }, 1500);
@@ -716,7 +736,8 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // démonstration du bandeau des pages (nav.js) ; puis la flèche vers le bas
   const INTRO_AT = over ? 600 : 900, BAR_AT = INTRO_AT + introMs(OBJETS[0].txt);
   setTimeout(() => show(0), INTRO_AT);
-  setTimeout(() => { vidArmed = true; if (!busyMode()) vidSet(true); }, INTRO_AT + 1000);   // (quand la première description commence à se taper)
+  setTimeout(() => { vidArmed = true; if (!busyMode()) vidSet(true); }, INTRO_AT + 60);   // (17/10) les mains dès que « l'exemplaire unique de ton poème » paraît
+  setTimeout(() => root.classList.add('txt-on'), INTRO_AT);                          // (17/10, Maxence) le menu paraît avec le premier texte
   // (12/10, Maxence : « l'invitation à descendre n'est pas assez claire ») comme sur la plupart des sites : le signe du bas
   // dit où il mène — le nom de la section suivante (« d'autres prénoms »), sous une flèche vers le bas — et y va
   // directement (la scène s'efface le temps du saut, l'histoire est posée à sa fin). Les étapes de l'objet : les points,
@@ -820,6 +841,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       // (revenu dans l'histoire après une descente par la flèche : l'étape où l'on était — l'objet n'a pas bougé)
       // (passé l'histoire : la description et ses points s'effacent, ils ne restent pas sous le bandeau)
       root.classList.toggle('past', y > L + 30);
+      if (vidW) { if (y > L + 30) { if (vidW.classList.contains('on')) { vidSet(false); vidW.dataset.past = '1'; } } else if (vidW.dataset.past) { delete vidW.dataset.past; if (vidArmed && !busyMode()) vidSet(true); } }
       up.classList.toggle('on', y > L + innerHeight * 0.5);
       const c = cv(); if (!c) return;
       c.style.transition = 'none'; c.style.transformOrigin = '50% 0';
