@@ -321,7 +321,12 @@ function calliLines(fs) {
   return lines;
 }
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-const dAt = (u, v) => { const n = logoD.n, x = Math.min(n - 1, Math.max(0, Math.round(u * (n - 1)))), y = Math.min(n - 1, Math.max(0, Math.round(v * (n - 1)))); return logoD.d[y * n + x]; };
+// (17/10) lue en interpolé (bilinéaire) : une valeur qui glisse avec la ligne, jamais par marches
+const dAt = (u, v) => {
+  const n = logoD.n, d = logoD.d, fx = Math.min(n - 1.001, Math.max(0, u * (n - 1))), fy = Math.min(n - 1.001, Math.max(0, v * (n - 1)));
+  const x = fx | 0, y = fy | 0, tx = fx - x, ty = fy - y, i = y * n + x;
+  return (d[i] * (1 - tx) + d[i + 1] * tx) * (1 - ty) + (d[i + n] * (1 - tx) + d[i + n + 1] * tx) * ty;
+};
 // pendant la recharge : seulement le réseau (module, papier, logo, police machine), aucun travail GPU
 let cardsModule = null;
 function prefetchCards() {
@@ -961,13 +966,15 @@ function frame(ts) {
           const xw0 = x0 + L.xs[W.s] + rep * L.P - sh, xw1 = x0 + L.xs[W.e - 1] + rep * L.P - sh + fs;
           if (xw1 < x0 - 4 * fs || xw0 > x0 + side + 4 * fs) continue;
           // la part du prénom qui est dans la forme (bord à peine ondulé, qui respire) → il paraît, entier, en fondu
+          // (17/10 : « ils clignotent ») chaque lettre compte selon sa distance au bord (continu), et le seuil se
+          // franchit sur une plage large : un prénom paraît ou s'efface en quelques secondes, pendant que la ligne glisse
           let inn = 0;
           for (let j = W.s; j < W.e; j++) {
             const u = (x0 + L.xs[j] + rep * L.P - sh + 0.3 * fs - x0) / side;
             const wob = 0.18 * Math.sin(u * 9.3 + vv * 4.1 + S.t * 0.21 * mv) * Math.sin(vv * 7.7 - u * 3.2 - S.t * 0.16 * mv);
-            if (u >= 0 && u <= 1 && dAt(u, vv) + wob < 0) inn++;
+            if (u >= 0 && u <= 1) inn += Math.min(1, Math.max(0, (0.2 - dAt(u, vv) - wob) / 0.6));
           }
-          const f = inn / (W.e - W.s), wa = smooth(W.thr - 0.12, W.thr + 0.12, f);
+          const f = inn / (W.e - W.s), wa = smooth(W.thr - 0.25, W.thr + 0.25, f);
           if (wa <= 0.01) continue;
           for (let j = W.s; j < W.e; j++) {
             const c = L.ch[j], gm = atlas.glyphs[c]; if (!gm) continue;
