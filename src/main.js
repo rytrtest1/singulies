@@ -308,15 +308,12 @@ function calliLines(fs) {
   const rnd = mulberry(91), names = NAMES.filter(n => n.length <= 8);
   const lines = [];
   for (let k = 0; k < 140; k++) {
-    // (17/10) les prénoms un à un : chacun a sa propre tolérance (la part de lui qui doit être dans la forme pour qu'il
-    // paraisse) — certains dépassent du bord de deux ou trois lettres, d'autres s'arrêtent avant : un bord irrégulier
     let txt = '';
-    const words = [];
-    while (txt.length < 360) { const nm = names[Math.floor(rnd() * names.length)].toUpperCase(); words.push({ s: txt.length, e: txt.length + nm.length, thr: 0.3 + 0.45 * rnd() }); txt += nm + '   '; }
+    while (txt.length < 360) txt += names[Math.floor(rnd() * names.length)].toUpperCase() + '   ';
     const ch = [...txt], xs = [], track = 0.16 * fs;
     let x = 0;
     for (const c of ch) { xs.push(x); x += (c === ' ' ? 0.32 : (atlas.glyphs[c]?.adv ?? 0.6)) * fs + track; }
-    lines.push({ ch, xs, words, P: x, v: (k % 2 ? -1 : 1) * (2.6 + 2.2 * rnd()), ph: rnd() * x });
+    lines.push({ ch, xs, P: x, v: (k % 2 ? -1 : 1) * (2.6 + 2.2 * rnd()), ph: rnd() * x });
   }
   return lines;
 }
@@ -962,23 +959,23 @@ function frame(ts) {
         if (vv < 0 || vv > 1) continue;
         const ym = yb - 0.5 * cap * fs;
         const sh = ((L.ph + L.v * S.t * mv) % L.P + L.P) % L.P;
-        for (let rep = 0; rep < 2; rep++) for (const W of L.words) {
-          const xw0 = x0 + L.xs[W.s] + rep * L.P - sh, xw1 = x0 + L.xs[W.e - 1] + rep * L.P - sh + fs;
-          if (xw1 < x0 - 4 * fs || xw0 > x0 + side + 4 * fs) continue;
-          // la part du prénom qui est dans la forme (bord à peine ondulé, qui respire) → il paraît, entier, en fondu
-          // (17/10 : « ils clignotent ») chaque lettre compte selon sa distance au bord (continu), et le seuil se
-          // franchit sur une plage large : un prénom paraît ou s'efface en quelques secondes, pendant que la ligne glisse
-          let inn = 0;
-          for (let j = W.s; j < W.e; j++) {
-            const u = (x0 + L.xs[j] + rep * L.P - sh + 0.3 * fs - x0) / side;
-            const wob = 0.18 * Math.sin(u * 9.3 + vv * 4.1 + S.t * 0.21 * mv) * Math.sin(vv * 7.7 - u * 3.2 - S.t * 0.16 * mv);
-            if (u >= 0 && u <= 1) inn += Math.min(1, Math.max(0, (0.2 - dAt(u, vv) - wob) / 0.6));
-          }
-          const f = inn / (W.e - W.s), wa = smooth(W.thr - 0.25, W.thr + 0.25, f);
-          if (wa <= 0.01) continue;
-          for (let j = W.s; j < W.e; j++) {
-            const c = L.ch[j], gm = atlas.glyphs[c]; if (!gm) continue;
-            const x = x0 + L.xs[j] + rep * L.P - sh, xc = x + (gm.x0 + gm.x1) / 2 * fs;
+        // (17/10, Maxence : « disparaître selon l'endroit, une frontière, mais aux bords irréguliers, organiques ») chaque
+        // lettre paraît ou s'efface en passant une frontière fixe dans l'espace : le bord du logo, déplacé par un bruit à
+        // trois échelles (avancées et creux de ≈ 1 mm, festons plus fins), qui ne dérive que très lentement — certains
+        // prénoms débordent ici, s'effacent avant là
+        for (let i = 0; i < L.ch.length * 2; i++) {
+          {
+            const j = i % L.ch.length, c = L.ch[j]; if (c === ' ') continue;
+            const gm = atlas.glyphs[c]; if (!gm) continue;
+            const x = x0 + L.xs[j] + (i >= L.ch.length ? L.P : 0) - sh;
+            if (x < x0 - 2 * fs || x > x0 + side + fs) continue;
+            const xc = x + (gm.x0 + gm.x1) / 2 * fs, u = (xc - x0) / side;
+            const tt = S.t * mv;
+            const irr = 0.62 * Math.sin(u * 4.3 + vv * 2.9 + 0.9 + tt * 0.03) * Math.sin(vv * 3.7 - u * 1.9 + 2.1 - tt * 0.022)
+              + 0.34 * Math.sin(u * 11.7 - vv * 6.1 + tt * 0.05) * Math.sin(vv * 9.3 + u * 4.4 - tt * 0.04)
+              + 0.14 * Math.sin(u * 27.0 + vv * 19.0 + tt * 0.07);
+            const d = (u < 0 || u > 1 ? 2 : dAt(u, vv)) + irr, wa = Math.min(1, Math.max(0, (0.15 - d) / 0.55));
+            if (wa <= 0.01) continue;
             let z = 1;
             for (const g of nameL) { const r = Math.hypot(xc - (g.x + 0.35 * g.fs), ym - (g.y - 0.35 * g.fs)) / g.fs; if (r < 1.3) z = Math.min(z, Math.max(0, (r - 0.45) / 0.85)); }
             for (const o of occ) {
