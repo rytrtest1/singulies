@@ -23,6 +23,7 @@ export const BOOK_ASPECT = 1000 / 1300;
 const PX = 8;                                              // carte d'encre : 8 px / mm
 const CAM_AZ = -Math.PI / 2;                               // le regard vient du bas de l'écran
 const ease = u => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+const lerp = (a, b, u) => a + (b - a) * u;
 const wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
 const S = k => new Float32Array([k, 0, 0, 0, 0, k, 0, 0, 0, 0, k, 0, 0, 0, 0, 1]);
 
@@ -85,7 +86,10 @@ export async function createBook(gl, base = './', list = BOOKS) {
   const spreadOf = (b, s) => spreads && spreads[b.id] && spreads[b.id][s];
   const loadSpread = (b, s) => { const sp = spreadOf(b, s); return sp ? Promise.all(sp.map(n => pageTex(b, n))) : Promise.resolve(null); };
   const OPEN_T = 1.25, TURN_T = 0.95;
-  const bk = { book: -1, s: 0, want: 0, u: 0, turn: null, busy: false };
+  // (17/10, Maxence : « le livre s'ouvre ; toucher rapproche la page touchée ; toucher encore referme le livre ; le
+  // glissé ne montre qu'une double page avant et une après, pour ne pas trop en montrer ») s0 : la double page
+  // d'ouverture ; zoom : la page rapprochée (−1 gauche, 1 droite, 0 aucune), zu : son avancée (0 → 1)
+  const bk = { book: -1, s: 0, s0: 0, want: 0, u: 0, turn: null, busy: false, zoom: 0, zu: 0, zside: 1 };
   const nowS = () => performance.now() / 1000;
   async function openBook(i) {
     const b = books[i], n = spreads && spreads[b.id] ? spreads[b.id].length : 0;
@@ -93,18 +97,21 @@ export async function createBook(gl, base = './', list = BOOKS) {
     bk.busy = true;
     const s = Math.floor(Math.random() * n);
     await loadSpread(b, s);
-    bk.busy = false; bk.book = i; bk.s = s; bk.want = 1; bk.turn = null;
-    loadSpread(b, (s + 1) % n);
+    bk.busy = false; bk.book = i; bk.s = s; bk.s0 = s; bk.want = 1; bk.turn = null; bk.zoom = 0;
+    loadSpread(b, (s + 1) % n); loadSpread(b, (s - 1 + n) % n);
     return true;
   }
-  function closeBook() { if (!bk.want) return false; bk.want = 0; bk.turn = null; return true; }
+  function closeBook() { if (!bk.want) return false; bk.want = 0; bk.turn = null; bk.zoom = 0; return true; }
   async function turnPage(dir) {
     if (!bk.want || bk.u < 0.98 || bk.turn || bk.busy || bk.book < 0) return false;
     const b = books[bk.book], n = spreads[b.id].length, to = (bk.s + dir + n) % n;
+    // (une double page avant, une après : pas plus loin)
+    const rel = ((to - bk.s0 + n + 1) % n) - 1;
+    if (n > 2 && Math.abs(rel) > 1) return false;
+    bk.zoom = 0;
     bk.busy = true; await loadSpread(b, to); bk.busy = false;
     if (!bk.want) return false;
     bk.turn = { from: bk.s, to, dir, t0: nowS() };
-    loadSpread(b, (to + dir + n) % n);
     return true;
   }
   let lastF = 0;
@@ -128,6 +135,8 @@ export async function createBook(gl, base = './', list = BOOKS) {
     const sp = span(v, cw, ch);
     { const tn = nowS(), dt = lastF ? Math.min(0.1, tn - lastF) : 0; lastF = tn;
       bk.u = Math.max(0, Math.min(1, bk.u + (bk.want ? 1 : -1.3) * dt / OPEN_T));
+      if (bk.zoom) bk.zside = bk.zoom;
+      bk.zu = Math.max(0, Math.min(1, bk.zu + (bk.zoom && bk.want ? 1 : -1.4) * dt / 0.75));
       if (bk.turn && tn - bk.turn.t0 >= TURN_T) { bk.s = bk.turn.to; bk.turn = null; }
       if (!bk.want && bk.u <= 0) bk.book = -1; }
     for (const b of books) {
@@ -154,7 +163,8 @@ export async function createBook(gl, base = './', list = BOOKS) {
   // dos (la page de gauche dessous), et, quand on feuillette, une feuille qui tourne
   function drawOpen(v, P, b, x0, dz, rx, ry, rz, cw, ch) {
     const e = ease(bk.u), { sx, k } = openFit(b, cw, ch, e), calm = 1 - 0.85 * e;
-    const Mb = M4.mul(M4.model(rx * calm, ry * calm, rz * calm, x0 + sx, baseY(b) + (k - 1) * b.h * MM / 2, -b.t * MM / 2 + dz), S(MM * k));
+    const zp = zoomPose(b, v, cw, ch, sx, k), zu = ease(bk.zu);
+    const Mb = M4.mul(M4.model(rx * calm * (1 - zu), ry * calm * (1 - zu), rz * calm * (1 - zu), x0 + lerp(sx, zp.x, zu), lerp(baseY(b) + (k - 1) * b.h * MM / 2, zp.y, zu), -b.t * MM / 2 + dz), S(MM * lerp(k, zp.k, zu)));
     const T = (x, y, z) => M4.model(0, 0, 0, x, y, z), Ry = a => M4.model(0, a, 0, 0, 0, 0);
     const look = { seed: 31 + b.i * 7, noLogo: true, paperXf: [0.8, -0.4, 0, 0], warp: [0, 0, 0], paperTile: 0.6 * 87 / 0.7, paperLo: 0.75, fade: 1 };
     const tr = bk.turn, tu = tr ? ease(Math.min(1, (nowS() - tr.t0) / TURN_T)) : 0;
@@ -174,19 +184,33 @@ export async function createBook(gl, base = './', list = BOOKS) {
         inkBack: fR, ink: fL });
     }
   }
+  // la page rapprochée : son centre au centre de la vue (entre le bandeau et la légende), aussi grande que l'écran le permet
+  // (repère du livre : le dos à x = −w/2, la page de droite centrée en 0, la gauche en −w)
+  function zoomPose(b, v, cw, ch, sx, k) {
+    const Wv = v.Hw * cw / ch, Hf = (ch - v.ins - v.top) / ch * v.Hw;   // (la place libre, entre le bandeau et la légende)
+    const kz = Math.max(k, Math.min(0.94 * Wv / (b.w * MM), 0.98 * Hf / (b.h * MM)));
+    const lx = bk.zside < 0 ? -b.w : 0;
+    return { x: -lx * MM * kz, y: -2, k: kz };
+  }
   const cur = p => books[Math.max(0, Math.min(books.length - 1, Math.round(p)))];
   // la prise (px CSS) : le livre du centre ; son bas (unités) : pour la légende
   function rect(cw, ch, p) {
     const v = stageView(cw, ch), b = cur(p), y = baseY(b);
     const e = bk.book === b.i ? ease(bk.u) : 0, { sx, k } = openFit(b, cw, ch, e), yc = y + (k - 1) * b.h * MM / 2;
     const a = v.project(sx + (-b.w / 2 - b.w * e) * MM * k, yc + b.h * MM * k / 2), c = v.project(sx + b.w * MM * k / 2, yc - b.h * MM * k / 2);
-    return { l: a[0], t: a[1], r: c[0], b: c[1] };
+    return { l: a[0], t: a[1], r: c[0], b: c[1], spine: v.project(sx - b.w / 2 * MM * k, yc)[0] };
   }
   // (16/10) les gestes sur le livre : toucher = l'ouvrir / la page suivante / (à côté) le refermer ; glisser de côté
   // ouvert = feuilleter ; refermer (glisser vers le bas, Échap, changer de livre)
+  // (17/10, Maxence) fermé : toucher l'ouvre ; ouvert : toucher une page la rapproche ; rapprochée : toucher le referme ;
+  // à côté : il se referme
   function tap(x, y, cw, ch, p) {
     const r = rect(cw, ch, p), inB = x > r.l && x < r.r && y > r.t && y < r.b;
-    if (bk.want) { if (inB) turnPage(1); else closeBook(); return true; }
+    if (bk.want) {
+      if (bk.zoom || bk.zu > 0.05) { closeBook(); return true; }
+      if (inB && bk.u > 0.9 && !bk.turn) { bk.zoom = x < r.spine ? -1 : 1; return true; }
+      closeBook(); return true;
+    }
     if (inB) { openBook(Math.max(0, Math.min(books.length - 1, Math.round(p)))); return true; }
     return false;
   }
@@ -194,7 +218,7 @@ export async function createBook(gl, base = './', list = BOOKS) {
   // (12/10, Maxence : « cohérence globale des zones ») chaque livre est posé sur la même ligne que le bas de la feuille du
   // poème : la description est au même endroit sur toutes les pages
   function bottom() { return -SH.h / 2; }
-  return { frame, rect, bottom, tap, swipe, close: closeBook, isOpen: () => !!bk.want, moving: () => (bk.u > 0 && bk.u < 1) || !!bk.turn };
+  return { frame, rect, bottom, tap, swipe, close: closeBook, isOpen: () => !!bk.want, moving: () => (bk.u > 0 && bk.u < 1) || !!bk.turn || (bk.zu > 0 && bk.zu < 1) };
 }
 
 // (12/10) un objet en direct sur une page, dans le monde commun : un canvas TRANSPARENT qui couvre l'écran (l'objet y est
