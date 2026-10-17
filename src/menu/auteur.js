@@ -23,7 +23,7 @@ const CSS = `
 .au-ig { display: block; font: 13px/1.6 'SG Machine', 'Courier New', monospace; color: rgba(255,255,255,.4); text-decoration: none; }
 .au-ig:hover { color: rgba(255,255,255,.65); }
 .mn-au { position: fixed; inset: 0; z-index: 44; background: #060606; opacity: 0; transition: opacity .35s ease; overflow-y: auto;
-  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y pinch-zoom; padding: calc(104px + env(safe-area-inset-top)) 0 calc(88px + env(safe-area-inset-bottom)); box-sizing: border-box;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y pinch-zoom; padding: calc(124px + env(safe-area-inset-top)) 0 calc(88px + env(safe-area-inset-bottom)); box-sizing: border-box;
   display: flex; flex-direction: column; }   /* (17/10) plus de justify-content: center — le haut d'une page plus haute que l'écran restait coupé ; margin: auto centre sans rien couper */
 .mn-au.on { opacity: 1; }
 .mn-au .au { margin: auto; }

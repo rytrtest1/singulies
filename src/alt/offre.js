@@ -497,18 +497,21 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     } else box.innerHTML = '<span class="tw">' + [...s].map(ch => ch === '\n' ? '<br>' : `<b>${esc(ch)}</b>`).join('') + '</span>';
     const ks = [...box.querySelectorAll('b')];
     let n = 0;
-    // (17/10) la machine tape : le film joue. Revenu au premier point (« l'exemplaire unique… ») : les mains rejouent pendant que la
-    // première ligne paraît, le mécanisme part avec la frappe de la seconde — comme à l'entrée
-    if (intro && nl > 0 && vidStarted && vid) { try { vid.currentTime = 0; } catch { /* */ } }
-    vidPlay(true);
+    // (17/10, Maxence : « ne remets pas la vidéo des mains si déjà jouée, sur la même page : du dernier au premier point, juste le
+    // mécanisme, qui recommence à taper à "tapé à la machine" ») la première fois : les mains pendant que la première ligne paraît,
+    // puis le mécanisme avec la frappe de la seconde ; ensuite : la première ligne paraît, le mécanisme repart avec la seconde
+    const again = intro && nl > 0 && vidStarted && !!vid;
+    if (again) { try { vid.currentTime = VID_LOOP; } catch { /* */ } }
+    else vidPlay(true);
     const strike = () => {
       if (!box.isConnected) return;
+      if (again && n === 0) vidPlay(true);              // (le mécanisme repart avec la frappe de la seconde ligne)
       if (n >= ks.length) { vidPlay(false); return; }   // (la description est posée : la machine s'arrête, image figée)
       ks[n++].classList.add('on');
       const ch = ks[n - 1].textContent;
       typeT = setTimeout(strike, (ch === ' ' ? 70 : 32) + Math.random() * 46);
     };
-    typeT = setTimeout(strike, intro && nl > 0 ? Math.round(MACHINE.loop * 1000) + 60 : 140);
+    typeT = setTimeout(strike, again ? 900 : intro && nl > 0 ? Math.round(MACHINE.loop * 1000) + 60 : 140);
   };
   // (le temps de l'entrée de l'étape 0 : fondu + frappe)
   const introMs = s => Math.round(MACHINE.loop * 1000) + 60 + Math.max(0, s.length - s.indexOf('\n')) * 56 + 200;

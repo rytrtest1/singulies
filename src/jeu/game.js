@@ -75,7 +75,7 @@ export async function mountGame(opts = {}) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     scene.frame(t, dt, W, H);
     // PARTAGER : sous la carte, à une place fixe (la place de repos de la question), en fondu une fois la première question lue
-    const buyTop = H - Math.max(58, H * 0.075) - 6;
+    const buyTop = H - Math.max(94, H * 0.105) - 6;   // (au-dessus de SINGULIES, en bas : le fil et son noir)
     if (firstAt != null && t - firstAt > 0) shareReady = true;
     const mk = scene.marks();
     if (mk) shareEl.style.top = Math.min(mk.deckBottom + 14, buyTop - 48) + 'px';

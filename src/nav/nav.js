@@ -72,6 +72,11 @@ const CSS = `
   background: linear-gradient(to top, #060606 0, #060606 45%, rgba(6,6,6,0)); pointer-events: none; }
 /* (17/10, Maxence : « garde toujours ETERNEL en haut ; dans A PROPOS, CONTACT… un autre sous-bandeau avec ces titres pour naviguer
    dans cette section ») il prend la place du bandeau des pages tant qu'une page de la section est ouverte */
+.nv-secbg { position: fixed; inset: 0; z-index: 43; background: #060606; opacity: 0; pointer-events: none; transition: opacity .35s ease; }
+.nv-secbg.on { opacity: 1; }
+.nv-sectop { position: fixed; z-index: 46; left: 0; right: 0; top: 0; height: calc(116px + env(safe-area-inset-top)); pointer-events: none; opacity: 0; transition: opacity .35s ease;
+  background: linear-gradient(#060606 0, #060606 calc(90px + env(safe-area-inset-top)), rgba(6,6,6,.6) calc(102px + env(safe-area-inset-top)), rgba(6,6,6,0)); }
+.nv-sectop.on { opacity: 1; }
 .nv-sub { position: fixed; z-index: 46; left: 0; right: 0; top: calc(42px + env(safe-area-inset-top)); height: 46px; background: #060606; opacity: 0; pointer-events: none; transition: opacity .45s ease; }
 .nv-sub.on { opacity: 1; pointer-events: auto; }
 .nv-sub canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
@@ -313,7 +318,12 @@ export function installNav(opts) {
     }
   }
   setInterval(subLayout, 150);
-  document.body.appendChild(sub);
+  // (17/10, Maxence : « en scrollant vers le bas ça bave sur le bandeau ; en slidant le bandeau on voit les pages d'avant en dessous »)
+  // secBg : un fond noir sous toutes les pages de la section (la page de dessous ne se voit jamais, ni pendant un échange de pages) ;
+  // secTop : le noir derrière la ligne du haut et le sous-bandeau, puis un fondu court — le contenu qui défile s'y efface
+  const secBg = document.createElement('div'), secTop = document.createElement('div');
+  secBg.className = 'nv-secbg'; secTop.className = 'nv-sectop';
+  document.body.append(secBg, secTop, sub);
   // la flèche retour : d'abord ce qui est ouvert sur la page (opts.onBack : une vue rapprochée, la suite de la page),
   // puis la page d'avant (l'historique du site), puis, sur la feuille, le champ du prénom
   let depth = 0;
@@ -552,7 +562,7 @@ export function installNav(opts) {
     // (17/10, Maxence : « ACCUEIL à la place de RETOUR quand on ne peut pas revenir en arrière ») après la commande, ← ramène à l'accueil : on l'écrit
     { const bk = hd.querySelector('.nv-bk'), bl = (atHome() && opts.backLabel?.()) || ''; if (bk.dataset.l !== bl) { bk.dataset.l = bl; bk.classList.toggle('txt', !!bl); bk.querySelector('.bk-t').textContent = bl; bk.setAttribute('aria-label', bl ? 'Accueil' : 'Retour'); } }
     // (17/10, Maxence : « garde plutôt le nom de la page ») le titre du haut : ETERNEL, ou le nom de la page du menu ouverte
-    { const ov = !!ovTop() || switching; sub.classList.toggle('on', ov); if (!ov) sub.classList.remove('seen'); root.classList.toggle('under', ov); if (ovTop()) subLayout(); }
+    { const ov = !!ovTop() || switching; sub.classList.toggle('on', ov); secBg.classList.toggle('on', ov); secTop.classList.toggle('on', ov); if (!ov) sub.classList.remove('seen'); root.classList.toggle('under', ov); if (ovTop()) subLayout(); }
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
     root.classList.toggle('solo', solo);
     root.classList.toggle('redo', atHome() && !!opts.redo?.());
