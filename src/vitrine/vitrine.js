@@ -188,5 +188,5 @@ export function createVitrine(o) {
 
   function free() { myst.free(); }
   const seek = v => { scrubbing = false; vt = target = Math.max(0, Math.min(VKEYS[VKEYS.length - 1], v)); };   // (essais : un instant précis)
-  return { on, looking: () => look > 0.0005 || lookT > 0, update, go, jump, scrub, seek, look: setLook, state: () => ({ vt, target, k, arrived: Math.abs(vt - target) < 1e-3, keys: VKEYS }), envState, sheetState, camera, focus, draw, free };
+  return { on, looking: () => look > 0.0005 || lookT > 0, update, go, jump, scrub, seek, look: setLook, lookAmt: () => look, state: () => ({ vt, target, k, arrived: Math.abs(vt - target) < 1e-3, keys: VKEYS }), envState, sheetState, camera, focus, draw, free };
 }

@@ -5,10 +5,10 @@ import '../app/pay.css';
 import './offre.css';
 import { acrostic } from '../basique/basique.js';
 import { mountExemples } from './exemples.js';
+import MACHINE from './machine.json';   // { loop, duration, rest[] } : voir tools/machine-cut.py
 import { count } from '../app/count.js';
 import { stitch } from './stitch.js';
 import { PRIX, STRIPE, STRIPE_PK, PAIEMENT_URL, FEUILLE_PHOTO, SHEET_INSET, RESERVATION, EN_VRAI, DELAI_COURT } from './config.js';
-import { questionsHtml, wireQuestions } from './questions.js';
 
 const Q = new URLSearchParams(location.search);
 const TEST = Q.get('test') !== '0';
@@ -400,18 +400,17 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const CAP = `<div class="of-cap"><div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
         <p class="of-vit-t" aria-live="polite"></p>
         <div class="of-dots">${OBJETS.map((o, i) => `<button class="of-dot" type="button" data-k="${i}" aria-label="${esc(o.txt.replace(/\n/g, ' '))}"><i></i></button>`).join('')}</div>
-        <button class="of-vrai-go" type="button">VOIR EN VRAI</button>
       </div></div>`;
   root.innerHTML = `
     <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
     <main>
-      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"><div class="of-mvw"><video class="of-mv" muted playsinline disablepictureinpicture preload="auto" tabindex="-1" poster="${esc(new URL('vrai/machine-6.jpg', document.baseURI).href)}" src="${esc(new URL('vrai/machine-6.mp4', document.baseURI).href)}"></video></div></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
+      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"><div class="of-mvw"><video class="of-mv" muted playsinline disablepictureinpicture preload="auto" tabindex="-1" poster="${esc(new URL('vrai/machine-7.jpg', document.baseURI).href)}" src="${esc(new URL('vrai/machine-7.mp4', document.baseURI).href)}"></video></div></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
       <div class="of-rest">
       <!-- (12/10) chaque section de la suite porte son nom (data-nom) : le signe du bas l'annonce et y mène -->
       <!-- (17/10, Maxence) plus de section « d'autres prénoms » ni « en vrai » : VOIR EN VRAI, sur l'objet (openVrai) -->
       <!-- (17/10, Maxence) d'autres prénoms (les preuves), puis les questions qu'on se pose avant de commander ; qui t'écrit : dans le menu (A PROPOS) -->
-      <section class="of-ex of-sec" data-nom="d’autres prénoms" aria-label="D’autres prénoms, d’autres poèmes"><div class="of-ex-host"></div></section>
-      <section class="of-qs of-sec" data-nom="tes questions" aria-label="Tes questions"><h2 class="of-sh">tes questions</h2>${questionsHtml()}</section>
+      <section class="of-ex of-sec" data-nom="d’autres prénoms" aria-label="D’autres prénoms, d’autres poèmes"><h2 class="of-sh of-ex-t">DES PRENOMS, DES POEMES</h2><div class="of-ex-host"></div></section>
+      <!-- (17/10, Maxence) « tes questions » : dans le menu (QUESTIONS), plus sous la page -->
       <!-- (16/10) les pages légales, tout en bas, discrètes -->
       <nav class="of-legal"><a href="./mentions.html">MENTIONS</a><a href="./conditions.html">CONDITIONS</a><a href="./confidentialite.html">CONFIDENTIALITE</a></nav>
       </div>
@@ -425,7 +424,6 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     </div>`;
   document.body.appendChild(root);
   document.body.classList.add('of-open');
-  wireQuestions(root);
   // (17/10, Maxence : « en défilant, les poèmes avec les autres prénoms, comme avant : une preuve de plus ») les feuilles des autres
   mountExemples(root.querySelector('.of-ex-host'));
   // le fond de la page = celui du canvas (6) : quand la feuille remonte au défilement, aucune limite ne se voit
@@ -445,7 +443,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     im.src = new URL(FEUILLE_PHOTO.src, document.baseURI).href;
   }
 
-  root.querySelector('.of-vrai-go').addEventListener('click', () => { count('alt/en-vrai'); openVrai(); });
+  // (17/10, Maxence : « enlève le VOIR EN VRAI pour l'instant ») le bouton et son raccordement sont retirés (openVrai reste prêt)
   // ---- la vitrine (11/10) : jouée dans la scène (envelope.vitrine) — rien ne bouge tout seul. On avance d'une étape en
   // faisant défiler la page (la scène reste en place pendant ce temps : un espace transparent sous elle, .of-story ; puis
   // les autres poèmes montent et la feuille avec eux) ou avec les flèches ; on recule pareil, à tout moment, et tout se
@@ -506,10 +504,10 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       const ch = ks[n - 1].textContent;
       typeT = setTimeout(strike, (ch === ' ' ? 70 : 32) + Math.random() * 46);
     };
-    typeT = setTimeout(strike, intro && nl > 0 ? 1000 : 140);
+    typeT = setTimeout(strike, intro && nl > 0 ? Math.round(MACHINE.loop * 1000) + 60 : 140);
   };
   // (le temps de l'entrée de l'étape 0 : fondu + frappe)
-  const introMs = s => 1000 + Math.max(0, s.length - s.indexOf('\n')) * 56 + 200;
+  const introMs = s => Math.round(MACHINE.loop * 1000) + 60 + Math.max(0, s.length - s.indexOf('\n')) * 56 + 200;
   const clearTxt = () => { clearTimeout(typeT); vidPlay(false); for (const old of txt.querySelectorAll('i:not(.out)')) { old.classList.add('out'); old.style.opacity = '0'; setTimeout(() => old.remove(), 400); } };
   // les petits mots restent avec le suivant (jamais « à » seul en fin de ligne)
   const nbsp = s => { const r = /(^|[\s\u00a0])(à|a|de|du|la|le|un|et|y|me|ton|pour|au) /gi, f = x => x.replace(r, (m, a, w) => a + w + '\u00a0'); return f(f(s)); };
@@ -548,28 +546,28 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // l'image fixe.
   const vid = root.querySelector('.of-mv'), vidW = root.querySelector('.of-mvw');
   let vidArmed = false, vidStarted = false;
-  const VID_LOOP = 2.2;                                  // (après les mains et le fondu : le début du mécanisme)
-  const vidLoop = () => { try { vid.currentTime = VID_LOOP; if (vidW.classList.contains('on') && !vid.paused) { const p = vid.play(); p && p.catch(() => { /* */ }); } } catch { /* */ } };
-  if (vid) {
-    vid.addEventListener('timeupdate', () => { if (vid.duration && !vid.paused && vid.currentTime > vid.duration - 0.3) vidLoop(); });
-    vid.addEventListener('ended', vidLoop);
-  }
-  // (17/10, Maxence : « la machine réelle l'écrit ») le film ne joue que pendant la frappe de la description ; dès qu'elle est
-  // posée, l'image se fige ; elle repart avec la description suivante. Au début : les mains pendant que « l'exemplaire unique
-  // de ton poème » paraît (lues deux fois plus vite : elles finissent quand la frappe commence), puis le mécanisme avec
-  // « tapé à la machine à écrire ».
+  const VID_LOOP = MACHINE.loop;                         // (après les mains et leur fondu : le début du mécanisme)
+  // (17/10, Maxence : « la machine frappe à une vraie allure, jamais figée quand le marteau touche le papier ») le film
+  // (tools/machine-cut.py) : les mains, puis seulement les frappes, accélérées. Il ne joue que pendant la frappe d'une
+  // description ; quand elle est posée, il continue jusqu'à la prochaine FENÊTRE DE REPOS (le marteau n'est nulle part
+  // près du papier) et s'y fige — jamais au milieu d'un coup.
+  let vidStop = false, vidRaf = 0;
+  const inRest = t => MACHINE.rest.some(([a, b]) => t >= a && t <= b);
+  const vidWatch = () => {
+    cancelAnimationFrame(vidRaf); vidRaf = 0;
+    if (!vid || vid.paused) return;
+    const t = vid.currentTime;
+    if (t >= MACHINE.duration - 0.12) { try { vid.currentTime = VID_LOOP; } catch { /* */ } }   // (rebouclé de repos à repos)
+    else if (vidStop && t >= VID_LOOP && inRest(t)) { vid.pause(); vidStop = false; return; }
+    vidRaf = requestAnimationFrame(vidWatch);
+  };
   const vidPlay = on => {
     if (!vid) return;
-    if (!on) { vid.pause(); return; }
+    if (!on) { if (!vid.paused) { vidStop = true; vidWatch(); } return; }
+    vidStop = false;
     if (!vidW.classList.contains('on') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     try { const p = vid.play(); p && p.catch(() => { /* */ }); } catch { /* */ }
-  };
-  let handsRaf = 0;
-  const hands = () => {
-    cancelAnimationFrame(handsRaf);
-    vid.playbackRate = 2.2;
-    const f = () => { if (vid.currentTime >= VID_LOOP - 0.05 || vid.ended) { vid.playbackRate = 1; return; } handsRaf = requestAnimationFrame(f); };
-    handsRaf = requestAnimationFrame(f);
+    cancelAnimationFrame(vidRaf); vidRaf = requestAnimationFrame(vidWatch);
   };
   // (17/10, Maxence : « sûr certain que c'est au bon endroit à chaque fois, chaque appareil ») la position n'est plus un
   // décalage fixe : elle est MESURÉE sur les points de navigation (le haut de la vidéo juste sous eux), au chargement, à
@@ -597,10 +595,10 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     if (on) {
       vidPlace();
       vidW.classList.add('on');
-      if (!vidStarted && !matchMedia('(prefers-reduced-motion: reduce)').matches) { vidStarted = true; try { vid.currentTime = 0; } catch { /* */ } hands(); vidPlay(true); }
+      if (!vidStarted && !matchMedia('(prefers-reduced-motion: reduce)').matches) { vidStarted = true; try { vid.currentTime = 0; } catch { /* */ } vidPlay(true); }
     } else {
       vidW.classList.remove('on');
-      setTimeout(() => { if (!vidW.classList.contains('on')) vid.pause(); }, 1500);
+      setTimeout(() => { if (!vidW.classList.contains('on')) { vidStop = false; vid.pause(); } }, 1500);
     }
   };
   const show = k => {

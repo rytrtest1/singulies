@@ -167,7 +167,7 @@ export function installNav(opts) {
   const pan = document.createElement('nav'); pan.className = 'nv-pan'; pan.setAttribute('aria-label', 'Menu'); pan.inert = true;
   const legal = [['MENTIONS', 'mentions.html'], ['CONDITIONS', 'conditions.html'], ['CONFIDENTIALITE', 'confidentialite.html']];
   pan.innerHTML = PAGES.map(p => `<a href="${url(p)}" data-p="${p.id}">${p.label}</a>`).join('') +
-    `<hr><button type="button" data-x="auteur">A PROPOS</button><button type="button" data-x="contact">CONTACT</button><button type="button" data-x="singulies">SINGULIES</button>` +
+    `<hr><button type="button" data-x="auteur">A PROPOS</button><button type="button" data-x="questions">QUESTIONS</button><button type="button" data-x="contact">CONTACT</button><button type="button" data-x="singulies">SINGULIES</button>` +
     `<div class="lg">${legal.map(([l, h]) => `<a href="${base}${h}">${l}</a>`).join('')}</div>`;
   let panOn = false;
   const setPan = on => {
@@ -184,6 +184,7 @@ export function installNav(opts) {
     // (17/10) une page du menu déjà ouverte se referme d'abord (sinon la suivante ne s'ouvrait pas)
     const open = () => {
       if (a.dataset.x === 'auteur') import('../menu/auteur.js').then(m => m.openAuteur({ base, reduced }));
+      else if (a.dataset.x === 'questions') import('../menu/questions.js').then(m => m.openQuestions());
       else if (a.dataset.x === 'singulies') import('../menu/singulies.js').then(m => m.openSingulies({ base, reduced }));
       else import('../menu/contact.js').then(m => m.openContact({ base, reduced }));
     };
@@ -366,7 +367,7 @@ export function installNav(opts) {
     { const d = dpr(), x = hcv.getContext('2d'), fw = hcv.width / d, r = hbr.getBoundingClientRect(), y = 23;
       x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, fw, 46);
       if (r.width) {
-        const ls = parseFloat(getComputedStyle(hbr).letterSpacing) || 0, l = r.left + 8, rr = r.right - 8 - ls, fl = flowNow(), yt = px => waveTop(px, t);
+        const ls = parseFloat(getComputedStyle(hbr).letterSpacing) || 0, l = r.left + 8 + ls - 11, rr = r.right - 8 - ls + 11, fl = flowNow()   /* (17/10, Maxence : « le fil à droite plus proche qu'à gauche ») bornes sur les lettres : la première commence après le remplissage gauche + l'interlettrage, la dernière finit avant son interlettrage ; le même écart (11 px) de chaque côté */, yt = px => waveTop(px, t);
         // (17/10, Maxence : piste « le fil ne touche pas les icônes ») le fil va d'une icône à l'autre : il sort d'un trou juste après ← (seulement
         // quand il y a un retour ; sinon il court jusqu'au bord) et plonge dans un trou juste avant ≡. Rien derrière les icônes : plus de petits
         // bouts de fil de dix pixels entre l'icône et le bord de l'écran.
@@ -374,7 +375,7 @@ export function installNav(opts) {
         const vis = el => el && parseFloat(getComputedStyle(el).opacity) > 0.15;
         const bk = hd.querySelector('.nv-bk'), mn = hd.querySelector('.nv-mn i'), sv = bk.querySelector('svg');
         const q = vis(bk) && sv.getBoundingClientRect(), m = mn.getBoundingClientRect();
-        const a0 = q && q.width ? q.right + 9 : -4, b1 = m.width ? m.left - 9 : fw + 4;
+        const a0 = q && q.width ? q.left + 0.625 * q.width + 10 : -4, b1 = m.width ? m.left - 10 : fw + 4;   // (le même écart de 10 px des deux côtés : la pointe de ← finit aux 15/24 de son dessin)
         const sg = j => ({ sag: reduced ? 0.6 : 0.3 + 1.1 * breath(3 + j, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 2 + j), yf: yt, g0: (j ? rr : a0) - (j ? -fl : fl) });
         paintThread(x, a0, l, y, 37, 1.2, { holes: [a0 > -4, true], ...sg(0) });
         paintThread(x, rr, b1, y, 41, 1.2, { holes: [true, b1 < fw + 4], ...sg(1) });

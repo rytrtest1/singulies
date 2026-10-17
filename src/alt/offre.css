@@ -421,3 +421,4 @@
 .of.past .of-mvw { opacity: 0; }
 /* (17/10) le bandeau du bas : plus de texte lisible à travers RECEVOIR et le prix quand la page défile (les questions passaient dessous) */
 .of-bar { padding-top: 70px; background: linear-gradient(to top, #060606 0, #060606 70%, rgba(6,6,6,.7) 84%, rgba(6,6,6,0)); }
+.of-ex-t { margin-top: 36px; }

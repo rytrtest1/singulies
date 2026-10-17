@@ -709,7 +709,9 @@ export function createSheetScene(gl, opts) {
       const rk = tu - (READ_AT + flyers.indexOf(f) * READ_GAP);
       if (rk > 0) g += 0.5 * sstep(0, 0.5, rk) * Math.exp(-Math.max(0, rk - 0.5) / 1.6);
       // vue « commande » : la colonne passe au second plan
-      list.push({ i: f.i, model: M, glow: g * (1 - 0.8 * sL) * sheetFade, alpha: (1 - 0.75 * sL) * sheetFade });
+      // (17/10, Maxence : « les lettres de l'acrostiche dépassent et distraient en haut ») la vue rapprochée (toucher l'objet) : elles s'effacent
+      const lkF = 1 - (VIT && VIT.lookAmt ? Math.min(1, VIT.lookAmt() * 1.6) : 0);
+      list.push({ i: f.i, model: M, glow: g * (1 - 0.8 * sL) * sheetFade * lkF, alpha: (1 - 0.75 * sL) * sheetFade * lkF });
     }
     // avec le test de profondeur : le dos de l'enveloppe, dessiné ensuite, cache les lettres entrées dans la poche
     nameR.drawLetters(vp, eye, P, L, list, t);
