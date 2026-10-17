@@ -10,10 +10,10 @@ Le site vend « un prénom, un poème » : un acrostiche tapé à la machine à 
 | | V1 — directe | V2 — équilibrée | V3 — expressive |
 |---|---|---|---|
 | Idée | un site de vente conventionnel, tout est dit | le rituel est gardé, chaque étape est explicite | l'existant presque intact, corrections minimales |
-| Adresse | `1.singulies.com` | `2.singulies.com` | `3.singulies.com` |
+| Adresse | `singulies.com/v1/` | `singulies.com/v2/` | `singulies.com/v3/` |
 | Base technique | nouveau front en DOM (sans 3D) | moteur actuel + couche explicite | moteur actuel + corrections |
 
-Règles communes aux trois : sous-domaine propre, **stockage navigateur séparé**, **statistiques séparées**, **noindex**. Le paiement est **à la fin** dans les trois (après la réponse, l'adresse et l'email, avant le scellement) : la seule différence entre versions reste la straightforwardness.
+Règles communes aux trois : une adresse propre au bout de l'URL (`/v1/`, `/v2/`, `/v3/`), **stockage navigateur séparé** (clés préfixées par version), **statistiques séparées** (chemins préfixés), **noindex**. Le paiement est **à la fin** dans les trois (après la réponse, l'adresse et l'email, avant le scellement) : la seule différence entre versions reste la straightforwardness.
 
 Parcours actuel (rappel) : intro animée → saisie du prénom → aperçu avec carrousel → RECEVOIR → tirage d'une carte question du jeu SINGULIES → réponse (ou PASSER : thème libre, puis improvisation) → adresse écrite sur une enveloppe 3D → POSTER → email → TERMINER → MERCI. Paiement actuel : rien n'est débité, l'auteur envoie ensuite un lien PayPal (temporaire).
 
@@ -32,7 +32,7 @@ Chaque ligne = un constat dans le code actuel, et le correctif attendu partout.
 | C5 | Un prénom tronqué à 22 caractères, un caractère refusé (écritures non latines) disparaissent **sans message**. Le code postal n'est pas vérifié : « ABC » est accepté (`src/sheet/envelope.js:102`, simple longueur ≤ 10). | Signaler la troncature et le refus. Code postal : **5 chiffres, France** (la règle existe déjà dans `src/epure/epure.js:354`). |
 | C6 | PASSER efface un thème déjà écrit. | PASSER **ne supprime jamais** un thème écrit (il devient « continuer »). |
 | C7 | COMMANDER du jeu SINGULIES ne fait rien (`src/jeu/game.js:47`). | Devient **« me prévenir »** (le jeu sort bientôt), avec une **liste d'attente par email**. |
-| C8 | Paiement : aucun débit, lien PayPal envoyé à la main. | Page de paiement **Stripe en mode test**, visible seulement en test (adresse ou réglage spécial), **qu'on peut passer**, prête à être activée pour tous. PayPal est temporaire. Apple Pay et Google Pay prévus : **chaque domaine** (1., 2., 3. et le domaine principal) est à enregistrer chez Stripe. |
+| C8 | Paiement : aucun débit, lien PayPal envoyé à la main. | Page de paiement **Stripe en mode test**, visible seulement en test (adresse ou réglage spécial), **qu'on peut passer**, prête à être activée pour tous. PayPal est temporaire. Apple Pay et Google Pay prévus : **un seul domaine** (`singulies.com`) est à enregistrer chez Stripe, les trois versions en profitent. |
 
 Filtre actuel du prénom, pour mémoire : tiret → espace (deux colonnes, voulu), apostrophe supprimée, ß → SS, écritures non latines refusées **sans message**, 22 caractères max.
 
@@ -130,7 +130,7 @@ Les autres offres (lettre, livres, jeu) n'apparaissent qu'**après** la commande
 Avant de construire : **mesurer le chargement et la fluidité du site actuel** sur un téléphone moyen en 4G, pour fixer des objectifs chiffrés (voir le plan, phase 0).
 
 ### Décision 12 — Les trois versions elles-mêmes
-Trois sous-domaines (`1.`, `2.`, `3.singulies.com`), stockage navigateur et statistiques séparés, `noindex`. Détail technique dans `docs/plan-construction-3-versions.md`.
+Trois adresses au bout de l'URL (`singulies.com/v1/`, `/v2/`, `/v3/` — *révisé le 17/10 : à l'origine trois sous-domaines*), stockage navigateur et statistiques séparés, `noindex`. Détail technique dans `docs/plan-construction-3-versions.md`.
 
 ---
 
