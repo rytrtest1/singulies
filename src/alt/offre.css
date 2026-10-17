@@ -448,3 +448,26 @@
 .mc.fin.on > .mc-line { transition-delay: 1.4s; } .mc.fin.on > .small { transition-delay: 4s; } .mc.fin.on > .mc-jeu { transition-delay: 3.2s; }
 .mc.fin.away > :not(.mc-jeu) { opacity: 0 !important; transition-delay: 0s !important; }
 .mc.fin.back > * { transition-delay: 0s !important; }
+/* (18/10, V3) la confirmation : le paiement, le délai, et le moyen de demander une date précise (CONTACT, référence remplie) */
+.mc-more { display: flex; flex-direction: column; align-items: center; margin-top: 18px; opacity: 0; transition: opacity 1.2s ease; pointer-events: none; }
+.mc-more.on { opacity: 1; pointer-events: auto; }
+.mc-note { margin: 4px 0 0; max-width: 25em; text-align: center; font: 13px/1.45 'SG Machine', 'Courier New', monospace; color: #b8b3a9; }
+/* (18/10, V3) tout tient sur l'écran d'un téléphone : un peu moins d'air autour du prénom, le paquet un peu plus bas */
+[data-version] .mc.fin .mc-name { margin-top: 2.5vh; }
+[data-version] .mc.fin .ref { margin-bottom: 2.5vh; }
+[data-version] .mc.fin .mc-merci { margin-bottom: 12px; }
+[data-version] .mc.fin .mc-deck { height: min(21svh, 170px); }
+.mc-date { min-height: 44px; margin-top: 10px; padding: 0 6px; background: none; border: 0; border-bottom: 1px solid #6a655d; cursor: pointer; color: #e6e2da;
+  font: 15px/1.2 'SG Garamond', Georgia, serif; letter-spacing: .04em; }
+.mc-date:focus-visible, .mc-home:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+/* (18/10, V3) lignes de confiance du bandeau : lisibles (≥ 4,5:1), le lien aux conditions à portée du doigt */
+.of-trust { order: 3; margin: 0; max-width: 27em; text-align: center; font: 12.5px/1.45 'SG Machine', 'Courier New', monospace; letter-spacing: .01em; color: #a8a398; }
+.of-trust p { margin: 3px 0 0; }
+.of-trust a { display: inline-block; padding: 12px 6px; margin: -12px 0; color: #d3cec4; text-underline-offset: 3px; }
+.of-trust a:focus-visible, .of-go:focus-visible, .of-down:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+[data-version] .of-bar .of-price, [data-version] .of-price span { color: #a8a398; }
+[data-version] .of-bar .of-price b { color: #d3cec4; }
+/* (18/10, V3) l'étiquette « exemple » sur les feuilles des autres prénoms : de vrais poèmes, pas le sien */
+.ex-slot:not(.mid) .ex-tag { display: none; }
+.ex-tag { position: absolute; left: 50%; bottom: -30px; transform: translateX(-50%); white-space: nowrap; pointer-events: none;
+  font: 500 12px/1 'SG Garamond', Georgia, serif; letter-spacing: .32em; padding-left: .32em; color: #b8b3a9; text-transform: uppercase; }

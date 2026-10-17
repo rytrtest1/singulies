@@ -165,22 +165,8 @@ export function makeInkMap(question, seed = 1, lines0 = null, center = false) {
 // Comme une machine : les mots ne bougent jamais une fois tapés (retour à la ligne quand le mot ne tient
 // plus, sans rééquilibrage) ; chaque frappe garde ses défauts propres (tirés de son rang dans le texte).
 // Trois lignes visibles au plus : au-delà, la ligne du haut disparaît d'un coup.
-export function answerLines(text, max = CTYPE.maxChars) {
-  const lines = [''];
-  for (const word of text.split(/(\s+)/)) {
-    if (!word) continue;
-    if (/^\s+$/.test(word)) { lines[lines.length - 1] += ' '; continue; }
-    let w = word;
-    while (w.length) {
-      const cur = lines[lines.length - 1];
-      if (cur.length + w.length <= max) { lines[lines.length - 1] = cur + w; w = ''; }
-      else if (cur.trim().length === 0 && w.length > max) { lines[lines.length - 1] = cur + w.slice(0, max - cur.length); w = w.slice(max - cur.length); lines.push(''); }
-      else lines.push('');
-    }
-    if (lines[lines.length - 1].length > max) lines.push('');
-  }
-  return lines.map(l => l.replace(/^ +/, ''));
-}
+export { answerLines } from './lines.js';
+import { answerLines } from './lines.js';
 
 export const ANSWER_MARGIN = (CARD.w - CTYPE.maxChars * CTYPE.pitch) / 2;
 // first : première ligne visible (par défaut : les dernières, pour écrire ; 0 = le début, pour relire)

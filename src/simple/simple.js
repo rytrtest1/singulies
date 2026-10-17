@@ -6,7 +6,8 @@
 // Quand : sans WebGL2 (téléphone ancien, Safari en panne de WebGL), ou quand une scène 3D n'a pas pu se monter
 // (mémoire) — scène par scène : si le champ de prénoms marche, on le garde. ?simple=1 : tout en simple ;
 // ?simple=suite : le vrai champ de prénoms, puis la suite en simple (essais).
-import { vk } from '../core/version.js';
+import { vk, EST_VERSION } from '../core/version.js';
+import { ouvrirAttente } from '../core/attente-ui.js';
 import QUESTIONS from '../cards/questions.json';
 import { NAMES } from '../field/names.js';
 import { ITEMS, LINKS, JEU_LINK } from '../portal/items.js';
@@ -773,12 +774,13 @@ export function mountSimpleFlow(opts) {
     Object.assign(inp, { type: 'email', spellcheck: false, placeholder: 'email', name: 'email' });
     inp.setAttribute('autocomplete', 'email'); inp.setAttribute('inputmode', 'email'); inp.setAttribute('autocapitalize', 'none'); inp.setAttribute('autocorrect', 'off');
     inp.setAttribute('enterkeyhint', 'done'); inp.setAttribute('aria-label', 'Ton email');
-    const go = el('button', 'sp-sign', root, 'COMMANDER'); go.type = 'button';
+    const FIN = EST_VERSION ? 'TERMINER' : 'COMMANDER';   // (18/10, C3) un seul nom pour le bouton final dans les versions
+    const go = el('button', 'sp-sign', root, FIN); go.type = 'button';
     const place = () => { const y = size.H * (size.kb > 40 ? 0.55 : 0.52); box.style.top = (y - 30) + 'px'; go.style.top = Math.min(y + 22, size.H - 50) + 'px'; };
     R.onResize = place; place();
     R.later(() => box.classList.add('on'), 200);
     R.later(() => { box.classList.add('ready'); if (!TOUCH) inp.focus({ preventScroll: true }); }, REDUCED ? 0 : 1100);   // l'enveloppe s'est fondue
-    R.say('l’enveloppe est partie. ton email, puis COMMANDER.');
+    R.say(EST_VERSION ? 'l’enveloppe est scellée. il reste ton email : écris-le, puis ' + FIN + '.' : 'l’enveloppe est partie. ton email, puis COMMANDER.');
     const ok = () => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(inp.value.trim());
     inp.addEventListener('input', () => go.classList.toggle('on', ok()));
     const done = () => { if (!ok()) return; inp.blur(); go.classList.remove('on'); box.classList.remove('on'); finish(inp.value.trim()); };
@@ -856,7 +858,10 @@ export function mountSimpleJeu(opts = {}) {
   }
   const deckBtn = el('button', 'sp-btn', root); deckBtn.type = 'button'; deckBtn.textContent = 'une autre question'; deckBtn.setAttribute('aria-label', 'une autre question');
   const shareEl = el('button', 'sp-sign', root, 'PARTAGER'); shareEl.type = 'button'; shareEl.setAttribute('aria-label', 'Partager cette question, pour la poser à quelqu’un');
-  const buyEl = el('button', 'sp-sign', root, 'COMMANDER'); buyEl.type = 'button'; buyEl.setAttribute('aria-label', 'Commander le jeu SINGULIES');
+  // (18/10, correctif C7) dans les versions : « ME PREVENIR » (le jeu n'est pas encore en vente), comme dans la scène 3D
+  const ATTENTE = EST_VERSION && !JEU_LINK;
+  const buyEl = el('button', 'sp-sign', root, ATTENTE ? 'ME PREVENIR' : 'COMMANDER'); buyEl.type = 'button';
+  buyEl.setAttribute('aria-label', ATTENTE ? 'Me prévenir quand le jeu SINGULIES sort' : 'Commander le jeu SINGULIES');
   shareEl.style.transition = 'opacity 1.4s, top .8s ease';
   const order = shuffle(QUESTIONS.map(x => x.id).filter(id => id !== opts.firstQ));
   if (opts.firstQ != null && known(opts.firstQ)) order.unshift(opts.firstQ);
@@ -948,7 +953,7 @@ export function mountSimpleJeu(opts = {}) {
     done();
   }
   shareEl.addEventListener('click', share);
-  buyEl.addEventListener('click', () => { if (JEU_LINK) { location.href = JEU_LINK; return; } flash(buyEl, 'BIENTOT'); });
+  buyEl.addEventListener('click', () => { if (ATTENTE) { ouvrirAttente({ liste: 'jeu' }); return; } if (JEU_LINK) { location.href = JEU_LINK; return; } flash(buyEl, 'BIENTOT'); });
   back.addEventListener('click', () => { ta?.blur(); root.classList.remove('on'); R.later(() => { R.remove(); opts.onBack?.(); }, 700); });
   addEventListener('keydown', function esc(e) {
     if (!document.body.contains(root)) { removeEventListener('keydown', esc); return; }

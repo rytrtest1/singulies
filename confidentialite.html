@@ -20,6 +20,8 @@
   a { color: #d0d0d0; }
   .back { display: block; text-align: center; margin-top: 56px; color: #fff; opacity: .4; text-decoration: none; font: 500 12px/44px 'SG Garamond', serif; letter-spacing: .4em; }
   .back:hover { opacity: .6; }
+  /* phrases des versions d'essai (singulies.com/v1, /v2, /v3) : cachées sur le site principal, où ces services ne sont pas encore utilisés */
+  .v-only { display: none; } [data-version] .v-only { display: block; }
   .links { display: flex; flex-wrap: wrap; justify-content: center; text-align: center; margin-top: 48px; font: 500 11px/2 'SG Garamond', serif; letter-spacing: .3em; }
   .links a { color: #6f6f6f; text-decoration: none; margin: 0 .6em; }
   .links a:hover { color: #9e9e9e; }
@@ -37,6 +39,8 @@
   <h2>ou ca va</h2>
   <p>quand tu postes l’enveloppe (ou m’écris), ces mots me sont envoyés par email par le service EmailJS, qui ne fait que transmettre ; si tu as donné ton email, tu en reçois un récapitulatif. je suis le seul à les lire.</p>
   <p>le paiement se fait ensuite par PayPal, sur un lien que je t’envoie ; PayPal traite tes données de paiement selon sa propre politique. le jour où l’on pourra payer directement sur le site (carte, Apple Pay, Google Pay), ce sera par Stripe : ton prénom, la référence de ta demande, ton email et ton adresse lui sont alors transmis, par une petite fonction à moi hébergée chez Cloudflare, pour le paiement et la livraison. dans les deux cas, je ne vois jamais ta carte.</p>
+  <p class="v-only">pour t’aider à écrire l’adresse, le début de la rue que tu tapes est envoyé à la Base Adresse Nationale (un service public, la Géoplateforme de l’IGN), qui propose l’adresse complète. rien d’autre ne lui est transmis, et tu peux ignorer ses propositions et écrire ton adresse toi-même.</p>
+  <p class="v-only">si tu me demandes de te prévenir (la sortie du jeu), ton email est gardé dans une petite liste, chez Cloudflare, seulement pour t’écrire à ce sujet ; je l’efface sur simple demande.</p>
   <p>le site est servi par Cloudflare (et une copie par GitHub) : comme tout hébergeur, ils voient passer ton adresse IP le temps de t’envoyer les pages, rien de plus pour moi.</p>
   <p>EmailJS, PayPal, Stripe, Cloudflare et GitHub sont des sociétés américaines : tes mots peuvent passer par les États-Unis, dans le cadre prévu par le RGPD (cadre de protection des données UE–États-Unis, clauses contractuelles types).</p>
   <p>aucun cookie, aucune publicité. je compte seulement combien de personnes arrivent à chaque étape (avec GoatCounter, sans cookie, sans savoir qui) : des totaux, rien qui te suive. si ton navigateur demande à ne pas être suivi, rien n’est compté.</p>

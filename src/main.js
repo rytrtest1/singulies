@@ -1,5 +1,7 @@
 // SINGULIÉS — écran d'accueil. Amorçage, boucle, états (saisie → transition → scène des cartes).
-import { vk } from './core/version.js';
+import { vk, EST_VERSION } from './core/version.js';
+import { analysePrenom, PHRASES } from './core/prenom.js';
+import { creerNote } from './core/note.js';
 import './app/lum.js';
 import { NameModel } from './input/model.js';
 import { createBridge } from './input/bridge.js';
@@ -92,7 +94,8 @@ const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
 const OPEN_FADE = 1.4;      // s de fondu d'entrée
 const LEAVE_FADE = 1.2;     // s de fondu au noir après validation (sans WebGL2)
-const HINT = P.get('indice') === '1';   // (17/10, Maxence) plus de PRENOM grisé : le curseur seul ; ?indice=1 pour le revoir   // (10/10) PRENOM en grisé si rien n'est écrit
+const HINT = P.get('indice') === '1' || (EST_VERSION && P.get('indice') !== '0');   // (18/10, V3) dans les versions : la consigne (PRENOM, tapé en grisé) paraît après quelques secondes sans frappe
+//   // (17/10, Maxence) plus de PRENOM grisé : le curseur seul ; ?indice=1 pour le revoir   // (10/10) PRENOM en grisé si rien n'est écrit
 const HINT_AFTER = 3.0, HINT_ALPHA = 0.2;   // s après l'apparition du champ ; clarté (fraction)
 // (10/10, version alternative) après ETERNEL : UN PRENOM / UN POEME en grisé (la grammaire de tout le site), qui
 // s'efface pour laisser le curseur seul au centre ; ailleurs : PRENOM, le curseur glisse devant
@@ -103,13 +106,18 @@ const HINT_AFTER_NAV = 3.2;   // (alt) s après l'apparition du menu (plus utili
 // machine après un certain temps ») alt : 5 s après que le curseur est resté seul (ETERNEL effacé), PRENOM se tape
 // lettre à lettre en grisé, le curseur devant ; il s'efface à la première lettre tapée
 const HINT_AFTER_ALT = 5.0, HINT_STRIKE = 0.13;   // (deux lignes comme un prénom : coupure aux espaces, la plus équilibrée)
-const IDLE_GO = 3.5;   // (10/10) ordinateur : fini d'écrire sans Entrée → la suite après ce temps sans frappe
+const IDLE_GO = EST_VERSION ? 7.5 : 3.5;   // (18/10, V3) pause plus longue avant la validation automatique ; et pas avant 2 lettres (IDLE_MIN)
+const IDLE_MIN = EST_VERSION ? 2 : 1;
+// (18/10, V3) le visiteur qui revient saute l'intro (ETERNEL tapé puis effacé) : on retient qu'un prénom a déjà été validé
+const DEJA_VU = EST_VERSION && (() => { try { return localStorage.getItem(vk('singulies.vu')) === '1'; } catch { return false; } })();
+//   // (10/10) ordinateur : fini d'écrire sans Entrée → la suite après ce temps sans frappe
 // (10/10, version alternative) à l'ouverture, ETERNEL — mon nom — se tape à la machine à la place du prénom, le champ
 // s'allume avec lui (on voit ce que fait une frappe), puis il s'efface lettre à lettre : reste le curseur seul, qui
 // invite à taper le sien. Toute frappe, tout toucher du champ l'arrête.
 const INTRO = 'ETERNEL', I_TYPE = 0.14, I_HOLD = 1.5, I_ERASE = 0.07;
 function introText() {
   if (!ALT || S.introOff || S.typed || S.phase !== 'input' || S.hintT0 == null || model.text) return '';
+  if (DEJA_VU || (EST_VERSION && CFG.reduced)) { S.introOff = true; S.introEnd = S.t; return ''; }   // (V3) qui revient, ou mouvement réduit : pas d'intro
   const u = S.t - S.hintT0 - 0.4, n = INTRO.length, a = n * I_TYPE, b = a + I_HOLD, c = b + n * I_ERASE;
   if (u < 0) return '';
   if (u < a) return INTRO.slice(0, Math.floor(u / I_TYPE) + 1);
@@ -186,9 +194,19 @@ function announce(msg) {
   announceTimer = setTimeout(() => { live.textContent = msg; }, 30);
 }
 
+// (18/10, correctif C5) dans les versions, ce que la machine retire, transcrit ou coupe est DIT : une ligne tapée sous le
+// prénom (avant : un caractère refusé ou un prénom coupé à 22 lettres disparaissaient sans un mot)
+const note = EST_VERSION ? creerNote() : null;
+function noteNom(res) {
+  if (!note || S.phase !== 'input') return;
+  const a = analysePrenom(res.raw), par = c => a.messages.find(m => m.code === c);
+  const m = par('non-latin') || par('retires') || (res.truncated && { texte: PHRASES.tronque() }) || par('accents');
+  if (m) { const vv = window.visualViewport; note.dire(m.texte, { haut: Math.min(innerHeight * 0.66, (vv ? vv.height : innerHeight) - 70) }); }
+}
 const bridge = createBridge(input, model, {
   caseMode: CFG.caseMode,
   announce,
+  onRaw: EST_VERSION ? noteNom : undefined,
   onChange: (info) => { if (S.phase === 'input') { S.typed = true; S.keyAt = S.t; S.confirmed = false; detectSuggestion(info); } renderFallback(); },
   onSubmit: () => submitName(),
   onEscape: goBack,
@@ -272,6 +290,8 @@ function confirmName() {
 let plan = null, cards = null, cardsReady = false;
 function startTransition() {
   if (S.phase !== 'input' || S.trans != null || !finalName(model.text)) return;
+  note?.taire();
+  if (EST_VERSION) { try { localStorage.setItem(vk('singulies.vu'), '1'); } catch { /* */ } note.dire('pas ton prénom ? touche-le', { haut: innerHeight * 0.66, duree: 5000 }); }   // (V3) il est encore temps de le corriger
   const shown = displayCase(finalName(model.text), CFG.caseMode);
   S.trans = S.t; S.confirmed = true; S.validatedName = shown;
   saveValidated(shown);                     // un rechargement (même pendant la transition) mène aux cartes
@@ -445,6 +465,7 @@ function showOffer(over = false) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function paidHere(order) {
   S.paid = order;
+  histo.start();
   setOrder({ ref: order.ref, session: order.session || '', simule: !!order.simule, gift: !!order.gift, reserve: !!order.reserve });
   offerObj?.hide();
   const fin = await import('./alt/fin.js');
@@ -459,9 +480,45 @@ async function paidHere(order) {
   // (10/10) l'adresse (panneau, champ de Stripe, portefeuille) et l'email : la fin les tape seule
   if (cardsReady && cardsReady !== 'failed') cardsReady.afterPay(how, { fields: order.address || null, email: order.email || '' });
 }
+// (18/10, décision 8 ; correctifs C1) L'HISTORIQUE PAR ÉTAPE, dans les versions : pendant la cérémonie (le paquet, la carte
+// blanche, la feuille, l'enveloppe, l'email), le bouton retour du navigateur — comme la flèche ← du haut — ramène à l'étape
+// d'avant sans rien perdre (la réponse reste sur la carte), au lieu de quitter la page. Une entrée d'historique par étape
+// franchie (pushState), maintenues en accord avec l'étape réelle (cardsApi.level) ; un seul chemin pour reculer (stepBack).
+const histo = (() => {
+  let pushed = 0, internal = 0, waiting = null, timer = 0, on = false;
+  const cards = () => (cardsReady && cardsReady !== 'failed' && cardsReady.level ? cardsReady : null);
+  const level = () => (cards() ? cards().level() : 0);
+  const active = () => on && !!S.paid && !document.querySelector('.mc.fin');
+  function sync() {
+    if (!active()) return;
+    const L = level(), want = Math.max(0, L - 1);
+    if (waiting) { if (L !== waiting.L || performance.now() > waiting.until) waiting = null; else return; }   // un retour est en cours : la scène se rembobine
+    while (pushed < want) history.pushState({ sgStep: ++pushed }, '');
+    if (pushed > want) { internal++; const n = want - pushed; pushed = want; history.go(n); }   // reculé autrement (Échap, flèche de la scène)
+  }
+  addEventListener('popstate', e => {
+    if (internal) { internal--; return; }
+    if (!active()) return;
+    const landed = e.state && e.state.sgStep != null ? e.state.sgStep : 0;
+    if (landed >= pushed) { pushed = landed; return; }
+    pushed = landed;
+    const L = level(), want = Math.max(0, L - 1);
+    if (landed >= want) return;
+    const c = cards();
+    if (L > 2 && c && c.stepBack()) { waiting = { L, until: performance.now() + 7000 }; return; }
+    if (L <= 2) { location.replace(new URL('./', document.baseURI).href + location.search); return; }   // la première étape : l'accueil
+    history.pushState({ sgStep: want }, ''); pushed = want;                                                // la scène est occupée : on remet l'étape
+  });
+  return {
+    start() { if (!EST_VERSION || on) return; on = true; clearInterval(timer); timer = setInterval(sync, 300); },
+    stop() { clearInterval(timer); on = false; if (pushed > 0) { internal++; const n = -pushed; pushed = 0; history.go(n); } },   // la cérémonie finie : une seule sortie
+    back() { if (!active() || pushed < 1) return false; history.back(); return true; },
+  };
+})();
 // la fin d'une commande payée ici : c'est noté (rechargée : merci.html, sans seconde demande)
 async function finishPaid() {
   const fin = await import('./alt/fin.js'), o = S.paid;
+  histo.stop();
   o.done = true; fin.saveOrder(o); count('alt/fini');
   await Promise.race([settled().catch(() => {}), sleep(2500)]);
   if (cardsReady && cardsReady !== 'failed') { cardsReady.canvas.style.transition = 'opacity 1.1s ease'; cardsReady.canvas.style.opacity = '0'; }
@@ -597,7 +654,8 @@ input.addEventListener('blur', () => {
 // bascule mélange → profondeur → horizontal : Tab ou double-clic (progressive)
 const MODE_ORDER = ['melange', 'profondeur', 'horizontal'];
 function toggleMode() { CFG.mode = MODE_ORDER[(MODE_ORDER.indexOf(CFG.mode) + 1) % MODE_ORDER.length]; }
-window.addEventListener('keydown', (e) => { if (e.key === 'Tab' && !e.altKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleMode(); } });
+// (17/10, correctif C4) dans les versions, Tab n'est plus pris : il fait son travail de Tab (champs, boutons) ; le double-clic reste
+window.addEventListener('keydown', (e) => { if (!EST_VERSION && e.key === 'Tab' && !e.altKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleMode(); } });
 document.addEventListener('dblclick', (e) => { if (S.trans == null && !wheel && !S.portal) toggleMode(); });
 // le signe sous le prénom confirmé : aller à la suite ; sans geste pendant 10 s, on y va tout seul
 nextEl.addEventListener('click', (e) => { e.stopPropagation(); startTransition(); });
@@ -876,7 +934,7 @@ function frame(ts) {
   if (ALT && !cards && !CFG.reduced && S.phase === 'input' && S.typed && T < 0 && S.t - S.keyAt > 0.8 && finalName(model.text)) loadCards(finalName(model.text).toUpperCase());
   // (10/10) ordinateur : fini d'écrire sans Entrée → après IDLE_GO s sans frappe, la suite (comme « OK » sur téléphone)
   if (!TOUCH && !wheel && !voice && !S.rev && S.phase === 'input' && T < 0 && S.trans == null && S.typed && S.keyAt > Math.max(S.phaseAt, S.editAt ?? -99)
-    && finalName(model.text) && !bridge.composing && S.t - S.keyAt > IDLE_GO && S.t >= Math.max(light.flyAt(), S.actAt + 2)) startTransition();
+    && finalName(model.text).length >= IDLE_MIN && !bridge.composing && S.t - S.keyAt > IDLE_GO && S.t >= Math.max(light.flyAt(), S.actAt + 2)) startTransition();
   if (CFG.debug) {   // croix au point de fuite
     glyphs.push({ box: [cx - 12, vy - 0.5, cx + 12, vy + 0.5], uv: null, alpha: 0.6, pxEm: 1 });
     glyphs.push({ box: [cx - 0.5, vy - 12, cx + 0.5, vy + 12], uv: null, alpha: 0.6, pxEm: 1 });
@@ -1257,7 +1315,7 @@ if (ALT) {
     redo: () => !onNames() && !S.paid && !document.querySelector('.of.paying, .of.env'),
     onCurrent: () => { if (!onNames() && !S.paid && !document.querySelector('.of.paying, .of.env')) editName(); },
     // (17/10) la flèche retour du haut : d'abord ce qui est ouvert sur la feuille (la vue rapprochée, la suite de la page)
-    onBack: () => { if (S.paid) { location.href = './'; return true; } return !!(offerObj && offerObj.back && offerObj.back()); },
+    onBack: () => { if (S.paid) { if (histo.back()) return true; location.href = './'; return true; } return !!(offerObj && offerObj.back && offerObj.back()); },
     // (17/10, Maxence : « c'était bien de charger avant ») de nouveau tôt, aussi sur le portail : la préparation ne
     // bloque plus (shaders compilés en parallèle, gl.js programAsync)
     calm: () => !document.querySelector('.of.paying, .of.env') && S.trans == null,

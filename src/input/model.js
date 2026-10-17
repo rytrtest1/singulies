@@ -47,12 +47,12 @@ export class NameModel {
     }
     const next = collapse(before + ins + after).slice(0, MAX_LEN);
     const caret = Math.min(next.length, collapse(before + ins).length);
-    if (next === this.text && caret === this.selStart && caret === this.selEnd) return { changed: false, truncated };
+    if (next === this.text && caret === this.selStart && caret === this.selEnd) return { changed: false, truncated, raw };
     this._record(ins.includes(' ') ? 'edit' : kind, now);
     this.text = next;
     this.selStart = this.selEnd = caret;
     this._group = kind === 'type' && !ins.includes(' ') ? { at: now, caret } : null;
-    return { changed: true, truncated };
+    return { changed: true, truncated, raw };   // raw : ce qui a été tapé / collé, avant le filtre (la page peut dire ce qui a été retiré)
   }
 
   insert(raw, opts) { return this.replace(this.selStart, this.selEnd, raw, opts); }
@@ -79,7 +79,7 @@ export class NameModel {
     if (next !== this.text) { this._record('edit', 0); this._group = null; }
     this.text = next;
     this.selStart = Math.min(s, e); this.selEnd = Math.max(s, e);
-    return { changed: true, truncated };
+    return { changed: true, truncated, raw: value };
   }
 
   undo() {

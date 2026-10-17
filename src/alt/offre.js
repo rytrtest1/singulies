@@ -1,6 +1,7 @@
 // Version alternative (10/10) : après le champ de prénoms, la feuille qui attend — l'acrostiche tapé, les vraies
 // photos, le prix, COMMANDER (Stripe). La question vient après le paiement (merci.html), jamais avant.
-import { vk } from '../core/version.js';
+import { vk, EST_VERSION } from '../core/version.js';
+import { LIGNE_PAIEMENT, etatPaiement } from '../core/paiement.js';
 import '../basique/basique.css';
 import '../app/pay.css';
 import './offre.css';
@@ -15,7 +16,10 @@ import { PRIX, STRIPE, STRIPE_PK, PAIEMENT_URL, FEUILLE_PHOTO, SHEET_INSET, RESE
 const Q = new URLSearchParams(location.search);
 const TEST = Q.get('test') !== '0';
 // (10/10) réservation sans paiement (en attendant le SIRET) ; ?paiement=… : le paiement quand même (essais)
-const RESERVE = RESERVATION && !Q.get('paiement');
+// (18/10, correctif C8) dans les versions, le panneau Stripe (mode test) n'est visible qu'en test (?test=1, ou un déploiement marqué
+// test) et on peut alors le passer ; hors test, la réservation (PayPal, rien n'est débité) ; MODE_PAIEMENT = 'stripe' le montre à tous
+const PAY = EST_VERSION ? etatPaiement() : null;
+const RESERVE = RESERVATION && !Q.get('paiement') && !(PAY && PAY.panneauStripe);
 const K_ORDER = vk('singulies.order');
 // (10/10) payé dans la page : alt.html enchaîne lui-même (la feuille se défait, la carte est tirée) ; sans lui (pas de
 // WebGL2, ou Stripe a dû rediriger) : merci.html
@@ -155,8 +159,13 @@ function sessionAddr(r) {
 }
 function paidHere(name, ref, extra = {}) {
   const o = { ...(readOrder() || {}), name, ref, paid: true, ...extra };
-  saveOrder(o);
-  count('alt/paye');
+  // (18/10, correctifs C1 et C2) dans les versions : un clic sur RECEVOIR (réservation, ou paiement simulé) ne laisse PAS une
+  // commande « payée / réservée » dans le navigateur — elle ne l'est pas encore (la demande part à la fin, le paiement se
+  // confirme plus tard) ; recharger ou revenir en arrière ne renvoie donc plus vers merci.html?reserve=1. L'objet complet
+  // sert à la cérémonie en mémoire seulement. Et alt/paye ne part que pour un vrai paiement.
+  const vrai = !(extra.reserve || extra.simule);
+  if (EST_VERSION && !vrai) { const { paid, reserve, simule, ...garde } = o; saveOrder(garde); } else saveOrder(o);
+  if (!EST_VERSION || vrai) count('alt/paye');
   if (!onPaidHere) { location.href = merciUrl(extra.reserve ? { reserve: '1' } : extra.simule ? { simule: '1' } : {}); return; }
   closePanel();
   onPaidHere(o);
@@ -216,7 +225,7 @@ function openPanel(name, ref) {
       <div class="of-pf"><span class="of-where" hidden></span><div class="of-addr"></div></div>
       <div class="of-pf"><span>le paiement</span><div class="of-pm"></div></div>
       <button class="of-go of-pay-go" type="button" disabled>PAYER ${esc(PRIX)}</button>
-      <button class="of-pay-skip" type="button">PASSER (test)</button>
+      ${!PAY || PAY.passable ? '<button class="of-pay-skip" type="button">PASSER (test)</button>' : ''}
       <p class="of-pay-msg" role="alert"></p>
       <p class="of-pay-legal">${fake ? 'paiement d’essai : rien n’est débité.<br>' : ''}paiement sécurisé par stripe.<br>un prénom, un poème : fait pour une personne, il ne peut être ni repris ni échangé.</p>
     </div>`;
@@ -249,7 +258,7 @@ function openPanel(name, ref) {
   // part aussi avec PASSER (test) : l'enveloppe s'écrit seule comme après un vrai paiement
   let shipNow = {};
   const typed = () => ({ ...(mailOk(mail.value) ? { email: mail.value.trim() } : {}), ...shipNow });
-  root.querySelector('.of-pay-skip').addEventListener('click', () => paidNow({ simule: true, ...typed(), ...(fake ? fakeAddrNow() : {}) }));
+  root.querySelector('.of-pay-skip')?.addEventListener('click', () => paidNow({ simule: true, ...typed(), ...(fake ? fakeAddrNow() : {}) }));
   let fakeAddrNow = () => ({});
 
   const expressHost = root.querySelector('.of-express'), orEl = root.querySelector('.of-or');
@@ -332,7 +341,7 @@ function pay(name) {
   try { localStorage.setItem(K_ORDER, JSON.stringify({ name, ref, at: Date.now(), gift: !!giftPref })); } catch { /* */ }
   // réservation : rien à payer, la suite tout de suite (la demande part marquée « à payer »)
   // (17/10, Maxence) plus de « pour moi / pour offrir » (askFor dans fin.js, gardé) : la suite tout de suite
-  if (RESERVE) { giftPref = false; count('alt/reserve'); paidHere(name, ref, { reserve: true, gift: false }); return; }
+  if (RESERVE) { giftPref = false; if (!EST_VERSION) count('alt/reserve'); paidHere(name, ref, { reserve: true, gift: false }); return; }
   count('alt/commander');
   if ((STRIPE_PK && PAIEMENT_URL) || Q.get('paiement') === 'faux' || (!STRIPE && onPaidHere)) { openPanel(name, ref); return; }
   if (STRIPE) {
@@ -421,6 +430,8 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     <div class="of-bar">
       <button class="of-go" type="button">RECEVOIR</button>
       <div class="of-price"><span class="p1"><b>${esc(PRIX)}</b> tout compris</span><span class="p2">${esc(DELAI_COURT)}</span></div>
+      ${EST_VERSION ? `<!-- (18/10, V3) la ligne sur le paiement (variable commune, src/core/paiement.js) et ce qui rassure, près de l'action -->
+      <div class="of-trust"><p class="of-payline">${esc(LIGNE_PAIEMENT)}</p><p class="of-lost">si l’enveloppe se perd, je refais le poème · <a href="./conditions.html">conditions</a></p></div>` : ''}
       <!-- (12/10, Maxence) l'invitation à descendre, APRÈS l'action : la fin de cette section, le nom de la suivante -->
       <button class="of-down" type="button"><svg class="arw" viewBox="0 0 18 11" aria-hidden="true"><path d="M1.5 1.5 L9 9 L16.5 1.5"/></svg></button>
     </div>`;

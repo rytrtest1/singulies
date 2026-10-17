@@ -7,6 +7,10 @@
 import '../app/compat.js';            // (Safari d'avant iOS 17 : de simples <canvas> à la place d'OffscreenCanvas)
 import { programAsync } from '../gl/gl.js';
 import { LUM } from '../app/lum.js';
+import { EST_VERSION } from '../core/version.js';
+// (18/10, V3) les invitations tapées en léger sur l'enveloppe (« prénom », « adresse »…) : lisibles dans les versions (62 % de l'encre,
+// avant 30 % : on ne les voyait presque pas), le site principal garde les siennes
+const HINT_INK = EST_VERSION ? '0.62' : '0.3';
 import { RELIEF, MAILLE } from '../app/perf.js';
 
 export const CARD = { w: 87, h: 51.5, r: 3, t: 0.125, logoSq: 38.501, logoRange: 2 };
@@ -531,7 +535,7 @@ void main() {
       // encre pâle (noms des champs de l'enveloppe) : frappée pleinement (forme intacte), mais moins claire — tracée
       // sans vert dans la carte d'encre (blanc partout ailleurs : sans effet)
       { vec2 iuv = inkUV(pw); vec4 s4 = vFace == 1 ? texture(uInk, iuv, 1.3) : texture(uInkBack, iuv, 1.3);
-        if (uInkRG > 0.5) op *= mix(0.3, 1.0, s4.r > 0.03 ? clamp(s4.g / s4.r, 0.0, 1.0) : 1.0); }
+        if (uInkRG > 0.5) op *= mix(${HINT_INK}, 1.0, s4.r > 0.03 ? clamp(s4.g / s4.r, 0.0, 1.0) : 1.0); }
       // parois raides du creux : le caractère n'y frappe presque pas
       ink = shape * op / (1.0 + 0.4 * length(vec2(hx, hy)));
     }

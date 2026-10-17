@@ -8,6 +8,7 @@ import { encodeDemande } from '../demande/lien.js';
 import LETTERS from '../../public/email/l/tailles.json';
 import { STRIPE, PAIEMENT_URL } from '../alt/config.js';
 import { rememberEmail } from './storage.js';
+import { count } from './count.js';
 
 export const EMAILJS = { service: 'service_8wqf489', template: 'template_cuh5tub', key: 'XreMhhJCN9l5J6V5J',   // identifiants publics (aucun secret)
   // confirmation envoyée à la personne (récapitulatif) : second modèle EmailJS, To = {{to_email}}
@@ -73,6 +74,11 @@ function orderHtml(o, email) {
   }
   return '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;"><span style="color:#8a8a8a;">commande</span><br>' + esc(o.ref) + (o.simule ? ' · paiement simulé' : '') + (o.session ? '<br><span style="color:#8a8a8a;">stripe ' + esc(o.session) + '</span>' : '') + '<br><span style="color:#8a8a8a;">adresse et email : dans stripe</span></div>';
 }
+// (18/10, V3) « de la part de » : celui qui offre signe, dans le même bloc que le contact
+function delaHtml(n) {
+  if (!n) return '';
+  return '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;"><span style="color:#8a8a8a;">de la part de</span><br>' + esc(n) + '</div>';
+}
 // mode test : les réponses des testeurs (prix de l'original, retours), dans le même bloc que le contact
 function betaHtml(b) {
   if (!b || (!b.prix && !b.retours)) return '';
@@ -102,7 +108,7 @@ export function params(d) {
     adresse_html: (d.address || []).map(l => quiet(esc(l))).join('<br>'),
     adresse: (d.address || []).join('\n'),
     contact: d.contact || '',
-    contact_html: orderHtml(d.order, d.email) + (d.contact ? '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;">' + contactLinks(d.contact) + '</div>' : '') + betaHtml(d.beta),
+    contact_html: orderHtml(d.order, d.email) + delaHtml(d.dela) + (d.contact ? '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;">' + contactLinks(d.contact) + '</div>' : '') + betaHtml(d.beta),
     date: new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }),
     // la demande, rendue par le site (feuille, carte, enveloppe) : tout est dans le lien, après « # »
     lien: new URL('./demande.html', document.baseURI).href + '#' + encodeDemande(d),
@@ -110,6 +116,7 @@ export function params(d) {
     to_email: d.email || '',
     // (17/10) la version du site d'où vient la demande (vide sur le site principal) : modèle EmailJS, {{version}}
     version: mentionVersion(),
+    dela: d.dela || '',
   };
 }
 
@@ -163,6 +170,8 @@ export function send(detail) {
   if (ORDER) detail = { ...detail, test: false, order: ORDER };
   if (seen(detail)) { console.warn('envoi : déjà partie'); return; }
   rememberEmail(detail.email);
+  // (18/10, C2) dans les versions, la réservation n'est comptée que maintenant : la demande part pour de bon
+  if (VERSION && detail.order && detail.order.reserve) count('alt/reserve');
   const p = params(detail), items = [{ tpl: EMAILJS.template, p }];
   // le récapitulatif à la personne, si elle a donné son email
   // (mêmes paramètres que la demande : prénom, question, réponse, et en mode test le prix et les retours)
@@ -189,7 +198,7 @@ function commande(d, p) {
     question: p.question, reponse: d.text || '', adresse: d.address || [], email: d.email || '', contact: d.contact || '',
     mode: o ? (o.reserve ? 'reservation' : o.simule ? 'simule' : 'paye') : d.test ? 'essai' : d.mode === 'direct' ? 'direct' : 'poste',
     cadeau: !!(o && (o.gift || o.pour)), session: o?.session || '', lien: p.lien,
-    essai: !!(d.test || o?.simule || d.beta || import.meta.env.DEV), site: '', version: VERSION,
+    essai: !!(d.test || o?.simule || d.beta || import.meta.env.DEV), site: '', version: VERSION, dela: d.dela || '',
   };
   saveCmd([...loadCmd(), body]);
   flushCmd();

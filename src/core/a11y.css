@@ -1,0 +1,15 @@
+/* Accessibilité des versions (décision 11, WCAG 2.2 AA sur ce qui sert à agir) : un focus visible partout, des cibles de 44 px, des
+   contrastes d'au moins 4,5:1 pour les textes et 3:1 pour les contours des commandes. Seules les pages des versions portent
+   data-version : le site principal n'est pas touché. Le décor garde son faible contraste. */
+[data-version] a:focus-visible, [data-version] button:focus-visible, [data-version] [role="button"]:focus-visible,
+[data-version] input:focus-visible, [data-version] textarea:focus-visible, [data-version] [tabindex]:focus-visible {
+  outline: 2px solid #fff !important; outline-offset: 3px !important; }
+/* cibles de 44 px */
+[data-version] .of-bar .of-go { min-height: 44px; min-width: 44px; }
+[data-version] .of-dot { width: 44px; height: 44px; }
+[data-version] .of-dot i { opacity: .5; }
+[data-version] .of-dot.on i { opacity: 1; }
+/* les noms des pages voisines (ordinateur) : lisibles, ils se touchent */
+[data-version] .nv:not(.solo):not(.narrow) .nv-l:not(.cur):not(.far) { opacity: .62; }
+[data-version] .sc-pass, [data-version] .sc-sign { min-height: 44px; }
+[data-version] .ex-slot.mid { cursor: zoom-in; }

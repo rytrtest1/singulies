@@ -30,6 +30,8 @@ async function schema(db) {
   await db.prepare('CREATE INDEX IF NOT EXISTS commandes_cree ON commandes (cree)').run();
   // (17/10) la version du site d'où vient la commande (1, 2, 3 ; vide = site principal) : la table existe peut-être déjà
   try { await db.prepare("ALTER TABLE commandes ADD COLUMN version TEXT DEFAULT ''").run(); } catch { /* la colonne existe déjà */ }
+  // (18/10) « de la part de » : celui qui offre signe (V3)
+  try { await db.prepare("ALTER TABLE commandes ADD COLUMN de_la_part TEXT DEFAULT ''").run(); } catch { /* la colonne existe déjà */ }
   schemaOk = true;
 }
 
@@ -53,7 +55,7 @@ export async function postCommande(env, req) {
     prenom, genre: str(b.genre, 30), question_id: str(b.questionId, 20), question: str(b.question, 400),
     reponse: str(b.reponse, 4000), adresse, email: str(b.email, 200), contact: str(b.contact, 200), mode,
     cadeau: b.cadeau ? 1 : 0, session: str(b.session, 200).replace(/[^A-Za-z0-9_]/g, ''), lien: str(b.lien, 6000),
-    essai: b.essai ? 1 : 0, version: /^[123]$/.test(String(b.version ?? '')) ? String(b.version) : '',
+    essai: b.essai ? 1 : 0, version: /^[123]$/.test(String(b.version ?? '')) ? String(b.version) : '', de_la_part: str(b.dela, 80),
   };
   const db = env.DB; await schema(db);
   const t = now();
@@ -70,9 +72,9 @@ export async function postCommande(env, req) {
   } else {
     const statut = mode === 'paye' ? 'payee' : 'recue';
     await db.prepare(`INSERT INTO commandes (ref, cree, maj, prenom, genre, question_id, question, reponse, adresse, email, contact,
-      mode, cadeau, session, lien, statut, essai, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      mode, cadeau, session, lien, statut, essai, version, de_la_part) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(ref, t, t, row.prenom, row.genre, row.question_id, row.question, row.reponse, row.adresse, row.email, row.contact,
-        row.mode, row.cadeau, row.session, row.lien, statut, row.essai, row.version).run();
+        row.mode, row.cadeau, row.session, row.lien, statut, row.essai, row.version, row.de_la_part).run();
   }
   return json({ ok: true, ref });
 }

@@ -15,7 +15,8 @@
 // proche du centre à la fin du geste = la page) ; on change de page à tout moment, même pendant une transition (elle se
 // termine d'un coup). Le jeu n'est plus une page (il se découvre en répondant à la question du poème ; à la fin,
 // « pose une de mes questions à quelqu'un »).
-import { vk } from '../core/version.js';
+import { vk, EST_VERSION } from '../core/version.js';
+import '../core/a11y.css';
 import { paintThread, flowNow } from '../alt/stitch.js';
 import { count } from '../app/count.js';
 
@@ -59,6 +60,16 @@ const CSS = `
 .nv-l.far { opacity: 0; pointer-events: none !important; }
 .nv.wide.many .nv-l.far.d2 { opacity: .2; pointer-events: auto !important; }
 .nv.solo .nv-l:not(.cur) { opacity: 0; pointer-events: none !important; }
+/* (18/10, V3) téléphone : les noms voisins étaient coupés par le bord (« MOIS », « MES L… »). On ne montre que le nom courant, et
+   trois points dessous — un par page, 44 px chacun, le nom pour les lecteurs d'écran ; le fil continue d'un bord à l'autre */
+.nv.narrow .nv-l:not(.cur) { opacity: 0 !important; pointer-events: none !important; }
+.nv-dots { display: none; position: absolute; left: 50%; top: calc(100% - 6px); transform: translateX(-50%); }
+.nv.narrow .nv-dots { display: flex; }
+.nv.on .nv-dots { pointer-events: auto; }
+.nv-dots button { width: 44px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
+.nv-dots button i { display: block; width: 5px; height: 5px; border-radius: 50%; background: #ece8e0; opacity: .5; transition: opacity .4s, transform .4s; }
+.nv-dots button.on i { opacity: .95; transform: scale(1.25); }
+.nv.solo .nv-dots { display: none; }
 .nv.on .nv-l { pointer-events: auto; }
 .nv-l:not(.cur):hover, .nv-l:not(.cur):focus-visible { opacity: .75 !important; outline: none; }
 /* en bas : SINGULIES, sur son fil, d'un bord à l'autre (le toucher : me contacter) */
@@ -251,6 +262,38 @@ export function installNav(opts) {
       let k = 0; const w = setInterval(() => { const o = ovTop(); if (o && o.dataset.x === x && !o.inert) { clearInterval(w); slideEl(o, dir * W, 0, 520); } else if (++k > 40) clearInterval(w); }, 25);
     }, 430);
   }
+  // (18/10, V3 ; décision 8) chaque page de la section a son adresse (#a-propos, #questions, #contact, #singulies, #le-jeu) : le lien
+  // marche, le bouton retour du navigateur la referme (et la flèche ← aussi, par le même chemin), sans rien perdre derrière
+  if (EST_VERSION) {
+    const HASH = { auteur: 'a-propos', questions: 'questions', contact: 'contact', singulies: 'singulies', jeu: 'le-jeu' };
+    const FROM = Object.fromEntries(Object.entries(HASH).map(([k, v]) => [v, k]));
+    let open = null, quiet = 0, closing = 0;          // la page de la section qu'on a inscrite dans l'historique ; quiet : un retour provoqué par nous ; closing : elle se referme
+    const state = x => ({ ...(history.state || {}), sgPage: ring(cur).id, sgSec: x });
+    setInterval(() => {
+      const top = ovTop(), now = top && top.dataset.x && HASH[top.dataset.x] ? top.dataset.x : null;
+      if (now === open) return;
+      if (closing && now && !open && performance.now() < closing) return;   // elle est en train de se refermer : on ne la ré-inscrit pas
+      try {
+        if (now && !open) history.pushState(state(now), '', '#' + HASH[now]);
+        else if (now && open) history.replaceState(state(now), '', '#' + HASH[now]);
+        else if (!now && open) {                      // refermée par la flèche, la croix : on sort aussi de l'historique
+          if (history.state && history.state.sgSec) { quiet++; history.back(); }
+          else history.replaceState(history.state, '', location.pathname + location.search);
+        }
+      } catch { /* */ }
+      open = now;
+    }, 250);
+    addEventListener('popstate', e => {
+      if (quiet) { quiet--; return; }
+      const x = e.state && e.state.sgSec;
+      if (x) { if (!ovTop()) { open = x; openSection(x); } return; }
+      if (ovTop() && open) { open = null; closing = performance.now() + 3000; closeAll(); }
+    });
+    // venu par le lien d'une page de la section : elle s'ouvre (et aussi si l'on change l'adresse sans recharger la page)
+    const first = FROM[location.hash.replace('#', '')];
+    if (first) setTimeout(() => { if (!ovTop()) { openSection(first); } }, 900);
+    addEventListener('hashchange', () => { const x = FROM[location.hash.replace('#', '')]; if (x && !ovTop()) openSection(x); });
+  }
   // le sous-bandeau : le nom courant au centre, les autres de part et d'autre, reliés par le fil
   const sub = document.createElement('div'); sub.className = 'nv-sub'; sub.setAttribute('aria-label', 'La section');
   // trois exemplaires de la liste côte à côte : il y a toujours un voisin de chaque côté, la boucle est sans fin (le noyau reste
@@ -376,8 +419,20 @@ export function installNav(opts) {
     if (opts.redo?.()) opts.onCurrent?.();
   });
   let items = [];
+  // (18/10, V3) les points (téléphone) : une page par point
+  const dots = document.createElement('div'); dots.className = 'nv-dots'; dots.setAttribute('role', 'group'); dots.setAttribute('aria-label', 'Pages');
+  if (EST_VERSION) {
+    for (const p of PAGES) {
+      const b = document.createElement('button'); b.type = 'button'; b.dataset.id = p.id; b.setAttribute('aria-label', p.label); b.innerHTML = '<i></i>';
+      b.addEventListener('click', e => { e.preventDefault(); stopReveal(); if (p.id !== ring(cur).id) goTo(p.id); });
+      dots.appendChild(b);
+    }
+    root.appendChild(dots);
+  }
+  const syncDots = () => dots.querySelectorAll('button').forEach(b => { const on = b.dataset.id === ring(cur).id; b.classList.toggle('on', on); if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   function build() {
     track.replaceChildren();
+    syncDots();
     items = SPAN.map(d => {
       const p = ring(cur + d), a = document.createElement('a');
       a.className = 'nv-l' + (d === 0 ? ' cur' : Math.abs(d) > 1 ? ' far d' + Math.abs(d) : ''); a.textContent = p.label; a.href = url(p);
@@ -453,6 +508,7 @@ export function installNav(opts) {
   const settling = () => Object.values(springs).some(sp => Math.abs(sp.v) > 0.02);
   function layout() {
     root.classList.toggle('wide', !mobile());
+    root.classList.toggle('narrow', EST_VERSION && innerWidth < 520);
     root.style.setProperty('--nv-fs', innerWidth < 520 ? '10.5px' : '11.5px');
     // (17/10) la hiérarchie : ETERNEL (l'auteur) > SINGULIES (la maison) > les pages (le bandeau)
     hd.style.setProperty('--nv-fe', innerWidth < 520 ? '18px' : '22px'); foot.style.setProperty('--nv-ft', innerWidth < 520 ? '13px' : '14px');

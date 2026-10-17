@@ -36,6 +36,7 @@ function versionPlugin() {
       return html
         .replace(/<link rel="canonical"[^>]*>\s*/g, '')
         .replace(/<meta property="og:url"[^>]*>\s*/g, '')
+        .replace(/<html\b/i, '<html data-version="' + VERSION + '"')   // (la page de confidentialité montre les phrases des versions)
         .replace(/<meta charset="utf-8">/i, m => m + '\n<meta name="robots" content="noindex,nofollow">');
     },
     closeBundle() {

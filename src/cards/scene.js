@@ -11,6 +11,7 @@
 // vers la couleur du fond, jamais vers le noir.
 // Lumière : manière 1 (orbite + hauteur) + la carte en focus s'incline vers la souris / le téléphone.
 import { LUM } from '../app/lum.js';
+import { EST_VERSION } from '../core/version.js';
 import { createCardRenderer, M4, CARD } from './cardRenderer.js';
 import { loadTypeFont, makeInkMap, makeAnswerInk, makeStripInk, STRIP, TYPE, CTYPE } from './ink.js';
 import { releaseCanvas } from '../app/compat.js';
@@ -339,7 +340,10 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const answer = act();
     if (!answer || !writing) return;
     lastKeyT = lastT;
-    const clean = s.toLowerCase().replace(/[’‘`´]/g, "'").replace(/[\r\n\t]/g, ' ').replace(/ {2,}/g, ' ');
+    // (18/10, V3) dans les versions, la réponse peut tenir sur plusieurs lignes (maj + Entrée) : les retours à la ligne sont gardés
+    const clean = EST_VERSION
+      ? s.toLowerCase().replace(/[’‘`´]/g, "'").replace(/\r\n?/g, '\n').replace(/\t/g, ' ').replace(/ {2,}/g, ' ').replace(/ ?\n ?/g, '\n').replace(/\n{3,}/g, '\n\n')
+      : s.toLowerCase().replace(/[’‘`´]/g, "'").replace(/[\r\n\t]/g, ' ').replace(/ {2,}/g, ' ');
     const prev = answer.text || '';
     if (clean === prev) return;
     if (mode === 'q' && question) answers[question.id] = clean;

@@ -5,7 +5,7 @@ import { displayCase, MAX_LEN, normalizeName } from '../text/normalize.js';
 
 const HANDLED = new Set(['insertText', 'insertFromPaste', 'insertFromDrop', 'deleteContentBackward', 'deleteContentForward', 'deleteByCut', 'historyUndo', 'historyRedo']);
 
-export function createBridge(input, model, { caseMode, onChange, onSubmit, onEscape, announce }) {
+export function createBridge(input, model, { caseMode, onChange, onSubmit, onEscape, announce, onRaw }) {
   let composing = false;
   let preview = null; // texte canonique affiché pendant une composition
 
@@ -22,6 +22,7 @@ export function createBridge(input, model, { caseMode, onChange, onSubmit, onEsc
 
   function changed(res, source) {
     if (res && res.truncated) announce(`${MAX_LEN} lettres au maximum`);
+    if (res && res.raw != null && onRaw) onRaw(res);   // (C5) la page dit ce qui a été retiré ou coupé
     writeBack();
     onChange({ source });
   }

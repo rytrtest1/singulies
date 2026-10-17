@@ -12,6 +12,8 @@ import { createCardScene } from '../cards/scene.js';
 import QUESTIONS from '../cards/questions.json';
 import { dpr3d } from '../app/perf.js';
 import { count } from '../app/count.js';
+import { EST_VERSION } from '../core/version.js';
+import { ouvrirAttente } from '../core/attente-ui.js';
 
 export const JEU_LINK = null;                // page d'achat du jeu (null = « bientôt »)
 const FIRST_BACK = { label: 'SINGULIES, le jeu', lines: ['SINGULIES', 'le jeu'], center: true };   // le dos du paquet, comme sur la page SINGULIES
@@ -44,7 +46,10 @@ export async function mountGame(opts = {}) {
   const backEl = el('button', 'jg-back', ''); backEl.type = 'button'; backEl.setAttribute('aria-label', 'Retour');
   if (opts.standalone) backEl.remove();   // (jeu.html : le retour du haut va à la page d'avant, il ne ferme rien)
   const shareEl = el('button', 'jg-sign', 'PARTAGER'); shareEl.type = 'button'; shareEl.setAttribute('aria-label', 'Partager cette question, pour la poser à quelqu’un');
-  const buyEl = el('button', 'jg-sign', 'COMMANDER'); buyEl.type = 'button'; buyEl.setAttribute('aria-label', 'Commander le jeu SINGULIES');
+  // (18/10, correctif C7) dans les versions : COMMANDER ne faisait rien (le jeu n'est pas encore en vente) → « ME PREVENIR »
+  const ATTENTE = EST_VERSION && !JEU_LINK;
+  const buyEl = el('button', 'jg-sign', ATTENTE ? 'ME PREVENIR' : 'COMMANDER'); buyEl.type = 'button';
+  buyEl.setAttribute('aria-label', ATTENTE ? 'Me prévenir quand le jeu SINGULIES sort' : 'Commander le jeu SINGULIES');
   const sr = el('div', 'jg-sr'); sr.setAttribute('aria-live', 'polite');
   const say = t => { sr.textContent = ''; setTimeout(() => { sr.textContent = t; }, 60); };
   const ev = (id, action) => window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id, action } }));
@@ -146,7 +151,10 @@ export async function mountGame(opts = {}) {
   }
   const flash = (b, txt) => { const t = b.textContent; b.textContent = txt; setTimeout(() => { b.textContent = t; }, 1800); };
   shareEl.addEventListener('click', share);
-  buyEl.addEventListener('click', () => { count('jeu/commander'); if (JEU_LINK) { location.href = JEU_LINK; return; } flash(buyEl, 'BIENTOT'); });
+  buyEl.addEventListener('click', () => {
+    if (ATTENTE) { count('jeu/me-prevenir'); ouvrirAttente({ liste: 'jeu' }); return; }
+    count('jeu/commander'); if (JEU_LINK) { location.href = JEU_LINK; return; } flash(buyEl, 'BIENTOT');
+  });
 
   // ---- relais : prendre le paquet de la page SINGULIES là où il est, et le lui rendre ----
   const deckNow = () => opts.deck?.() || null;

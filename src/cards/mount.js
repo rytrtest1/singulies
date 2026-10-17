@@ -1,7 +1,10 @@
 // Scène 2 montée dans une page : canvas WebGL2 propre, champ natif de la réponse, signes (donner, PASSER,
 // retour) et gestes (toucher, glisser, relire, inclinaison). Utilisée par l'accueil (après la transition) et par
 // la page d'essai scene-cartes.html. Rien n'est dessiné avant start().
-import { vk } from '../core/version.js';
+import { vk, EST_VERSION } from '../core/version.js';
+import { lierAdresse } from '../core/suggestions.js';
+import { validerCodePostal } from '../core/adresse.js';
+import { creerNote } from '../core/note.js';
 import { createCardScene } from './scene.js';
 import { createSheetScene, FIELDS, MAIL_W, NOADDR } from '../sheet/sheet.js';
 import { fieldsReady } from '../sheet/envelope.js';
@@ -39,6 +42,8 @@ const CSS = `
   font: 500 16px/1.2 'SG Garamond', serif; color: #fff; }
 .sc-who.on { opacity: .62; }
 .sg-away .sc-who { display: none; }
+/* (18/10, V3) la ligne sur l'enveloppe tient sur deux lignes au besoin */
+[data-version] .sc-who { white-space: normal; width: min(78vw, 17em); line-height: 1.3; }
 /* feuille : boutons accessibles (clavier, lecteur d'écran) posés sur la carte et la commande ; le toucher passe au canvas */
 .sc-hit { position: fixed; margin: 0; padding: 0; border: 0; background: transparent; color: transparent; font-size: 1px;
   pointer-events: none; z-index: 13; outline: none; }
@@ -151,9 +156,16 @@ export async function mountCards(opts) {
     // toucher une ligne, ou les flèches du clavier de l'iPhone : ce champ devient le champ en cours
     fieldEls[d.id].addEventListener('focus', () => { if (sheet) sheet.selectField(d.id, now()); });
   }
+  // (18/10, décision 6) saisie assistée de l'adresse, dans les versions : on tape la rue, la Base Adresse Nationale propose
+  // l'adresse complète, un choix remplit la rue, la ville et le code postal (la saisie libre reste possible)
+  if (EST_VERSION) lierAdresse(fieldEls.rue, {
+    ancre: () => fieldEls.rue.getBoundingClientRect(),
+    onChoix: s => { fieldEls.rue.value = s.rue; fieldEls.ville.value = s.ville; fieldEls.cp.value = s.cp; syncFields(); fieldEls.cplt.focus({ preventScroll: true }); },
+  });
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');
   const giveEl = el('div', 'sc-sign', '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
   let passTop = null;
+  if (EST_VERSION) { giveEl.setAttribute('role', 'button'); giveEl.setAttribute('aria-label', 'Envoyer ma réponse'); giveEl.tabIndex = 0; giveEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); giveEl.click(); } }); }
   const passEl = el('div', 'sc-pass', 'PASSER<span class="sc-sub"></span>'); passEl.setAttribute('role', 'button');
   const tireEl = el('div', 'sc-tire', ''); tireEl.setAttribute('aria-hidden', 'true');
   // le texte entre parenthèses sous PASSER : il se fond (au noir) et laisse la place au suivant
@@ -164,10 +176,28 @@ export async function mountCards(opts) {
   // l'enveloppe : POSTER (même signe que PASSER), dès que l'adresse a deux lignes, même clavier ouvert
   const postEl = el('div', 'sc-pass', 'POSTER'); postEl.setAttribute('role', 'button'); postEl.tabIndex = 0;
   const whoEl = el('div', 'sc-who', '');
-  whoEl.textContent = 'à qui je l’envoie ?';
+  whoEl.textContent = EST_VERSION ? 'à qui je l’envoie ? pour offrir, mets son adresse' : 'à qui je l’envoie ?';
   // pointerdown sans effet par défaut : le champ garde le focus, le clavier ne se ferme pas sous le doigt avant le clic
   postEl.addEventListener('pointerdown', e => { e.preventDefault(); });
-  postEl.addEventListener('click', () => { if (sheet && sheet.post(now())) { answer.blur(); log('postée'); } });
+  // (18/10, correctif C5) dans les versions, le code postal est vérifié au clic sur POSTER : cinq chiffres, en France
+  // (avant : « ABC » partait tel quel)
+  const noteEnv = EST_VERSION ? creerNote() : null;
+  postEl.addEventListener('click', () => {
+    if (noteEnv && sheet) {
+      const es = sheet.state().env;
+      if (es && es.canPost && !es.posted) {
+        const v = validerCodePostal((es.fields || {}).cp);
+        if (!v.ok) {
+          const r = postEl.getBoundingClientRect();
+          noteEnv.dire(v.message, { haut: r.top - 46 });
+          sheet.selectField('cp', now()); fieldEls.cp.focus({ preventScroll: true });
+          log('code postal refusé'); return;
+        }
+        noteEnv.taire();
+      }
+    }
+    if (sheet && sheet.post(now())) { answer.blur(); log('postée'); }
+  });
   postEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); postEl.click(); } });
   const backEl = el('div', 'sc-sign sc-back', '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M14.5 6 L8.5 12 L14.5 18" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
   backEl.setAttribute('role', 'button'); backEl.setAttribute('aria-label', 'Retour');
@@ -316,7 +346,10 @@ export async function mountCards(opts) {
       }
       shown = v;
     };
-    const go = el('div', 'sc-pass', paid ? 'TERMINER' : 'COMMANDER'); go.setAttribute('role', 'button'); go.tabIndex = 0;
+    // (18/10, correctif C3) dans les versions, un seul nom pour le bouton final — TERMINER, à l'écran comme pour les lecteurs
+    // d'écran (rien n'est acheté ici : COMMANDER trompait) — et rien ne dit « partie » avant l'envoi réel
+    const FIN = EST_VERSION || paid ? 'TERMINER' : 'COMMANDER';
+    const go = el('div', 'sc-pass', FIN); go.setAttribute('role', 'button'); go.tabIndex = 0;
     requestAnimationFrame(() => box.classList.add('on'));
     // ordinateur : le curseur y vient dès que l'enveloppe a disparu (placeMail) ; téléphone : toucher la ligne
     const ok = () => mailOk(inp.value);
@@ -343,7 +376,7 @@ export async function mountCards(opts) {
     go.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); finish(); } });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); finish(); } });
     mail = { box, inp, go, inner, draw, ready: false, drop: () => { box.remove(); go.remove(); } };
-    say('l’enveloppe est partie. ton email, puis COMMANDER.');
+    say(EST_VERSION ? 'l’enveloppe est scellée. il reste ton email : écris-le, puis ' + FIN + '.' : 'l’enveloppe est partie. ton email, puis COMMANDER.');
     api.ask = { input: inp, send: finish };
   }
   // ---- mode test (?test=1, et l'essai sans adresse ?adresse=0) : avant TERMINER, deux questions pour les testeurs ;
@@ -506,9 +539,17 @@ export async function mountCards(opts) {
         const ar = sheet.addrRect(), es = sheet.state().env;
         // chaque champ natif sur sa ligne de l'enveloppe ; la carte « en direct » : le champ de texte
         const fr = sheet.fieldRects();
+        // (18/10, V3) cibles de 44 px : chaque ligne de l'adresse se touche sur au moins 44 px de haut (ou toute la distance
+        // qui la sépare de sa voisine si elle est plus courte : jamais deux champs qui se recouvrent)
+        let pitch = 44;
+        if (EST_VERSION && fr) {
+          const tops = FIELDS.map(f => fr[f.id] && fr[f.id].top).filter(v => v != null).sort((a, b) => a - b);
+          for (let i = 1; i < tops.length; i++) { const dd = tops[i] - tops[i - 1]; if (dd > 4 && dd < pitch) pitch = dd; }
+        }
         for (const d of FIELDS) {
           const e = fieldEls[d.id], q = fr && fr[d.id];
-          if (q) Object.assign(e.style, { left: q.left + 'px', top: q.top + 'px', width: (q.right - q.left) + 'px', height: (q.bottom - q.top) + 'px' });
+          if (q) { const h0 = q.bottom - q.top, h = EST_VERSION ? Math.max(h0, pitch) : h0;
+            Object.assign(e.style, { left: q.left + 'px', top: (q.top - (h - h0) / 2) + 'px', width: (q.right - q.left) + 'px', height: h + 'px' }); }
           else { e.style.width = '1px'; e.style.height = '1px'; }
         }
         if (!isField(answer)) {
@@ -529,7 +570,7 @@ export async function mountCards(opts) {
         // « à qui je l'envoie ? » au-dessus de la première ligne de l'adresse, tant qu'on l'écrit
         const qw = fr && fr.prenom;
         // (17/10, Maxence : « enlève « à qui je l'envoie » : on comprend bien qu'il faut écrire son adresse ») plus d'indication ici
-        whoEl.classList.toggle('on', false);
+        whoEl.classList.toggle('on', !!(EST_VERSION && es && es.write && !es.posted));   // (V3 : la ligne revient, plus claire)
         if (qw) Object.assign(whoEl.style, { left: qw.left + 'px', top: (qw.top - 6) + 'px' });
         if (mail) placeMail();
         const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
@@ -542,7 +583,9 @@ export async function mountCards(opts) {
       scene.frame(t, dt, W, H);
       // signes : donner (sous la carte écrite, clavier fermé) ; passer (avec la carte blanche offerte)
       const st = scene.state(), r = scene.activeRect();
-      giveEl.classList.remove('on');      // la petite flèche est retirée (06/10) : Entrée, glisser vers le haut
+      // la petite flèche est retirée (06/10) : Entrée, glisser vers le haut. (18/10, V3) elle revient « en plus d'Entrée » : un signe
+      // visible pour envoyer la réponse quand elle est écrite
+      giveEl.classList.toggle('on', !!(EST_VERSION && !sheet && !st.ended && st.active && st.active.text && !st.shuffling && st.mode !== 'free'));   // (sur la carte blanche : CONTINUER suffit)
       if (r) { giveEl.style.left = ((r.left + r.right) / 2 - 22) + 'px'; giveEl.style.top = (r.bottom + 10) + 'px'; }
       // PASSER : sur la carte blanche seulement, après 3 s sans frappe, sous la carte ; retour : en haut à gauche
       // (carte blanche → paquet ; paquet → accueil quand la page le permet)
@@ -567,6 +610,13 @@ export async function mountCards(opts) {
       // (16/10, Maxence : « PASSER pouvait faire penser à passer la carte en cours ») sous la question : on dit où il mène
       { const free = !!st.paidMode && st.mode === 'q', sub = passEl.querySelector('.sc-sub');
         if (free !== passEl._free) { passEl._free = free; if (free) { setSub('(si tu veux t’exprimer librement)'); passEl.setAttribute('aria-label', 'Passer : écrire librement'); } else namePass(); } }
+      // (18/10, correctif C6) un thème est écrit sur la carte blanche : PASSER devient CONTINUER (il mène à la suite AVEC ce
+      // thème ; avant, PASSER l'effaçait et la demande partait en « improvisation »)
+      { const ecrit = EST_VERSION && st.mode === 'free' && !!(st.active && st.active.text);
+        if (ecrit !== !!passEl._ecrit) {
+          passEl._ecrit = ecrit; passEl.firstChild.nodeValue = ecrit ? 'CONTINUER' : 'PASSER';
+          if (ecrit) { setSub(''); passEl.setAttribute('aria-label', 'Continuer avec ton thème'); } else namePass();
+        } }
       const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
       if (st.kb && r) passEl.style.top = Math.max(r.bottom + 2, (r.bottom + kbTop) / 2 - 22) + 'px';
       // (10/10) centré entre la question (et sa bande de réponse) et la carte blanche
@@ -602,6 +652,12 @@ export async function mountCards(opts) {
     // Entrée qui a échappé à keydown (clavier Android, composition iPhone) : un retour à la ligne arrive dans le
     // texte — on le retire et c'est la suite, comme Entrée
     const NL = /[\r\n]+/g;
+    // (18/10, V3) maj + Entrée : un retour à la ligne voulu, la réponse continue sur la ligne suivante (la carte les garde)
+    if (EST_VERSION) {
+      if (performance.now() - shiftNL < 400) keepNL = true;            // le retour à la ligne vient d'être voulu
+      if (keepNL && /\n/.test(answer.value)) { scene.setText(answer.value); return; }
+      if (!/\n/.test(answer.value)) keepNL = false;                    // plus aucun : on revient au comportement d'Entrée
+    }
     if (NL.test(answer.value)) {
       setValue(answer.value.replace(NL, ' ').replace(/ +$/, ''));
       scene.setText(answer.value);
@@ -610,8 +666,10 @@ export async function mountCards(opts) {
     }
     scene.setText(answer.value);
   });
+  let shiftNL = -1e9, keepNL = false;
   both('keydown', e => {
     if (e.key !== 'Enter' || e.isComposing) return;
+    if (EST_VERSION && e.shiftKey && !sheet) { shiftNL = performance.now(); return; }   // (V3) maj + Entrée : à la ligne
     // enveloppe : Entrée = le champ suivant ; après le dernier, terminé
     if (sheet && sheet.state().env) {
       e.preventDefault();
@@ -733,15 +791,27 @@ export async function mountCards(opts) {
   // (13/10, Maxence) la flèche retour rembobine toujours jusqu'à l'étape d'avant — depuis l'email : l'enveloppe revient
   // sur l'adresse
   const unMail = () => { if (!mail || mail.sending) return false; mail.inp.blur(); mail.drop(); mail = null; api.ask = null; return true; };
-  backEl.addEventListener('click', () => {
-    if (sheet && mail) { if (mail.sending) return; unMail(); sheet.back(now()); log('retour (email)'); return; }
-    if (sheet) { if (sheet.back(now())) { backEl.classList.remove('on'); log('retour'); } return; }
-    if (scene.state().mode !== 'free') { if (onExit && !paid) { answer.blur(); onExit(); } return; }
+  // (18/10, décision 8) un seul chemin pour revenir d'un cran : la flèche ← de la page, le bouton retour du navigateur
+  // (main.js : l'historique par étape) et la flèche de la scène ; rend true si quelque chose a été rembobiné
+  const stepBack = () => {
+    if (sheet && mail) { if (mail.sending) return false; unMail(); sheet.back(now()); log('retour (email)'); return true; }
+    if (sheet) { if (sheet.back(now())) { backEl.classList.remove('on'); log('retour'); return true; } return false; }
+    if (scene.state().mode !== 'free') { if (onExit && !paid) { answer.blur(); onExit(); return true; } return false; }
     if (scene.back(now())) {
       answer.value = scene.state().active?.text || ''; focusAnswer(); log('retour');
       const q = QUESTIONS.find(x => x.id === scene.state().active?.id)?.q; if (q) labelAnswer(q);
+      return true;
     }
-  });
+    return false;
+  };
+  backEl.addEventListener('click', () => { stepBack(); });
+  // l'étape où l'on est (de plus en plus avancée) : 2 le paquet / la question · 3 la carte blanche · 4 la feuille · 5 l'enveloppe
+  // à écrire · 6 l'enveloppe postée, l'email
+  api.stepBack = stepBack;
+  api.level = () => {
+    if (sheet) { if (mail) return 6; const es = sheet.state().env; return es && !es.back ? (es.posted ? 6 : 5) : 4; }
+    const st = scene.state(); return st.mode === 'free' && !st.ended ? 3 : 2;
+  };
   // la suite : réponse (ou carte blanche) donnée
   function give(how) {
     const st = scene.state();
@@ -767,6 +837,7 @@ export async function mountCards(opts) {
     if (scene.give(now())) { answer.blur(); log('donné'); }
   });
   passEl.addEventListener('click', () => {
+    if (passEl._ecrit) { give('continuer'); return; }      // (C6) un thème écrit n'est jamais effacé
     const st = scene.state();
     // (12/10) après le paiement, le premier PASSER : la carte vierge (le thème libre) ; le second : j'improvise
     if (st.paidMode && st.mode === 'q') { if (scene.chooseBlank(now())) { answer.blur(); log('carte vierge'); } return; }

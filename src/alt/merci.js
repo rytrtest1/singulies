@@ -3,7 +3,7 @@
 // pour.html (10/10) : la personne à qui l'on offre le poème ouvre le lien, tire sa carte et répond (?r=référence). La cérémonie : je tire une carte,
 // la personne répond (ou passe : j'improvise), la feuille, l'enveloppe qui se ferme et part seule (l'adresse est
 // dans Stripe). La demande part par email avec la référence de la commande (send.js, setOrder).
-import { vk } from '../core/version.js';
+import { vk, EST_VERSION } from '../core/version.js';
 import { insetTop, insetBottom, stageZoom } from '../app/stage.js';
 import './offre.css';
 import { norm } from '../basique/basique.js';
@@ -84,7 +84,9 @@ async function run() {
   if (Q.get('simule') === '1') order.simule = true;
   if (Q.get('reserve') === '1') order.reserve = true;   // réservation sans paiement (config.js, RESERVATION)
   saveOrder(order);
-  count(order.reserve ? 'alt/reserve' : 'alt/paye');
+  // (18/10, C2) dans les versions : alt/paye seulement pour un paiement Stripe réellement confirmé (jamais simulé, jamais une
+  // réservation : celle-ci est comptée quand la demande part, send.js)
+  if (!EST_VERSION) count(order.reserve ? 'alt/reserve' : 'alt/paye'); else if (order.session && !order.simule && !order.reserve) count('alt/paye');
   if (order.done) { final(order); return; }   // page rechargée à la fin : pas une seconde demande
   setOrder({ ref: order.ref, session: order.session || '', simule: !!order.simule, gift: !!order.gift, reserve: !!order.reserve });
 

@@ -1,6 +1,8 @@
 // Les écrans de texte de la version alternative (10/10) : ce qui flotte au-dessus des objets (Garamond), sur le noir —
 // partagés par alt.html (payé dans la page), merci.html (retour de Stripe) et pour.html (la personne offerte).
-import { vk } from '../core/version.js';
+import { vk, EST_VERSION } from '../core/version.js';
+import { LIGNE_PAIEMENT } from '../core/paiement.js';
+import { DELAI } from './config.js';
 import './offre.css';
 import { knownEmail } from '../app/storage.js';
 
@@ -46,6 +48,9 @@ export function finalScreen(order, home) {
     ${order.ref ? `<div class="ref">réf. ${esc(order.ref)}</div>` : ''}
     <p class="mc-merci">merci</p>
     <p class="mc-line mc-type"></p>
+    ${EST_VERSION ? `<!-- (18/10, V3) une ligne de plus sur le paiement et le délai ; pour une date précise : CONTACT, la référence déjà remplie -->
+    <div class="mc-more"><p class="mc-note">${esc(LIGNE_PAIEMENT)}. ${esc(DELAI)}.</p>
+    <button class="mc-date" type="button">une date précise ? écris-moi</button></div>` : ''}
     <button class="mc-sign mc-home" type="button" aria-label="Accueil">ACCUEIL</button>
     <div class="mc-jeu">
       <div class="mc-deck" role="button" tabindex="0" aria-label="Tirer une carte du jeu SINGULIES"></div>
@@ -54,9 +59,14 @@ export function finalScreen(order, home) {
     </div>`);   // (17/10 : plus de RETOUR en bas — la flèche du haut, ETERNEL et le bandeau sont là)
   d.classList.add('fin');
   // (17/10, Maxence : « juste prénom, réf, MERCI et récapitulatif envoyé par email, avec le jeu en dessous ») rien d'autre
-  typeInto(d.querySelector('.mc-type'), 'le récapitulatif t’est envoyé par email.', { at: 900, step: 46 }).then(() => setTimeout(() => d.querySelector('.mc-home')?.classList.add('on'), 500));
+  typeInto(d.querySelector('.mc-type'), 'le récapitulatif t’est envoyé par email.', { at: 900, step: 46 }).then(() => { d.querySelector('.mc-more')?.classList.add('on'); setTimeout(() => d.querySelector('.mc-home')?.classList.add('on'), 500); });
   // (17/10, Maxence : « à la fin de la commande, au récap, un bouton ACCUEIL est logique » — en haut à gauche, c'est toujours une flèche)
   d.querySelector('.mc-home').addEventListener('click', () => { location.href = new URL('./', document.baseURI).href; });
+  const dateBtn = d.querySelector('.mc-date');
+  if (dateBtn) {
+    dateBtn.addEventListener('click', () => import('../menu/contact.js').then(m => m.openContact({ base: new URL('./', document.baseURI).href, name: order.name,
+      prefill: 'ma commande ' + (order.ref || '') + ' : je voudrais que le poème arrive pour le ' })));
+  }
   const sign = d.querySelector('.mc-sign');
   if (sign) import('./stitch.js').then(m => m.stitch(sign, { seed: 'RETOUR'.length * 13 })).catch(() => {});
   // le paquet en direct (sans WebGL2 : le signe et le lien suffisent)

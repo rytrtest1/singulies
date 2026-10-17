@@ -3,7 +3,8 @@
 export const PRIX = '39 €';                 // port compris
 // (10/10) la feuille se cadre au-dessus de ce qui viendra sous elle : RECEVOIR, la description, le prix (px, sans la
 // marge du bas de l'iPhone)
-export const SHEET_INSET = 214;
+import { EST_VERSION } from '../core/version.js';
+export const SHEET_INSET = EST_VERSION ? 276 : 214;   // (18/10) dans les versions : le bandeau porte deux lignes de plus (paiement, enveloppe perdue)
 
 // (10/10) RESERVATION SANS PAIEMENT, en attendant le SIRET : RECEVOIR → (aussitôt) la carte, la réponse, la feuille,
 // l'enveloppe : on y écrit l'adresse, POSTER → l'email → c'est noté. Rien n'est débité, aucun appel à Stripe ; la demande

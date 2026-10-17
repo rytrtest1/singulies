@@ -110,6 +110,8 @@ function build(host, opts, inline) {
   const mailOk = () => EMAIL_RE.test((email || input?.value || '').trim());
   function check() { go.classList.toggle('on', ta.value.trim().length > 0 && mailOk()); }
   ta.addEventListener('input', check);
+  // (18/10) un message déjà commencé (la référence d'une commande, pour une date précise)
+  if (opts.prefill) { ta.value = opts.prefill; check(); }
   // Entrée : à la ligne dans le message ; Ctrl / Cmd + Entrée : envoyer
   ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); } });
 
