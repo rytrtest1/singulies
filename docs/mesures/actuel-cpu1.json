@@ -1,0 +1,197 @@
+{
+ "url": "https://singulies.com/?envoi=0",
+ "date": "2026-10-17T20:14:03.311Z",
+ "profil": "Moto G Power 412×915 ×2,625 · CPU ×1 · Fast 4G (1,6 Mb/s, 150 ms) · première visite (contexte neuf, cache vide) · msedge",
+ "passages": 2,
+ "mediane": {
+  "chargement_ms": 12453,
+  "octets_au_load_ko": 2067,
+  "requetes_au_load": 34,
+  "fcp_ms": 2788,
+  "lcp_ms": 23604,
+  "tbt_ms": 9096,
+  "cls": 0.02,
+  "octets_total_ko": 3586,
+  "requetes_total": 50,
+  "memoire_js_mo": 23.1,
+  "offre_apres_saisie_s": 25.3,
+  "ips_intro": 51,
+  "ips_transition": 6.5
+ },
+ "passages_detail": [
+  {
+   "url": "https://singulies.com/?envoi=0",
+   "chargement_ms": 1755,
+   "octets_au_load": 155388,
+   "requetes_au_load": 23,
+   "fcp_ms": 2788,
+   "lcp_ms": null,
+   "tbt_ms": 4949,
+   "longues_taches": 20,
+   "cls": 0,
+   "fluidite_intro_0_12s": {
+    "images": 626,
+    "ips": 51,
+    "p95_ms": 27.7,
+    "pire_ms": 961.1,
+    "plus50ms": 14
+   },
+   "octets_total": 2261666,
+   "requetes_total": 46,
+   "memoire_js_mo": 23.1,
+   "noeuds_dom": 979,
+   "erreurs": [],
+   "gros_fichiers": [
+    {
+     "ko": 989,
+     "type": "Image",
+     "url": "/cards/logo.png"
+    },
+    {
+     "ko": 857,
+     "type": "Image",
+     "url": "/cards/paper.jpg"
+    },
+    {
+     "ko": 57,
+     "type": "Media",
+     "url": "/vrai/machine-7.mp4"
+    },
+    {
+     "ko": 33,
+     "type": "Script",
+     "url": "/assets/main-Bh3Cu62q.js"
+    },
+    {
+     "ko": 25,
+     "type": "Font",
+     "url": "/fonts/EBGaramond-500.woff2"
+    },
+    {
+     "ko": 22,
+     "type": "Image",
+     "url": "/livres/couverture-encre.png"
+    },
+    {
+     "ko": 21,
+     "type": "Script",
+     "url": "/assets/cardRenderer-BhVsbCVG.js"
+    },
+    {
+     "ko": 19,
+     "type": "Font",
+     "url": "/fonts/CourierPrime-latin.woff2"
+    }
+   ],
+   "octets_par_type_ko": {
+    "Document": 2,
+    "Script": 190,
+    "Stylesheet": 15,
+    "Font": 57,
+    "Image": 1886,
+    "Other": 2,
+    "Fetch": 1,
+    "Media": 57
+   },
+   "fluidite_saisie": null,
+   "offre_apres_saisie_s": 13.3,
+   "fluidite_transition": {
+    "images": 89,
+    "ips": 6.5,
+    "p95_ms": 188.9,
+    "pire_ms": 5420.7,
+    "plus50ms": 17
+   }
+  },
+  {
+   "url": "https://singulies.com/?envoi=0",
+   "chargement_ms": 12453,
+   "octets_au_load": 2116381,
+   "requetes_au_load": 34,
+   "fcp_ms": 2056,
+   "lcp_ms": 23604,
+   "tbt_ms": 9096,
+   "longues_taches": 36,
+   "cls": 0.02,
+   "fluidite_intro_0_12s": {
+    "images": 587,
+    "ips": 24.6,
+    "p95_ms": 136.2,
+    "pire_ms": 3215.7,
+    "plus50ms": 105
+   },
+   "octets_total": 3672205,
+   "requetes_total": 50,
+   "memoire_js_mo": 9,
+   "noeuds_dom": 962,
+   "erreurs": [],
+   "gros_fichiers": [
+    {
+     "ko": 989,
+     "type": "Image",
+     "url": "/cards/logo.png"
+    },
+    {
+     "ko": 857,
+     "type": "Image",
+     "url": "/cards/paper.jpg"
+    },
+    {
+     "ko": 359,
+     "type": "Image",
+     "url": "/exemples/isabelle.jpg"
+    },
+    {
+     "ko": 348,
+     "type": "Image",
+     "url": "/exemples/marysol.jpg"
+    },
+    {
+     "ko": 339,
+     "type": "Image",
+     "url": "/exemples/julie.jpg"
+    },
+    {
+     "ko": 332,
+     "type": "Image",
+     "url": "/exemples/anais.jpg"
+    },
+    {
+     "ko": 57,
+     "type": "Media",
+     "url": "/vrai/machine-7.mp4"
+    },
+    {
+     "ko": 33,
+     "type": "Script",
+     "url": "/assets/main-Bh3Cu62q.js"
+    }
+   ],
+   "octets_par_type_ko": {
+    "Document": 2,
+    "Script": 190,
+    "Stylesheet": 15,
+    "Font": 57,
+    "Image": 3263,
+    "Other": 2,
+    "Fetch": 1,
+    "Media": 57
+   },
+   "fluidite_saisie": {
+    "images": 5,
+    "ips": 7.4,
+    "p95_ms": 136.2,
+    "pire_ms": 136.2,
+    "plus50ms": 5
+   },
+   "offre_apres_saisie_s": 25.3,
+   "fluidite_transition": {
+    "images": 96,
+    "ips": 3.8,
+    "p95_ms": 1016.4,
+    "pire_ms": 4287.6,
+    "plus50ms": 94
+   }
+  }
+ ]
+}

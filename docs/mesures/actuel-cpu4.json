@@ -1,0 +1,293 @@
+{
+ "url": "https://singulies.com/?envoi=0",
+ "date": "2026-10-17T20:12:16.575Z",
+ "profil": "Moto G Power 412×915 ×2,625 · CPU ×4 · Fast 4G (1,6 Mb/s, 150 ms) · première visite (contexte neuf, cache vide) · msedge",
+ "passages": 3,
+ "mediane": {
+  "chargement_ms": 1648,
+  "octets_au_load_ko": 152,
+  "requetes_au_load": 23,
+  "fcp_ms": 3652,
+  "lcp_ms": 29360,
+  "tbt_ms": 29741,
+  "cls": 0,
+  "octets_total_ko": 3586,
+  "requetes_total": 50,
+  "memoire_js_mo": 23.2,
+  "offre_apres_saisie_s": 36,
+  "ips_intro": 22.9,
+  "ips_transition": 2.6
+ },
+ "passages_detail": [
+  {
+   "url": "https://singulies.com/?envoi=0",
+   "chargement_ms": 1546,
+   "octets_au_load": 124042,
+   "requetes_au_load": 19,
+   "fcp_ms": 3572,
+   "lcp_ms": null,
+   "tbt_ms": 22465,
+   "longues_taches": 145,
+   "cls": 0,
+   "fluidite_intro_0_12s": {
+    "images": 323,
+    "ips": 22.9,
+    "p95_ms": 111.1,
+    "pire_ms": 1904.9,
+    "plus50ms": 68
+   },
+   "octets_total": 3672053,
+   "requetes_total": 50,
+   "memoire_js_mo": 23.7,
+   "noeuds_dom": 979,
+   "erreurs": [],
+   "gros_fichiers": [
+    {
+     "ko": 989,
+     "type": "Image",
+     "url": "/cards/logo.png"
+    },
+    {
+     "ko": 857,
+     "type": "Image",
+     "url": "/cards/paper.jpg"
+    },
+    {
+     "ko": 359,
+     "type": "Image",
+     "url": "/exemples/isabelle.jpg"
+    },
+    {
+     "ko": 348,
+     "type": "Image",
+     "url": "/exemples/marysol.jpg"
+    },
+    {
+     "ko": 339,
+     "type": "Image",
+     "url": "/exemples/julie.jpg"
+    },
+    {
+     "ko": 332,
+     "type": "Image",
+     "url": "/exemples/anais.jpg"
+    },
+    {
+     "ko": 57,
+     "type": "Media",
+     "url": "/vrai/machine-7.mp4"
+    },
+    {
+     "ko": 33,
+     "type": "Script",
+     "url": "/assets/main-Bh3Cu62q.js"
+    }
+   ],
+   "octets_par_type_ko": {
+    "Document": 2,
+    "Script": 190,
+    "Stylesheet": 15,
+    "Font": 57,
+    "Image": 3263,
+    "Other": 2,
+    "Fetch": 1,
+    "Media": 57
+   },
+   "fluidite_saisie": {
+    "images": 18,
+    "ips": 6.2,
+    "p95_ms": 266.6,
+    "pire_ms": 266.6,
+    "plus50ms": 18
+   },
+   "offre_apres_saisie_s": 36,
+   "fluidite_transition": {
+    "images": 105,
+    "ips": 2.9,
+    "p95_ms": 1327.4,
+    "pire_ms": 5598.4,
+    "plus50ms": 85
+   }
+  },
+  {
+   "url": "https://singulies.com/?envoi=0",
+   "chargement_ms": 17123,
+   "octets_au_load": 2116210,
+   "requetes_au_load": 34,
+   "fcp_ms": 5624,
+   "lcp_ms": 29360,
+   "tbt_ms": 29741,
+   "longues_taches": 230,
+   "cls": 0.02,
+   "fluidite_intro_0_12s": {
+    "images": 396,
+    "ips": 13.6,
+    "p95_ms": 172.1,
+    "pire_ms": 3940,
+    "plus50ms": 141
+   },
+   "octets_total": 3671893,
+   "requetes_total": 50,
+   "memoire_js_mo": 23.2,
+   "noeuds_dom": 979,
+   "erreurs": [],
+   "gros_fichiers": [
+    {
+     "ko": 988,
+     "type": "Image",
+     "url": "/cards/logo.png"
+    },
+    {
+     "ko": 857,
+     "type": "Image",
+     "url": "/cards/paper.jpg"
+    },
+    {
+     "ko": 359,
+     "type": "Image",
+     "url": "/exemples/isabelle.jpg"
+    },
+    {
+     "ko": 348,
+     "type": "Image",
+     "url": "/exemples/marysol.jpg"
+    },
+    {
+     "ko": 339,
+     "type": "Image",
+     "url": "/exemples/julie.jpg"
+    },
+    {
+     "ko": 332,
+     "type": "Image",
+     "url": "/exemples/anais.jpg"
+    },
+    {
+     "ko": 57,
+     "type": "Media",
+     "url": "/vrai/machine-7.mp4"
+    },
+    {
+     "ko": 33,
+     "type": "Script",
+     "url": "/assets/main-Bh3Cu62q.js"
+    }
+   ],
+   "octets_par_type_ko": {
+    "Document": 2,
+    "Script": 190,
+    "Stylesheet": 15,
+    "Font": 57,
+    "Image": 3263,
+    "Other": 2,
+    "Fetch": 1,
+    "Media": 57
+   },
+   "fluidite_saisie": {
+    "images": 20,
+    "ips": 4.9,
+    "p95_ms": 244.3,
+    "pire_ms": 244.3,
+    "plus50ms": 20
+   },
+   "offre_apres_saisie_s": 34.6,
+   "fluidite_transition": {
+    "images": 89,
+    "ips": 2.6,
+    "p95_ms": 1277.3,
+    "pire_ms": 5865.1,
+    "plus50ms": 89
+   }
+  },
+  {
+   "url": "https://singulies.com/?envoi=0",
+   "chargement_ms": 1648,
+   "octets_au_load": 155402,
+   "requetes_au_load": 23,
+   "fcp_ms": 3652,
+   "lcp_ms": null,
+   "tbt_ms": 30473,
+   "longues_taches": 148,
+   "cls": 0,
+   "fluidite_intro_0_12s": {
+    "images": 405,
+    "ips": 27.6,
+    "p95_ms": 63.8,
+    "pire_ms": 1921.6,
+    "plus50ms": 66
+   },
+   "octets_total": 3672009,
+   "requetes_total": 50,
+   "memoire_js_mo": 7.4,
+   "noeuds_dom": 964,
+   "erreurs": [],
+   "gros_fichiers": [
+    {
+     "ko": 988,
+     "type": "Image",
+     "url": "/cards/logo.png"
+    },
+    {
+     "ko": 857,
+     "type": "Image",
+     "url": "/cards/paper.jpg"
+    },
+    {
+     "ko": 359,
+     "type": "Image",
+     "url": "/exemples/isabelle.jpg"
+    },
+    {
+     "ko": 348,
+     "type": "Image",
+     "url": "/exemples/marysol.jpg"
+    },
+    {
+     "ko": 339,
+     "type": "Image",
+     "url": "/exemples/julie.jpg"
+    },
+    {
+     "ko": 332,
+     "type": "Image",
+     "url": "/exemples/anais.jpg"
+    },
+    {
+     "ko": 57,
+     "type": "Media",
+     "url": "/vrai/machine-7.mp4"
+    },
+    {
+     "ko": 33,
+     "type": "Script",
+     "url": "/assets/main-Bh3Cu62q.js"
+    }
+   ],
+   "octets_par_type_ko": {
+    "Document": 2,
+    "Script": 190,
+    "Stylesheet": 15,
+    "Font": 57,
+    "Image": 3263,
+    "Other": 2,
+    "Fetch": 1,
+    "Media": 57
+   },
+   "fluidite_saisie": {
+    "images": 15,
+    "ips": 5.8,
+    "p95_ms": 286,
+    "pire_ms": 286,
+    "plus50ms": 15
+   },
+   "offre_apres_saisie_s": 40,
+   "fluidite_transition": {
+    "images": 102,
+    "ips": 2.6,
+    "p95_ms": 1402.3,
+    "pire_ms": 5945.6,
+    "plus50ms": 76
+   }
+  }
+ ]
+}
