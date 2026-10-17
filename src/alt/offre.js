@@ -647,12 +647,29 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const touchOff = () => { touching = false; armSettle(); };
   root.addEventListener('touchend', touchOff, { passive: true });
   root.addEventListener('touchcancel', touchOff, { passive: true });
+  // (17/10, Maxence : « quand on scrolle au doigt, que la section s'arrête pile ») sous l'histoire, la page se pose sur le haut d'une section
+  // (le même point où la flèche du bas l'amène : secTop) dès que le défilement s'arrête, dans le sens où l'on allait (au-delà de 12 %) ; une
+  // section plus haute que l'écran se lit librement entre ses deux bouts
+  function snapSection(y, L) {
+    const maxY = Math.max(0, root.scrollHeight - root.clientHeight);
+    const pts = [L, ...secs().map(secTop).filter(t => t > L + 4)].map(t => Math.min(t, maxY)).filter((t, i, a) => i === 0 || t > a[i - 1] + 4);
+    let tgt = null;
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i], b = pts[i + 1];
+      if (y < a || y >= b) continue;
+      const f = (y - a) / (b - a);
+      if (b - a > innerHeight * 1.15) { const e = innerHeight * 0.15; tgt = y - a < e ? a : b - y < e ? b : null; }
+      else tgt = sDir > 0 ? (f > 0.12 ? b : a) : sDir < 0 ? (f < 0.88 ? a : b) : (f < 0.5 ? a : b);
+      break;
+    }
+    if (tgt != null && Math.abs(tgt - y) > 1) driveTo(tgt, Math.max(innerHeight * 1.1, 640));
+  }
   function armSettle() {
     clearTimeout(settleT);
     settleT = setTimeout(() => {
       if (touching || drive || busyMode() || !(vit && story)) return;
       const y = root.scrollTop, L = storyLen();
-      if (y >= L - 1) return;
+      if (y >= L - 1) { snapSection(y, L); return; }
       const p = pOf(y), i = Math.floor(p), f = p - i;
       if (f < 0.004 || f > 0.996) return;
       const k = sDir > 0 ? (f > 0.12 ? i + 1 : i) : sDir < 0 ? (f < 0.88 ? i : i + 1) : Math.round(p);
@@ -746,7 +763,10 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const INTRO_AT = over ? 600 : 900, BAR_AT = INTRO_AT + introMs(OBJETS[0].txt);
   setTimeout(() => show(0), INTRO_AT);
   setTimeout(() => { vidArmed = true; if (!busyMode()) vidSet(true); }, INTRO_AT + 60);   // (17/10) les mains dès que « l'exemplaire unique de ton poème » paraît
-  setTimeout(() => root.classList.add('txt-on'), INTRO_AT);                          // (17/10, Maxence) le menu paraît avec le premier texte
+  setTimeout(() => root.classList.add('txt-on'), INTRO_AT);
+  // (17/10, Maxence : « feuille ; « l'exemplaire unique… », les mains, ETERNEL et SINGULIES ; puis « tapé à la machine à écrire » et le reste ») le bandeau des pages
+  // paraît avec la frappe de la seconde ligne (txt2-on), pas avec la première
+  setTimeout(() => root.classList.add('txt2-on'), INTRO_AT + Math.round(MACHINE.loop * 1000) + 60);                          // (17/10, Maxence) le menu paraît avec le premier texte
   // (12/10, Maxence : « l'invitation à descendre n'est pas assez claire ») comme sur la plupart des sites : le signe du bas
   // dit où il mène — le nom de la section suivante (« d'autres prénoms »), sous une flèche vers le bas — et y va
   // directement (la scène s'efface le temps du saut, l'histoire est posée à sa fin). Les étapes de l'objet : les points,

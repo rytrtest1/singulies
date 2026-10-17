@@ -422,6 +422,9 @@
 /* (17/10, Maxence) la machine s'efface au noir en défilant, comme la description */
 .of.past .of-mvw { opacity: 0; }
 /* (17/10) le bandeau du bas : plus de texte lisible à travers RECEVOIR et le prix quand la page défile (les questions passaient dessous) */
+/* (17/10, Maxence : « on doit pouvoir toucher les points » — le haut du bandeau (son dégradé) recouvrait les points : il laisse passer les gestes, seuls ses signes les prennent) */
+.of-bar { pointer-events: none; }
+.of-bar > * { pointer-events: auto; }
 .of-bar { padding-top: 70px; background: linear-gradient(to top, #060606 0, #060606 70%, rgba(6,6,6,.7) 84%, rgba(6,6,6,0)); }
 .of-ex-t { margin-top: 36px; }
 

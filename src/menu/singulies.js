@@ -4,18 +4,17 @@ import { style } from './auteur.js';
 
 // TEXTE PROVISOIRE, à réécrire par Maxence (une ligne = un paragraphe ; minuscules, « je » = Eternel)
 export const SINGULIES = [
-  'singuliés, c’est le nom que je donne à tout ça : les poèmes, le jeu de cartes, le fil noir.',
-  'chacun de nous est singulier. un prénom, une question, quelques mots tapés à la machine peuvent suffire à nous relier, un moment.',
-  'le fil noir, c’est ça : relier les singuliés.',
-  'les questions du jeu sont celles que je pose aux inconnus, dans la rue, avant de leur écrire.',
+  'singuliés, c’est le nom que je donne à tout ça : les poèmes, le jeu de cartes, le fil noir qui relie les singuliés.',
 ];
+// (17/10, Maxence : « décris plus court, place le jeu au-dessous, puis le texte qui parle des questions : tout tient sur une page de téléphone »)
+export const QUESTIONS_TXT = 'les questions du jeu sont celles que je pose aux inconnus, dans la rue, avant de leur écrire.';
 
 const CSS = `
 .sg-go { display: block; margin: 30px auto 0; padding: 12px 8px 12px calc(8px + .45em); border: 0; background: none; cursor: pointer; color: #fff;
   font: 500 14px/1.4 'SG Garamond', Georgia, serif; letter-spacing: .45em; opacity: .62; text-decoration: none; -webkit-tap-highlight-color: transparent; }
 .sg-go:hover, .sg-go:focus-visible { opacity: .85; outline: none; }
 /* (17/10, Maxence : « l'aperçu du jeu, SINGULIES / LE JEU écrit dessus, qu'on peut toucher pour jouer ») le paquet en direct (jeu/deck3d.js) */
-.sg-deck { position: relative; width: min(100%, 340px); height: min(36svh, 250px); margin: 0 auto 26px; cursor: pointer; touch-action: pan-y pinch-zoom; -webkit-tap-highlight-color: transparent; outline: none; }
+.sg-deck { position: relative; width: min(100%, 340px); height: min(27svh, 210px); margin: 4px auto 18px; cursor: pointer; touch-action: pan-y pinch-zoom; -webkit-tap-highlight-color: transparent; outline: none; }
 .sg-deck .mc-deck-c { touch-action: pan-y pinch-zoom; position: absolute; inset: 0; width: 100%; height: 100%; }
 .sg-deck.on ~ .sg-go { display: none; }
 .mn-au .au > * { transition: opacity .6s ease; }
@@ -33,7 +32,7 @@ export function openSingulies(opts = {}) {
   root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'singuliés');
   const jeu = new URL(base + 'jeu.html', document.baseURI).href;
   root.innerHTML = `<button class="au-back" type="button" aria-label="Retour">${BACK}</button>
-    <div class="au"><div class="sg-deck" role="button" tabindex="0" aria-label="SINGULIES, le jeu : tirer une carte"></div>${SINGULIES.map(p => `<p>${esc(p)}</p>`).join('')}
+    <div class="au">${SINGULIES.map(p => `<p>${esc(p)}</p>`).join('')}<div class="sg-deck" role="button" tabindex="0" aria-label="SINGULIES, le jeu : tirer une carte"></div><p>${esc(QUESTIONS_TXT)}</p>
     <a class="sg-go" href="${esc(jeu)}">LE JEU</a></div>`;
   document.body.appendChild(root);
   requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('on')));

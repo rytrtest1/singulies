@@ -75,12 +75,15 @@ export async function mountGame(opts = {}) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     scene.frame(t, dt, W, H);
     // PARTAGER : sous la carte, à une place fixe (la place de repos de la question), en fondu une fois la première question lue
-    const buyTop = H - Math.max(94, H * 0.105) - 6;   // (au-dessus de SINGULIES, en bas : le fil et son noir)
-    if (firstAt != null && t - firstAt > 0) shareReady = true;
+    // (17/10, Maxence : « remonte COMMANDER à un endroit plus logique sur téléphone ») les deux gestes sous la carte, l'un sous l'autre :
+    // PARTAGER, puis COMMANDER ; jamais plus bas que le haut de SINGULIES (le fil, en bas)
+    const lowest = H - Math.max(94, H * 0.105) - 6;
     const mk = scene.marks();
-    if (mk) shareEl.style.top = Math.min(mk.deckBottom + 14, buyTop - 48) + 'px';
+    const shareTop = mk ? Math.min(mk.deckBottom + 14, lowest - 54) : lowest - 54;
+    if (firstAt != null && t - firstAt > 0) shareReady = true;
+    if (mk) shareEl.style.top = shareTop + 'px';
     shareEl.classList.toggle('on', !going && shareReady);
-    buyEl.style.top = buyTop + 'px';
+    buyEl.style.top = Math.min(shareTop + 54, lowest) + 'px';
     const br = reduced ? { x: 0, y: 0 } : { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
     scene.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
     raf = requestAnimationFrame(frame);

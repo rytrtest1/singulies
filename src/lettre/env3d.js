@@ -115,8 +115,10 @@ export async function createEnvelope(gl, base = './') {
   // (plus sombre) à mesure qu'elle s'en éloigne — l'élue, qui vient au centre, fond l'une dans l'autre : aucun saut
   const mixP = (A, B, k) => ({ ...A, lightPos: A.lightPos.map((a, i) => a + (B.lightPos[i] - a) * k), light: A.light + (B.light - A.light) * k, env: (A.env ?? 0.3) + ((B.env ?? 0.3) - (A.env ?? 0.3)) * k });
   const garLamp = (P, g) => {
-    const side = { ...P, lightPos: [P.lightPos[0] + g.p[3], P.lightPos[1] + g.p[4], P.lightPos[2] + g.p[5]], light: P.light * 0.8, env: (P.env ?? 0.3) * 0.45 };
-    return mixP(P, side, ease(clamp01(Math.abs(g.p[3]) / (EW * 1.1))));
+    // (17/10, Maxence : « une lumière qui met en valeur le centre, pas les extrémités ») l'éclairage s'éteint progressivement avec la
+    // distance au centre : les voisines nettement plus sombres, celles des bords presque dans le noir (reliefs encore lisibles)
+    const side = { ...P, lightPos: [P.lightPos[0] + g.p[3], P.lightPos[1] + g.p[4], P.lightPos[2] + g.p[5]], light: P.light * 0.38, env: (P.env ?? 0.3) * 0.22 };
+    return mixP(P, side, ease(clamp01(Math.abs(g.p[3]) / (EW * 2.0))));
   };
   // l'enveloppe (repère : Me) : face, dos sans rabat du bas, rabat (fl : 0 ouvert → 1 fermé), cachet (us : sa pose)
   const SEALED = false, EMB_K = 0.86, FLAP_EMB = 24;              // (le cachet : SEALED = true)
@@ -215,8 +217,12 @@ export async function createEnvelope(gl, base = './') {
   function wrap() { if (vt < K[K.length - 1] - 0.5) return false; wrapT = performance.now() / 1000; wrapMap = null; vt = 0; lastT = null; return true; }
   const WRAP_D = 2.2;
   let tNow = 0, sel = null, want = -1;
+  // (17/10, Maxence : « il manque le côté zoom quand on clique sur l'objet ») la fiche (toucher l'objet) rapproche l'objet : zoom lissé
+  let zk = 1, zT = 1, zLast = 0;
+  const setZoom = z => { zT = z; };
   function frame(W, H, cw, ch, t = 0, tilt = { x: 0, y: 0 }, spin = { x: 0, y: 0 }, p = 0, pT = p) {
     const moving = clock(pT); tNow = t;
+    { const dtz = Math.min(0.1, Math.max(0, t - zLast)); zLast = t; zk += (zT - zk) * Math.min(1, dtz * 5); if (Math.abs(zT - zk) < 0.001) zk = zT; }
     const v = stageView(cw, ch);
     const bx = 0.6 * Math.sin(t * 0.27) + 0.4 * Math.sin(t * 0.61), by = 0.6 * Math.sin(t * 0.21) + 0.4 * Math.sin(t * 0.49);
     const rx = 0.06 * bx - 0.2 * tilt.y + spin.x, ry = 0.14 * by + 0.2 * tilt.x + spin.y, rz = 0.006 * Math.sin(t * 0.27);
@@ -226,7 +232,7 @@ export async function createEnvelope(gl, base = './') {
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     // la prise en main tourne tout l'objet autour du bas de l'objet relevé de la moitié de l'enveloppe
-    const R = M4.mul(M4.mul(T(0, EY, -1 + dz), M4.model(rx, ry, rz)), T(0, -EY, 0));
+    const R = M4.mul(M4.mul(M4.mul(T(0, EY, -1 + dz), S(zk)), M4.model(rx, ry, rz)), T(0, -EY, 0));
     const r0 = Math.min(vt, K[1]), r2 = vt - K[1], r3 = vt - K[2];
     // ---- 0 les lettres des membres qui dérivent, liées par le fil ; 1 la feuille arrive et se retourne ; 2 elle entre
     // dans l'enveloppe ----
@@ -372,5 +378,5 @@ export async function createEnvelope(gl, base = './') {
     return best;
   }
   function choose(i) { if (i >= 0 && vt <= 0.01) want = i; }
-  return { frame, rect, flowPx, wrap, pick, choose, bottom: () => Y_B, keys: LKEYS, state: () => ({ vt }), seek: x => { vt = x; } };   // (essais)
+  return { frame, rect, flowPx, wrap, pick, choose, setZoom, bottom: () => Y_B, keys: LKEYS, state: () => ({ vt }), seek: x => { vt = x; } };   // (essais)
 }

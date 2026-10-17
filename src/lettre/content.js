@@ -14,7 +14,7 @@ import '../app/pay.css';
 // (16/10) more : ce qu'on lit en touchant l'objet (seulement des faits sûrs)
 const STEPS = [
   ['une lettre mensuelle\nexclusive aux membres', 'une lettre par mois, réservée aux membres\n9 € par mois, port compris, résiliable'],
-  ['un poème inédit au recto\nmes pensées de création au verso', 'tapé une fois à la machine, puis imprimé\nau dos, comment il est né'],
+  ['un poème inédit au recto\nmes pensées de création au verso', 'tapé une fois à la machine\npuis imprimé au dos'],
   ['le tout dans une\nenveloppe gaufrée', 'glissé à la main dans une enveloppe noire\nle logo SINGULIES gaufré sur le rabat'],
   ['chaque mois une personne tirée au sort\nreçoit l’original', 'la feuille tapée à la machine, l’unique\npart chez un membre tiré au sort'],
 ].map(([txt, more]) => ({ txt, more }));

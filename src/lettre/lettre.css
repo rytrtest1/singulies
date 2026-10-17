@@ -144,5 +144,6 @@ a.lt-go { display: table; text-decoration: none; }
   .lt-pr { font-size: 14.5px; } .lt-pr b { font-size: 16px; }
 }
 /* (17/10) ordinateur : le livre ouvert prend la hauteur, la description s'efface le temps de la lecture */
-@media all { .lt-cap { transition: opacity .4s ease; } .lt.book-open .lt-cap { opacity: 0; pointer-events: none; } }
+/* (17/10, Maxence : « quand on clique sur le livre le descriptif disparaît : bug ») la fiche (broché…) reste ; le fondu du bas de la page ouverte lui laisse la place */
+@media all { .lt-cap { transition: opacity .4s ease; } }
 @media all { .ltp.book-open .lt-cv { transition: none; -webkit-mask-image: linear-gradient(to bottom, transparent 96px, #000 170px, #000 calc(100% - 210px), transparent calc(100% - 150px)); mask-image: linear-gradient(to bottom, transparent 96px, #000 170px, #000 calc(100% - 210px), transparent calc(100% - 150px)); } }

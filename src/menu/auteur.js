@@ -43,8 +43,7 @@ export function style() {
 export function auteurHtml(base = './') {
   style();
   const ph = PORTRAIT ? `<img class="au-ph" src="${esc(new URL(base + PORTRAIT, document.baseURI).href)}" alt="Eternel" loading="lazy" decoding="async" onerror="this.remove()">` : '';
-  return `<div class="au">${ph}${AUTEUR.map(p => `<p>${esc(p)}</p>`).join('')}
-    <h3 class="au-go">ECRIS-MOI</h3><div class="au-ct"></div></div>`;
+  return `<div class="au">${ph}${AUTEUR.map(p => `<p>${esc(p)}</p>`).join('')}</div>`;   // (17/10, Maxence : « sur A PROPOS pas d'ECRIS-MOI : on garde ça pour CONTACT »)
 }
 
 // ECRIS-MOI : la carte de contact

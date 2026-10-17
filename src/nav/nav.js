@@ -259,35 +259,47 @@ export function installNav(opts) {
   const scv = sub.querySelector('canvas'), str = sub.querySelector('.nv-sub-tr'), sbt = [...str.children];
   const midOf = x => sbt[NS + SECTION.findIndex(a => a[0] === x)];
   let subCur = null, sd = null, sSw = false, subEl = null, subT = 0;
+  // (17/10, Maxence : « le mouvement du fil sur le menu A PROPOS etc. n'est pas le même que sur le menu de base ») le sous-bandeau est mené
+  // comme le bandeau des pages : chaque nom a sa propre translation, les noms en tête du mouvement partent les premiers (le fil s'étire
+  // derrière), la torsion du fil est attachée à la matière, chaque bout a son ressort ; les noms sont suspendus à la même onde lente
+  const sT = sbt.map(() => 0);                      // la translation de chaque nom (px, par rapport à sa place dans la piste)
+  let sT1 = 0, sSlide = null, sGeo = null, lastSub = 0;
+  const geo = () => sGeo || (sGeo = sbt.map(b => ({ l: b.offsetLeft, w: b.offsetWidth })));
+  addEventListener('resize', () => { sGeo = null; }); document.fonts && document.fonts.ready.then(() => { sGeo = null; });
+  const baseOf = i => { const g = geo()[i]; return g.l + (g.w - 0.3 * 10.5) / 2; };    // le centre du nom i dans la piste
   sub.addEventListener('click', e => { if (sSw) return; const b = e.target.closest('button[data-x]'); if (b) openSection(b.dataset.x); });
   // on fait glisser le sous-bandeau comme le bandeau des pages : au lâcher, le nom le plus proche du centre ouvre sa page
   const subIn = sub.querySelector('.nv-sub-in');
-  subIn.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; clearTimeout(subT); sd = { x: e.clientX, X0: new DOMMatrix(getComputedStyle(str).transform).m41, id: e.pointerId, moved: false }; });
+  subIn.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    clearTimeout(subT); if (sSlide) { sT.fill(sT1); sSlide = null; }
+    sd = { x: e.clientX, T0: sT[0], id: e.pointerId, moved: false, dx: 0 };
+  });
   addEventListener('pointermove', e => {
     if (!sd || e.pointerId !== sd.id) return;
     const dx = e.clientX - sd.x;
-    if (!sd.moved) { if (Math.abs(dx) < 6) return; sd.moved = true; str.style.transition = 'none'; try { subIn.setPointerCapture(sd.id); } catch { /* */ } }
-    str.style.transform = `translateX(${(sd.X0 + dx).toFixed(1)}px)`;
+    if (!sd.moved) { if (Math.abs(dx) < 6) return; sd.moved = true; try { subIn.setPointerCapture(sd.id); } catch { /* */ } }
+    sd.dx = dx; wake();
   }, { passive: true });
   const nearest = list => { let best = null, bd = 1e9; const cx = innerWidth / 2; for (const b of list) { const r = b.getBoundingClientRect(), dd = Math.abs((r.left + r.right) / 2 - cx); if (dd < bd) { bd = dd; best = b; } } return best; };
   const subEnd = e => {
     if (!sd || e.pointerId !== sd.id) return;
     const d = sd; sd = null; if (!d.moved) return;
-    sSw = true; setTimeout(() => { sSw = false; }, 80); str.style.transition = '';
+    sSw = true; setTimeout(() => { sSw = false; }, 80);
+    sT.fill(d.T0 + d.dx);                            // (là où le doigt les a laissés ; la suite part de là)
     const best = nearest(sbt);
     if (e.type !== 'pointercancel' && best && best.dataset.x !== subCur) openSection(best.dataset.x); else { subCur = null; subLayout(true); }
+    wake();
   };
   addEventListener('pointerup', subEnd); addEventListener('pointercancel', subEnd);
-  // le nom b au centre (par sa position dans le bandeau, pas par sa position à l'écran : juste en cours de glissement)
-  const subShift = b => `translateX(${(-(b.offsetLeft + (b.offsetWidth - 0.3 * 10.5) / 2)).toFixed(1)}px)`;
-  const subNoAnim = fn => { str.classList.add('nt'); str.style.transition = 'none'; fn(); void str.offsetWidth; str.classList.remove('nt'); str.style.transition = ''; };
+  // recaler sur l'exemplaire central du même nom : tout se déplace d'une période, rien ne bouge à l'écran
   const subRecenter = () => {
-    if (sd || !subEl) return;
+    if (sd || sSlide || !subEl) return;
     const m = midOf(subCur); if (!m || m === subEl) return;
-    subNoAnim(() => { sbt.forEach(b => b.classList.toggle('cur', b === m)); str.style.transform = subShift(m); });
-    subEl = m;
+    str.classList.add('nt'); sbt.forEach(b => b.classList.toggle('cur', b === m));
+    sT1 = -baseOf(sbt.indexOf(m)); sT.fill(sT1);
+    void str.offsetWidth; str.classList.remove('nt'); subEl = m;
   };
-  // (la mise en page se refait à chaque changement de nom ; le fil, à chaque image tant que le sous-bandeau est visible)
   function subLayout(anim) {
     const x = ovTop()?.dataset.x || null;
     if (x === subCur) return;
@@ -297,21 +309,43 @@ export function installNav(opts) {
     const b = first ? midOf(x) : nearest(sbt.filter(e => e.dataset.x === x));
     if (!b) return;
     clearTimeout(subT);
-    if (first) { subNoAnim(() => { sbt.forEach(e => e.classList.toggle('cur', e === b)); str.style.transform = subShift(b); }); sub.classList.add('seen'); }
-    else { sbt.forEach(e => e.classList.toggle('cur', e === b)); str.style.transform = subShift(b); subT = setTimeout(subRecenter, 700); }
+    const T1 = -baseOf(sbt.indexOf(b));
+    if (first) { str.classList.add('nt'); sbt.forEach(e => e.classList.toggle('cur', e === b)); sT1 = T1; sT.fill(T1); sSlide = null; void str.offsetWidth; str.classList.remove('nt'); sub.classList.add('seen'); }
+    else {
+      sbt.forEach(e => e.classList.toggle('cur', e === b));
+      sSlide = { from: sT.slice(), t0: performance.now(), dir: Math.sign(sT[NS] - T1) || 1 }; sT1 = T1; wake();
+      subT = setTimeout(subRecenter, DUR + NS * 3 * LAG + 200);
+    }
     subEl = b;
   }
+  const subLively = () => !!sSlide || !!(sd && sd.moved);
   function subPaint(now) {
     if (!sub.classList.contains('on')) return;
-    const d = dpr(), W = innerWidth, x = scv.getContext('2d'), t = now / 1000;
+    const d = dpr(), W = innerWidth, x = scv.getContext('2d'), t = now / 1000, dtS = lastSub ? Math.min(0.05, (now - lastSub) / 1000) : 0; lastSub = now;
     if (scv.width !== Math.round(W * d)) { scv.width = Math.round(W * d); scv.height = 44 * d; scv.style.width = W + 'px'; scv.style.height = '44px'; }
-    x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, W, 44);
-    const y = 22.5, rs = sbt.map(b => { const r = b.getBoundingClientRect(), ls = parseFloat(getComputedStyle(b).letterSpacing) || 0; return [r.left, r.right - ls]; }).filter(([l, r]) => r > -20 && l < W + 20);
-    const pts = [[-4, null], ...rs.flatMap(([l, r]) => [[l - 7, 'in'], [r + 7, 'out']]), [W + 4, null]];
-    for (let i = 0; i + 1 < pts.length; i += 2) {
-      const a = pts[i][0], b = pts[i + 1][0]; if (b - a < 6) continue;
-      paintThread(x, a, b, y, 61 + i, 1.2, { holes: [i > 0, i + 1 < pts.length - 1], sag: reduced ? 0.5 : 0.3 + 0.9 * breath(i + 2, t), sag2: 0, g0: a - flowNow(), yf: px => waveTop(px, t) });
+    // la translation de chaque nom, ce tour-ci
+    if (sd && sd.moved) sT.fill(sd.T0 + sd.dx);
+    else if (sSlide) {
+      let doneAll = true;
+      sbt.forEach((_, i) => { const u = clamp01((now - sSlide.t0 - (sSlide.dir > 0 ? i : sbt.length - 1 - i) * LAG) / DUR); sT[i] = sSlide.from[i] + (sT1 - sSlide.from[i]) * ez(u); if (u < 1) doneAll = false; });
+      if (doneAll) { sT.fill(sT1); sSlide = null; }
     }
+    const G = geo(), ls = 0.3 * 10.5;
+    const L = i => W / 2 + G[i].l + sT[i], R = i => L(i) + G[i].w - ls;
+    sbt.forEach((b, i) => { const cx = (L(i) + R(i)) / 2; b.style.translate = `${sT[i].toFixed(2)}px ${(L(i) < W + 40 && R(i) > -40 ? waveTop(cx, t) : 0).toFixed(2)}px`; });
+    x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, W, 44);
+    const y = 22.5, P = sbt.map((_, i) => i).filter(i => R(i) > -20 && L(i) < W + 20);
+    if (!P.length) return;
+    const endL = -4, endR = W + 4, f = flowNow();
+    const segs = [{ a: endL, b: L(P[0]) - 7, holes: [false, true], g0: endL - (W / 2 + sT[P[0]]), seed: 11 + P[0] * 7, key: 'sL', L0: W / 2 + G[P[0]].l + sT1 - 7 - endL }];
+    for (let j = 0; j < P.length - 1; j++) { const i = P[j], k = P[j + 1]; segs.push({ a: R(i) + 7, b: L(k) - 7, holes: [true, true], g0: G[i].l + G[i].w - ls + 7, seed: 18 + i * 7, key: 'sm' + i, L0: G[k].l - (G[i].l + G[i].w - ls) - 14 }); }
+    const pl = P[P.length - 1];
+    segs.push({ a: R(pl) + 7, b: endR, holes: [true, false], g0: R(pl) + 7 - (W / 2 + sT[pl]), seed: 18 + pl * 7, key: 'sR', L0: endR - (W / 2 + G[pl].l + G[pl].w - ls + sT1 + 7) });
+    segs.forEach((g, j) => {
+      const len = g.b - g.a; if (len <= 6) return;
+      const sag = (reduced ? 0.45 : breath(j, t) * Math.min(1.6, len / 40)) * slackSpring(g.key, len - g.L0, dtS);
+      paintThread(x, g.a, g.b, y, g.seed, 1.25, { holes: g.holes, sag, sag2: reduced ? 0 : 0.18 * Math.sin(t * 0.57 + j * 2.3), g0: g.g0 - f, yf: px => waveTop(px, t) });
+    });
   }
   setInterval(subLayout, 150);
   // (17/10, Maxence : « en scrollant vers le bas ça bave sur le bandeau ; en slidant le bandeau on voit les pages d'avant en dessous »)
@@ -513,7 +547,7 @@ export function installNav(opts) {
   const paintNow = () => { paint(performance.now()); subPaint(performance.now()); };
   // la boucle : vive quand quelque chose bouge (le fil qui coulisse, qu'on fait glisser), ≈ 25 images/s sinon
   let raf = 0, lastP = 0;
-  const lively = () => !!slide || !!drag || settling();
+  const lively = () => !!slide || !!drag || settling() || subLively();
   const loop = now => {
     raf = 0;
     if (!(shown || footOn || opts.headerOnly) || document.hidden) return;
@@ -558,7 +592,8 @@ export function installNav(opts) {
     const f = atHome() ? !!opts.foot?.() && !hush : pg.foot !== false;
     const sh = atHome() ? !!opts.shade?.() : !!pg.foot;
     if (on !== shown) { shown = on; root.classList.toggle('on', on); if (on) { layout(); shownAt = performance.now(); } }
-    hd.classList.toggle('on', opts.headerOnly ? true : on || (bare && canBack())); hd.classList.toggle('bare', bare);
+    const hdOk = atHome() ? (opts.hdShow ? !!opts.hdShow() && !hush : on) : true;   // (ETERNEL et SINGULIES peuvent paraître avant le bandeau des pages)
+    hd.classList.toggle('on', opts.headerOnly ? true : hdOk || (bare && canBack())); hd.classList.toggle('bare', bare);
     hd.querySelector('.nv-bk').classList.toggle('off', !canBack());
     // (17/10, Maxence : « garde plutôt le nom de la page ») le titre du haut : ETERNEL, ou le nom de la page du menu ouverte
     { const ov = !!ovTop() || switching; sub.classList.toggle('on', ov); secBg.classList.toggle('on', ov); secTop.classList.toggle('on', ov); if (!ov) sub.classList.remove('seen'); root.classList.toggle('under', ov); if (ovTop()) subLayout(); }

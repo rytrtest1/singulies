@@ -64,7 +64,7 @@ export function buildStagePage(host, o) {
   const setStep = (j, from = 'geste') => {
     j = Math.max(0, Math.min(N - 1, j));
     if (j === k) return;
-    k = j; pT = j; detail = false;
+    k = j; pT = j; detail = false; scene?.setZoom?.(1);
     scene?.close?.();                                    // (un livre ouvert se referme quand on change d'objet)
     const s = o.steps[j];
     // (12/10) le titre de l'objet (capitales, Garamond) et sa ligne dessous, au-dessus de la description
@@ -102,7 +102,7 @@ export function buildStagePage(host, o) {
     // (16/10, Maxence) toucher une enveloppe de la guirlande : elle est choisie, l'étape suivante
     if (Math.hypot(dx, dy) < 10 && scene && scene.pick && k === 0) { const i = scene.pick(x, y, innerWidth, innerHeight); if (i >= 0) { scene.choose(i); setStep(1); return; } }
     // (16/10) ailleurs sur l'objet : ce qu'il est vraiment (more), à la place de la description ; encore = la description
-    if (Math.hypot(dx, dy) < 10 && o.steps[k].more) { const r = grab.getBoundingClientRect(); if (x > r.left && x < r.right && y > r.top && y < r.bottom) { detail = !detail; type(nbsp(detail ? o.steps[k].more : o.steps[k].txt)); return; } }
+    if (Math.hypot(dx, dy) < 10 && o.steps[k].more) { const r = grab.getBoundingClientRect(); if (x > r.left && x < r.right && y > r.top && y < r.bottom) { detail = !detail; type(nbsp(detail ? o.steps[k].more : o.steps[k].txt)); scene?.setZoom?.(detail ? (innerWidth < 520 ? 1.27 : 1.5) : 1); return; } }
     // (13/10, Maxence : « cohérence PARTOUT ») depuis le dernier point, le geste vers la suite revient au premier
     // (13/10) l'objet peut enchaîner du dernier au premier sans rembobiner (un poème par mois : scene.wrap)
     if (Math.abs(dx) > 42 && Math.abs(dx) > 1.4 * Math.abs(dy)) { if (dx < 0 && k === N - 1) { wrapTo0(); return; } setStep(k + (dx < 0 ? 1 : -1)); }
