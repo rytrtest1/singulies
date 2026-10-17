@@ -81,6 +81,7 @@ const CSS = `
 .nv-sub-tr button { margin: 0; padding: 14px 0; border: 0; background: none; cursor: pointer; color: #ece8e0; opacity: .32; transition: opacity .5s;
   font: 500 var(--nv-fs, 10.5px)/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; margin-right: -.3em; -webkit-tap-highlight-color: transparent; }
 .nv-sub-tr button.cur { opacity: .78; cursor: default; }
+.nv-sub-tr.nt button { transition: none; }
 .nv-sub-tr button:not(.cur):hover, .nv-sub-tr button:not(.cur):focus-visible { opacity: .75; outline: none; }
 /* (17/10) la flèche retour du haut est la seule : celle de la scène des cartes se retire quand la ligne du haut est là */
 body:has(.nv-hd.on) .sc-back, body:has(.nv-hd.on) #back { display: none !important; }
@@ -114,6 +115,10 @@ body:has(.nv-hd.on) .sc-back, body:has(.nv-hd.on) #back { display: none !importa
 .nv-hd .nv-bk { left: max(4px, env(safe-area-inset-left)); }
 .nv-hd .nv-mn { right: max(4px, env(safe-area-inset-right)); }
 .nv-hd .nv-bk.off { opacity: 0; pointer-events: none; }
+.nv-hd .nv-bk .bk-t { display: none; }
+.nv-hd .nv-bk.txt { width: auto; padding: 0 10px 0 calc(10px + .3em); }
+.nv-hd .nv-bk.txt svg { display: none; }
+.nv-hd .nv-bk.txt .bk-t { display: block; font: 500 var(--nv-fs, 10.5px)/46px 'SG Garamond', Georgia, serif; letter-spacing: .3em; }
 .nv-hd .nv-br { left: 50%; transform: translateX(-50%); padding: 0 8px 0 calc(8px + .5em); font: 500 var(--nv-fe, 18px)/46px 'SG Garamond', Georgia, serif; letter-spacing: .5em; opacity: .86; white-space: nowrap; }
 .nv-hd > button:hover, .nv-hd > button:focus-visible { opacity: .95; outline: none; }
 .nv-hd svg { display: block; overflow: visible; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; }
@@ -122,6 +127,9 @@ body:has(.nv-hd.on) .sc-back, body:has(.nv-hd.on) #back { display: none !importa
 .nv-mn i::before { top: 0; } .nv-mn i::after { top: 6px; }
 .nv-hd.open .nv-mn i::before { top: 3px; transform: rotate(40deg); } .nv-hd.open .nv-mn i::after { top: 3px; transform: rotate(-40deg); }
 .nv-hd.open { opacity: 1; }
+/* la cérémonie : seulement la flèche retour */
+.nv-hd.bare .nv-br, .nv-hd.bare .nv-mn, .nv-hd.bare canvas { opacity: 0 !important; pointer-events: none !important; }
+.nv-hd canvas { transition: opacity .7s ease; }
 .nv-hd.open > * { pointer-events: auto; }
 /* le menu, par-dessus la page : les pages, qui t'écrit, écris-moi ; les pages légales, discrètes */
 .nv-pan { position: fixed; inset: 0; z-index: 47; background: #060606; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
@@ -177,7 +185,7 @@ export function installNav(opts) {
   shadeT.className = 'nv-shade t'; shadeB.className = 'nv-shade b';
   // ---- (17/10) la ligne du haut : la flèche retour, SINGULIES (l'accueil), le menu ----
   const hd = document.createElement('div'); hd.className = 'nv-hd';
-  hd.innerHTML = `<canvas aria-hidden="true"></canvas><button class="nv-bk" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19"/></svg></button>
+  hd.innerHTML = `<canvas aria-hidden="true"></canvas><button class="nv-bk" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19"/></svg><span class="bk-t" aria-hidden="true"></span></button>
     <button class="nv-br" type="button" aria-label="ETERNEL, l’accueil">ETERNEL</button>
     <button class="nv-mn" type="button" aria-label="Menu" aria-expanded="false"><i></i></button>`;
   const hcv = hd.querySelector('canvas'), hbr = hd.querySelector('.nv-br');
@@ -220,43 +228,77 @@ export function installNav(opts) {
     else import('../menu/contact.js').then(m => m.openContact({ base, reduced }));
   };
   // une page déjà ouverte se referme d'abord (sans quoi la suivante ne s'ouvrait pas) ; la même : rien
+  // (17/10, Maxence : « toujours pouvoir slider à droite ou à gauche, à l'infini entre les catégories, dans les deux sens, avec les
+  // transitions ») la page qui part glisse du côté opposé au sens, la suivante arrive du côté du sens ; le sous-bandeau reste en
+  // place pendant l'échange (sinon le bandeau des pages reparaissait un instant dessous)
+  let switching = false, switchT = 0;
+  const slideEl = (el, from, to, ms) => { try { el.animate([{ translate: `${from}px 0` }, { translate: `${to}px 0` }], { duration: ms, easing: 'cubic-bezier(.45,.05,.25,1)', fill: 'both' }); } catch { /* */ } };
   function openSection(x) {
     const cur = ovTop();
     if (cur && cur.dataset.x === x) return;
-    if (closeAll()) setTimeout(() => openOne(x), 430); else openOne(x);
+    const n = SECTION.length, i = SECTION.findIndex(a => a[0] === cur?.dataset.x), j = SECTION.findIndex(a => a[0] === x);
+    const dir = cur && i >= 0 && !reduced ? Math.sign(((j - i + n + Math.floor(n / 2)) % n) - Math.floor(n / 2)) || 1 : 0;
+    const W = Math.min(innerWidth * 0.5, 90);
+    if (!cur) { openOne(x); return; }
+    switching = true; clearTimeout(switchT); switchT = setTimeout(() => { switching = false; }, 2200);
+    if (dir) slideEl(cur, 0, -dir * W, 400);
+    closeAll();
+    setTimeout(() => {
+      openOne(x);
+      if (!dir) return;
+      let k = 0; const w = setInterval(() => { const o = ovTop(); if (o && o.dataset.x === x && !o.inert) { clearInterval(w); slideEl(o, dir * W, 0, 520); } else if (++k > 40) clearInterval(w); }, 25);
+    }, 430);
   }
   // le sous-bandeau : le nom courant au centre, les autres de part et d'autre, reliés par le fil
   const sub = document.createElement('div'); sub.className = 'nv-sub'; sub.setAttribute('aria-label', 'La section');
-  sub.innerHTML = `<canvas aria-hidden="true"></canvas><div class="nv-sub-in"><div class="nv-sub-tr">${SECTION.map(([x, l]) => `<button type="button" data-x="${x}">${l}</button>`).join('')}</div></div>`;
+  // trois exemplaires de la liste côte à côte : il y a toujours un voisin de chaque côté, la boucle est sans fin (le noyau reste
+  // au milieu : après chaque glissé, on se recale sur le même nom de l'exemplaire central, sans que rien ne bouge à l'écran)
+  const NS = SECTION.length;
+  sub.innerHTML = `<canvas aria-hidden="true"></canvas><div class="nv-sub-in"><div class="nv-sub-tr">${[0, 1, 2].map(k => SECTION.map(([x, l]) => `<button type="button" data-x="${x}"${k === 1 ? '' : ' tabindex="-1" aria-hidden="true"'}>${l}</button>`).join('')).join('')}</div></div>`;
   const scv = sub.querySelector('canvas'), str = sub.querySelector('.nv-sub-tr'), sbt = [...str.children];
-  let subCur = null, sd = null, sSw = false;
+  const midOf = x => sbt[NS + SECTION.findIndex(a => a[0] === x)];
+  let subCur = null, sd = null, sSw = false, subEl = null, subT = 0;
   sub.addEventListener('click', e => { if (sSw) return; const b = e.target.closest('button[data-x]'); if (b) openSection(b.dataset.x); });
   // on fait glisser le sous-bandeau comme le bandeau des pages : au lâcher, le nom le plus proche du centre ouvre sa page
   const subIn = sub.querySelector('.nv-sub-in');
-  subIn.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; sd = { x: e.clientX, X0: new DOMMatrix(getComputedStyle(str).transform).m41, id: e.pointerId, moved: false }; });
+  subIn.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; clearTimeout(subT); sd = { x: e.clientX, X0: new DOMMatrix(getComputedStyle(str).transform).m41, id: e.pointerId, moved: false }; });
   addEventListener('pointermove', e => {
     if (!sd || e.pointerId !== sd.id) return;
     const dx = e.clientX - sd.x;
     if (!sd.moved) { if (Math.abs(dx) < 6) return; sd.moved = true; str.style.transition = 'none'; try { subIn.setPointerCapture(sd.id); } catch { /* */ } }
     str.style.transform = `translateX(${(sd.X0 + dx).toFixed(1)}px)`;
   }, { passive: true });
+  const nearest = list => { let best = null, bd = 1e9; const cx = innerWidth / 2; for (const b of list) { const r = b.getBoundingClientRect(), dd = Math.abs((r.left + r.right) / 2 - cx); if (dd < bd) { bd = dd; best = b; } } return best; };
   const subEnd = e => {
     if (!sd || e.pointerId !== sd.id) return;
     const d = sd; sd = null; if (!d.moved) return;
     sSw = true; setTimeout(() => { sSw = false; }, 80); str.style.transition = '';
-    let best = null, bd = 1e9; const cx = innerWidth / 2;
-    for (const b of sbt) { const r = b.getBoundingClientRect(), dd = Math.abs((r.left + r.right) / 2 - cx); if (dd < bd) { bd = dd; best = b; } }
-    if (e.type !== 'pointercancel' && best && best.dataset.x !== subCur) openSection(best.dataset.x); else { subCur = null; subLayout(); }
+    const best = nearest(sbt);
+    if (e.type !== 'pointercancel' && best && best.dataset.x !== subCur) openSection(best.dataset.x); else { subCur = null; subLayout(true); }
   };
   addEventListener('pointerup', subEnd); addEventListener('pointercancel', subEnd);
+  // le nom b au centre (par sa position dans le bandeau, pas par sa position à l'écran : juste en cours de glissement)
+  const subShift = b => `translateX(${(-(b.offsetLeft + (b.offsetWidth - 0.3 * 10.5) / 2)).toFixed(1)}px)`;
+  const subNoAnim = fn => { str.classList.add('nt'); str.style.transition = 'none'; fn(); void str.offsetWidth; str.classList.remove('nt'); str.style.transition = ''; };
+  const subRecenter = () => {
+    if (sd || !subEl) return;
+    const m = midOf(subCur); if (!m || m === subEl) return;
+    subNoAnim(() => { sbt.forEach(b => b.classList.toggle('cur', b === m)); str.style.transform = subShift(m); });
+    subEl = m;
+  };
   // (la mise en page se refait à chaque changement de nom ; le fil, à chaque image tant que le sous-bandeau est visible)
-  function subLayout() {
+  function subLayout(anim) {
     const x = ovTop()?.dataset.x || null;
-    if (x !== subCur) {
-      subCur = x; sbt.forEach(b => b.classList.toggle('cur', b.dataset.x === x));
-      const b = sbt.find(e => e.dataset.x === x);
-      if (b) { str.style.transform = 'none'; const tr = str.getBoundingClientRect(), r = b.getBoundingClientRect(); str.style.transform = `translateX(${(-(r.left - tr.left + (r.width - 0.3 * 10.5) / 2)).toFixed(1)}px)`; }
-    }
+    if (x === subCur) return;
+    subCur = x;
+    if (!x) return;
+    const first = subEl == null || !sub.classList.contains('seen');
+    const b = first ? midOf(x) : nearest(sbt.filter(e => e.dataset.x === x));
+    if (!b) return;
+    clearTimeout(subT);
+    if (first) { subNoAnim(() => { sbt.forEach(e => e.classList.toggle('cur', e === b)); str.style.transform = subShift(b); }); sub.classList.add('seen'); }
+    else { sbt.forEach(e => e.classList.toggle('cur', e === b)); str.style.transform = subShift(b); subT = setTimeout(subRecenter, 700); }
+    subEl = b;
   }
   function subPaint(now) {
     if (!sub.classList.contains('on')) return;
@@ -489,17 +531,28 @@ export function installNav(opts) {
   layout();
 
   // ---- visible quand la page le dit ----
+  const HUSH_IDLE = 6000;
+  let actAt = performance.now();
+  for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) addEventListener(ev, () => { actAt = performance.now(); }, { passive: true, capture: true });
   function tick() {
     if (busy) return;
     const pg = pgOf(ring(cur).id);
-    const on = atHome() ? !!opts.show?.() : true;
+    // (17/10, Maxence : « après RECEVOIR, enlève les bandeaux, on garde juste la flèche retour » ; « dans tous les cas, après x secondes
+    // sans interaction, le menu et les bandeaux réapparaissent ») pendant la cérémonie (commande, enveloppe, paiement) : seulement ←,
+    // jusqu'à ce que plus rien ne bouge depuis HUSH_IDLE ; un geste les range de nouveau
+    const hush = atHome() && !!opts.hush?.() && performance.now() - actAt < HUSH_IDLE;
+    const bare = atHome() && !!opts.hush?.() && hush;
+    const on = atHome() ? !!opts.show?.() && !hush : true;
     const solo = on && atHome() && !drag && !!opts.solo?.();   // (en glissant, les voisins paraissent)
-    const f = atHome() ? !!opts.foot?.() : pg.foot !== false;
+    const f = atHome() ? !!opts.foot?.() && !hush : pg.foot !== false;
     const sh = atHome() ? !!opts.shade?.() : !!pg.foot;
     if (on !== shown) { shown = on; root.classList.toggle('on', on); if (on) { layout(); shownAt = performance.now(); } }
-    hd.classList.toggle('on', opts.headerOnly ? true : on); hd.querySelector('.nv-bk').classList.toggle('off', !canBack());
+    hd.classList.toggle('on', opts.headerOnly ? true : on || (bare && canBack())); hd.classList.toggle('bare', bare);
+    hd.querySelector('.nv-bk').classList.toggle('off', !canBack());
+    // (17/10, Maxence : « ACCUEIL à la place de RETOUR quand on ne peut pas revenir en arrière ») après la commande, ← ramène à l'accueil : on l'écrit
+    { const bk = hd.querySelector('.nv-bk'), bl = (atHome() && opts.backLabel?.()) || ''; if (bk.dataset.l !== bl) { bk.dataset.l = bl; bk.classList.toggle('txt', !!bl); bk.querySelector('.bk-t').textContent = bl; bk.setAttribute('aria-label', bl ? 'Accueil' : 'Retour'); } }
     // (17/10, Maxence : « garde plutôt le nom de la page ») le titre du haut : ETERNEL, ou le nom de la page du menu ouverte
-    sub.classList.toggle('on', !!ovTop()); root.classList.toggle('under', !!ovTop()); if (ovTop()) subLayout();
+    { const ov = !!ovTop() || switching; sub.classList.toggle('on', ov); if (!ov) sub.classList.remove('seen'); root.classList.toggle('under', ov); if (ovTop()) subLayout(); }
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
     root.classList.toggle('solo', solo);
     root.classList.toggle('redo', atHome() && !!opts.redo?.());

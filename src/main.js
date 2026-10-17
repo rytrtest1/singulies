@@ -949,7 +949,7 @@ function frame(ts) {
     // (17/10, Maxence : « trop visible — organique, discret, visible sans voler la vedette ») plus pâle, trame légère ;
     // NET partout, comme les prénoms lointains : la mise au point de la scène est au fond, où il est (le flou ne dépend
     // que de la profondeur, jamais de la place à l'écran) ; le bord de la forme fondu, irrégulier, qui respire
-    const A = LOGO_K * 0.36 * smooth(OPEN_DARK + 1.2, OPEN_DARK + 7, S.t) * (T >= 0 ? 1 - smooth(0, 1.4, T) : 1) * br;
+    const A = LOGO_K * 0.22 * smooth(OPEN_DARK + 1.2, OPEN_DARK + 7, S.t) * (T >= 0 ? 1 - smooth(0, 1.4, T) : 1) * br;
     // (17/10, Maxence) aucun rectangle : curseur seul, le signe entier ; en tapant, un halo doux autour de chaque lettre
     const nameL = text ? place.filter(g => g.ch !== ' ') : [];
     // (17/10, Maxence : « les prénoms qui passent devant ne doivent pas le masquer, comme un prénom devant un autre ? »)
@@ -984,8 +984,11 @@ function frame(ts) {
             const irr = 0.62 * Math.sin(u * 4.3 + vv * 2.9 + 0.9 + tt * 0.03) * Math.sin(vv * 3.7 - u * 1.9 + 2.1 - tt * 0.022)
               + 0.34 * Math.sin(u * 11.7 - vv * 6.1 + tt * 0.05) * Math.sin(vv * 9.3 + u * 4.4 - tt * 0.04)
               + 0.14 * Math.sin(u * 27.0 + vv * 19.0 + tt * 0.07);
-            const d = (u < 0 || u > 1 ? 2 : dAt(u, vv)) + irr, wa = Math.min(1, Math.max(0, (0.15 - d) / 0.55));
-            if (wa <= 0.01) continue;
+            // (17/10, Maxence : « moins lisse, moins parfait ») le bord plus tourmenté, chaque lettre son propre hasard
+            // (un peu plus pâle ou plus sombre, parfois absente, bord qui hésite)
+            const hs = Math.sin(j * 12.9898 + k * 78.233) * 43758.5453, hh = hs - Math.floor(hs);
+            const d = (u < 0 || u > 1 ? 2 : dAt(u, vv)) + irr * 1.9 + (hh - 0.5) * 0.5, wa = Math.min(1, Math.max(0, (0.15 - d) / 0.8)) * (0.55 + 0.45 * hh);
+            if (wa <= 0.01 || hh < 0.07) continue;
             let z = 1;
             for (const g of nameL) { const r = Math.hypot(xc - (g.x + 0.35 * g.fs), ym - (g.y - 0.35 * g.fs)) / g.fs; if (r < 1.3) z = Math.min(z, Math.max(0, (r - 0.45) / 0.85)); }
             for (const o of occ) {
@@ -1234,10 +1237,12 @@ if (ALT) {
     // avaient déjà paru sur le portail
     // (17/10, Maxence : « pourquoi pas de flèche retour ni de bandeau sur l'écran d'après la réservation ? c'est important pour la
     // cohérence et le bon placement ») le haut (ETERNEL, ←, ≡), le bandeau et SINGULIES restent aussi une fois payé / réservé
-    show: () => booted && (onNames() ? idleNames() : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt-on, #offre.bar-on'))) && !document.querySelector('.of.paying, .of.env'),
-    foot: () => booted && (onNames() ? idleNames() : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt-on, #offre.bar-on'))) && !document.querySelector('.of.paying, .of.env'),
+    show: () => booted && (onNames() ? idleNames() : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt-on, #offre.bar-on'))),
+    foot: () => booted && (onNames() ? idleNames() : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt-on, #offre.bar-on'))),
+    hush: () => !!S.paid || !!document.querySelector('.of.paying, .of.env'),
+    backLabel: () => (S.paid ? 'ACCUEIL' : ''),
     // la flèche retour, une fois commandé : l'accueil (la commande est partie ; la cérémonie se reprend en rechargeant, merci.html)
-    canBack: () => !!S.paid,
+    canBack: () => !!S.paid || !!document.querySelector('.of.paying, .of.env'),
     // (17/10) aussi sur la page du poème une fois qu'on a défilé : les autres prénoms et les questions s'effacent sous ETERNEL et le bandeau
     wideShade: () => onNames(),
     shade: () => booted && (idleNames() || !!document.querySelector('#offre.scrolled')) && !document.querySelector('.mc.fin'),

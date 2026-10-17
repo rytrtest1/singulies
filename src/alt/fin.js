@@ -54,17 +54,14 @@ export function finalScreen(order, home) {
     ${order.ref ? `<div class="ref">réf. ${esc(order.ref)}</div>` : ''}
     <p class="mc-merci">merci</p>
     <p class="mc-line mc-type"></p>
-    ${order.reserve || knownEmail() ? `<p class="small">${[order.reserve ? 'rien n’a été débité' : '', knownEmail() ? 'tu as reçu une confirmation par email' : ''].filter(Boolean).join(' · ')}</p>` : ''}
     <div class="mc-jeu">
       <div class="mc-deck" role="button" tabindex="0" aria-label="Tirer une carte du jeu SINGULIES"></div>
       <div class="mc-jeu-row"><button class="mc-share" type="button" aria-label="Poser une question du jeu à quelqu’un"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v10h14V11h-1" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <span class="mc-jeu-t">pose une question à quelqu’un</span></div>
     </div>`);   // (17/10 : plus de RETOUR en bas — la flèche du haut, ETERNEL et le bandeau sont là)
   d.classList.add('fin');
-  // (17/10, Maxence) ce qui va se passer, avec le délai
-  typeInto(d.querySelector('.mc-type'), order.reserve
-    ? 'ta commande est notée.\nje t’écris par email pour le paiement.\nune fois payé, je le poste dans la semaine.'
-    : 'je le poste dans la semaine.\nje te tiens au courant.', { at: 900, step: 42 });
+  // (17/10, Maxence : « juste prénom, réf, MERCI et récapitulatif envoyé par email, avec le jeu en dessous ») rien d'autre
+  typeInto(d.querySelector('.mc-type'), 'le récapitulatif t’est envoyé par email.', { at: 900, step: 46 });
   const sign = d.querySelector('.mc-sign');
   if (sign) import('./stitch.js').then(m => m.stitch(sign, { seed: 'RETOUR'.length * 13 })).catch(() => {});
   // le paquet en direct (sans WebGL2 : le signe et le lien suffisent)

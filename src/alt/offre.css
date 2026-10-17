@@ -401,9 +401,10 @@
    que la description au-dessus d'eux ; le reste pend dessous, derrière RECEVOIR. Fondu au noir tout autour (haut, côtés,
    bas), très discrète ; noir et blanc, sans cadre. */
 .of-mvw { position: absolute; left: 0; right: 0; top: calc(100% + 30px); height: 233px; display: flex; justify-content: center; align-items: flex-start;
-  pointer-events: none; z-index: 4; mix-blend-mode: screen; opacity: 0; transition: opacity 1.4s ease; }
+  pointer-events: none; z-index: 4; mix-blend-mode: lighten; opacity: 0; transition: opacity 1.4s ease; }
 .of-mvw.on { opacity: .85; }
-.of-mv { display: block; width: min(100%, 310px); aspect-ratio: 720 / 534; background: transparent; object-fit: cover;
+.of-mv { filter: contrast(.953);   /* (17/10, Maxence : « un rectangle noir autour » à la première apparition — le noir du film (0) est remonté au noir du site (6) : si le mélange tarde ou n'est pas appliqué (vidéo pas encore en lecture, Safari), rien ne se voit ; « lighten » ne l'éclaircit jamais) */
+  display: block; width: min(100%, 310px); aspect-ratio: 720 / 534; background: transparent; object-fit: cover;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 5%, #000 76%, transparent 100%), linear-gradient(to right, transparent 0, #000 18%, #000 82%, transparent 100%);
   -webkit-mask-composite: source-in;
   mask-image: linear-gradient(to bottom, transparent 0, #000 5%, #000 76%, transparent 100%), linear-gradient(to right, transparent 0, #000 18%, #000 82%, transparent 100%);

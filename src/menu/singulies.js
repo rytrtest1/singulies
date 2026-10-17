@@ -16,7 +16,7 @@ const CSS = `
 .sg-go:hover, .sg-go:focus-visible { opacity: .85; outline: none; }
 /* (17/10, Maxence : « l'aperçu du jeu, SINGULIES / LE JEU écrit dessus, qu'on peut toucher pour jouer ») le paquet en direct (jeu/deck3d.js) */
 .sg-deck { position: relative; width: min(100%, 340px); height: min(36svh, 250px); margin: 0 auto 26px; cursor: pointer; touch-action: pan-y pinch-zoom; -webkit-tap-highlight-color: transparent; outline: none; }
-.sg-deck .mc-deck-c { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sg-deck .mc-deck-c { touch-action: pan-y pinch-zoom; position: absolute; inset: 0; width: 100%; height: 100%; }
 .sg-deck.on ~ .sg-go { display: none; }
 .mn-au .au > * { transition: opacity .6s ease; }
 .mn-au.away .au > :not(.sg-deck) { opacity: 0; pointer-events: none; }

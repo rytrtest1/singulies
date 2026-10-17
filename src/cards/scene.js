@@ -394,7 +394,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     if (mode !== 'free' || ended || busy(blank, t)) return false;
     writing = false;
     mode = 'q'; backT = t;
-    if (question) question.hidden = false;
+    // (17/10, Maxence : « la disparition de la carte blanche, trop sèche ») la question ne reparaît qu'à mi-tour de la carte blanche
+    // (avant : d'un coup, par-dessus elle) ; la carte blanche, elle, se fond en redescendant (fadeB, ci-dessous)
+    if (question) { if (question.hidden && !reduced) question.unhideAt = t + FLIP_T * 0.55; else question.hidden = false; }
     if (!question && pendingDraw < 0) pendingDraw = t + FLIP_T * 0.6;   // (alt, carte blanche prise d'emblée) le paquet tire
     blank.from = poseOf(blank, t); blank.place = 'rest'; blank.anim = 'flip'; blank.t0 = t; blank.dur = FLIP_T;
     if (blank.ink) { card.freeInk(blank.ink); blank.ink = null; } blank.text = '';
@@ -472,6 +474,18 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     return L0.glyphs.map(g => { const a = P(g.x, g.base), b = P(g.x, g.base + L0.em), c = P(g.x + L0.em, g.base); return { ch: g.ch, x: a[0], y: a[1], fs: a[1] - b[1], fsx: c[0] - a[0] }; });
   }
 
+  // (17/10, Maxence : « vraiment soigne les mauvaises transitions de lumière sur le deck de cartes ») une carte qui se retourne ou
+  // glisse passe d'une face éclairée à plat (grise, claire) à une face quasi noire en quelques images : l'éclairement suit
+  // l'angle avec la lampe. On le rend moins brutal : le facteur compare l'angle de la carte en vol à celui du paquet au repos
+  // (sombre → relevé, clair → atténué), filtré dans le temps ; une carte posée (même angle que le paquet) n'est pas touchée
+  const cosL = (M, P) => {
+    const nl = Math.hypot(M[8], M[9], M[10]) || 1, lx = P.lightPos[0] - M[12], ly = P.lightPos[1] - M[13], lz = P.lightPos[2] - M[14], ll = Math.hypot(lx, ly, lz) || 1;
+    const sg = (M[8] * (eye[0] - M[12]) + M[9] * (eye[1] - M[13]) + M[10] * (eye[2] - M[14])) < 0 ? -1 : 1;   // la face qu'on voit
+    return Math.max(0.02, sg * (M[8] * lx + M[9] * ly + M[10] * lz) / (nl * ll)) / (ll * ll) * 1e5;   // (éclairement : cosinus et 1/d²)
+  };
+  const tameF = (k, k0) => { const r = k / Math.max(1e-3, k0); return r < 1 ? Math.min(2.6, Math.pow(1 / Math.max(r, 0.25), 0.85)) : Math.pow(r, -0.9); };
+  const tame = { q: 1, b: 1 };
+
   function frame(t, dt, W, H) {
     lastT = t;
     layout(W, H);
@@ -490,7 +504,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const bIn = (!shuf && answer && !answer.anim && choicesOn()) || mode === 'free' || busy(blank, t);
     if (bIn && blank.appearT == null) blank.appearT = t + 2.2;
     if (!bIn) blank.appearT = null;
-    blank.out += ((bIn ? 0 : 1) - blank.out) * Math.min(1, dt * 1.8);
+    blank.out += ((bIn ? 0 : 1) - blank.out) * Math.min(1, dt * 1.5);
+    if (question && question.hidden && question.unhideAt != null && t >= question.unhideAt) { question.hidden = false; question.unhideAt = null; }
     for (const c of [question, answer, blank]) if (c && c.anim && c.anim !== 'undraw' && t - c.t0 >= c.dur) {   // (le retour au portail : elle reste sur le paquet)
       const first = c === answer && c.anim === 'slide';
       c.anim = null;
@@ -718,7 +733,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       const on = question.curlOn && !ended && mode === 'q' ? 1 : 0;
       question.curlA = (question.curlA || 0) + (on - (question.curlA || 0)) * Math.min(1, dt * 1.5);
       const lift = -0.3 * question.curlA;                          // vers la caméra (carte retournée)
-      card.draw(vp, eye, P, { model: (snap.q = model(Gq, qp)), lod: 'fine', ink: question.ink, inkBack: question.backInk || null, shade: dimQ, fade: fadeQ, ...question.v, curl: [-1, 1, lift] });
+      { const Mq = (snap.q = model(Gq, qp)), k0 = cosL(model(Gq, deckPose(STACK - 1, stack[STACK - 1])), P), f = question.anim ? tameF(cosL(Mq, P), k0) : 1;
+        tame.q += (f - tame.q) * Math.min(1, dt * 16);
+        card.draw(vp, eye, P, { model: Mq, lod: 'fine', ink: question.ink, inkBack: question.backInk || null, shade: dimQ * tame.q, fade: fadeQ, ...question.v, curl: [-1, 1, lift] }); }
     }
     if (answer && fadeQ > 0.01) {
       const cur = mode === 'q' && !busy(answer, t) && (writing || !answer.text) && !ended ? cursorAt(answer.cursorMM, t) : {};
@@ -729,7 +746,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       const fu = blank.anim === 'flip' ? sstep(0.12, 0.85, clamp01((t - blank.t0) / blank.dur)) : 1;
       const label = blank.anim === 'flip' ? (blank.place === 'up' ? fu < 0.5 : fu >= 0.5) : blank.place === 'rest';
       const cur = mode === 'free' && !busy(blank, t) && (writing || !blank.text) && !ended ? cursorAt(blank.cursorMM || { x: 10, y: CARD.h / 2 - TYPE.lead + 1.2 }, t) : {};
-      card.draw(vp, eye, P, { model: (snap.b = model(Gb, bp)), lod: 'fine', ink: label ? blank.labelInk : blank.ink, inkRG: !label && !!blank.inkRG, shade: dimB, fade: fadeB, ...blank.v, ...cur });
+      { const Mb = model(Gb, bp), k0 = cosL(model(Gq, deckPose(STACK - 1, stack[STACK - 1])), P), f = blank.anim ? tameF(cosL(Mb, P), k0) : 1; tame.b += (f - tame.b) * Math.min(1, dt * 16); }
+      card.draw(vp, eye, P, { model: (snap.b = model(Gb, bp)), lod: 'fine', ink: label ? blank.labelInk : blank.ink, inkRG: !label && !!blank.inkRG, shade: dimB * tame.b, fade: fadeB * (1 - sstep(0.1, 0.85, blank.out)), ...blank.v, ...cur });
     }
     // prénom (à plat, en retrait) ; ses lettres s'éclairent quand on les tape ; tout s'allume à la fin
     if (nameText) {
@@ -913,15 +931,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       const u = ease(clamp01((t - shuf.moveT) / 1.3)); deckDY = mid * (1 - u); return null;
     }
     deckDY = mid;
-    // deux mélanges rapides, puis une pause où le paquet sautille (touche-moi), et ainsi de suite
-    const T = t - shuf.t0; if (T < 0) { shuf.cur = null; return null; }
-    const PER = SH_T + 2.4, per = Math.floor(T / PER), ph = T - per * PER;
-    const done = per + Math.min(1, Math.floor(ph / SH_T));
-    while (shuf.k < done) { cutStack(); shuf.k++; }
-    if (ph >= SH_T) { shuf.hop = ph - SH_T; shuf.cur = null; return null; }
-    shuf.hop = -1;
-    shuf.cur = { u: (ph % SH_T) / SH_T, side: done % 2 ? -1 : 1 };
-    return shuf.cur;
+    // (17/10, Maxence : « laisse tomber le mélange pour l'instant : juste au centre, on tape la carte du dessus ») le paquet
+    // attend au milieu, immobile ; le toucher tire (le mélange — SH_T, cutStack — reste prêt, pas appelé)
+    shuf.cur = null; shuf.hop = -1; return null;
   }
   function takeBlank(t) {
     if (ended || mode === 'free') return;
