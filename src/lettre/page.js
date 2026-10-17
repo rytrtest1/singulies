@@ -57,9 +57,11 @@ export function buildStagePage(host, o) {
   const syncOpen = () => {
     const op = !!(scene && scene.isOpen && scene.isOpen()), m = o.steps[k] && o.steps[k].more;
     main.classList.toggle('book-open', op); host.classList.toggle('book-open', op);
+    if (op) host.style.setProperty('--cap-top', Math.round(cap.getBoundingClientRect().top) + 'px');   // (le fondu de la page ouverte finit au-dessus de la fiche)
     if (!m || op === detail) return;
     detail = op; type(nbsp(op ? m : o.steps[k].txt));
   };
+  addEventListener('resize', () => { if (host.classList.contains('book-open')) host.style.setProperty('--cap-top', Math.round(cap.getBoundingClientRect().top) + 'px'); });
   const wrapTo0 = () => { if (scene && scene.wrap && scene.wrap()) { p = 0; } setStep(0); };
   const setStep = (j, from = 'geste') => {
     j = Math.max(0, Math.min(N - 1, j));
