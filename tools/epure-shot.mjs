@@ -1,0 +1,32 @@
+// La version épurée, au format téléphone (17/10) : le premier écran, le prénom tapé, les mains, la commande, la cire.
+// node tools/epure-shot.mjs [port] [pc] → captures/epure/*.png
+import { chromium } from 'playwright';
+import { mkdirSync } from 'fs';
+const PORT = process.argv[2] || 5197, PC = process.argv[3] === 'pc', dir = 'captures/epure';
+mkdirSync(dir, { recursive: true });
+const browser = await chromium.launch({ headless: true, channel: 'msedge' });
+const vp = PC ? { width: 1440, height: 900 } : { width: 390, height: 844 };
+const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: PC ? 1 : 2, hasTouch: !PC, isMobile: !PC });
+const page = await ctx.newPage();
+page.on('pageerror', e => console.log('ERR', String(e)));
+const tag = PC ? 'pc-' : '';
+const shot = n => page.screenshot({ path: `${dir}/${tag}${n}.png` });
+const wait = ms => page.waitForTimeout(ms);
+await page.goto(`http://localhost:${PORT}/epure.html?envoi=0`);
+await wait(2600); await shot('1-arrivee');
+await page.click('#name'); await page.keyboard.type('CLEMENCE', { delay: 120 });
+await wait(500); await shot('2-frappe');
+await page.keyboard.press('Enter');
+await wait(900); await shot('3-mains-pendant');
+await wait(2600); await shot('4-mains-fin');
+console.log('mains', await page.evaluate(() => [document.querySelector('#hands').currentTime, document.querySelector('#hands').paused]));
+await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; document.querySelector('#recois').scrollIntoView(); }); await wait(4500); await shot('5-enveloppe-lignes');
+await page.evaluate(() => scrollTo(0, 0)); await wait(300);
+await page.click('#go'); await wait(2000); await shot('6-pour-qui');
+await page.click('[data-for="offrir"]'); await wait(900); await shot('7-carte-cachee');
+await page.click('#flip'); await wait(1200); await shot('8-carte-retournee');
+await page.click('#silent'); await wait(400); await shot('9-rien-dire');
+await page.evaluate(() => { const f = document.querySelector('#order'); const s = (n, v) => { f.elements[n].value = v; f.elements[n].dispatchEvent(new Event('input', { bubbles: true })); }; s('who', 'Clémence Martin'); s('rue', '12 rue des Lilas'); s('cp', '75011'); s('ville', 'Paris'); s('email', 'essai@example.com'); document.querySelector('.env').scrollIntoView({ block: 'center' }); });
+await wait(500); await shot('10-enveloppe');
+await page.click('#send'); await wait(700); await shot('11-cire-pendant'); await wait(4200); await shot('12-c-est-note');
+await browser.close();

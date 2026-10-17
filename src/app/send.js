@@ -95,7 +95,7 @@ export function params(d) {
     reponse: d.kind === 'reponse' ? d.text || '' : '',
     theme: d.kind === 'theme' ? d.text || '' : '',
     // (10/10) un poème offert : « cadeau » ; la réponse de la personne offerte (pour.html) : « réponse du cadeau »
-    mode: d.order && d.order.reserve ? 'réservation (à payer : lien à envoyer), réf. ' + d.order.ref + (d.beta ? ' (test)' : '')
+    mode: d.order && d.order.reserve ? 'réservation (à payer : lien à envoyer), réf. ' + d.order.ref + (d.order.gift ? ', cadeau' : '') + (d.beta ? ' (test)' : '')
       : d.order ? 'payé' + (d.order.simule ? ' (paiement simulé)' : '') + ', réf. ' + d.order.ref + (d.order.pour ? ', réponse de la personne offerte' : d.order.gift ? ', cadeau' : '') + (d.beta ? ' (test)' : '')
       : (d.mode === 'direct' ? 'en direct' : 'par la poste') + (d.test ? ' (essai, sans adresse)' : d.beta ? ' (test)' : ''),
     adresse_html: (d.address || []).map(l => quiet(esc(l))).join('<br>'),

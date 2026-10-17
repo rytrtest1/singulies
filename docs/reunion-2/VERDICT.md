@@ -1,5 +1,14 @@
 # Verdict de la réunion du 17/10 — le meilleur des deux mondes
 
+> **Correction de Maxence, après la réunion** : personne ne s'est plaint d'un site lourd, lent ou qui bogue. La question
+> était seulement **un juste milieu entre l'aisance d'usage (straightforward) et l'esthétique, le poétique**. Or trois
+> décisions ci-dessous reposaient d'abord sur la performance (les arguments de Lucas) : **supprimer le champ de
+> prénoms** (4–3, la bascule de Lucas et de Jade), **la cire en vidéo plutôt qu'en direct**, **aucune 3D**. Ce qui est
+> appliqué (`epure.html`) : tout ce qui sert l'aisance est gardé (prix et RECEVOIR à l'arrivée, aucun geste caché, pour
+> toi / pour quelqu'un, la carte qu'on retourne, la voix de Sami, l'adresse sur l'enveloppe, une ligne par objet) ; **le
+> champ de prénoms revient, vivant, derrière la feuille**, et les lettres du prénom s'y allument quand on tape (l'option
+> d'Inès, de Karim et de Jade). La cire reste une vidéo rendue par le moteur : à l'écran, c'est la même image.
+
 Sept participants (Inès, DA · Karim, conversion mobile · Jade, 23 ans · Martine, 56 ans · Lucas, performance · Céleste, interaction · Sami, poète de rue), deux tours : propositions (`t1-*.md`) → points à trancher (`catalogue.md`) → votes et objections (`t2-*.md`, `t2-votes.md`). Ce sont des simulations : rien ici ne remplace cinq vraies personnes devant leur téléphone.
 
 ## En une phrase

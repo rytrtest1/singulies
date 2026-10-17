@@ -13,9 +13,10 @@
 <link rel="stylesheet" href="./src/epure/epure.css">
 </head>
 <body>
-<!-- Version épurée (17/10) : une seule page, un seul chemin, tout visible — mais avec les matières du site : le prénom
-     se tape sur la feuille, les lignes sont le fil cousu, les textes se tapent à la machine, l'adresse s'écrit sur
-     l'enveloppe. Sans WebGL : les objets sont les images rendues par le moteur. Script : src/epure/epure.js -->
+<!-- Version épurée (17/10), refaite d'après le verdict de la réunion (docs/reunion-2/VERDICT.md) : une seule page, un
+     seul chemin, deux moments vivants — le prénom qui se pose en colonne sur la feuille, la cire qui scelle à la fin —
+     plus le geste du jeu (une carte qu'on retourne) et les mains d'Eternel, une fois, sans un mot. Sans WebGL : les
+     objets sont des images et des vidéos rendues par le moteur. Script : src/epure/epure.js -->
 <header class="hd">
   <a class="logo sew" href="#top">ETERNEL</a>
   <nav class="nv" aria-label="sections">
@@ -24,50 +25,38 @@
 </header>
 
 <main id="top">
-  <!-- 1. le produit : la feuille, on y écrit son prénom -->
+  <!-- le premier écran : la feuille, on y écrit le prénom ; les mains dessous ; RECEVOIR et le prix -->
   <section class="hero" aria-label="un prénom, un poème">
+    <canvas class="champ" id="champ" aria-hidden="true"></canvas>
     <div class="paper" id="paper">
       <div class="sheet" id="sheet">
         <canvas class="rules" id="rules" aria-hidden="true"></canvas>
         <div class="col" id="col" aria-hidden="true"></div>
         <span class="cur" id="cur" aria-hidden="true"></span>
         <span class="inv" id="inv" aria-hidden="true"></span>
-        <input id="name" aria-label="ton prénom" autocomplete="given-name" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="40" enterkeyhint="done">
+        <input id="name" aria-label="le prénom" autocomplete="given-name" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="40" enterkeyhint="done">
       </div>
     </div>
+    <div class="hands" id="handsBox" aria-hidden="true"><video id="hands" muted playsinline preload="auto" disablepictureinpicture></video></div>
     <p class="say" id="say"></p>
     <a class="sign sew" id="go" href="#commande" role="button">RECEVOIR</a>
     <p class="price"><span class="prix"></span> tout compris · <span class="delai"></span></p>
+    <p class="legal"><a href="#apropos">qui je suis</a> · <a href="./conditions.html">conditions</a> · <a href="#contact">contact</a></p>
   </section>
 
-  <!-- 2. ce qu'on reçoit -->
-  <section class="sec" id="recois">
-    <h2 class="sew">CE QUE TU RECOIS</h2>
-    <div class="objs">
-      <figure class="ob"><div class="ob-i"><img data-src="exemples/isabelle.jpg" alt="un poème tapé à la machine, ISABELLE en colonne"></div><figcaption data-type="ton poème, écrit pour ton prénom\ntapé une seule fois à la machine"></figcaption></figure>
-      <figure class="ob"><div class="ob-i"><div class="qcard" id="qshow"><p></p></div></div><figcaption data-type="une question du jeu SINGULIES\nta réponse sera le thème du poème"></figcaption></figure>
-      <figure class="ob"><div class="ob-i"><img data-src="simple/enveloppe-dos.jpg" alt="l’enveloppe noire, cachetée à la cire argentée"></div><figcaption data-type="le tout dans une enveloppe noire\nscellée à la cire"></figcaption></figure>
-      <figure class="ob"><div class="ob-i"><img data-src="simple/dos.jpg" alt="une carte noire, le logo SINGULIES gaufré"></div><figcaption data-type="une carte mystère et un fil…\npour rester liés"></figcaption></figure>
-    </div>
+  <!-- ce qu'il y a dans l'enveloppe : une ligne tapée par objet -->
+  <section class="sec narrow" id="recois">
+    <h2 class="sew">DANS L’ENVELOPPE</h2>
+    <p class="lines" data-type="ton poème, tapé une fois à la machine,\nsur une feuille noire\n\nla carte de ta question, du jeu SINGULIES\n\nle tout dans une enveloppe noire,\nscellée à la cire"></p>
   </section>
 
-  <!-- 3. comment -->
-  <section class="sec narrow" id="comment">
-    <h2 class="sew">COMMENT</h2>
-    <ol class="how">
-      <li><b>I</b><span>tu écris le prénom, le tien ou celui de quelqu’un à qui l’offrir.</span></li>
-      <li><b>II</b><span>une question du jeu SINGULIES est tirée pour toi. tu y réponds, ou tu me laisses improviser.</span></li>
-      <li><b>III</b><span>j’écris le poème, je le tape une seule fois à la machine, et je le poste dans la semaine.</span></li>
-    </ol>
-  </section>
-
-  <!-- 4. des poèmes envoyés -->
+  <!-- des poèmes envoyés -->
   <section class="sec" id="exemples">
     <h2 class="sew">DES PRENOMS, DES POEMES</h2>
     <div class="strip" id="ex"></div>
   </section>
 
-  <!-- 5. aussi -->
+  <!-- aussi -->
   <section class="sec" id="aussi">
     <h2 class="sew">AUSSI</h2>
     <div class="more">
@@ -87,7 +76,6 @@
     </div>
   </section>
 
-  <!-- 6. qui écrit, questions, contact -->
   <section class="sec narrow" id="apropos">
     <h2 class="sew">QUI T’ECRIT</h2>
     <div class="txt" id="auteur"></div>
@@ -112,22 +100,44 @@
 <footer class="ft">
   <p class="sig sew">SINGULIES</p>
   <p><a href="https://www.instagram.com/e.t.ernel/" target="_blank" rel="noopener">@e.t.ernel</a></p>
-  <p class="soft"><a href="./mentions.html">mentions</a> · <a href="./conditions.html">conditions</a> · <a href="./confidentialite.html">confidentialité</a></p>
+  <p><a href="./mentions.html">mentions</a> · <a href="./conditions.html">conditions</a> · <a href="./confidentialite.html">confidentialité</a></p>
 </footer>
 
-<!-- la commande : une page par-dessus, posée sur les objets -->
+<!-- pendant la frappe sur téléphone : RECEVOIR au-dessus du clavier -->
+<button class="dock" id="dock" type="button" hidden><span>RECEVOIR</span> <small class="prix"></small></button>
+
+<!-- la commande : une page par-dessus -->
 <div class="ov" id="ov" hidden role="dialog" aria-modal="true" aria-label="ta commande">
-  <button class="back" data-close aria-label="retour"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></button>
-  <div class="ov-in" id="vOrder">
+  <button class="back" data-back aria-label="retour"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></button>
+
+  <!-- pour qui -->
+  <div class="ov-in" id="vWho">
+    <p class="who" id="wName"></p>
+    <p class="typed" id="wAsk"></p>
+    <div class="pick">
+      <button class="sign sew" data-for="moi">POUR MOI</button>
+      <button class="sign sew" data-for="offrir">POUR QUELQU’UN</button>
+    </div>
+  </div>
+
+  <!-- la question, la réponse, l'adresse -->
+  <div class="ov-in" id="vOrder" hidden>
     <p class="who" id="oName"></p>
-    <p class="price"><span class="prix"></span> tout compris</p>
+    <p class="price"><span id="oFor"></span><span class="prix"></span> tout compris</p>
 
     <form id="order" novalidate>
-      <h4>une question du jeu SINGULIES</h4>
-      <div class="qcard" id="qcard"><p></p></div>
-      <p class="qa"><button type="button" class="lk" id="qOther">une autre question</button></p>
-      <div class="qcard ans"><textarea name="text" id="ans" rows="3" maxlength="400" aria-label="ta réponse"></textarea><span class="ph" id="ansPh">réponds ici</span></div>
-      <p class="note" id="improv"></p>
+      <h4 id="qHead">une question du jeu SINGULIES</h4>
+      <button type="button" class="flip" id="flip" aria-label="retourner la carte">
+        <span class="face verso"></span>
+        <span class="face front qcard"><p id="qText"></p></span>
+      </button>
+      <p class="qa"><span class="hint" id="touch">touche la carte</span><button type="button" class="lk" id="qOther" hidden>une autre question</button></p>
+
+      <div class="answer" id="answer" hidden>
+        <div class="qcard ans"><textarea name="text" id="ans" rows="3" maxlength="400" aria-label="ta réponse"></textarea><span class="ph" id="ansPh">réponds ici</span></div>
+        <p class="note" id="ansNote"></p>
+        <p class="qa"><button type="button" class="lk" id="silent">je préfère ne rien dire</button></p>
+      </div>
 
       <h4>où je l’envoie</h4>
       <div class="env" aria-hidden="true"><div class="addr" id="addr"></div></div>
@@ -141,12 +151,13 @@
       <label class="ln"><span>ton email</span><input name="email" type="email" autocomplete="email" inputmode="email" required></label>
       <p class="err" hidden></p>
       <button class="sign sew big" id="send">RESERVER</button>
-      <p class="note">rien n’est débité ici : je t’écris par email pour le paiement (<span class="prix"></span>), puis je l’écris et je le poste <span class="delai"></span>.</p>
+      <p class="note">rien n’est débité ici. je t’écris ensuite par email, avec un lien paypal pour régler <span class="prix"></span>. une fois réglé, j’écris ton poème et je le poste <span class="delai"></span>.</p>
     </form>
   </div>
 
+  <!-- c'est noté : la cire -->
   <div class="ov-in" id="vDone" hidden>
-    <div class="seal"><img data-src="simple/enveloppe-dos.jpg" alt="l’enveloppe, cachetée"></div>
+    <div class="seal"><video id="cire" muted playsinline preload="auto" disablepictureinpicture aria-label="la cire scelle l’enveloppe"></video></div>
     <p class="who" id="dName"></p>
     <p class="typed" id="dTxt"></p>
     <p class="note" id="dRef"></p>
@@ -154,7 +165,7 @@
   </div>
 
   <div class="ov-in" id="vMois" hidden>
-    <div class="seal"><img data-src="simple/enveloppe.jpg" alt="une enveloppe noire"></div>
+    <div class="seal still"><img data-src="simple/enveloppe.jpg" alt="une enveloppe noire"></div>
     <p class="who">UN POEME PAR MOIS</p>
     <p class="typed" id="mTxt"></p>
     <form id="club" novalidate>
