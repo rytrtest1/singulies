@@ -124,7 +124,7 @@ body:has(.nv-hd.on) .sc-back, body:has(.nv-hd.on) #back { display: none !importa
 .nv-hd.open { opacity: 1; }
 .nv-hd.open > * { pointer-events: auto; }
 /* le menu, par-dessus la page : les pages, qui t'écrit, écris-moi ; les pages légales, discrètes */
-.nv-pan { position: fixed; inset: 0; z-index: 47; background: rgba(6,6,6,.97); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+.nv-pan { position: fixed; inset: 0; z-index: 47; background: #060606; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   opacity: 0; pointer-events: none; transition: opacity .35s ease; }
 .nv-pan.on { opacity: 1; pointer-events: auto; }
 .nv-pan a, .nv-pan button { display: block; margin: 0; padding: 12px 8px 12px calc(8px + .45em); border: 0; background: none; cursor: pointer; text-decoration: none; color: #ece8e0;
@@ -563,6 +563,9 @@ export function installNav(opts) {
   // (12/10, Maxence : « changer de page même pendant une animation ») une transition en cours se termine d'un coup
   // (fin()) et la suivante part de là ; pendant qu'une page se monte, la demande attend (pending)
   let fin = null, pending = null;
+  // l'onglet porte le nom de la page où l'on est (la page ne se recharge pas : le titre restait celui du poème)
+  const TITLES = { poeme: 'ETERNEL — un prénom, un poème', livres: 'ETERNEL — mes livres', lettre: 'ETERNEL — un poème par mois' };
+  const setTitle = id => { if (TITLES[id]) document.title = TITLES[id]; };
   async function go(d, opt = {}) {
     if (!d) return;
     if (busy) { if (fin) fin(); else { pending = { d, opt }; return; } }
@@ -596,6 +599,7 @@ export function installNav(opts) {
       return;
     }
     cur = mod(cur + d, PAGES.length); wandered = true;
+    setTitle(target.id);
 
     // ---- ce qui arrive ----
     const inLayer = layerOf(pg), inObj = objOf(pg), inRest = restOf(pg);

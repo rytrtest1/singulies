@@ -6,7 +6,7 @@ export const QUESTIONS = [
   ['quand est-ce que je le reçois ?', `${DELAI}, par la poste, en lettre. compte ensuite quelques jours d’acheminement.`],
   ['c’est vraiment toi qui l’écris ?', 'oui. je lis ta réponse, j’écris le poème, puis je le tape une seule fois à la machine à écrire. personne d’autre ne l’écrit, aucun programme non plus.'],
   ['je peux l’offrir ?', 'oui : écris son prénom à la place du tien, réponds à la question en pensant à elle ou à lui, et mets son adresse sur l’enveloppe.'],
-  ['pour une date précise ?', 'écris-moi la date (ETERNEL, tout en bas) : je fais en sorte qu’il arrive à temps. commande au moins dix jours avant.'],
+  ['pour une date précise ?', 'écris-moi la date (menu en haut à droite, CONTACT) : je fais en sorte qu’il arrive à temps. commande au moins dix jours avant.'],
   ['un prénom composé, deux prénoms ?', 'oui : une lettre par vers, et une ligne blanche entre les deux. jusqu’à 22 lettres.'],
   ['hors de france ?', 'pas encore : seulement en france pour l’instant.'],
   ['et le paiement ?', RESERVATION

@@ -832,6 +832,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     }
     if (h === 'blank') return chooseBlank(t) ? { type: 'write' } : { type: null };
     if (h === 'question' && nearCorner(x, y)) return discard(t, 1) ? { type: 'discard' } : { type: null };
+    // le jeu (rien à écrire) : toucher la question elle-même en tire une autre (le paquet dessous ne dépasse presque pas)
+    if (h === 'question' && jeu && !jw) return discard(t, -1) ? { type: 'discard' } : { type: null };
     if (h === 'answer') return startWriting() ? { type: 'write' } : { type: null };
     if (h === 'deck' && question) return discard(t, -1) ? { type: 'discard' } : { type: null };
     return { type: null };
