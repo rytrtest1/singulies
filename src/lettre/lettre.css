@@ -127,3 +127,13 @@ a.lt-go { display: table; text-decoration: none; }
 /* (16/10) la clarté de l'étape sur les enfants : l'élément lui-même s'efface quand on change de page (nav.js) */
 .lt-word canvas { position: absolute; left: 0; top: 0; opacity: calc(.6 * var(--o)); }
 .lt-word span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding-left: .34em; font: 500 26px/30px 'SG Garamond', Georgia, serif; letter-spacing: .34em; color: #ece8e0; opacity: calc(.2 * var(--o)); white-space: nowrap; }   /* (17/10, Maxence : « il vole presque la vedette ») */
+
+/* (17/10, Maxence : « sur chaque page pareil ») sous l'objet, une section à part (qui t'écrit) ; la flèche du bas y mène */
+.lt.lt-st { height: auto; min-height: 100%; }
+.lt-st > .lt-more { position: relative; z-index: 2; margin-top: 100svh; padding: 40px 16px calc(220px + env(safe-area-inset-bottom)); background: #060606; text-align: center; }
+.lt-st.past > .lt-cap { opacity: 0; pointer-events: none; transition: opacity .3s ease; }
+.lt-dn { display: block; width: 44px; height: 22px; margin: -2px auto -6px; padding: 0; border: 0; background: none; color: #fff; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .6s; }
+.lt-dn.on { opacity: .55; pointer-events: auto; }
+.lt-dn.on.none { opacity: 0; pointer-events: none; }
+.lt-dn svg { width: 18px; height: 18px; }
+.lt-st .lt-bar { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }

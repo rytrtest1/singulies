@@ -13,6 +13,7 @@
 import { stitch, paintThread } from '../alt/stitch.js';
 import { captionShift, insetBottom } from '../app/stage.js';
 import { mountStage } from '../livres/book3d.js';
+import { auteurHtml, wireAuteur } from '../menu/auteur.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // les petits mots restent avec le suivant (jamais « à » seul en fin de ligne)
@@ -29,10 +30,15 @@ export function buildStagePage(host, o) {
       ${o.extra || ''}
       <p class="lt-done" role="status" aria-live="polite"></p>
     </div>
-    <div class="lt-bar">${o.sign.href ? `<a class="lt-sign" href="${esc(o.sign.href)}" target="_blank" rel="noopener">${esc(o.sign.label)}</a>` : `<button class="lt-sign" type="button">${esc(o.sign.label)}</button>`}<div class="lt-pr"></div></div>
+    <div class="lt-bar">${o.sign.href ? `<a class="lt-sign" href="${esc(o.sign.href)}" target="_blank" rel="noopener">${esc(o.sign.label)}</a>` : `<button class="lt-sign" type="button">${esc(o.sign.label)}</button>`}<div class="lt-pr"></div>
+      <button class="lt-dn" type="button" aria-label="qui t’écrit"><svg class="arw" viewBox="0 0 18 11" aria-hidden="true"><path d="M1.5 1.5 L9 9 L16.5 1.5"/></svg></button></div>
+    <!-- (17/10, Maxence : « sur chaque page pareil ») sous l'objet, une section à part : qui t'écrit (ETERNEL) -->
+    <section class="lt-more" aria-label="Qui t’écrit">${auteurHtml(o.base || './')}</section>
   </main>`;
   const main = host.querySelector('.lt'), cap = main.querySelector('.lt-cap'), txt = main.querySelector('.lt-cap-t');
   const grab = main.querySelector('.lt-grab'), sign = main.querySelector('.lt-sign'), pr = main.querySelector('.lt-pr');
+  const more = main.querySelector('.lt-more'), dn = main.querySelector('.lt-dn');
+  wireAuteur(more, { base: o.base || './' });
   stitch(sign, { seed: o.sign.label.length * 13 });
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // la boîte du texte a la hauteur de la plus longue description : les points restent à leur place
@@ -86,7 +92,9 @@ export function buildStagePage(host, o) {
   // glisser (doigt, souris tenue), sur l'objet aussi (13/10 : on ne le prend plus en main) : de côté = l'étape voisine ;
   // vers le haut = la suivante
   let sx = null, sy = 0, st0 = 0;
-  const s0 = (x, y, tg) => { if (tg.closest('a, button, input, form')) { sx = null; return; } sx = x; sy = y; st0 = performance.now(); };
+  // (17/10) seulement sur l'objet, en haut de la page : ailleurs (depuis le signe et dessous), la page défile
+  const onObj = (y, tg) => host.scrollTop < 5 && !tg.closest('.lt-more, .lt-bar') && y < cap.getBoundingClientRect().top + 6;
+  const s0 = (x, y, tg) => { if (tg.closest('a, button, input, form, textarea') || !onObj(y, tg)) { sx = null; return; } sx = x; sy = y; st0 = performance.now(); };
   const s1 = (x, y) => {
     if (sx == null) return; const dx = x - sx, dy = y - sy; sx = null;
     if (performance.now() - st0 > 900) return;
@@ -103,21 +111,25 @@ export function buildStagePage(host, o) {
     // (13/10, Maxence : « cohérence PARTOUT ») depuis le dernier point, le geste vers la suite revient au premier
     // (13/10) l'objet peut enchaîner du dernier au premier sans rembobiner (un poème par mois : scene.wrap)
     if (Math.abs(dx) > 42 && Math.abs(dx) > 1.4 * Math.abs(dy)) { if (dx < 0 && k === N - 1) { wrapTo0(); return; } setStep(k + (dx < 0 ? 1 : -1)); }
-    else if (Math.abs(dy) > 42 && Math.abs(dy) > 1.4 * Math.abs(dx)) setStep(k + (dy < 0 ? 1 : -1));
+    else if (Math.abs(dy) > 42 && Math.abs(dy) > 1.4 * Math.abs(dx)) { if (dy < 0 && k === N - 1) { descend(); return; } setStep(k + (dy < 0 ? 1 : -1)); }
   };
   host.addEventListener('touchstart', e => { if (e.touches.length === 1) s0(e.touches[0].clientX, e.touches[0].clientY, e.target); else sx = null; }, { passive: true });
   host.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t) s1(t.clientX, t.clientY); }, { passive: true });
+  // (sur l'objet, la page ne défile pas : le geste est pour lui)
+  host.addEventListener('touchmove', e => { if (sx != null && e.cancelable) e.preventDefault(); }, { passive: false });
   host.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button === 0) s0(e.clientX, e.clientY, e.target); });
   host.addEventListener('pointerup', e => { if (e.pointerType === 'mouse') s1(e.clientX, e.clientY); });
   // la molette : une étape par geste
   let wAt = 0, wAcc = 0;
   host.addEventListener('wheel', e => {
-    if (N < 2 || e.ctrlKey) return;
+    if (N < 2 || e.ctrlKey || !onObj(e.clientY, e.target)) return;
+    if (e.deltaY > 0 && k >= N - 1 && !host._wLock && !scene?.isOpen?.()) return;   // (après la dernière étape : la page défile)
+    e.preventDefault();
     const now = performance.now(); if (now - wAt > 260) wAcc = 0; wAt = now;
     wAcc += e.deltaY;
     if (Math.abs(wAcc) > 60 && !host._wLock && scene?.isOpen?.()) { host._wLock = true; scene.close(); setTimeout(syncOpen, 50); wAcc = 0; setTimeout(() => { host._wLock = false; }, 650); return; }
     if (Math.abs(wAcc) > 60 && !host._wLock) { host._wLock = true; setStep(k + Math.sign(wAcc)); wAcc = 0; setTimeout(() => { host._wLock = false; }, 650); }
-  }, { passive: true });
+  }, { passive: false });
 
   // ---- l'objet en direct ; la légende à sa distance ; la zone qu'on prend en main ----
   const place = () => {
@@ -147,13 +159,41 @@ export function buildStagePage(host, o) {
     paintThread(x, -4, l, y, 83, 1.3, { holes: [false, true], sag: 0.5 + 0.6 * f.sag, g0: -4 + f.x });
     paintThread(x, rr, W + 4, y, 97, 1.3, { holes: [true, false], sag: 0.5 - 0.6 * f.sag, g0: rr + f.x });
   };
+  // ---- (17/10) la page défile : l'objet, sa légende, SINGULIES derrière montent avec elle (une section à part) ;
+  //      la flèche du bas y mène ; quand elle paraît, la page descend un peu, le temps de montrer ETERNEL (une fois) ----
+  const lift = () => {
+    const y = host.scrollTop, cv = host.querySelector('.lt-cv');
+    for (const el of [cv, grab, cap, wordEl]) if (el) el.style.translate = y > 0 ? `0 ${(-y).toFixed(1)}px` : '';
+    main.classList.toggle('past', y > 30);
+    dn.classList.toggle('none', y > innerHeight * 0.25);
+  };
+  host.addEventListener('scroll', lift, { passive: true });
+  let drv = 0;
+  const driveTo = (y, v, done) => {
+    cancelAnimationFrame(drv); let pos = host.scrollTop, last = performance.now();
+    const f = now => { const dt = Math.min(0.05, (now - last) / 1000); last = now; const d = y - pos; pos += Math.sign(d) * Math.min(Math.abs(d), v * dt); host.scrollTop = pos;
+      if (Math.abs(y - pos) < 0.5) { drv = 0; done && done(); return; } drv = requestAnimationFrame(f); };
+    drv = requestAnimationFrame(f);
+  };
+  for (const ev of ['wheel', 'touchstart']) host.addEventListener(ev, () => { cancelAnimationFrame(drv); drv = 0; }, { passive: true });
+  const moreTop = () => more.getBoundingClientRect().top - host.getBoundingClientRect().top + host.scrollTop;
+  const descend = () => driveTo(Math.max(0, moreTop() - 70), Math.max(innerHeight * 1.7, 900));
+  dn.addEventListener('click', descend);
+  setTimeout(() => {
+    dn.classList.add('on');
+    let seen = false; try { seen = !!sessionStorage.getItem('sg.peek.' + (o.id || 'page')); sessionStorage.setItem('sg.peek.' + (o.id || 'page'), '1'); } catch { /* */ }
+    if (seen || reduced || host.scrollTop > 2 || getComputedStyle(host).visibility === 'hidden') return;
+    const bh = main.querySelector('.lt-bar').getBoundingClientRect().height || 200;
+    const y = Math.max(60, Math.min(innerHeight * 0.42, moreTop() + 60 - (innerHeight - bh - 70)));
+    driveTo(y, 520, () => setTimeout(() => { if (!drv && Math.abs(host.scrollTop - y) < 4) driveTo(0, 620); }, 1300));
+  }, o.downAt ?? 5200);
   let scene = null, live = null;
   const step = dt => { const kk = reduced ? 1 : Math.min(1, dt * 3.2); p += (pT - p) * kk; if (Math.abs(pT - p) < 1e-3) p = pT; place(); return Math.abs(pT - p) > 1e-3; };
   live = mountStage(host, grab, o.make, { reduced, step, p: () => p, pt: () => pT }).then(r => { scene = r && r.scene; if (!r) main.classList.add('flat'); place(); return r; });
   addEventListener('resize', place);
   addEventListener('keydown', e => { if (e.key === 'Escape' && scene?.isOpen?.() && getComputedStyle(host).visibility !== 'hidden') { scene.close(); setTimeout(syncOpen, 50); } });
   setStep(0, 'debut');
-  return { main, grab, cap, sign, live, setStep, get step() { return k; },
+  return { main, grab, cap, sign, live, setStep, get step() { return k; }, top: () => host.scrollTop, up: () => driveTo(0, Math.max(innerHeight * 1.7, 900)),
     canvas: () => host.querySelector('.lt-cv'),
     // (le bandeau des pages) ce qui voyage : l'objet (le canvas et sa prise) ; le reste paraît sur place
     obj: () => [host.querySelector('.lt-cv'), grab].filter(Boolean),

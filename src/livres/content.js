@@ -13,7 +13,7 @@ const STEPS = [
 ];
 
 export function buildLivres(host, base = './') {
-  const pg = buildStagePage(host, {
+  const pg = buildStagePage(host, { id: 'livres',
     base, steps: STEPS, fallback: k => (k === 0 ? 'livres/livre.jpg' : ''), aspectLabel: 'Les livres d’Eternel : PENSEES POETIQUES, JOURNAL — couvertures noires, un cadre fin, le titre en capitales.',
     sign: { label: 'LE LIRE', href: STEPS[0].href }, price: k => STEPS[k].price,
     make: gl => import('./book3d.js').then(m => m.createBook(gl, base, BOOKS)),
