@@ -137,3 +137,9 @@ a.lt-go { display: table; text-decoration: none; }
 .lt-dn.on.none { opacity: 0; pointer-events: none; }
 .lt-dn svg { width: 18px; height: 18px; }
 .lt-st .lt-bar { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+/* (17/10, tour des proportions) ordinateur : voir offre.css */
+@media (min-width: 900px) {
+  .lt-cap-t { width: min(calc(100% - 32px), 440px); font-size: 15px; }
+  .lt-sign { font-size: 18px; }
+  .lt-pr { font-size: 14.5px; } .lt-pr b { font-size: 16px; }
+}

@@ -9,7 +9,7 @@ import { SHEET_INSET } from '../alt/config.js';
 export const FOV = 26 * Math.PI / 180, TILT = 0.22, TF = Math.tan(FOV / 2);
 export const SH = { w: 148, h: 210 };                 // la feuille (A4), en unités
 export const MM = Math.SQRT1_2;                       // unités par millimètre réel
-export const NAV_TOP = 78;   // (17/10) la ligne du haut (← SINGULIES menu) et le bandeau des pages
+export const NAV_TOP = 92;   // (17/10) la ligne du haut (← SINGULIES menu) et le bandeau des pages
 export const stageZoom = (W, H) => (W < H ? 0.8 : 0.86);
 
 let sb = null, st = null;

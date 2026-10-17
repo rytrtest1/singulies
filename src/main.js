@@ -43,7 +43,7 @@ const safeBottom = () => { if (safeB == null) { const d = document.createElement
 let safeT = null;
 const safeTop = () => { if (safeT == null) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;top:0;width:1px;height:env(safe-area-inset-top);visibility:hidden'; document.body.appendChild(d); safeT = d.offsetHeight || 0; d.remove(); } return safeT; };
 // (11/10) la réserve du bandeau des pages, en haut (px, sans la marge du haut de l'iPhone)
-const NAV_TOP = 78;   // (17/10) la ligne du haut (← SINGULIES menu) et le bandeau des pages
+const NAV_TOP = 92;   // (17/10) la ligne du haut (← SINGULIES menu) et le bandeau des pages
 const SHEET_ZOOM = (W, H) => (W < H ? 0.8 : 0.86);
 // (11/10, Maxence) alt : le prénom ne monte plus puis ne redescend plus — ses lettres dérivent directement vers la place
 // qu'elles prendront dans la colonne de la feuille, et les lettres des autres prénoms qui les rechargent encore les
@@ -91,7 +91,7 @@ const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
 const OPEN_FADE = 1.4;      // s de fondu d'entrée
 const LEAVE_FADE = 1.2;     // s de fondu au noir après validation (sans WebGL2)
-const HINT = P.get('indice') !== '0';   // (10/10) PRENOM en grisé si rien n'est écrit
+const HINT = P.get('indice') === '1';   // (17/10, Maxence) plus de PRENOM grisé : le curseur seul ; ?indice=1 pour le revoir   // (10/10) PRENOM en grisé si rien n'est écrit
 const HINT_AFTER = 3.0, HINT_ALPHA = 0.2;   // s après l'apparition du champ ; clarté (fraction)
 // (10/10, version alternative) après ETERNEL : UN PRENOM / UN POEME en grisé (la grammaire de tout le site), qui
 // s'efface pour laisser le curseur seul au centre ; ailleurs : PRENOM, le curseur glisse devant

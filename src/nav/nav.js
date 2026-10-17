@@ -35,7 +35,7 @@ const EASE = 'cubic-bezier(.45,.05,.25,1)', DUR = 720;
 const PAD = 1600;                         // le fil dépasse le bandeau de chaque côté (il court d'un bord à l'autre)
 
 const CSS = `
-.nv { position: fixed; z-index: 26; left: 0; right: 0; top: calc(30px + env(safe-area-inset-top)); height: 46px; pointer-events: none;
+.nv { position: fixed; z-index: 26; left: 0; right: 0; top: calc(42px + env(safe-area-inset-top)); height: 46px; pointer-events: none;
   opacity: 0; transition: opacity .7s ease; }
 /* (12/10) le fil et les flèches : un seul dessin, fixe à l'écran, refait à chaque image quand il bouge (nav.js) */
 .nv-tc { position: absolute; left: 0; bottom: 0; height: 44px; pointer-events: none; }
@@ -49,9 +49,9 @@ const CSS = `
 .nv-track { position: absolute; left: 50%; top: 0; height: 44px; display: flex; align-items: center; gap: var(--nv-gap, 34px); white-space: nowrap;
   will-change: transform; }
 .nv-l { position: relative; z-index: 1; display: block; margin: 0; padding: 14px 0; border: 0; background: none; cursor: pointer; text-decoration: none;
-  font: 500 var(--nv-fs, 12px)/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; margin-right: -.3em; color: #ece8e0; opacity: .4;
+  font: 500 var(--nv-fs, 10.5px)/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; margin-right: -.3em; color: #ece8e0; opacity: .32;
   transition: opacity .6s; -webkit-tap-highlight-color: transparent; -webkit-user-drag: none; }
-.nv-l.cur { opacity: .9; cursor: default; }
+.nv-l.cur { opacity: .78; cursor: default; }
 .nv.redo .nv-l.cur { cursor: pointer; }
 .nv-l.far { opacity: 0; pointer-events: none !important; }
 .nv.wide.many .nv-l.far.d2 { opacity: .2; pointer-events: auto !important; }
@@ -64,28 +64,33 @@ const CSS = `
 .nv-foot.on { opacity: 1; }
 .nv-foot canvas { position: absolute; left: 0; top: 0; }
 .nv-foot button { position: absolute; left: 50%; top: 2px; transform: translateX(-50%); margin: 0; padding: 8px 6px; border: 0; background: none; cursor: pointer;
-  font: 500 13px/14px 'SG Garamond', Georgia, serif; letter-spacing: .4em; margin-right: -.4em; color: #ece8e0; opacity: .6; white-space: nowrap;
+  font: 500 var(--nv-ft, 13px)/14px 'SG Garamond', Georgia, serif; letter-spacing: .4em; margin-right: -.4em; color: #ece8e0; opacity: .6; white-space: nowrap;
   -webkit-tap-highlight-color: transparent; transition: opacity .4s; }
 .nv-foot.on button { pointer-events: auto; }
 .nv-foot button:hover, .nv-foot button:focus-visible { opacity: .8; outline: none; }
 /* le noir derrière le bandeau et le bas (les prénoms du champ s'y effacent, ne passent jamais dessous) */
 .nv-shade { position: fixed; z-index: 25; left: 0; right: 0; pointer-events: none; opacity: 0; transition: opacity .7s ease; }
-.nv-shade.t { top: 0; height: calc(134px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 52%, rgba(6,6,6,0)); }
-.nv-shade.b { bottom: 0; height: calc(38px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 0, #060606 55%, rgba(6,6,6,0)); }   /* (12/10) seulement sous SINGULIES : le prix au-dessus reste lisible */
+.nv-shade.t { top: 0; height: calc(150px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 60%, rgba(6,6,6,0)); }
+.nv-shade.b { bottom: 0; height: calc(38px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 0, #060606 55%, rgba(6,6,6,0)); }
+/* (17/10, Maxence : « plutôt prendre exemple sur un prénom qui cache un autre : l'effet est plus marqué et plus étendu ») sur la
+   page des prénoms : opaque derrière ETERNEL et le bandeau, puis un fondu long et doux (≈ lissé : −92 % au bord, jusqu'à rien) */
+.nv-shade.t.wide { height: calc(230px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 42%, rgba(6,6,6,.9) 50%, rgba(6,6,6,.7) 59%, rgba(6,6,6,.45) 69%, rgba(6,6,6,.22) 80%, rgba(6,6,6,.07) 91%, rgba(6,6,6,0)); }
+.nv-shade.b.wide { height: calc(150px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 0, #060606 24%, rgba(6,6,6,.9) 33%, rgba(6,6,6,.68) 44%, rgba(6,6,6,.42) 57%, rgba(6,6,6,.2) 71%, rgba(6,6,6,.06) 86%, rgba(6,6,6,0)); }   /* (12/10) seulement sous SINGULIES : le prix au-dessus reste lisible */
 .nv-shade.on { opacity: 1; }
 /* (17/10, Maxence : « revoir l'allure : SINGULIES tout en haut, qui ramène à l'accueil ; à gauche une flèche retour
    toujours là ; un menu qu'on affiche / masque, en plus du bandeau ») la ligne du haut : ← · SINGULIES · menu */
-.nv-hd { position: fixed; z-index: 46; left: 0; right: 0; top: 0; height: calc(34px + env(safe-area-inset-top)); pointer-events: none;
+.nv-hd { position: fixed; z-index: 46; left: 0; right: 0; top: 0; height: calc(46px + env(safe-area-inset-top)); pointer-events: none;
   opacity: 0; transition: opacity .7s ease; }
 .nv-hd.on { opacity: 1; }
 .nv-hd.on > * { pointer-events: auto; }
-.nv-hd > button { position: absolute; bottom: -4px; height: 42px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; color: #ece8e0;
+.nv-hd canvas { position: absolute; left: 0; top: env(safe-area-inset-top); pointer-events: none !important; }
+.nv-hd > button { position: absolute; bottom: 0; height: 46px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; color: #ece8e0;
   -webkit-tap-highlight-color: transparent; transition: opacity .4s; }
-.nv-hd .nv-bk, .nv-hd .nv-mn { width: 44px; display: flex; align-items: center; justify-content: center; opacity: .55; }
+.nv-hd .nv-bk, .nv-hd .nv-mn { width: 44px; z-index: 1; display: flex; align-items: center; justify-content: center; opacity: .55; }
 .nv-hd .nv-bk { left: max(4px, env(safe-area-inset-left)); }
 .nv-hd .nv-mn { right: max(4px, env(safe-area-inset-right)); }
 .nv-hd .nv-bk.off { opacity: 0; pointer-events: none; }
-.nv-hd .nv-br { left: 50%; transform: translateX(-50%); padding: 0 6px 0 calc(6px + .45em); font: 500 12px/42px 'SG Garamond', Georgia, serif; letter-spacing: .45em; opacity: .7; white-space: nowrap; }
+.nv-hd .nv-br { left: 50%; transform: translateX(-50%); padding: 0 8px 0 calc(8px + .5em); font: 500 var(--nv-fe, 18px)/46px 'SG Garamond', Georgia, serif; letter-spacing: .5em; opacity: .86; white-space: nowrap; }
 .nv-hd > button:hover, .nv-hd > button:focus-visible { opacity: .95; outline: none; }
 .nv-hd svg { display: block; overflow: visible; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; }
 .nv-mn i { position: relative; display: block; width: 18px; height: 7px; }
@@ -147,9 +152,10 @@ export function installNav(opts) {
   shadeT.className = 'nv-shade t'; shadeB.className = 'nv-shade b';
   // ---- (17/10) la ligne du haut : la flèche retour, SINGULIES (l'accueil), le menu ----
   const hd = document.createElement('div'); hd.className = 'nv-hd';
-  hd.innerHTML = `<button class="nv-bk" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19"/></svg></button>
+  hd.innerHTML = `<canvas aria-hidden="true"></canvas><button class="nv-bk" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19"/></svg></button>
     <button class="nv-br" type="button" aria-label="ETERNEL, l’accueil">ETERNEL</button>
     <button class="nv-mn" type="button" aria-label="Menu" aria-expanded="false"><i></i></button>`;
+  const hcv = hd.querySelector('canvas'), hbr = hd.querySelector('.nv-br');
   const pan = document.createElement('nav'); pan.className = 'nv-pan'; pan.setAttribute('aria-label', 'Menu'); pan.inert = true;
   const legal = [['MENTIONS', 'mentions.html'], ['CONDITIONS', 'conditions.html'], ['CONFIDENTIALITE', 'confidentialite.html']];
   pan.innerHTML = PAGES.map(p => `<a href="${url(p)}" data-p="${p.id}">${p.label}</a>`).join('') +
@@ -268,7 +274,9 @@ export function installNav(opts) {
   const settling = () => Object.values(springs).some(sp => Math.abs(sp.v) > 0.02);
   function layout() {
     root.classList.toggle('wide', !mobile());
-    root.style.setProperty('--nv-fs', innerWidth < 520 ? '11px' : '12px');
+    root.style.setProperty('--nv-fs', innerWidth < 520 ? '10.5px' : '11.5px');
+    // (17/10) la hiérarchie : ETERNEL (l'auteur) > SINGULIES (la maison) > les pages (le bandeau)
+    hd.style.setProperty('--nv-fe', innerWidth < 520 ? '18px' : '22px'); foot.style.setProperty('--nv-ft', innerWidth < 520 ? '13px' : '14px');
     root.style.setProperty('--nv-gap', innerWidth < 520 ? '46px' : '64px');   // (12/10) plus de fil entre les noms : on le voit relier
     root.style.setProperty('--nv-m', mobile() ? '12%' : '7%');
     items.forEach(a => { a.style.translate = ''; });
@@ -280,6 +288,7 @@ export function installNav(opts) {
     tc.width = Math.round(W * k); tc.height = 44 * k; tc.style.width = W + 'px'; tc.style.height = '44px';
     const fw = innerWidth, fh = 34, d = dpr();
     fcv.width = Math.round(fw * d); fcv.height = fh * d; fcv.style.width = fw + 'px'; fcv.style.height = fh + 'px';
+    hcv.width = Math.round(fw * d); hcv.height = 46 * d; hcv.style.width = fw + 'px'; hcv.style.height = '46px';
     setX(centers[C], false);
   }
   // ---- les deux fils respirent : l'affaissement de chaque bout change très lentement (6 à 9 s), sans jamais se répéter
@@ -337,6 +346,18 @@ export function installNav(opts) {
         paintThread(x, rr, fw + 4, y, 71, 1.2, { holes: [true, false], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(9, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.47 + 4), g0: rr + fl, yf: yb });
       }
     }
+    // (17/10, Maxence : « ETERNEL comme SINGULIES en bas pour le fil aux extrémités ») ETERNEL est suspendu à son fil, qui court
+    // d'un bord à l'autre et plonge dans un trou de chaque côté des deux signes (retour, menu)
+    { const d = dpr(), x = hcv.getContext('2d'), fw = hcv.width / d, r = hbr.getBoundingClientRect(), y = 23;
+      x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, fw, 46);
+      if (r.width) {
+        const ls = parseFloat(getComputedStyle(hbr).letterSpacing) || 0, l = r.left + 8, rr = r.right - 8 - ls, fl = flowNow(), yt = px => waveTop(px, t);
+        const a = 52, b = fw - 52;   // (les deux signes, 44 px chacun, tiennent dans l'espace avant les trous)
+        hbr.style.translate = `0 ${waveTop((l + rr) / 2, t).toFixed(2)}px`;
+        paintThread(x, a, l, y, 37, 1.2, { holes: [true, true], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(3, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 2), g0: a - fl, yf: yt });
+        paintThread(x, rr, b, y, 41, 1.2, { holes: [true, true], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(5, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.47 + 5), g0: rr - fl, yf: yt });
+      }
+    }
   }
   const paintNow = () => paint(performance.now());
   // la boucle : vive quand quelque chose bouge (le fil qui coulisse, qu'on fait glisser), ≈ 25 images/s sinon
@@ -384,6 +405,7 @@ export function installNav(opts) {
       if (ready) { let done = false; try { done = !!sessionStorage.getItem(K_REVEAL); } catch { /* */ } if (done || reduced || (atHome() && opts.quiet && !opts.quiet())) revealDone = true; else reveal(); }
     }
     shadeT.classList.toggle('on', sh && on); shadeB.classList.toggle('on', sh && f);
+    shadeT.classList.toggle('wide', atHome()); shadeB.classList.toggle('wide', atHome());
     if (shown || footOn) wake();
   }
   setInterval(tick, 200); tick();

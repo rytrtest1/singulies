@@ -409,3 +409,11 @@
   mask-image: linear-gradient(to bottom, transparent 0, #000 5%, #000 76%, transparent 100%), linear-gradient(to right, transparent 0, #000 18%, #000 82%, transparent 100%);
   mask-composite: intersect; }
 @media (prefers-reduced-motion: reduce) { .of-mvw { transition: none; } }
+/* (17/10, tour des proportions) ordinateur : le texte, le signe et le prix suivent la taille de l'écran (ETERNEL en haut y est
+   à 22 px ; la description à 13 px y paraissait perdue) — la hiérarchie : ETERNEL > RECEVOIR > description > prix */
+@media (min-width: 900px) {
+  .of-vit { width: min(calc(100% + 16px), 460px); }
+  .of-vit-t { font-size: 15px; }
+  .of-bar .of-go { font-size: 18px; }
+  .of-bar .of-price .p1 { font-size: 14.5px; } .of-bar .of-price .p1 b { font-size: 16px; } .of-bar .of-price .p2 { font-size: 13px; }
+}
