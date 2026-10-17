@@ -15,6 +15,7 @@
 // proche du centre à la fin du geste = la page) ; on change de page à tout moment, même pendant une transition (elle se
 // termine d'un coup). Le jeu n'est plus une page (il se découvre en répondant à la question du poème ; à la fin,
 // « pose une de mes questions à quelqu'un »).
+import { vk } from '../core/version.js';
 import { paintThread, flowNow } from '../alt/stitch.js';
 import { count } from '../app/count.js';
 
@@ -23,7 +24,7 @@ export const PAGES = [
   { id: 'livres', label: 'MES LIVRES', href: 'livres.html' },
   { id: 'lettre', label: 'UN POEME PAR MOIS', href: 'lettre.html' },
 ];
-const K_NAV = 'sg.nav', K_REVEAL = 'sg.nav.reveal';
+const K_NAV = vk('sg.nav'), K_REVEAL = vk('sg.nav.reveal');
 const STANDALONE = (() => { try { return !!navigator.standalone || matchMedia('(display-mode: standalone)').matches; } catch { return false; } })();
 const mod = (i, n) => ((i % n) + n) % n;
 const ring = i => PAGES[mod(i, PAGES.length)];

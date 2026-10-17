@@ -2,6 +2,7 @@
 // Seule exception à « zéro appel réseau » : l'instant où la personne poste l'enveloppe (ou choisit « en direct »).
 // Une demande qui n'a pas pu partir (pas de réseau) est gardée et renvoyée au retour du réseau / à la visite suivante.
 // ?envoi=0 : rien n'est envoyé (essais).
+import { vk, VERSION, mentionVersion } from '../core/version.js';
 import QUESTIONS from '../cards/questions.json';
 import { encodeDemande } from '../demande/lien.js';
 import LETTERS from '../../public/email/l/tailles.json';
@@ -15,7 +16,7 @@ export const EMAILJS = { service: 'service_8wqf489', template: 'template_cuh5tub
   // (17/10) « ton poème est posté » : envoyé depuis commandes.html quand une commande passe à « postée » ;
   // troisième modèle EmailJS (ressources/email-poste.html), To = {{to_email}} — vide : la page ouvre un email tout prêt
   poste: '' };
-const K_PENDING = 'singulies.pending';
+const K_PENDING = vk('singulies.pending');
 const ENVOI = (() => { try { return new URLSearchParams(location.search).get('envoi') || ''; } catch { return ''; } })();
 const OFF = ENVOI === '0';
 // (17/10) ?envoi=local : aucun email ; la commande seule, vers la fonction lancée sur cet ordinateur (wrangler dev)
@@ -107,6 +108,8 @@ export function params(d) {
     lien: new URL('./demande.html', document.baseURI).href + '#' + encodeDemande(d),
     email_base: base,
     to_email: d.email || '',
+    // (17/10) la version du site d'où vient la demande (vide sur le site principal) : modèle EmailJS, {{version}}
+    version: mentionVersion(),
   };
 }
 
@@ -138,7 +141,7 @@ async function doFlush() {
 }
 // une même demande ne part jamais deux fois (09/10 : double toucher, page rechargée au mauvais moment, brouillon
 // renvoyé alors qu'elle était partie) : on garde 24 h une empreinte de chaque demande partie — un nombre, aucune donnée
-const K_SENT = 'singulies.sent', DAY = 864e5;
+const K_SENT = vk('singulies.sent'), DAY = 864e5;
 function print(d) {
   const s = JSON.stringify([d.name, d.kind, d.id, d.text, d.address, d.email, d.mode, !!d.test, d.beta || null]);
   let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
@@ -174,7 +177,7 @@ export function send(detail) {
 // (17/10) le suivi des commandes : la même demande est aussi gardée par la fonction Cloudflare (serveur/commandes.js),
 // que la page commandes.html liste. File à part : un échec ici ne retient jamais l'email (gardée et renvoyée seulement
 // si le réseau manque ; refusée par le serveur — base pas encore reliée — elle est abandonnée, l'email suffit)
-const K_CMD = 'singulies.pendingCmd';
+const K_CMD = vk('singulies.pendingCmd');
 const CMD_URL = LOCAL ? 'http://localhost:8787' : PAIEMENT_URL;
 const loadCmd = () => { try { return JSON.parse(localStorage.getItem(K_CMD) || '[]'); } catch { return []; } };
 const saveCmd = a => { try { a.length ? localStorage.setItem(K_CMD, JSON.stringify(a.slice(-10))) : localStorage.removeItem(K_CMD); } catch { /* */ } };
@@ -186,7 +189,7 @@ function commande(d, p) {
     question: p.question, reponse: d.text || '', adresse: d.address || [], email: d.email || '', contact: d.contact || '',
     mode: o ? (o.reserve ? 'reservation' : o.simule ? 'simule' : 'paye') : d.test ? 'essai' : d.mode === 'direct' ? 'direct' : 'poste',
     cadeau: !!(o && (o.gift || o.pour)), session: o?.session || '', lien: p.lien,
-    essai: !!(d.test || o?.simule || d.beta || import.meta.env.DEV), site: '',
+    essai: !!(d.test || o?.simule || d.beta || import.meta.env.DEV), site: '', version: VERSION,
   };
   saveCmd([...loadCmd(), body]);
   flushCmd();
@@ -229,8 +232,8 @@ export function sendNote(d) {
 export function installSend() {
   // une enveloppe postée puis la page fermée avant l'écran du contact : la demande part quand même (sans contact)
   try {
-    const d = localStorage.getItem('singulies.draft');
-    if (d) { localStorage.removeItem('singulies.draft'); send(JSON.parse(d)); }
+    const d = localStorage.getItem(vk('singulies.draft'));
+    if (d) { localStorage.removeItem(vk('singulies.draft')); send(JSON.parse(d)); }
   } catch { /* */ }
   addEventListener('singulies:address', e => send(e.detail));
   addEventListener('singulies:direct', e => send(e.detail));          // « en direct » : une fois le contact tapé

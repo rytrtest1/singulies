@@ -1,5 +1,6 @@
 // Version alternative (10/10) : après le champ de prénoms, la feuille qui attend — l'acrostiche tapé, les vraies
 // photos, le prix, COMMANDER (Stripe). La question vient après le paiement (merci.html), jamais avant.
+import { vk } from '../core/version.js';
 import '../basique/basique.css';
 import '../app/pay.css';
 import './offre.css';
@@ -15,7 +16,7 @@ const Q = new URLSearchParams(location.search);
 const TEST = Q.get('test') !== '0';
 // (10/10) réservation sans paiement (en attendant le SIRET) ; ?paiement=… : le paiement quand même (essais)
 const RESERVE = RESERVATION && !Q.get('paiement');
-const K_ORDER = 'singulies.order';
+const K_ORDER = vk('singulies.order');
 // (10/10) payé dans la page : alt.html enchaîne lui-même (la feuille se défait, la carte est tirée) ; sans lui (pas de
 // WebGL2, ou Stripe a dû rediriger) : merci.html
 let onPaidHere = null;
@@ -806,7 +807,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     const busy = busyMode() || !!document.querySelector('.ex-veil3.on, .ex-veil.on');
     root.classList.toggle('arrows-off', busy);
   }, 250);
-  const downAt = () => { let rv = false; try { rv = !!sessionStorage.getItem('sg.nav.reveal'); } catch { /* */ } return BAR_AT + (rv ? 1200 : 6500); };
+  const downAt = () => { let rv = false; try { rv = !!sessionStorage.getItem(vk('sg.nav.reveal')); } catch { /* */ } return BAR_AT + (rv ? 1200 : 6500); };
   // (17/10, Maxence : « le signe vers le bas, seulement si l'utilisateur ne fait rien sur la page dézoomée normale ») la flèche paraît
   // quand rien n'a bougé depuis 5 s, en haut de page, hors vue rapprochée, paiement ou enveloppe ; au moindre geste, elle repart
   let lastAct = performance.now(), peeked = false;
@@ -822,7 +823,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // (17/10, Maxence) quand la flèche paraît, la page descend un peu, le temps de montrer ce qui suit (ETERNEL, qui
   // t'écrit), et remonte — une fois par visite ; ensuite, la flèche seule
   function peek() {
-    let seen = false; try { seen = !!sessionStorage.getItem('sg.peek'); sessionStorage.setItem('sg.peek', '1'); } catch { /* */ }
+    let seen = false; try { seen = !!sessionStorage.getItem(vk('sg.peek')); sessionStorage.setItem(vk('sg.peek'), '1'); } catch { /* */ }
     const n = secs()[0];
     if (seen || !n || touching || root.scrollTop > 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const bh = root.querySelector('.of-bar')?.getBoundingClientRect().height || 200;

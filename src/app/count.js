@@ -5,6 +5,7 @@
 // Service : GoatCounter (gratuit, sans cookie : il ne compte que des passages). COUNTER = null : rien ne part.
 // Pour l'activer : créer un compte sur goatcounter.com (code « eternel », par exemple), puis
 //   COUNTER = 'https://eternel.goatcounter.com/count'
+import { cheminStats } from '../core/version.js';
 export const COUNTER = 'https://rytrtest1.goatcounter.com/count';
 
 const Q = new URLSearchParams(location.search);
@@ -17,7 +18,7 @@ export function count(path, { once = true } = {}) {
   sent.add(path);
   try {
     const u = new URL(COUNTER);
-    u.searchParams.set('p', '/' + path.replace(/^\/+/, ''));
+    u.searchParams.set('p', '/' + cheminStats(path));
     u.searchParams.set('e', 'true');                        // un événement, pas une page
     u.searchParams.set('rnd', Math.random().toString(36).slice(2));
     const img = new Image(); img.referrerPolicy = 'no-referrer'; img.src = u.href;

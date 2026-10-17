@@ -70,7 +70,7 @@ function card(c) {
   const tete = el('div', 'tete');
   tete.append(el('span', 'prenom', c.prenom), el('span', 'meta', c.ref + ' · ' + date(c.cree)));
   box.append(tete);
-  box.append(el('div', 'meta', [MODES[c.mode] || c.mode, GENRES[c.genre] || c.genre, c.cadeau ? 'cadeau' : '', c.essai ? 'essai' : ''].filter(Boolean).join(' · ')));
+  box.append(el('div', 'meta', [MODES[c.mode] || c.mode, GENRES[c.genre] || c.genre, c.cadeau ? 'cadeau' : '', c.essai ? 'essai' : '', c.version ? 'version ' + c.version : ''].filter(Boolean).join(' · ')));
   if (c.question) { box.append(el('div', 'lbl', 'question'), el('div', 'txt', c.question)); }
   if (c.reponse) { box.append(el('div', 'lbl', c.genre === 'theme' ? 'thème' : 'réponse'), el('div', 'txt', c.reponse)); }
   if (c.adresse) { box.append(el('div', 'lbl', 'adresse'), el('div', 'txt', envelope(c))); }

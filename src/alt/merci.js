@@ -3,6 +3,7 @@
 // pour.html (10/10) : la personne à qui l'on offre le poème ouvre le lien, tire sa carte et répond (?r=référence). La cérémonie : je tire une carte,
 // la personne répond (ou passe : j'improvise), la feuille, l'enveloppe qui se ferme et part seule (l'adresse est
 // dans Stripe). La demande part par email avec la référence de la commande (send.js, setOrder).
+import { vk } from '../core/version.js';
 import { insetTop, insetBottom, stageZoom } from '../app/stage.js';
 import './offre.css';
 import { norm } from '../basique/basique.js';
@@ -47,7 +48,7 @@ function askMail(name) {
 
 function final(order) {
   order.done = true;
-  if (POUR) { try { localStorage.setItem('singulies.pour.' + order.ref, '1'); } catch { /* */ } } else saveOrder(order);
+  if (POUR) { try { localStorage.setItem(vk('singulies.pour.' + order.ref), '1'); } catch { /* */ } } else saveOrder(order);
   canvas.classList.remove('on');
   const home = new URL('./', document.baseURI), k = new URLSearchParams(location.search);
   for (const x of ['session', 'simule', 'r']) k.delete(x); home.search = k.toString();
@@ -134,7 +135,7 @@ run();
 async function runPour() {
   const order = pourOrder();
   if (!order) { screen('<p>ce lien est incomplet.</p><p class="small">demande à la personne qui te l’a envoyé de le renvoyer.</p>'); return; }
-  let done = false; try { done = localStorage.getItem('singulies.pour.' + order.ref) === '1'; } catch { /* */ }
+  let done = false; try { done = localStorage.getItem(vk('singulies.pour.' + order.ref)) === '1'; } catch { /* */ }
   if (done) { finalScreen(order, null); return; }
   setOrder({ ref: order.ref, gift: true, pour: true });
   count('alt/pour');

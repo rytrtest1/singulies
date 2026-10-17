@@ -12,6 +12,7 @@
 // Stripe Tax : pas activé (artiste-auteur, à voir avec un comptable) ; il suffira d'ajouter automatic_tax[enabled]=true.
 
 import { postCommande, admin } from './commandes.js';
+import { postAttente } from './attente.js';
 
 const API = 'https://api.stripe.com/v1';
 
@@ -89,6 +90,11 @@ export default {
       if (req.method === 'POST' && url.pathname === '/commande') {
         if (!sites(env).includes(req.headers.get('Origin'))) return cors(env, json({ error: 'origine refusée' }, 403), req);
         return cors(env, await postCommande(env, req), req);
+      }
+      // (17/10) « me prévenir » : même règle d'origine que /commande
+      if (req.method === 'POST' && url.pathname === '/attente') {
+        if (!sites(env).includes(req.headers.get('Origin'))) return cors(env, json({ error: 'origine refusée' }, 403), req);
+        return cors(env, await postAttente(env, req), req);
       }
       if (url.pathname.startsWith('/admin/')) return cors(env, await admin(env, req, url, stripe), req);
       return cors(env, json({ error: 'introuvable' }, 404), req);

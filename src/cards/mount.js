@@ -1,6 +1,7 @@
 // Scène 2 montée dans une page : canvas WebGL2 propre, champ natif de la réponse, signes (donner, PASSER,
 // retour) et gestes (toucher, glisser, relire, inclinaison). Utilisée par l'accueil (après la transition) et par
 // la page d'essai scene-cartes.html. Rien n'est dessiné avant start().
+import { vk } from '../core/version.js';
 import { createCardScene } from './scene.js';
 import { createSheetScene, FIELDS, MAIL_W, NOADDR } from '../sheet/sheet.js';
 import { fieldsReady } from '../sheet/envelope.js';
@@ -270,7 +271,7 @@ export async function mountCards(opts) {
   const mailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
   let mail = null;
   function askMail(d) {
-    try { localStorage.setItem('singulies.draft', JSON.stringify(d)); } catch { /* */ }
+    try { localStorage.setItem(vk('singulies.draft'), JSON.stringify(d)); } catch { /* */ }
     answer.blur(); postEl.classList.remove('on'); whoEl.classList.remove('on');
     if (mail) mail.drop();
     const box = el('div', 'sc-mail');
@@ -325,7 +326,7 @@ export async function mountCards(opts) {
     const finish = () => {
       if (done || !ok()) return; done = true; if (mail) mail.sending = true;
       const c = inp.value.trim(), out = { ...d, contact: c, email: c, tel: '' };
-      try { localStorage.removeItem('singulies.draft'); } catch { /* */ }
+      try { localStorage.removeItem(vk('singulies.draft')); } catch { /* */ }
       inp.blur(); go.classList.remove('on'); box.classList.remove('on');
       if (TEST && !paid) { askBeta(out, send); return; }
       send(out);

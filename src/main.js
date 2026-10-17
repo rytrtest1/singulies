@@ -1,4 +1,5 @@
 // SINGULIÉS — écran d'accueil. Amorçage, boucle, états (saisie → transition → scène des cartes).
+import { vk } from './core/version.js';
 import './app/lum.js';
 import { NameModel } from './input/model.js';
 import { createBridge } from './input/bridge.js';
@@ -56,9 +57,9 @@ const clamp01 = u => Math.min(1, Math.max(0, u));
 // et seulement dans les 20 minutes (Maxence 11/10 : après une réservation, alt.html renvoyait toujours vers merci.html)
 if (ALT) {
   try {
-    const o = JSON.parse(localStorage.getItem('singulies.order') || 'null');
+    const o = JSON.parse(localStorage.getItem(vk('singulies.order')) || 'null');
     if (o && o.paid && !o.done && !o.resumed && Date.now() - (o.at || 0) < 20 * 60e3) {
-      o.resumed = true; localStorage.setItem('singulies.order', JSON.stringify(o));
+      o.resumed = true; localStorage.setItem(vk('singulies.order'), JSON.stringify(o));
       const u = new URL('./merci.html', document.baseURI), k = new URLSearchParams(location.search);
       if (o.simule) k.set('simule', '1'); if (o.reserve) k.set('reserve', '1'); if (o.session) k.set('session', o.session);
       u.search = k.toString(); location.replace(u.href);
@@ -143,7 +144,7 @@ const stored = loadState();
 if (ALT && !stored.name && !stored.validated) { const n = sessionName(); if (n) stored.name = n; }
 // (16/10, Maxence : « pouvoir retourner à la page des prénoms : une faute, changer d'avis, commander pour quelqu'un
 // d'autre ») revenu de la feuille pour corriger : le prénom se retape, le curseur au bout, rien ne repart tout seul
-const K_EDIT = 'sg.edit';
+const K_EDIT = vk('sg.edit');
 let EDIT = null;
 if (ALT) { try { EDIT = sessionStorage.getItem(K_EDIT); sessionStorage.removeItem(K_EDIT); } catch { /* */ } if (EDIT) { stored.name = EDIT; stored.validated = null; } }
 const model = new NameModel(stored.validated ?? stored.name ?? '');

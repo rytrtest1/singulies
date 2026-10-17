@@ -3,6 +3,7 @@
 // poème, le paiement, la liste d'attente). ENVOYER dès qu'il y a un message et un email valable ; la carte part vers
 // le haut, « reçu. je te réponds. » se tape, puis on revient là où l'on était. Envoi : le modèle EmailJS des
 // demandes (sendNote). Contre les robots : un champ piège invisible, un envoi toutes les 30 s au plus.
+import { vk } from '../core/version.js';
 import { sendNote } from '../app/send.js';
 import { knownEmail, EMAIL_RE } from '../app/storage.js';
 
@@ -50,7 +51,7 @@ const CSS = `
 .mn-ct.ct-in .ct-done { position: absolute; top: 40%; }
 `;
 const BACK = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
-const K_LAST = 'singulies.note';
+const K_LAST = vk('singulies.note');
 const INSTAGRAM = 'https://www.instagram.com/e.t.ernel/';
 // la carte vierge rendue par le moteur (public/simple/vierge.jpg) : 900 × 550, la carte en occupe 86 % de la largeur
 const IMG = { w: 900, h: 550, f: 0.86 };

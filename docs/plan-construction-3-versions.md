@@ -26,16 +26,16 @@ src/alt/ + main.js   ← moteur actuel : sert V2 et V3
 ```
 
 - **V3** = l'existant + les correctifs communs + ses petites corrections. C'est la version la moins risquée : on la fait en premier.
-- **V2** = V3 + une couche « explicite » (flèche ‹, repères, cartes « pour quand ? », récapitulatif, etc.) activée par `VERSION === '2'`. Pour éviter un fouillis de `if`, chaque différence de comportement vit dans un module chargé dynamiquement (`src/v2/…`), les différences de texte dans une table `src/core/version.js`.
+- **V2** = V3 + une couche « explicite » (flèche ‹, repères, cartes « pour quand ? », récapitulatif, etc.) activée par `VERSION === '2'` (constante de `src/core/version.js`). Pour éviter un fouillis de `if`, chaque différence de comportement vit dans un module chargé dynamiquement (`src/v2/…`), les différences de texte dans une table `src/core/version.js`.
 - **V1** = nouvelle application DOM : titre, formulaire, calendrier, récapitulatif, pages À propos / Questions / Contact. Elle n'utilise du moteur que le nuage de prénoms en fond (décoratif, désactivable). **Point de départ possible : `src/epure/`** (une boutique d'une page sans WebGL déjà écrite, avec la vérification du code postal et l'envoi) — on récupère ses morceaux, mais V1 est page-par-page avec étapes et retour, ce que l'épure n'est pas.
 - **La version « simple » (sans WebGL)** : elle reste le repli de V2 et V3. Chaque correctif commun touchant le parcours 3D est reporté dedans (règle existante). Coût à budgéter : environ **+30 %** sur chaque correctif du parcours.
 
-Le choix de la version se fait **au build** (`VERSION=1|2|3`, variable lue par Vite) — pas par un paramètre d'URL — pour qu'une page n'embarque que ce dont elle a besoin (poids V1 minimal) et qu'aucune version ne puisse déborder sur l'autre.
+Le choix de la version se fait **au build** (`SG_VERSION=1|2|3`, variable lue par Vite (nom choisi pour ne pas heurter une variable `VERSION` d'un système)) — pas par un paramètre d'URL — pour qu'une page n'embarque que ce dont elle a besoin (poids V1 minimal) et qu'aucune version ne puisse déborder sur l'autre.
 
 ## 2. Adresses, isolation, noindex (révisé le 17/10 : un chemin dans l'URL, plus de sous-domaines)
 
 **Les trois versions vivent sous le même domaine, au bout de l'adresse** : `singulies.com/v1/`, `singulies.com/v2/`, `singulies.com/v3/` (on peut préférer `/1/`, `/2/`, `/3/` : seul le nom du dossier change). **Un seul projet Cloudflare Pages** (le projet `singulies` actuel), un seul déploiement, **aucun DNS à créer**.
-- **Build** : `npm run build` produit, en plus du site actuel à la racine (inchangé), trois dossiers `dist/v1`, `dist/v2`, `dist/v3`, chacun construit avec sa variable `VERSION` (trois passages de Vite, `outDir` différent). V1 n'embarque donc toujours que ce dont elle a besoin.
+- **Build** : `npm run build` produit, en plus du site actuel à la racine (inchangé), trois dossiers `dist/v1`, `dist/v2`, `dist/v3`, chacun construit avec sa variable `SG_VERSION` (trois passages de Vite, `outDir` différent). V1 n'embarque donc toujours que ce dont elle a besoin.
 - **Le code est déjà prêt pour un sous-dossier** : `vite.config.js` a `base: './'` et les liens passent par `document.baseURI` (le site a déjà été publié ainsi sur `rytrtest1.github.io/singulies/`). À faire en phase 1 : relire les quelques adresses absolues restantes (`public/404.html` utilise `/`, `/favicon-32.png`) et les aperçus de liens.
 - `singulies.com` (racine) **continue de servir l'existant**, `unprenomunpoeme.com` reste une redirection.
 - Le workflow GitHub Pages (copie sur `rytrtest1.github.io`) : à laisser, il publie tout `dist/`.
@@ -77,7 +77,7 @@ Entonnoir commun (mêmes noms dans les trois, pour pouvoir comparer) :
 | Phase | Contenu | Dépend de | Parallélisable |
 |---|---|---|---|
 | **0 — Préparer** | Mesurer le site actuel (chargement, fluidité). Vérifier la commande de test HELENE-55jzt2 puis la supprimer. Demander les médias et accords à Maxence. ~~Créer les 3 projets Pages et les DNS~~ (plus nécessaire : une seule adresse, voir §2). | validation du plan | oui : mesure et médias vont ensemble |
-| **1 — Socle** | `src/core/`, build `VERSION`, noindex, stockage préfixé, `stats.js`, `paiement.js`, filtre prénom + messages, adresse BAN + code postal, liste d'attente + route Worker `/attente`, colonne `version`, tests Vitest | phase 0 (build/DNS) | **non** : une seule main, tout le monde en dépend |
+| **1 — Socle** *(fait le 17/10, branche `feat/socle-3-versions` : voir ETAT.md)* | `src/core/`, build `SG_VERSION`, noindex, stockage préfixé, `stats.js`, `paiement.js`, filtre prénom + messages, adresse BAN + code postal, liste d'attente + route Worker `/attente`, colonne `version`, tests Vitest | phase 0 (build/DNS) | **non** : une seule main, tout le monde en dépend |
 | **2a — V3** | correctifs communs C1–C8 dans le moteur et dans la version « simple », puis les corrections propres à V3 | phase 1 | oui, avec 2c |
 | **2b — V2** | par-dessus V3 : intro courte, flèche ‹, repères, cartes « pour quand ? », récapitulatif, PASSER explicites, etc. | **2a terminée** : V2 et V3 modifient les mêmes fichiers (`main.js`, `offre.js`, `sheet.js`, `mount.js`) | non avec 2a ; oui avec 2c |
 | **2c — V1** | nouvelle app DOM `src/v1/` : pages, formulaire, calendrier, récapitulatif, FAQ, bande rassurante | phase 1 | **oui, totalement** : elle ne touche que `src/v1/` |

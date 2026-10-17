@@ -1,10 +1,11 @@
 // Les écrans de texte de la version alternative (10/10) : ce qui flotte au-dessus des objets (Garamond), sur le noir —
 // partagés par alt.html (payé dans la page), merci.html (retour de Stripe) et pour.html (la personne offerte).
+import { vk } from '../core/version.js';
 import './offre.css';
 import { knownEmail } from '../app/storage.js';
 
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-export const K_ORDER = 'singulies.order';
+export const K_ORDER = vk('singulies.order');
 export function readOrder() { try { return JSON.parse(localStorage.getItem(K_ORDER) || 'null'); } catch { return null; } }
 export function saveOrder(o) { try { localStorage.setItem(K_ORDER, JSON.stringify(o)); } catch { /* */ } }
 

@@ -8,6 +8,8 @@
 //   POST /admin/lien-stripe              (Bearer token)   { ref } → { url }   (paiement Stripe hébergé, valable 24 h)
 //   GET  /admin/config                   (Bearer token)   → { paypal, prix, stripe }
 
+import { listeAttente } from './attente.js';
+
 export const STATUTS = ['recue', 'paiement', 'payee', 'tapee', 'postee'];
 const MAX_BODY = 16000;   // octets : une demande fait ≈ 1–2 ko (la réponse est limitée à 4000 caractères)
 
@@ -26,6 +28,8 @@ async function schema(db) {
     statut TEXT NOT NULL DEFAULT 'recue', note TEXT DEFAULT '', facture TEXT DEFAULT '', poste_mail TEXT DEFAULT '',
     essai INTEGER DEFAULT 0)`).run();
   await db.prepare('CREATE INDEX IF NOT EXISTS commandes_cree ON commandes (cree)').run();
+  // (17/10) la version du site d'où vient la commande (1, 2, 3 ; vide = site principal) : la table existe peut-être déjà
+  try { await db.prepare("ALTER TABLE commandes ADD COLUMN version TEXT DEFAULT ''").run(); } catch { /* la colonne existe déjà */ }
   schemaOk = true;
 }
 
@@ -49,7 +53,7 @@ export async function postCommande(env, req) {
     prenom, genre: str(b.genre, 30), question_id: str(b.questionId, 20), question: str(b.question, 400),
     reponse: str(b.reponse, 4000), adresse, email: str(b.email, 200), contact: str(b.contact, 200), mode,
     cadeau: b.cadeau ? 1 : 0, session: str(b.session, 200).replace(/[^A-Za-z0-9_]/g, ''), lien: str(b.lien, 6000),
-    essai: b.essai ? 1 : 0,
+    essai: b.essai ? 1 : 0, version: /^[123]$/.test(String(b.version ?? '')) ? String(b.version) : '',
   };
   const db = env.DB; await schema(db);
   const t = now();
@@ -66,9 +70,9 @@ export async function postCommande(env, req) {
   } else {
     const statut = mode === 'paye' ? 'payee' : 'recue';
     await db.prepare(`INSERT INTO commandes (ref, cree, maj, prenom, genre, question_id, question, reponse, adresse, email, contact,
-      mode, cadeau, session, lien, statut, essai) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      mode, cadeau, session, lien, statut, essai, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(ref, t, t, row.prenom, row.genre, row.question_id, row.question, row.reponse, row.adresse, row.email, row.contact,
-        row.mode, row.cadeau, row.session, row.lien, statut, row.essai).run();
+        row.mode, row.cadeau, row.session, row.lien, statut, row.essai, row.version).run();
   }
   return json({ ok: true, ref });
 }
@@ -94,6 +98,7 @@ export async function admin(env, req, url, stripe) {
   }
   if (!env.DB) return json({ error: 'base non reliée (voir serveur/LISEZ-MOI.md)' }, 503);
   const db = env.DB; await schema(db);
+  if (req.method === 'GET' && p === '/admin/attente') return listeAttente(db);
   if (req.method === 'GET' && p === '/admin/commandes') {
     const st = url.searchParams.get('statut') || '';
     const q = STATUTS.includes(st)

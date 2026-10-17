@@ -2,6 +2,9 @@
 # faire dans les moteurs.
 User-agent: *
 Disallow: /alt
+Disallow: /v1/
+Disallow: /v2/
+Disallow: /v3/
 Disallow: /basique-
 Disallow: /epure
 Disallow: /scene-

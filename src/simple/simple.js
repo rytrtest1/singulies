@@ -6,6 +6,7 @@
 // Quand : sans WebGL2 (téléphone ancien, Safari en panne de WebGL), ou quand une scène 3D n'a pas pu se monter
 // (mémoire) — scène par scène : si le champ de prénoms marche, on le garde. ?simple=1 : tout en simple ;
 // ?simple=suite : le vrai champ de prénoms, puis la suite en simple (essais).
+import { vk } from '../core/version.js';
 import QUESTIONS from '../cards/questions.json';
 import { NAMES } from '../field/names.js';
 import { ITEMS, LINKS, JEU_LINK } from '../portal/items.js';
@@ -749,7 +750,7 @@ export function mountSimpleFlow(opts) {
     FIELDS.forEach(d => { if (!f[d.id]) return; const t = el('div', 'sp-type', face); t.textContent = f[d.id]; t.style.color = 'rgba(240,240,240,.85)'; typed[d.id] = t; });
     layoutEnv();
     poster.classList.remove('on');
-    if (!NOADDR) try { localStorage.setItem('singulies.draft', JSON.stringify(detail)); } catch { /* */ }
+    if (!NOADDR) try { localStorage.setItem(vk('singulies.draft'), JSON.stringify(detail)); } catch { /* */ }
     // le coup de tampon, puis l'enveloppe entière : elle se retourne (le cachet), bascule sur sa tranche et part
     R.later(() => { if (NOADDR || !STAMPED) return; stamp.style.transform = `rotate(${(Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 25)}deg) scale(1.12)`; stamp.style.opacity = '0.9'; R.later(() => { stamp.style.transform = stamp.style.transform.replace('scale(1.12)', 'scale(1)'); }, 120); }, REDUCED ? 0 : 450);
     R.later(() => {
@@ -789,7 +790,7 @@ export function mountSimpleFlow(opts) {
   function finish(c) {
     if (finished) return; finished = true;
     const out = { ...detail, contact: c, email: c, tel: '' };
-    try { localStorage.removeItem('singulies.draft'); } catch { /* */ }
+    try { localStorage.removeItem(vk('singulies.draft')); } catch { /* */ }
     try { if (typeof window.onAddress === 'function') window.onAddress(out); } catch (e) { console.error(e); }
     window.dispatchEvent(new CustomEvent('singulies:address', { detail: out }));
     R.later(() => { root.classList.remove('on'); }, 600);
