@@ -6,7 +6,7 @@ import { PORTRAIT } from '../alt/config.js';
 
 // TEXTE PROVISOIRE, à réécrire par Maxence (une ligne = un paragraphe ; minuscules, « je » = Eternel)
 export const AUTEUR = [
-  'je m’appelle maxence. j’écris sous le nom d’eternel, à paris.',
+  'j’écris sous le nom ETERNEL.',
   'j’écris des poèmes à des inconnus, dans la rue, sur une machine à écrire : un prénom, quelques mots échangés, et j’écris.',
   'ici, c’est pareil. tu me donnes ton prénom, tu réponds à une question du jeu SINGULIES, et je t’écris ton poème. je le tape une seule fois, à la machine, et je te l’envoie par la poste.',
   'personne d’autre ne l’écrit, aucun programme non plus.',

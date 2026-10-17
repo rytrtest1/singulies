@@ -146,4 +146,6 @@ a.lt-go { display: table; text-decoration: none; }
 /* (17/10) ordinateur : le livre ouvert prend la hauteur, la description s'efface le temps de la lecture */
 /* (17/10, Maxence : « quand on clique sur le livre le descriptif disparaît : bug ») la fiche (broché…) reste ; le fondu du bas de la page ouverte lui laisse la place */
 @media all { .lt-cap { transition: opacity .4s ease; } }
+/* (17/10, Maxence : « journal ouvert, le broché… se voit mal sur l'écriture blanche : enlever le texte de la zone qui gêne ») un noir, fondu vers le haut, derrière la fiche : la page ouverte s'efface là où elle est écrite */
+.lt.book-open .lt-cap::before { content: ''; position: absolute; left: -12px; right: -12px; top: -34px; bottom: -6px; z-index: -1; pointer-events: none; background: linear-gradient(to bottom, rgba(6,6,6,0), #060606 34px); }
 @media all { .ltp.book-open .lt-cv { transition: none; -webkit-mask-image: linear-gradient(to bottom, transparent 96px, #000 170px, #000 calc(100% - 210px), transparent calc(100% - 150px)); mask-image: linear-gradient(to bottom, transparent 96px, #000 170px, #000 calc(100% - 210px), transparent calc(100% - 150px)); } }

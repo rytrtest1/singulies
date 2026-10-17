@@ -115,10 +115,13 @@ export async function createEnvelope(gl, base = './') {
   // (plus sombre) à mesure qu'elle s'en éloigne — l'élue, qui vient au centre, fond l'une dans l'autre : aucun saut
   const mixP = (A, B, k) => ({ ...A, lightPos: A.lightPos.map((a, i) => a + (B.lightPos[i] - a) * k), light: A.light + (B.light - A.light) * k, env: (A.env ?? 0.3) + ((B.env ?? 0.3) - (A.env ?? 0.3)) * k });
   const garLamp = (P, g) => {
-    // (17/10, Maxence : « une lumière qui met en valeur le centre, pas les extrémités ») l'éclairage s'éteint progressivement avec la
-    // distance au centre : les voisines nettement plus sombres, celles des bords presque dans le noir (reliefs encore lisibles)
-    const side = { ...P, lightPos: [P.lightPos[0] + g.p[3], P.lightPos[1] + g.p[4], P.lightPos[2] + g.p[5]], light: P.light * 0.38, env: (P.env ?? 0.3) * 0.22 };
-    return mixP(P, side, ease(clamp01(Math.abs(g.p[3]) / (EW * 2.0))));
+    // (17/10, Maxence : « plus un côté lampe torche : la lumière au centre, un peu sur les côtés, sans faire cheap ; cohérent avec le noir de
+    // l'enveloppe et la lumière de ce qui suit ») l'éclairage décroît en douceur (courbe en cloche, jamais un cercle net) avec la distance
+    // au centre : plein au milieu, les voisines encore bien éclairées, celles des bords plus sombres mais lisibles. Le centre = la lampe de
+    // l'objet seul (celle de l'enveloppe qui s'ouvre ensuite) : aucun saut.
+    const side = { ...P, lightPos: [P.lightPos[0] + g.p[3], P.lightPos[1] + g.p[4], P.lightPos[2] + g.p[5]], light: P.light * 0.5, env: (P.env ?? 0.3) * 0.32 };
+    const q = Math.abs(g.p[3]) / (EW * 1.7);
+    return mixP(P, side, 1 - Math.exp(-q * q));
   };
   // l'enveloppe (repère : Me) : face, dos sans rabat du bas, rabat (fl : 0 ouvert → 1 fermé), cachet (us : sa pose)
   const SEALED = false, EMB_K = 0.86, FLAP_EMB = 24;              // (le cachet : SEALED = true)

@@ -413,7 +413,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       <section class="of-ex of-sec" data-nom="d’autres prénoms" aria-label="D’autres prénoms, d’autres poèmes"><h2 class="of-sh of-ex-t">DES PRENOMS, DES POEMES</h2><div class="of-ex-host"></div></section>
       <!-- (17/10, Maxence) « tes questions » : dans le menu (QUESTIONS), plus sous la page -->
       <!-- (16/10) les pages légales, tout en bas, discrètes -->
-      <nav class="of-legal"><a href="./mentions.html">MENTIONS</a><a href="./conditions.html">CONDITIONS</a><a href="./confidentialite.html">CONFIDENTIALITE</a></nav>
+      <nav class="of-legal of-sec" data-nom="les mentions"><a href="./mentions.html">MENTIONS</a><a href="./conditions.html">CONDITIONS</a><a href="./confidentialite.html">CONFIDENTIALITE</a></nav>
       </div>
     </main>
     <div class="of-shade" aria-hidden="true"></div>
@@ -633,7 +633,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       const d = y - pos, mv = Math.sign(d) * Math.min(Math.abs(d), speed * dt);
       pos += mv; root.scrollTop = pos;
-      if (Math.abs(y - pos) < 0.5) { drive = 0; setTimeout(() => { if (!drive) root.style.scrollSnapType = ''; }, 120); done && done(); return; }
+      if (Math.abs(y - pos) < 0.5 || Math.abs(root.scrollTop - pos) > 1.5) { drive = 0; setTimeout(() => { if (!drive) root.style.scrollSnapType = ''; }, 120); try { syncDown(); } catch { /* */ } done && done(); return; }   // (17/10) la flèche du bas se remet à jour à l'arrivée : pendant le défilement guidé elle n'était plus lue — restait « sans suite » après être remonté ; et on s'arrête à la butée de la page
       drive = requestAnimationFrame(f);
     };
     drive = requestAnimationFrame(f);
@@ -815,7 +815,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   setInterval(() => {
     if (!root.isConnected) return;
     const idle = down.dataset.shown === '1' && performance.now() - lastAct > 5000 && !detail && !busyMode() && root.scrollTop < 8 && !drive;
-    if (idle && !down.classList.contains('on')) { down.classList.add('on'); if (!peeked) { peeked = true; peek(); } }
+    if (idle && !down.classList.contains('on')) { down.classList.add('on'); if (!peeked) { peeked = true; setTimeout(() => { if (down.classList.contains('on') && performance.now() - lastAct > 5000) peek(); else peeked = false; }, 6000); } }   // (17/10, Maxence : « laisse du temps avant le scroll d'exemple : 6 s après la dernière apparition ») la page ne descend un peu qu'après 6 s de plus, si rien n'a bougé
     else if (!idle && down.classList.contains('on') && (detail || busyMode() || root.scrollTop >= 8)) down.classList.remove('on');
   }, 300);
   // (17/10, Maxence) quand la flèche paraît, la page descend un peu, le temps de montrer ce qui suit (ETERNEL, qui

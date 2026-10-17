@@ -50,8 +50,12 @@ void main() {
 // même fil ») un seul fil : un coton ciré de 0,75 mm de diamètre — en unités du monde de la feuille (1 mm = 1/√2)
 export const FIL_MM = 0.75;
 export const FIL_R = FIL_MM / 2 * Math.SQRT1_2;
+// (17/10, Maxence : « quand on refait le prénom, les lignes de la feuille figent à nouveau ») le programme du fil est compilé UNE fois par
+// contexte : refaire la feuille (free() puis une nouvelle création) ne recompile plus rien au moment où les lignes se tracent
+const PROGS = new WeakMap();
 export function createThread(gl) {
-  const prog = program(gl, VS, FS);
+  let prog = PROGS.get(gl);
+  if (!prog || gl.isContextLost()) { prog = program(gl, VS, FS); PROGS.set(gl, prog); }
   const vao = gl.createVertexArray(), vbo = gl.createBuffer(), ibo = gl.createBuffer();
   gl.bindVertexArray(vao);
   gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
@@ -120,7 +124,7 @@ export function createThread(gl) {
     draw(new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]), [0, 0, 1], { lightPos: [0, 0, 1], light: 1, exposure: 1 }, [[0, 0, 0], [0, 1, 0], [0, 2, 0]], 0.1);
     gl.colorMask(...cm); gl.depthMask(dm);
   } catch { /* */ }
-  const free = () => { gl.deleteBuffer(vbo); gl.deleteBuffer(ibo); gl.deleteVertexArray(vao); gl.deleteProgram(prog.p); };
+  const free = () => { gl.deleteBuffer(vbo); gl.deleteBuffer(ibo); gl.deleteVertexArray(vao); };   // (le programme reste : partagé, voir PROGS)
   return { draw, free };
 }
 export const pathLen = pts => { let l = 0; for (let i = 1; i < pts.length; i++) l += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1], pts[i][2] - pts[i - 1][2]); return l; };
