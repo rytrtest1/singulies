@@ -286,6 +286,8 @@
 .mc-sign { position: relative; display: inline-block; margin: 24px 0 0; padding: 10px 2px 11px; padding-right: calc(2px - .45em); text-decoration: none;
   color: rgba(241, 237, 230, .92); font: 500 16px/1 'SG Garamond', Georgia, serif; letter-spacing: .45em; -webkit-tap-highlight-color: transparent; }
 .mc-sign:hover, .mc-sign:focus-visible { color: #fff; outline: none; }
+.mc-home { border: 0; background: none; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 1.1s ease; margin-top: 34px; }
+.mc-home.on { opacity: 1; pointer-events: auto; }
 .mc-jeu { position: absolute; left: 0; right: 0; bottom: calc(8px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; }
 .mc-deck { position: relative; width: 100%; height: min(24svh, 200px); cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent; outline: none; }
 .mc-deck-c { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -340,7 +342,6 @@
 .mc.fin .mc-retour { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom)); margin: 0; }
 .mc.fin > *, .mc.fin .mc-share, .mc.fin .mc-jeu-t { transition: opacity .5s ease; }
 .mc.fin.away > :not(.mc-jeu), .mc.fin.away .mc-share, .mc.fin.away .mc-jeu-t { opacity: 0; pointer-events: none; }
-/* payé : le noir, le prénom, « à toi de jouer maintenant » */
 .mc.fin.play { justify-content: center; padding-top: 0; }
 .mc.fin.play .mc-name { margin-bottom: 18px; }
 .of.arrows-off .of-up, .of.arrows-off .of-bar .of-down { opacity: 0 !important; pointer-events: none !important; }

@@ -34,15 +34,6 @@ export function typeInto(el, text, { at = 300, step = 58 } = {}) {
     setTimeout(strike, at);
   });
 }
-// (12/10, Maxence) payé : un écran noir, le prénom, « à toi de jouer maintenant » tapé — puis le jeu (rend le temps qu'il
-// tient, ms)
-export function playScreen(name, line = 'à toi de jouer maintenant') {
-  const d = screen(`<h1 class="mc-name">${esc(name)}</h1><p class="mc-line mc-type"></p>`);
-  d.classList.add('fin', 'play');
-  const done = typeInto(d.querySelector('.mc-type'), line, { at: 900 });
-  return { el: d, done };
-}
-
 // la fin (12/10, Maxence) : le prénom ; la référence ; MERCI ; « je te tiens au courant » tapé. Au milieu, le paquet du
 // jeu (SINGULIES / le jeu, en direct : src/jeu/deck3d.js), le signe partager juste dessous, « pose une question à
 // quelqu'un » ; le toucher : la carte se retourne et devient l'écran du jeu (la même carte, aucun changement de page :
@@ -54,6 +45,7 @@ export function finalScreen(order, home) {
     ${order.ref ? `<div class="ref">réf. ${esc(order.ref)}</div>` : ''}
     <p class="mc-merci">merci</p>
     <p class="mc-line mc-type"></p>
+    <button class="mc-sign mc-home" type="button" aria-label="Accueil">ACCUEIL</button>
     <div class="mc-jeu">
       <div class="mc-deck" role="button" tabindex="0" aria-label="Tirer une carte du jeu SINGULIES"></div>
       <div class="mc-jeu-row"><button class="mc-share" type="button" aria-label="Poser une question du jeu à quelqu’un"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v10h14V11h-1" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -61,7 +53,9 @@ export function finalScreen(order, home) {
     </div>`);   // (17/10 : plus de RETOUR en bas — la flèche du haut, ETERNEL et le bandeau sont là)
   d.classList.add('fin');
   // (17/10, Maxence : « juste prénom, réf, MERCI et récapitulatif envoyé par email, avec le jeu en dessous ») rien d'autre
-  typeInto(d.querySelector('.mc-type'), 'le récapitulatif t’est envoyé par email.', { at: 900, step: 46 });
+  typeInto(d.querySelector('.mc-type'), 'le récapitulatif t’est envoyé par email.', { at: 900, step: 46 }).then(() => setTimeout(() => d.querySelector('.mc-home')?.classList.add('on'), 500));
+  // (17/10, Maxence : « à la fin de la commande, au récap, un bouton ACCUEIL est logique » — en haut à gauche, c'est toujours une flèche)
+  d.querySelector('.mc-home').addEventListener('click', () => { location.href = new URL('./', document.baseURI).href; });
   const sign = d.querySelector('.mc-sign');
   if (sign) import('./stitch.js').then(m => m.stitch(sign, { seed: 'RETOUR'.length * 13 })).catch(() => {});
   // le paquet en direct (sans WebGL2 : le signe et le lien suffisent)

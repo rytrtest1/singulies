@@ -1237,7 +1237,6 @@ if (ALT) {
     show: () => booted && (onNames() ? idleNames() : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt-on, #offre.bar-on'))),
     foot: () => booted && (onNames() ? idleNames() : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt-on, #offre.bar-on'))),
     hush: () => !!S.paid || !!document.querySelector('.of.paying, .of.env'),
-    backLabel: () => (S.paid ? 'ACCUEIL' : ''),
     // la flèche retour, une fois commandé : l'accueil (la commande est partie ; la cérémonie se reprend en rechargeant, merci.html)
     canBack: () => !!S.paid || !!document.querySelector('.of.paying, .of.env'),
     // (17/10) aussi sur la page du poème une fois qu'on a défilé : les autres prénoms et les questions s'effacent sous ETERNEL et le bandeau

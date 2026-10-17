@@ -9,7 +9,7 @@ import { norm } from '../basique/basique.js';
 import { installSend, setOrder, settled, send } from '../app/send.js';
 import { installCount, count } from '../app/count.js';
 import { PAIEMENT_URL } from './config.js';
-import { esc, readOrder, saveOrder, screen, leave, finalScreen, askHow, shareGift, playScreen } from './fin.js';
+import { esc, readOrder, saveOrder, screen, leave, finalScreen, askHow, shareGift } from './fin.js';
 
 const Q = new URLSearchParams(location.search);
 const POUR = document.documentElement.dataset.page === 'pour';
@@ -96,8 +96,8 @@ async function run() {
     count('alt/fini'); settled().finally(() => final(order)); return;
   }
   // l'avant : merci, et ce qui va se passer
-  // (12/10, Maxence) le même écran qu'après un paiement dans la page : le prénom, « à toi de jouer maintenant » tapé
-  const intro = playScreen(order.name, order.gift ? (how === 'blanche' ? 'écris le thème de son poème' : how === 'impro' ? 'j’improvise sur son prénom' : 'à toi de jouer pour ' + order.name.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())) : 'à toi de jouer maintenant').el;
+  // (17/10, Maxence : « le prénom, à toi de jouer maintenant : on enlève totalement ») un simple noir, sans texte, le temps que les cartes se préparent
+  const intro = screen('<span></span>');
   await ceremony(order, intro, how);
 }
 
@@ -120,7 +120,7 @@ async function ceremony(order, intro, how = 'question') {
     ...(how === 'impro' ? { sheetOnly: true } : {}),
     ...(FIN_MAIL ? { sheet: false, onEnd: d => { setTimeout(() => endMail(d), 1600); } } : { onEnd: () => {} }) }))
     .catch(e => { console.error(e); return null; });
-  const [m] = await Promise.all([cards, Promise.race([wait(4200), new Promise(r => intro.addEventListener('click', r, { once: true }))])]);
+  const [m] = await Promise.all([cards, Promise.race([wait(intro.querySelector('h1,p') ? 4200 : 200), new Promise(r => intro.addEventListener('click', r, { once: true }))])]);
   leave(intro);
   if (m) { await wait(600); m.start(); if (how !== 'impro') m.scene.resume(m.now(), how === 'blanche' ? 'blanche' : 'question');   // (12/10) le paquet se mélange et attend qu'on pioche
     canvas.classList.add('on'); window.__scene = m; return; }

@@ -120,10 +120,6 @@ body:has(.nv-hd.on) .sc-back, body:has(.nv-hd.on) #back { display: none !importa
 .nv-hd .nv-bk { left: max(4px, env(safe-area-inset-left)); }
 .nv-hd .nv-mn { right: max(4px, env(safe-area-inset-right)); }
 .nv-hd .nv-bk.off { opacity: 0; pointer-events: none; }
-.nv-hd .nv-bk .bk-t { display: none; }
-.nv-hd .nv-bk.txt { width: auto; padding: 0 10px 0 calc(10px + .3em); }
-.nv-hd .nv-bk.txt svg { display: none; }
-.nv-hd .nv-bk.txt .bk-t { display: block; font: 500 var(--nv-fs, 10.5px)/46px 'SG Garamond', Georgia, serif; letter-spacing: .3em; }
 .nv-hd .nv-br { left: 50%; transform: translateX(-50%); padding: 0 8px 0 calc(8px + .5em); font: 500 var(--nv-fe, 18px)/46px 'SG Garamond', Georgia, serif; letter-spacing: .5em; opacity: .86; white-space: nowrap; }
 .nv-hd > button:hover, .nv-hd > button:focus-visible { opacity: .95; outline: none; }
 .nv-hd svg { display: block; overflow: visible; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; }
@@ -190,7 +186,7 @@ export function installNav(opts) {
   shadeT.className = 'nv-shade t'; shadeB.className = 'nv-shade b';
   // ---- (17/10) la ligne du haut : la flèche retour, SINGULIES (l'accueil), le menu ----
   const hd = document.createElement('div'); hd.className = 'nv-hd';
-  hd.innerHTML = `<canvas aria-hidden="true"></canvas><button class="nv-bk" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19"/></svg><span class="bk-t" aria-hidden="true"></span></button>
+  hd.innerHTML = `<canvas aria-hidden="true"></canvas><button class="nv-bk" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19"/></svg></button>
     <button class="nv-br" type="button" aria-label="ETERNEL, l’accueil">ETERNEL</button>
     <button class="nv-mn" type="button" aria-label="Menu" aria-expanded="false"><i></i></button>`;
   const hcv = hd.querySelector('canvas'), hbr = hd.querySelector('.nv-br');
@@ -544,6 +540,11 @@ export function installNav(opts) {
   const HUSH_IDLE = 6000;
   let actAt = performance.now();
   for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) addEventListener(ev, () => { actAt = performance.now(); }, { passive: true, capture: true });
+  // (17/10, Maxence : « que ça ne réapparaisse pas si on sort de l'app et qu'on revient, ou retour puis revenir ») revenir dans la page
+  // (onglet, application, bouton retour, page rendue par le cache) range de nouveau les bandeaux : seul un vrai silence les rappelle
+  const touchAct = () => { actAt = performance.now(); };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) touchAct(); });
+  addEventListener('pageshow', touchAct); addEventListener('focus', touchAct); addEventListener('popstate', touchAct); addEventListener('resize', touchAct);
   function tick() {
     if (busy) return;
     const pg = pgOf(ring(cur).id);
@@ -559,8 +560,6 @@ export function installNav(opts) {
     if (on !== shown) { shown = on; root.classList.toggle('on', on); if (on) { layout(); shownAt = performance.now(); } }
     hd.classList.toggle('on', opts.headerOnly ? true : on || (bare && canBack())); hd.classList.toggle('bare', bare);
     hd.querySelector('.nv-bk').classList.toggle('off', !canBack());
-    // (17/10, Maxence : « ACCUEIL à la place de RETOUR quand on ne peut pas revenir en arrière ») après la commande, ← ramène à l'accueil : on l'écrit
-    { const bk = hd.querySelector('.nv-bk'), bl = (atHome() && opts.backLabel?.()) || ''; if (bk.dataset.l !== bl) { bk.dataset.l = bl; bk.classList.toggle('txt', !!bl); bk.querySelector('.bk-t').textContent = bl; bk.setAttribute('aria-label', bl ? 'Accueil' : 'Retour'); } }
     // (17/10, Maxence : « garde plutôt le nom de la page ») le titre du haut : ETERNEL, ou le nom de la page du menu ouverte
     { const ov = !!ovTop() || switching; sub.classList.toggle('on', ov); secBg.classList.toggle('on', ov); secTop.classList.toggle('on', ov); if (!ov) sub.classList.remove('seen'); root.classList.toggle('under', ov); if (ovTop()) subLayout(); }
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
