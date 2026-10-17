@@ -30,9 +30,9 @@ const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o));
 // ce qu'on lit quand on touche l'objet (un second toucher, ou glisser, rend la description) — À COMPLÉTER par Maxence
 // (grammage, papier) : seulement des faits sûrs ici
 const OBJETS = [
-  { id: 'feuille', txt: 'l’exemplaire unique de ton poème\ntapé à la machine à écrire', more: 'une feuille noire A4, 21 × 29,7 cm\ntapée une seule fois : aucune copie' },
-  { id: 'carte', txt: 'une question du jeu SINGULIES\nla réponse inspire le poème', more: 'une carte noire de 8,7 × 5,2 cm\nla question à l’encre blanche, logo gaufré' },
-  { id: 'cachet', txt: 'le tout dans une enveloppe\nscellée à la cire', more: 'une enveloppe noire fermée à la main\nun cachet de cire argentée de 27 mm' },
+  { id: 'feuille', txt: 'l’exemplaire unique de ton poème\ntapé à la machine à écrire', more: 'une feuille noire A4 · 21 × 29,7 cm\ntapée une seule fois · l’original' },
+  { id: 'carte', txt: 'une question du jeu SINGULIES\nla réponse inspire le poème', more: 'une carte noire · 8,7 × 5,2 cm\nencre blanche · logo gaufré au dos' },
+  { id: 'cachet', txt: 'le tout dans une enveloppe\nscellée à la cire', more: 'une enveloppe noire fermée à la main\ncachet de cire argentée · 27 mm' },
   // (17/10, Maxence) la carte mystère garde son mystère : la toucher ne dit rien de plus, on la voit de près (look)
   { id: 'mystere', txt: 'une carte mystère et un fil…\npour rester liés', look: true },
 ];
@@ -369,6 +369,27 @@ function slide(p) {
 // opts : { name (capitales), over (la vraie feuille est dessous, dans la scène des cartes), onPaid(order),
 //          scene : { vitrine, canvas } (la scène des cartes : la vitrine s'y joue) }
 // nav : le bandeau des pages (src/nav/nav.js) — glisser l'objet mène aux pages voisines
+// VOIR EN VRAI (17/10, Maxence : « l'idée, c'est de ne pas quitter la page ») : par-dessus la page, les vraies photos
+// (EN_VRAI) — tant qu'il n'y en a pas, d'autres prénoms déjà écrits (les feuilles en direct). Retour : la flèche, Échap.
+let vrai = null;
+function openVrai() {
+  if (!vrai) {
+    const ov = document.createElement('div'); ov.className = 'of-vr'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'En vrai');
+    ov.innerHTML = `<button class="of-vr-x" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></button>
+      <p class="of-vr-t">EN VRAI</p><div class="of-vr-host"></div>`;
+    document.body.appendChild(ov);
+    const host = ov.querySelector('.of-vr-host');
+    if (EN_VRAI.length) host.innerHTML = `<div class="of-vr-ph">${EN_VRAI.map(p => `<figure><img src="${esc(new URL(p.src, document.baseURI).href)}" alt="${esc(p.legende || '')}" loading="lazy" decoding="async" onerror="this.parentNode.remove()"><figcaption>${esc(p.legende || '')}</figcaption></figure>`).join('')}</div>`;
+    else mountExemples(host, { root: ov });
+    const close = () => { ov.classList.remove('on'); setTimeout(() => { if (!ov.classList.contains('on')) ov.hidden = true; }, 420); };
+    ov.querySelector('.of-vr-x').addEventListener('click', close);
+    addEventListener('keydown', e => { if (e.key === 'Escape' && ov.classList.contains('on') && !document.querySelector('.ex-veil3.on, .ex-veil.on')) { e.preventDefault(); close(); } });
+    vrai = ov;
+  }
+  vrai.hidden = false;
+  requestAnimationFrame(() => requestAnimationFrame(() => vrai.classList.add('on')));
+}
+
 export function mountOffer({ name, over = false, onPaid = null, scene = null, nav = null, onName = null }) {
   onPaidHere = onPaid;
   const root = document.createElement('div');
@@ -380,6 +401,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const CAP = `<div class="of-cap"><div class="of-vit" role="group" aria-roledescription="carrousel" aria-label="Ce que tu reçois">
         <p class="of-vit-t" aria-live="polite"></p>
         <div class="of-dots">${OBJETS.map((o, i) => `<button class="of-dot" type="button" data-k="${i}" aria-label="${esc(o.txt.replace(/\n/g, ' '))}"><i></i></button>`).join('')}</div>
+        <button class="of-vrai-go" type="button">VOIR EN VRAI</button>
       </div></div>`;
   root.innerHTML = `
     <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
@@ -387,8 +409,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
       <div class="of-rest">
       <!-- (12/10) chaque section de la suite porte son nom (data-nom) : le signe du bas l'annonce et y mène -->
-      ${EN_VRAI.length ? `<section class="of-vrai of-sec" data-nom="en vrai" aria-label="En vrai"><h2 class="of-sh">en vrai</h2>${EN_VRAI.map(p => `<figure><img src="${esc(new URL(p.src, document.baseURI).href)}" alt="${esc(p.legende || '')}" loading="lazy" decoding="async" onerror="this.parentNode.remove()"><figcaption>${esc(p.legende || '')}</figcaption></figure>`).join('')}</section>` : ''}
-      <section class="of-ex of-sec" data-nom="d’autres prénoms" aria-label="D’autres prénoms, d’autres poèmes"><div class="of-ex-host"></div></section>
+      <!-- (17/10, Maxence) plus de section « d'autres prénoms » ni « en vrai » : VOIR EN VRAI, sur l'objet (openVrai) -->
       <!-- (17/10, Maxence) qui écrit le poème, puis les questions qu'on se pose avant de commander -->
       <section class="of-au of-sec" data-nom="qui t’écrit" aria-label="Qui t’écrit">${auteurHtml()}</section>
       <section class="of-qs of-sec" data-nom="tes questions" aria-label="Tes questions"><h2 class="of-sh">tes questions</h2>${questionsHtml()}</section>
@@ -423,7 +444,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     im.src = new URL(FEUILLE_PHOTO.src, document.baseURI).href;
   }
 
-  mountExemples(root.querySelector('.of-ex-host'));
+  root.querySelector('.of-vrai-go').addEventListener('click', () => { count('alt/en-vrai'); openVrai(); });
   // ---- la vitrine (11/10) : jouée dans la scène (envelope.vitrine) — rien ne bouge tout seul. On avance d'une étape en
   // faisant défiler la page (la scène reste en place pendant ce temps : un espace transparent sous elle, .of-story ; puis
   // les autres poèmes montent et la feuille avec eux) ou avec les flèches ; on recule pareil, à tout moment, et tout se
@@ -441,7 +462,10 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const WK = [1, 1, 0.5];
   const segL = i => (KEYS[i + 1] - KEYS[i]) * (WK[i] ?? 1) * PXS();
   const keyY = i => { let y = 0; for (let j = 0; j < i; j++) y += segL(j); return y; };
-  const storyLen = () => (vit && story ? keyY(N - 1) : 0);
+  // (17/10, Maxence : « quand on fait défiler depuis RECEVOIR et dessous, la page défile directement, comme si l'objet
+  // était une section à part ») l'histoire ne se joue plus au défilement de la page : la page défile vers la suite ;
+  // l'histoire, ce sont les gestes sur l'objet (glisser de côté, vers le haut ou le bas, la molette sur lui), les points
+  const storyLen = () => 0;
   const pOf = y => { y = Math.max(0, y); for (let i = 0; i < N - 1; i++) { const l = segL(i); if (y < l) return i + y / l; y -= l; } return N - 1; };
   // (des repères d'arrêt : la page se pose doucement sur chaque étape — scroll-snap)
   const sizeStory = () => {
@@ -501,31 +525,38 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const txtFor = k => slideTxt(nbsp(OBJETS[k].txt), k === 0);
   // (16/10) toucher l'objet : ce qu'il est vraiment (more), tapé à la place de la description ; encore = la description
   let detail = false;
+  // (17/10, Maxence : « chaque toucher zoome sur l'objet touché, en image et en descriptif — dimensions, fiche
+  // technique — et VOIR EN VRAI ») : la vue s'approche de l'objet (vit.look), sa fiche se tape à la place de la
+  // description, VOIR EN VRAI paraît sous elle ; encore = la vue revient, la description aussi. La carte mystère garde
+  // son mystère : on la voit de près, sans rien de plus.
   const toggleDetail = () => {
-    if (cur >= 0 && OBJETS[cur].look && vit?.look) { detail = vit.look(!detail); if (detail) count('alt/detail-' + OBJETS[cur].id); return; }
-    if (cur < 0 || !OBJETS[cur].more) return;
-    detail = !detail; clearTimeout(txtT);
-    slideTxt(nbsp(detail ? OBJETS[cur].more : OBJETS[cur].txt), false);
-    if (detail) count('alt/detail-' + OBJETS[cur].id);
+    if (cur < 0) return;
+    const ob = OBJETS[cur], want = !detail;
+    const zoomed = vit?.look ? vit.look(want) : false;
+    if (want && !zoomed && !ob.more) return;
+    detail = want;
+    root.classList.toggle('detail', detail && !ob.look);
+    if (ob.more) { clearTimeout(txtT); slideTxt(nbsp(detail ? ob.more : ob.txt), false); }
+    if (detail) count('alt/detail-' + ob.id);
   };
   const show = k => {
     k = Math.max(0, Math.min(N - 1, k));
     if (k === cur) return;
-    detail = false;
+    detail = false; root.classList.remove('detail');
     const back = cur >= 0 && k < cur; cur = k;
     dotsOn(k);
     root.classList.toggle('vit-last', k === N - 1);
     clearTimeout(txtT);
     if (!back || k === 0) { txtFor(k); return; }
     clearTxt();
-    const wait = () => { txtT = setTimeout(() => { if (cur !== k) return; if (drive || touching) { wait(); return; } txtFor(k); }, 450); };
+    const wait = () => { txtT = setTimeout(() => { if (cur !== k) return; if (drive || touching || (vit && !vit.state()?.arrived)) { wait(); return; } txtFor(k); }, vit ? 120 : 450); };
     wait();
   };
   // les flèches : la page défile jusqu'à l'étape voulue À L'ALLURE DE L'ÉTAPE (1 × en avançant, 1,5 × en reculant) ;
   // depuis la dernière, la flèche de droite rembobine tout, un peu plus vite (2,2 ×). Un geste (molette, doigt) l'arrête.
   let drive = 0;
   const stopDrive = () => { if (drive) { cancelAnimationFrame(drive); drive = 0; root.style.scrollSnapType = ''; } };
-  const driveTo = (y, speed) => {
+  const driveTo = (y, speed, done) => {
     stopDrive();
     root.style.scrollSnapType = 'none';
     let pos = root.scrollTop, last = performance.now();
@@ -533,7 +564,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       const d = y - pos, mv = Math.sign(d) * Math.min(Math.abs(d), speed * dt);
       pos += mv; root.scrollTop = pos;
-      if (Math.abs(y - pos) < 0.5) { drive = 0; setTimeout(() => { if (!drive) root.style.scrollSnapType = ''; }, 120); return; }
+      if (Math.abs(y - pos) < 0.5) { drive = 0; setTimeout(() => { if (!drive) root.style.scrollSnapType = ''; }, 120); done && done(); return; }
       drive = requestAnimationFrame(f);
     };
     drive = requestAnimationFrame(f);
@@ -560,14 +591,14 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     }, 220);
   }
   root.addEventListener('scroll', () => { const y = root.scrollTop; if (Math.abs(y - sLast) > 0.5) sDir = Math.sign(y - sLast); sLast = y; if (!drive) armSettle(); }, { passive: true });
-  const goStep = (d, fast = 1) => {
+  // une étape : l'histoire y va à son allure (en reculant, vite) ; depuis la dernière, la suite revient au début
+  const goTo = k => { k = Math.max(0, Math.min(N - 1, k)); if (vit) vit.go(k); show(k); };
+  const goStep = d => {
     if (busyMode()) return;
     count('alt/vitrine');
-    if (!(vit && story)) { show(cur + d); return; }
-    const p = pOf(root.scrollTop);
-    if (d > 0 && p > N - 1.02) { driveTo(0, PXS() * 2.2); return; }      // depuis la fin : tout rembobiner
-    const k = Math.max(0, Math.min(N - 1, d > 0 ? Math.floor(p + 0.02) + 1 : Math.ceil(p - 0.02) - 1));
-    driveTo(keyY(k), PXS() * (d > 0 ? 1 : 1.5) * fast);
+    const c = Math.max(0, cur);
+    if (d > 0 && c >= N - 1) { goTo(0); return; }      // depuis la fin : tout rembobiner
+    goTo(c + d);
   };
   // (11/10) une seule grammaire : vertical = avancer dans la page (les étapes suivent le défilement) ; les pages : les
   // flèches du bandeau (12/10 : plus de glissé pour changer de page, nav.js)
@@ -577,9 +608,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   root.querySelectorAll('.of-dot').forEach(b => b.addEventListener('click', () => {
     if (busyMode()) return;
     const k = +b.dataset.k; count('alt/vitrine');
-    if (!(vit && story)) { show(k); return; }
-    const y = keyY(k), back = y < root.scrollTop;
-    driveTo(y, PXS() * (back ? 1.5 : 1));
+    goTo(k);
   }));
   // glisser l'objet de côté (doigt, souris tenue) : vers la gauche = l'étape suivante, vers la droite = la précédente
   // (12/10, Maxence : « le plus intuitif avec les points, c'est de slide ») partout où est l'objet, à toutes les étapes —
@@ -601,7 +630,13 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
         const b = onName.box(); if (b && x > b[0] && x < b[2] && y > b[1] && y < b[3]) { onName.go(); return; }
       }
       if (Math.hypot(dx, dy) < 10 && performance.now() - st < 600) { toggleDetail(); return; }
-      if (Math.abs(dx) > 36 && Math.abs(dx) > 1.3 * Math.abs(dy) && performance.now() - st < 1500) goStep(dx < 0 ? 1 : -1, 1.5);
+      if (performance.now() - st > 1500) return;
+      if (Math.abs(dx) > 36 && Math.abs(dx) > 1.3 * Math.abs(dy)) goStep(dx < 0 ? 1 : -1);
+      // (17/10) vers le haut = l'étape suivante (après la dernière : la suite de la page), vers le bas = la précédente
+      else if (Math.abs(dy) > 36 && Math.abs(dy) > 1.3 * Math.abs(dx)) {
+        if (dy < 0) { if (cur >= N - 1) { const n = nextSec(); if (n) descend(n); } else goStep(1); }
+        else if (cur > 0) goStep(-1);
+      }
     };
     // (12/10) au doigt, le geste est décidé PENDANT qu'il se fait : en mode appli (écran d'accueil de l'iPhone), dès que
     // le doigt dérive un peu verticalement la page commence à défiler et iOS annule le toucher (touchcancel, jamais de
@@ -610,11 +645,22 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     root.addEventListener('touchstart', e => { if (e.touches.length === 1) { s0(e.touches[0].clientX, e.touches[0].clientY, e.target); lx = e.touches[0].clientX; ly = e.touches[0].clientY; } else sx = null; }, { passive: true });
     root.addEventListener('touchmove', e => {
       const t = e.touches[0]; if (!t || sx == null) return;
+      if (e.cancelable) e.preventDefault();            // (sur l'objet, en haut de page : la page ne défile pas, l'histoire avance)
       lx = t.clientX; ly = t.clientY;
       const dx = lx - sx, dy = ly - sy;
-      if (Math.abs(dx) > 36 && Math.abs(dx) > 1.3 * Math.abs(dy)) s1(lx, ly);
-      else if (Math.abs(dy) > 60) sx = null;          // un défilement : ce n'est pas un glissé
-    }, { passive: true });
+      if ((Math.abs(dx) > 36 && Math.abs(dx) > 1.3 * Math.abs(dy)) || (Math.abs(dy) > 36 && Math.abs(dy) > 1.3 * Math.abs(dx))) s1(lx, ly);
+    }, { passive: false });
+    // la molette sur l'objet, en haut de page : une étape par geste ; après la dernière, la page défile
+    let wAcc = 0, wAt = 0, wLock = false;
+    root.addEventListener('wheel', e => {
+      if (e.ctrlKey || !inObj(e.clientX, e.clientY, e.target) || root.scrollTop > 2) return;
+      if (e.deltaY > 0 && cur >= N - 1 && !wLock) return;
+      if (e.deltaY < 0 && cur <= 0 && !wLock) return;
+      e.preventDefault();
+      const now = performance.now(); if (now - wAt > 260) wAcc = 0; wAt = now; wAcc += e.deltaY;
+      if (wLock || Math.abs(wAcc) < 40) return;
+      wLock = true; wAcc = 0; goStep(Math.sign(e.deltaY)); setTimeout(() => { wLock = false; }, 700);
+    }, { passive: false });
     root.addEventListener('touchend', e => { const t = e.changedTouches[0]; if (t) s1(t.clientX, t.clientY); }, { passive: true });
     root.addEventListener('touchcancel', () => s1(lx, ly), { passive: true });
     root.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button === 0) s0(e.clientX, e.clientY, e.target); });
@@ -648,11 +694,9 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   const descend = el => {
     count('alt/autres');
     stopDrive();
-    const L = storyLen();
-    if (vit && story && root.scrollTop < L - 1) { memo = cur; skip = true; root.scrollTop = L; }
     driveTo(secTop(el), FAST());
   };
-  const ascend = () => { stopDrive(); driveTo(Math.max(0, storyLen() - 2), FAST()); };
+  const ascend = () => { stopDrive(); driveTo(0, FAST()); };
   // (la flèche vers le haut : en haut, une fois en bas de la page)
   const up = document.createElement('button'); up.type = 'button'; up.className = 'of-up'; up.setAttribute('aria-label', 'Remonter');
   up.innerHTML = '<svg class="arw" viewBox="0 0 18 11" aria-hidden="true"><path d="M1.5 9.5 L9 2 L16.5 9.5"/></svg>';
@@ -664,7 +708,17 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     root.classList.toggle('arrows-off', busy);
   }, 250);
   const downAt = () => { let rv = false; try { rv = !!sessionStorage.getItem('sg.nav.reveal'); } catch { /* */ } return BAR_AT + (rv ? 1200 : 6500); };
-  setTimeout(() => setTimeout(() => { down.dataset.shown = '1'; if (!busyMode()) down.classList.add('on'); }, downAt() - BAR_AT), BAR_AT);
+  setTimeout(() => setTimeout(() => { down.dataset.shown = '1'; if (!busyMode()) { down.classList.add('on'); peek(); } }, downAt() - BAR_AT), BAR_AT);
+  // (17/10, Maxence) quand la flèche paraît, la page descend un peu, le temps de montrer ce qui suit (ETERNEL, qui
+  // t'écrit), et remonte — une fois par visite ; ensuite, la flèche seule
+  function peek() {
+    let seen = false; try { seen = !!sessionStorage.getItem('sg.peek'); sessionStorage.setItem('sg.peek', '1'); } catch { /* */ }
+    const n = secs()[0];
+    if (seen || !n || touching || root.scrollTop > 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const bh = root.querySelector('.of-bar')?.getBoundingClientRect().height || 200;
+    const y = Math.max(60, Math.min(innerHeight * 0.42, secTop(n) + 60 - (innerHeight - bh - 70)));
+    driveTo(y, 520, () => setTimeout(() => { if (!touching && !drive && Math.abs(root.scrollTop - y) < 4) driveTo(0, 620); }, 1300));
+  }
   // (13/10) le bandeau du bas est fixe : un doigt qui y glisse ne faisait pas défiler la page (rien ne bougeait, ou la
   // flèche partait) — le geste est rendu à la page, avec son élan ; l'histoire suit comme partout ailleurs
   {
@@ -718,18 +772,15 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       if (root.classList.contains('paying') || busyMode()) return;
       let y = root.scrollTop; const L = storyLen();
       // (revenu dans l'histoire après une descente par la flèche : l'étape où l'on était — l'objet n'a pas bougé)
-      if (skip && y < L - 1) { skip = false; stopDrive(); const k = memo ?? N - 1; memo = null; y = Math.min(keyY(k), L); root.scrollTop = y; }
       // (passé l'histoire : la description et ses points s'effacent, ils ne restent pas sous le bandeau)
       root.classList.toggle('past', y > L + 30);
       up.classList.toggle('on', y > L + innerHeight * 0.5);
-      // l'histoire suit le doigt : on descend, elle avance ; on remonte, elle rembobine (tout de suite)
-      if (vit && story && !skip) { const p = pOf(Math.min(y, L)); vit.scrub(p); show(Math.round(p)); }
       const c = cv(); if (!c) return;
       c.style.transition = 'none'; c.style.transformOrigin = '50% 0';
       const off = Math.max(0, y - L);
       c.style.transform = off > 0 ? `translateY(${(-off).toFixed(1)}px)` : '';
       // (11/10) en montant, l'objet s'efface : aux autres prénoms, il ne reste qu'eux sous le bandeau
-      c.style.opacity = off > 0 ? Math.max(0, 1 - off / (innerHeight * 0.5)).toFixed(3) : '';
+      c.style.opacity = '';   // (17/10) l'objet monte avec la page, comme une section : il ne s'efface plus
     });
   }, { passive: true });
   // en faisant défiler : une ombre en haut, sous la flèche retour (elle ne passe plus sur le texte)

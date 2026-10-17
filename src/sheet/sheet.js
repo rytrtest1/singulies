@@ -327,7 +327,7 @@ export function createSheetScene(gl, opts) {
   // connaît) ; POSTER (Entrée, OK) : elle se retourne encore (le cachet, la carte, le fil) et part par la tranche
   const STORY = !!opts.story && ENVELOPE && !HOLD;
   const story = { at: -1, arrived: -1, vc: null };
-  const VIT = (HOLD && opts.vitrine) || STORY ? createVitrine({ gl, card, rnd, PRENOM, SY, EC, SHEET, C_POSE, C_IN, reduced, noCard: STORY, top: from.top || null, base: opts.base || './', sigY: SIG.y, insets: () => [opts.insetTop ? opts.insetTop() : 0, opts.insetBottom ? opts.insetBottom() : 0] }) : null;
+  const VIT = (HOLD && opts.vitrine) || STORY ? createVitrine({ gl, card, rnd, PRENOM, SY, EC, SHEET, C_POSE, C_IN, reduced, noCard: STORY, top: from.top || null, base: opts.base || './', sigY: SIG.y, colY: () => { const ys = flyers.map(f => baseOf(f.i)); return ys.length ? (Math.min(...ys) + Math.max(...ys)) / 2 + 3 : 0; }, insets: () => [opts.insetTop ? opts.insetTop() : 0, opts.insetBottom ? opts.insetBottom() : 0] }) : null;
   let vOcc = null, myst = null, menv0 = null;
   const ENV_K_V = 0.95;                                        // (l'échelle de l'enveloppe de la vitrine : vitrine.js, ENV_K)
   const storyMenv0 = () => menv0 || lastMenv;
@@ -461,7 +461,7 @@ export function createSheetScene(gl, opts) {
         cxT = lerp(cxT, EC.x, uz); cyT = lerp(cyT, sy, uz); lD = lerp(lD, Math.log(zD), uz); }
     }
     // la vitrine : sa propre vue (la feuille, l'enveloppe, la carte vierge, la guirlande, tout l'envoi)
-    { const vc = V && !env ? V.camera(frames, frameAbove, W, H) : null; if (vc) { cxT = vc.cx; cyT = vc.cy; lD = vc.lD; if (STORY) story.vc = vc; } }
+    { const vc = (V || (VIT && VIT.looking && VIT.looking())) && !env ? VIT.camera(frames, frameAbove, W, H) : null; if (vc) { cxT = vc.cx; cyT = vc.cy; lD = vc.lD; if (STORY) story.vc = vc; } }
     if (STORY && env && story.vc && lastMenv) {
       // l'adresse : de la vue de la vitrine à l'adresse (téléphone : de près ; ordinateur : l'enveloppe entière) ; postée :
       // l'enveloppe entière, centrée (la tranche se cale ensuite sur le champ de l'email)

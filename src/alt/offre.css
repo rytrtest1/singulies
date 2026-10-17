@@ -374,3 +374,24 @@
 .of-bar .of-price .p1 { font-size: 13px; color: #8a857c; letter-spacing: .02em; margin-right: -.02em; }
 .of-bar .of-price .p1 b { font-size: 14.5px; color: #b8b3a9; font-weight: 500; letter-spacing: .02em; }
 .of-bar .of-price .p2 { font-size: 11.5px; color: #5f5b55; letter-spacing: .03em; margin-right: -.03em; }
+
+/* (17/10, Maxence) toucher l'objet : sa fiche à la place de la description, VOIR EN VRAI à la place des points */
+.of-vrai-go { display: none; margin: 0; height: 22px; padding: 0 0 0 .45em; border: 0; background: none; cursor: pointer;
+  font: 500 11.5px/22px 'SG Garamond', Georgia, serif; letter-spacing: .45em; color: #ece8e0; opacity: .62; -webkit-tap-highlight-color: transparent; }
+.of-vrai-go:hover, .of-vrai-go:focus-visible { opacity: .9; outline: none; }
+.of.detail .of-dots { display: none; }
+.of.detail .of-vrai-go { display: block; animation: of-vr-in .5s ease; }
+@keyframes of-vr-in { from { opacity: 0; } }
+/* VOIR EN VRAI : par-dessus la page (on ne la quitte pas) */
+.of-vr { position: fixed; inset: 0; z-index: 40; background: #060606; opacity: 0; transition: opacity .4s ease; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+.of-vr.on { opacity: 1; }
+.of-vr[hidden] { display: none; }
+.of-vr-x { position: absolute; z-index: 30; left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+  margin: 0; padding: 0; border: 0; background: transparent; color: #fff; opacity: .62; cursor: pointer; }
+.of-vr-x:hover, .of-vr-x:focus-visible { opacity: .9; outline: none; }
+.of-vr-t { position: absolute; left: 0; right: 0; top: max(18px, calc(env(safe-area-inset-top) + 12px)); margin: 0; text-align: center; padding-left: .45em;
+  font: 500 12px/20px 'SG Garamond', Georgia, serif; letter-spacing: .45em; color: #ece8e0; opacity: .55; pointer-events: none; }
+.of-vr-host { position: relative; padding: 0 16px; }
+.of-vr-ph { display: flex; flex-direction: column; gap: 22px; align-items: center; max-height: calc(100svh - 120px); overflow-y: auto; }
+.of-vr-ph img { display: block; max-width: min(92vw, 520px); height: auto; filter: grayscale(1); }
+.of-vr-ph figcaption { font: 12.5px/1.6 'SG Machine', 'Courier New', monospace; color: #8a857c; text-align: center; }

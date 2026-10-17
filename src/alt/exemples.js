@@ -57,7 +57,9 @@ function sheetHtml(ex) {
 // (11/10, Maxence) le défilé : sans fin (après le dernier, le premier revient, dans les deux sens), au doigt, à la souris
 // ou en touchant un voisin ; le poème doit se lire : toucher la feuille du milieu l'ouvre en presque plein écran.
 // Celle du milieu grande et nette, les voisines plus petites et en fondu.
-export function mountExemples(host) {
+// opt.root (17/10) : la couche où il est posé (VOIR EN VRAI, par-dessus la page), sinon la page du poème
+export function mountExemples(host, opt = {}) {
+  const ROOT = opt.root || document.getElementById('offre');
   const srcs = ACROSTICHES.length ? ACROSTICHES : EXEMPLES.map(ex => 'exemples/' + ex.vers.filter(Boolean).map(v => v[0]).join('').toLowerCase() + '.jpg');
   const N = srcs.length;
   if (!N) return;
@@ -261,7 +263,7 @@ export function mountExemples(host) {
   // (12/10, Maxence) les feuilles en direct, dans la lumière du site (exemples3d.js) ; l'image reste dessous, pour la mise
   // en page et sans WebGL2
   let g3 = null;
-  if (!ACROSTICHES.length) import('./exemples3d.js').then(m => m.mountSheets3d({ root: document.getElementById('offre') || document.body, slots, exemples: EXEMPLES, safe, watch: ringEl, scroller: document.getElementById('offre') || window, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches }))
+  if (!ACROSTICHES.length) import('./exemples3d.js').then(m => m.mountSheets3d({ root: ROOT || document.body, slots, exemples: EXEMPLES, safe, watch: ringEl, scroller: ROOT || window, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches }))
     .then(r => { if (!r) return; g3 = r; window.__ex3 = r; ringEl.classList.add('live3d'); for (const s of slots) s.o.style.transform = ''; }).catch(e => console.warn('exemples 3D', e));
   // la molette vers le bas sur le défilé, la page déjà au bout : ouvrir
   ringEl.addEventListener('wheel', e => { const r = document.getElementById('offre'); if (g3 && !reading && e.deltaY > 30 && r && r.scrollTop + r.clientHeight >= r.scrollHeight - 4) read(true); }, { passive: true });

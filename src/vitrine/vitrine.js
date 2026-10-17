@@ -46,8 +46,9 @@ export function createVitrine(o) {
 
   // ---- l'horloge : go(k) va à l'étape à son rythme ; scrub(p) suit le défilement (p : 0 → 3, en étapes ; la page donne
   //      à chaque étape une longueur proportionnelle à sa durée : le défilement est le temps) ----
-  let vt = 0, target = 0, k = 0, scrubbing = false;
-  const go = i => { scrubbing = false; k = Math.max(0, Math.min(VKEYS.length - 1, i)); target = VKEYS[k]; if (reduced) vt = target; };
+  let vt = 0, target = 0, k = 0, scrubbing = false, backK = 1;
+  // (17/10, Maxence : « le rembobinage des points doit être plus rapide ») en reculant de plusieurs étapes : ≈ 1,2 s au plus
+  const go = i => { scrubbing = false; k = Math.max(0, Math.min(VKEYS.length - 1, i)); target = VKEYS[k]; backK = Math.max(1, (vt - target) / 1.2 / BACK_SPEED); if (reduced) vt = target; };
   const jump = i => { go(i); vt = target; };
   function scrub(p) {
     p = Math.max(0, Math.min(VKEYS.length - 1, p));
@@ -60,10 +61,12 @@ export function createVitrine(o) {
   const MAX_F = 2.2, MAX_B = 3;
   // (17/10, Maxence : « toucher la carte mystère : juste on voit mieux la carte et le fil ») look(true) : la vue
   // s'approche de la carte mystère et de son fil ; encore, ou une autre étape : elle revient
-  let look = 0, lookT = 0;
-  const setLook = v => { lookT = v && vt > K[2] + 1.2 ? 1 : 0; return !!lookT; };
+  // (17/10, Maxence : « chaque toucher zoome sur l'objet touché ») à toutes les étapes, une fois arrivée : la feuille (son
+  // poème), la carte, le cachet, la carte mystère et son fil
+  let look = 0, lookT = 0, lookK = -1;
+  const setLook = v => { const ok = v && !scrubbing && Math.abs(vt - target) < 0.05; lookT = ok ? 1 : 0; if (ok) lookK = k; return !!lookT; };
   function update(dt) {
-    if (vt < K[2] + 1.2 || target < K[3] - 0.05) lookT = 0;
+    if (lookT && (k !== lookK || Math.abs(vt - target) > 0.05)) lookT = 0;
     look += (lookT - look) * (1 - Math.exp(-dt * (reduced ? 60 : 3.2)));
     if (Math.abs(lookT - look) < 1e-3) look = lookT;
     if (scrubbing) {
@@ -73,7 +76,7 @@ export function createVitrine(o) {
       return;
     }
     if (vt < target) vt = Math.min(target, vt + dt);
-    else if (vt > target) vt = Math.max(target, vt - dt * BACK_SPEED);
+    else if (vt > target) vt = Math.max(target, vt - dt * BACK_SPEED * backK);
   }
   const on = () => vt > 0.0005 || target > 0;
   const r2 = () => vt - K[1], r3 = () => vt - K[2];
@@ -131,7 +134,7 @@ export function createVitrine(o) {
   }
   // la vue : celle de la feuille ; l'enveloppe couchée tient dans la largeur (la vue recule juste assez)
   function camera(f, frameFor, W, H) {
-    if (!on()) return null;
+    if (!on() && look <= 0) return null;
     const lg = c => ({ cx: c.cx, cy: c.cy, lD: Math.log(c.D) });
     let c = lg(f.A), Hw = f.A.Hw;
     const need = ENV.w * ENV_K / 0.92 * H / W, kz = Math.max(1, need / (Hw || need)), u = vt > K[1] ? landU() : 0;
@@ -149,9 +152,15 @@ export function createVitrine(o) {
     }
     // la carte mystère de près (toucher l'objet à la dernière étape) : elle occupe ≈ 72 % de la largeur, son fil autour
     if (look > 0) {
-      const [ex, ey] = envCenter(), my = ENV.h / 2 - FLAP_H + SEAL_OFF - 12 - CH / 2 - 6;
-      const fz = Math.min(1, CW / 0.72 * H / W / (Hw || 1)), u = ease(look);
-      c = { cx: lerp(c.cx, ex, u), cy: lerp(c.cy, SY + ey + my, u), lD: lerp(c.lD, c.lD + Math.log(fz), u) };
+      let tx, ty, w;
+      if (lookK >= 3) { const [ex, ey] = envCenter(); tx = ex; ty = ey + ENV.h / 2 - FLAP_H + SEAL_OFF - 12 - CH / 2 - 6; w = CW / 0.72; }
+      else if (lookK === 2) { const [sx, sy] = sealAt(); tx = sx; ty = sy - 6; w = 58; }
+      else if (lookK === 1) { tx = 0; ty = QY; w = CW / 0.78; }
+      else { tx = 0; ty = o.colY ? o.colY() : 0; w = SHEET.w * 0.82; }   // (la feuille : son poème, la colonne du prénom)
+      const fz = Math.min(1, w * H / W / (Hw || 1)), u = ease(look);
+      // (le point visé au milieu de la place libre, entre le bandeau des pages et la légende — pas au milieu de l'écran)
+      const [it, ib] = o.insets ? o.insets() : [0, 0], dl = (it + (H - it - ib) / 2 - H / 2) / H;
+      c = { cx: lerp(c.cx, tx, u), cy: lerp(c.cy, SY + ty + dl * Hw * fz, u), lD: lerp(c.lD, c.lD + Math.log(fz), u) };
     }
     return Number.isFinite(c.cx + c.cy + c.lD) ? c : null;
   }
@@ -179,5 +188,5 @@ export function createVitrine(o) {
 
   function free() { myst.free(); }
   const seek = v => { scrubbing = false; vt = target = Math.max(0, Math.min(VKEYS[VKEYS.length - 1], v)); };   // (essais : un instant précis)
-  return { on, update, go, jump, scrub, seek, look: setLook, state: () => ({ vt, target, k, arrived: Math.abs(vt - target) < 1e-3, keys: VKEYS }), envState, sheetState, camera, focus, draw, free };
+  return { on, looking: () => look > 0.0005 || lookT > 0, update, go, jump, scrub, seek, look: setLook, state: () => ({ vt, target, k, arrived: Math.abs(vt - target) < 1e-3, keys: VKEYS }), envState, sheetState, camera, focus, draw, free };
 }
