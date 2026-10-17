@@ -5,7 +5,7 @@
 // Repère : celui de l'enveloppe, sans échelle (mm du monde de la feuille). r : secondes depuis le début (0 → MYST_T).
 import { M4, CARD } from '../cards/cardRenderer.js';
 import { ENV, FLAP_H, SEAL_OFF } from '../sheet/envelope.js';
-import { createThread, pathLen } from './thread.js';
+import { createThread, pathLen, FIL_R } from './thread.js';
 
 export const MYST_T = 4.0;
 const CARD_S = Math.SQRT1_2, CW = CARD.w * CARD_S, CH = CARD.h * CARD_S;   // la feuille est une A4 : la carte à sa taille
@@ -55,7 +55,7 @@ export function createMystery(gl, card, variant) {
     const g = span(1.35, 3.8, r);
     if (g > 0) {
       const e = g < 0.5 ? 2 * g * g : 1 - Math.pow(-2 * g + 2, 2) / 2;
-      STR.forEach((pts, i) => thread.draw(vp, eye, P, pts.map(p => ap(Me, p)), 0.55, { upTo: STR_L[i] * e, pitch: 1.5, fade }));
+      STR.forEach((pts, i) => thread.draw(vp, eye, P, pts.map(p => ap(Me, p)), FIL_R, { upTo: STR_L[i] * e, pitch: 1.5, fade }));
     }
   }
   return { draw, free: () => thread.free() };

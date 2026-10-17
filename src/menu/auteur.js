@@ -11,16 +11,15 @@ export const AUTEUR = [
   'ici, c’est pareil. tu me donnes ton prénom, tu réponds à une question du jeu SINGULIES, et je t’écris ton poème. je le tape une seule fois, à la machine, et je te l’envoie par la poste.',
   'personne d’autre ne l’écrit, aucun programme non plus.',
 ];
-const INSTAGRAM = 'https://www.instagram.com/e.t.ernel/';
 
 const CSS = `
 .au { max-width: 34em; margin: 0 auto; padding: 0 16px; text-align: center; color: rgb(200,200,200); }
 .au-ph { display: block; width: min(260px, 64vw); aspect-ratio: 4 / 5; object-fit: cover; margin: 0 auto 28px; filter: grayscale(1) brightness(.9); }
 .au-h { font: 500 22px/1 'SG Garamond', Georgia, serif; letter-spacing: .45em; padding-left: .45em; color: #fff; opacity: .9; margin: 0 0 26px; }
 .au p { font: 14.5px/1.85 'SG Machine', 'Courier New', monospace; margin: 0 0 14px; }
-.au-go { display: inline-block; margin: 18px 0 0; height: 44px; padding: 0 16px 0 calc(16px + .45em); border: 0; background: transparent; cursor: pointer;
-  font: 500 14px/44px 'SG Garamond', Georgia, serif; letter-spacing: .45em; color: #fff; opacity: .62; }
-.au-go:hover, .au-go:focus-visible { opacity: .9; outline: none; }
+.au-go { display: block; margin: 30px 0 14px; padding: 0 0 0 .45em;
+  font: 500 14px/1.4 'SG Garamond', Georgia, serif; letter-spacing: .45em; color: #fff; opacity: .62; }
+.au-ct { display: flex; justify-content: center; }
 .au-ig { display: block; font: 13px/1.6 'SG Machine', 'Courier New', monospace; color: rgba(255,255,255,.4); text-decoration: none; }
 .au-ig:hover { color: rgba(255,255,255,.65); }
 .mn-au { position: fixed; inset: 0; z-index: 44; background: #060606; opacity: 0; transition: opacity .35s ease; overflow-y: auto;
@@ -45,12 +44,14 @@ export function auteurHtml(base = './') {
   style();
   const ph = PORTRAIT ? `<img class="au-ph" src="${esc(new URL(base + PORTRAIT, document.baseURI).href)}" alt="Eternel" loading="lazy" decoding="async" onerror="this.remove()">` : '';
   return `<div class="au">${ph}<h2 class="au-h">ETERNEL</h2>${AUTEUR.map(p => `<p>${esc(p)}</p>`).join('')}
-    <button class="au-go" type="button">ECRIS-MOI</button><a class="au-ig" href="${INSTAGRAM}" target="_blank" rel="noopener">@e.t.ernel</a></div>`;
+    <h3 class="au-go">ECRIS-MOI</h3><div class="au-ct"></div></div>`;
 }
 
 // ECRIS-MOI : la carte de contact
+// (17/10, Maxence) la carte tout de suite sous ECRIS-MOI (plus de clic de plus), @e.t.ernel dessous
 export function wireAuteur(root, { base = './', reduced = false, name = '' } = {}) {
-  root.querySelector('.au-go')?.addEventListener('click', () => import('./contact.js').then(m => m.openContact({ base, reduced, name })));
+  const h = root.querySelector('.au-ct');
+  if (h && !h.firstChild) import('./contact.js').then(m => m.mountContact(h, { base, reduced, name }));
 }
 
 // la page par-dessus le site (ETERNEL, en bas) ; retour : la flèche, Échap

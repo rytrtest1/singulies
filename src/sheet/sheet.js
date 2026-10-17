@@ -25,7 +25,7 @@ import {
 } from './envelope.js';
 import { typeLines } from './typewriter.js';
 import { createVitrine } from '../vitrine/vitrine.js';
-import { createThread } from '../vitrine/thread.js';
+import { createThread, FIL_R } from '../vitrine/thread.js';
 import { createMystery, MYST_T } from '../vitrine/mystery.js';
 // (d'autres modules importent ces noms depuis sheet.js)
 export { ENV, FIELDS, MAIL_W, addressInk, fieldsInk } from './envelope.js';
@@ -333,7 +333,7 @@ export function createSheetScene(gl, opts) {
   const storyMenv0 = () => menv0 || lastMenv;
   // (11/10, Maxence) les lignes à écrire, à droite des lettres : un fil noir cousu (le même fil partout) — il sort de la
   // feuille à gauche, court jusqu'à la marge, y rentre ; il se coud à mesure que chaque lettre se pose
-  const fil = createThread(gl), FIL_R = 0.26;
+  const fil = createThread(gl);
   function rulePath(y, x0, u) {
     const x1 = RULE_X1, xe = x0 + (x1 - x0) * u, zt = SHEET.t / 2 + FIL_R + 0.35, pts = [[x0 - 0.25, y, -0.4], [x0 + 0.4, y, zt * 0.7]];
     for (let x = x0 + 1.2; x < xe; x += 1.2) pts.push([x, y + 0.05 * Math.sin(x * 0.7 + y), zt + 0.05 * Math.sin(x * 1.3 + y * 2)]);

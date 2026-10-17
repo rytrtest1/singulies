@@ -31,7 +31,7 @@ const saveOrder = o => { try { localStorage.setItem(K_ORDER, JSON.stringify(o));
 // (grammage, papier) : seulement des faits sûrs ici
 const OBJETS = [
   { id: 'feuille', txt: 'l’exemplaire unique de ton poème\ntapé à la machine à écrire', more: 'une feuille noire A4, 21 × 29,7 cm\ntapée une seule fois : aucune copie' },
-  { id: 'carte', txt: 'une question du jeu SINGULIES\nta réponse sera le thème du poème', more: 'une carte noire de 8,7 × 5,2 cm\nla question à l’encre blanche, logo gaufré' },
+  { id: 'carte', txt: 'une question du jeu SINGULIES\nla réponse inspire le poème', more: 'une carte noire de 8,7 × 5,2 cm\nla question à l’encre blanche, logo gaufré' },
   { id: 'cachet', txt: 'le tout dans une enveloppe\nscellée à la cire', more: 'une enveloppe noire fermée à la main\nun cachet de cire argentée de 27 mm' },
   // (17/10, Maxence) la carte mystère garde son mystère : la toucher ne dit rien de plus, on la voit de près (look)
   { id: 'mystere', txt: 'une carte mystère et un fil…\npour rester liés', look: true },
@@ -399,7 +399,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     <div class="of-shade" aria-hidden="true"></div>
     <div class="of-bar">
       <button class="of-go" type="button">RECEVOIR</button>
-      <div class="of-price"><b>${esc(PRIX)}</b> tout compris · ${esc(DELAI_COURT)}</div>
+      <div class="of-price"><span class="p1"><b>${esc(PRIX)}</b> tout compris</span><span class="p2">${esc(DELAI_COURT)}</span></div>
       <!-- (12/10, Maxence) l'invitation à descendre, APRÈS l'action : la fin de cette section, le nom de la suivante -->
       <button class="of-down" type="button"><svg class="arw" viewBox="0 0 18 11" aria-hidden="true"><path d="M1.5 1.5 L9 9 L16.5 1.5"/></svg></button>
     </div>`;

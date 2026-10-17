@@ -64,7 +64,7 @@ const CSS = `
 .nv-foot.on { opacity: 1; }
 .nv-foot canvas { position: absolute; left: 0; top: 0; }
 .nv-foot button { position: absolute; left: 50%; top: 2px; transform: translateX(-50%); margin: 0; padding: 8px 6px; border: 0; background: none; cursor: pointer;
-  font: 500 10.5px/14px 'SG Garamond', Georgia, serif; letter-spacing: .34em; margin-right: -.34em; color: #ece8e0; opacity: .5; white-space: nowrap;
+  font: 500 13px/14px 'SG Garamond', Georgia, serif; letter-spacing: .4em; margin-right: -.4em; color: #ece8e0; opacity: .6; white-space: nowrap;
   -webkit-tap-highlight-color: transparent; transition: opacity .4s; }
 .nv-foot.on button { pointer-events: auto; }
 .nv-foot button:hover, .nv-foot button:focus-visible { opacity: .8; outline: none; }

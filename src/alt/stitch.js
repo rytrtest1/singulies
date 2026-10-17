@@ -5,6 +5,19 @@
 // dans les trous (il s'affine et s'assombrit), qui gardent un liseré de lumière sur leur bord bas.
 // (12/10, Maxence : « tout le site est lié ») le fil n'est jamais tout à fait immobile : il coulisse très lentement dans
 // ses trous (sa torsion, son lustre, ses fibres défilent avec la matière), de gauche à droite.
+import { stageView, MM } from '../app/stage.js';
+import { FIL_MM } from '../vitrine/thread.js';
+// (17/10, Maxence : « toujours le même fil, à son épaisseur réelle ») l'épaisseur du fil à l'écran : 0,75 mm à
+// l'échelle des objets de la page (la feuille A4 au centre du monde), la même pour tous les fils dessinés en 2D
+let thK = '', thV = 1.2;
+export function threadPx() {
+  const k = innerWidth + 'x' + innerHeight;
+  if (k !== thK) {
+    thK = k;
+    try { const v = stageView(innerWidth, innerHeight), a = v.project(-10, 0), b = v.project(10, 0); thV = Math.min(1.8, Math.max(0.9, FIL_MM * MM * (b[0] - a[0]) / 20)); } catch { thV = 1.2; }
+  }
+  return thV;
+}
 function rng(seed) { let s = seed >>> 0 || 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 
 // le fil cousu entre ha et hb (px), à la hauteur y0, dans un contexte 2D déjà réglé (aussi : le bandeau des pages, nav.js)
@@ -12,7 +25,8 @@ function rng(seed) { let s = seed >>> 0 || 1; return () => (s = (s * 16807) % 21
 // bout — sans trou, le fil vient de plus loin, du bord de l'écran), g0 (12/10 : la position de ha le long du fil lui-même
 // — la torsion est alors attachée à la matière : quand le fil coulisse, ses reflets défilent avec lui ; le lustre et les
 // fibres aussi), yf (px → px : une onde lente le long du fil, en coordonnées de l'écran) }
-export function paintThread(x, ha, hb, y0, seed = 7, TH = 1.25, o = {}) {
+export function paintThread(x, ha, hb, y0, seed = 7, TH = null, o = {}) {
+  TH = threadPx();   // (17/10) un seul fil : son épaisseur ne dépend plus de l'endroit
   const sag = o.sag ?? 0.45, sag2 = o.sag2 ?? 0, holes = o.holes || [true, true];
   const R = rng(seed);
   // le chemin : à peine affaissé, à peine irrégulier
@@ -93,7 +107,7 @@ export function stitch(el, { pad = 3.5, dy = 0, seed = 7 } = {}) {
   Object.assign(cv.style, { position: 'absolute', pointerEvents: 'none', left: '0', top: '0' });
   el.appendChild(cv);
   const x = cv.getContext('2d');
-  const TH = 1.25, H = 12;
+  const H = 12;
   function layout() {
     // la largeur du mot (pas celle de la boîte : l'interlettrage, les marges)
     // (seulement le texte : pas le fil lui-même, qui est dans l'élément)
@@ -113,7 +127,7 @@ export function stitch(el, { pad = 3.5, dy = 0, seed = 7 } = {}) {
   function draw(w, dpr) {
     cw = w; cdpr = dpr;
     x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, H);
-    paintThread(x, 2.6, w - 2.6, H / 2, seed, TH, { g0: seed * 7 });   // (13/10, Maxence) cousu : il ne coulisse pas
+    paintThread(x, 2.6, w - 2.6, H / 2, seed, null, { g0: seed * 7 });   // (13/10, Maxence) cousu : il ne coulisse pas
   }
   const ro = new ResizeObserver(layout); ro.observe(el);
   document.fonts && document.fonts.ready.then(layout);

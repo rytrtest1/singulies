@@ -13,7 +13,7 @@
 // même lampe) ; on la prend en main. Le bas de l'objet ne bouge pas à l'écran (la légende reste à sa distance).
 import { createCardRenderer, M4, CARD } from '../cards/cardRenderer.js';
 import { LOOK } from '../cards/scene.js';
-import { createThread } from '../vitrine/thread.js';
+import { createThread, FIL_R } from '../vitrine/thread.js';
 import { ENV, ENV_BACK_H, FLAP_H, SEAL_D, SEAL_K, SEAL_IN, SEAL_WOB, SEAL_LOOK0, SEAL_SHAPE0, sealDraw, sealForm, envPieces } from '../sheet/envelope.js';
 import { SHEET, LOGO_Y, LOGO_K } from '../sheet/sheet.js';
 import { objLamp } from '../livres/book3d.js';
@@ -46,7 +46,6 @@ export const LKEYS = D.reduce((a, d) => (a.push(a[a.length - 1] + d), a), [0]);
 const K = LKEYS, NE = 5;                          // NE : les enveloppes du tirage
 // (12/10, Maxence) plus de texte sur la feuille : les lignes sont le fil noir cousu, comme sur la feuille du poème —
 // au recto le poème (lignes centrées, longueurs de vers), au verso la lettre (paragraphes, alignés à gauche)
-const FIL_R = 0.26;
 const RECTO = [0.62, 0.5, 0.66, 0.46, 0.58, 0.64, 0.44, 0.52];
 const VERSO = [0.9, 0.84, 0.92, 0.4, null, 0.88, 0.94, 0.86, 0.78, 0.3, null, 0.9, 0.82, 0.6];
 export async function createEnvelope(gl, base = './') {
@@ -236,7 +235,7 @@ export async function createEnvelope(gl, base = './') {
       selMe = M4.mul(R, M4.mul(M4.model(...q), S(EK)));
     }
     // le fil de la guirlande : plus épais et mieux éclairé (il est loin ; on le voyait moins que celui de SINGULIES)
-    const PF = { ...P, env: (P.env ?? 0.3) * 2.4 }, FR = FIL_R * 2.6;
+    const PF = { ...P, env: (P.env ?? 0.3) * 2.4 }, FR = FIL_R;   // (17/10) le même fil partout, à son épaisseur réelle
     // un brin, d'un point à l'autre, qui s'affaisse et ondule (u : 0 → 1)
     const strand = (A, B, i, list) => {
       const n = 16, len = Math.hypot(B[0] - A[0], B[1] - A[1]);

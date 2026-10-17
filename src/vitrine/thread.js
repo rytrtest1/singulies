@@ -46,6 +46,10 @@ void main() {
   o = vec4(mix(vec3(6.0 / 255.0), col, uFade), 1.0);
 }`;
 
+// (17/10, Maxence : « garde le fil à une épaisseur cohérente partout, selon l'épaisseur réelle du fil, toujours le
+// même fil ») un seul fil : un coton ciré de 0,75 mm de diamètre — en unités du monde de la feuille (1 mm = 1/√2)
+export const FIL_MM = 0.75;
+export const FIL_R = FIL_MM / 2 * Math.SQRT1_2;
 export function createThread(gl) {
   const prog = program(gl, VS, FS);
   const vao = gl.createVertexArray(), vbo = gl.createBuffer(), ibo = gl.createBuffer();
@@ -60,7 +64,7 @@ export function createThread(gl) {
   gl.bindVertexArray(null);
   const SIDES = 8;
   // pts : [[x,y,z]…] ; r : rayon (mm) ; upTo : longueur dessinée (mm, depuis le début : le fil s'enroule) ; fade
-  function draw(vp, eye, P, pts, r = 0.36, o = {}) {
+  function draw(vp, eye, P, pts, r = FIL_R, o = {}) {
     if (!pts || pts.length < 2) return;
     let path = pts;
     if (o.upTo != null) {
@@ -108,6 +112,14 @@ export function createThread(gl) {
     gl.drawElements(gl.TRIANGLES, m, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);
   }
+  // (17/10) le premier dessin compilait le programme : la feuille se figeait au moment où les lignes paraissaient —
+  // un dessin à vide tout de suite (rien n'est écrit : masque de couleur et de profondeur fermés)
+  try {
+    const cm = gl.getParameter(gl.COLOR_WRITEMASK), dm = gl.getParameter(gl.DEPTH_WRITEMASK);
+    gl.colorMask(false, false, false, false); gl.depthMask(false);
+    draw(new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]), [0, 0, 1], { lightPos: [0, 0, 1], light: 1, exposure: 1 }, [[0, 0, 0], [0, 1, 0], [0, 2, 0]], 0.1);
+    gl.colorMask(...cm); gl.depthMask(dm);
+  } catch { /* */ }
   const free = () => { gl.deleteBuffer(vbo); gl.deleteBuffer(ibo); gl.deleteVertexArray(vao); gl.deleteProgram(prog.p); };
   return { draw, free };
 }

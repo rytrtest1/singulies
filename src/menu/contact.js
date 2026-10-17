@@ -40,6 +40,9 @@ const CSS = `
   display: flex; align-items: center; justify-content: center; margin: 0; padding: 0; border: 0; background: transparent; color: #fff;
   opacity: .62; cursor: pointer; z-index: 2; }
 .mn-ct .ct-back:hover, .mn-ct .ct-back:focus-visible { opacity: .85; outline: none; }
+.mn-ct.ct-in { position: relative; left: auto; top: auto; width: auto; height: auto; z-index: auto; background: none; overflow: visible; min-height: 0; }
+.mn-ct.ct-in .ct-stack { position: relative; }
+.mn-ct.ct-in .ct-done { position: absolute; top: 40%; }
 `;
 const BACK = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
 const K_LAST = 'singulies.note';
@@ -51,12 +54,20 @@ const el = (tag, cls, parent, html) => { const e = document.createElement(tag); 
 
 // opts : { base, reduced, name (le prénom tapé, s'il y en a un), onDone() (une fois le message parti : fermer le menu) }
 export function openContact(opts = {}) {
-  if (document.querySelector('.mn-ct')) return;
+  if (document.querySelector('.mn-ct:not(.ct-in)')) return;
+  build(document.body, opts, false);
+}
+// (17/10, Maxence : « mets la carte direct sous ECRIS-MOI, pas besoin d'un clic de plus ») la même carte, posée dans
+// la page (qui t'écrit) : on y écrit tout de suite ; envoyée, « reçu. je te réponds. » puis une carte neuve
+export function mountContact(host, opts = {}) { return build(host, opts, true); }
+
+function build(host, opts, inline) {
   const { base = './', reduced = false } = opts;
   if (!document.getElementById('ct-style')) { const st = el('style', '', document.head); st.id = 'ct-style'; st.textContent = CSS; }
-  const root = el('div', 'mn-ct', document.body);
-  root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'me contacter');
-  const back = el('button', 'ct-back', root, BACK); back.type = 'button'; back.setAttribute('aria-label', 'Retour');
+  const root = el('div', 'mn-ct' + (inline ? ' ct-in on' : ''), host);
+  root.setAttribute('role', inline ? 'group' : 'dialog'); root.setAttribute('aria-label', 'me contacter');
+  const back = inline ? null : el('button', 'ct-back', root, BACK);
+  if (back) { back.type = 'button'; back.setAttribute('aria-label', 'Retour'); }
   const form = el('form', 'ct-stack', root); form.noValidate = true; form.setAttribute('autocomplete', 'on');
   const card = el('div', 'ct-card', form);
   const img = el('img', '', card); img.src = new URL(base + 'simple/vierge.jpg', document.baseURI).href; img.alt = '';
@@ -78,7 +89,7 @@ export function openContact(opts = {}) {
     ch.addEventListener('click', () => { askMail(email); email = null; input.focus(); input.select(); check(); });
   } else askMail();
   const go = el('button', 'ct-go', form); go.type = 'submit'; go.textContent = 'ENVOYER';
-  el('div', 'ct-alt', form, 'ou sur instagram <a href="' + INSTAGRAM + '" target="_blank" rel="noopener">@e.t.ernel</a>');
+  el('div', 'ct-alt', form, inline ? 'ou <a href="' + INSTAGRAM + '" target="_blank" rel="noopener">@e.t.ernel</a>' : 'ou sur instagram <a href="' + INSTAGRAM + '" target="_blank" rel="noopener">@e.t.ernel</a>');
 
   const mailOk = () => EMAIL_RE.test((email || input?.value || '').trim());
   function check() { go.classList.toggle('on', ta.value.trim().length > 0 && mailOk()); }
@@ -90,12 +101,13 @@ export function openContact(opts = {}) {
   // (clavier ouvert : au-dessus du clavier)
   const vv = window.visualViewport;
   function layout() {
-    const W = innerWidth, H = vv ? vv.height : innerHeight, top = vv ? vv.offsetTop : 0;
-    const cw = Math.min(W * 0.8, 420, H * 0.42 / (52 / 87)), iw = cw / IMG.f;
+    const W = inline ? (host.clientWidth || innerWidth) : innerWidth, H = vv ? vv.height : innerHeight, top = vv ? vv.offsetTop : 0;
+    const cw = inline ? Math.min(innerWidth * 0.8, W, 420) : Math.min(W * 0.8, 420, H * 0.42 / (52 / 87)), iw = cw / IMG.f;
     Object.assign(card.style, { width: iw + 'px' });
     const ih = iw * IMG.h / IMG.w, ch = cw * 52 / 87, ox = (iw - cw) / 2, oy = (ih - ch) / 2;
     const pad = cw * 0.09;
     Object.assign(ta.style, { left: (ox + pad) + 'px', top: (oy + pad * 0.8) + 'px', width: (cw - 2 * pad) + 'px', height: (ch - 1.6 * pad) + 'px' });
+    if (inline) return;
     root.style.top = top + 'px'; root.style.height = H + 'px';
     form.style.top = '0px';
     const sh = form.offsetHeight;
@@ -104,9 +116,9 @@ export function openContact(opts = {}) {
   layout();
   addEventListener('resize', layout); vv?.addEventListener('resize', layout); vv?.addEventListener('scroll', layout);
   img.addEventListener('load', layout);
-  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('on')));
+  if (!inline) requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('on')));
   // ordinateur : on écrit tout de suite ; téléphone : le clavier ne sort que si l'on touche la carte
-  if (!matchMedia('(pointer: coarse)').matches) setTimeout(() => ta.focus({ preventScroll: true }), 380);
+  if (!inline && !matchMedia('(pointer: coarse)').matches) setTimeout(() => ta.focus({ preventScroll: true }), 380);
   card.addEventListener('click', () => ta.focus());
 
   function remove() {
@@ -116,8 +128,8 @@ export function openContact(opts = {}) {
     setTimeout(() => root.remove(), 380);
   }
   const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); remove(); } };
-  addEventListener('keydown', onKey, true);
-  back.addEventListener('click', remove);
+  if (!inline) addEventListener('keydown', onKey, true);
+  back?.addEventListener('click', remove);
 
   let sent = false;
   form.addEventListener('submit', e => { e.preventDefault(); submit(); });
@@ -141,6 +153,12 @@ export function openContact(opts = {}) {
     let i = 0;
     const strike = () => { if (i <= msg.length) { done.textContent = msg.slice(0, i++); setTimeout(strike, reduced ? 0 : 55 + Math.random() * 90); } };
     setTimeout(strike, reduced ? 0 : 900);
+    if (inline) {
+      // dans la page : la carte reste partie, le message reste lu ; une carte neuve si l'on veut réécrire
+      setTimeout(() => { remove(); setTimeout(() => build(host, opts, true), 400); }, reduced ? 4000 : 7000);
+      return;
+    }
     setTimeout(() => { remove(); opts.onDone?.(); }, reduced ? 1600 : 3600);
   }
+  return { remove };
 }
