@@ -286,7 +286,8 @@ export async function createEnvelope(gl, base = './') {
           // (de sa place finale dans le tirage à sa place dans la guirlande)
           const k = wrapMap.get(g.i), [px, py, pz, pa] = pilePos(k, D[2]), u = ease(clamp01(ww * 1.15 - 0.04 * k));
           const q = [lerp(0, g.p[0], u), lerp(0, g.p[1], u), lerp(pa, g.p[2], u), lerp(px, g.p[3], u), lerp(EY + py, g.p[4], u), lerp(pz, g.p[5], u)];
-          drawEnv(v, P, M4.mul(R, M4.mul(M4.model(...q), S(EK))), { seed: k ? pile[k].seed : pile[0].seed, si: k });
+          // (17/10, Maxence : « du dernier point au premier, la lumière n'est pas fluide ») la lumière de la pile → celle de sa place dans la guirlande, fondue avec le mouvement
+          drawEnv(v, mixP(P, garLamp(P, { p: g.p }), u), M4.mul(R, M4.mul(M4.model(...q), S(EK))), { seed: k ? pile[k].seed : pile[0].seed, si: k });
         } else if (Math.abs(g.x) < half * 2.2 + EW) drawEnv(v, garLamp(P, g), Mw, { seed: gar[g.i].seed, si: g.i, fade: others * (ww < 1 ? ease(ww) : 1) });
         const a = W2(g.M, -ENV.w / 2 - 0.5, THR_Y, THR_Z), b = W2(g.M, ENV.w / 2 + 0.5, THR_Y, THR_Z);
         if (held) {

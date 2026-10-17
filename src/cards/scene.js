@@ -67,7 +67,7 @@ const bare = ch => ch.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 //   carte réponse (curseur seul, sans invitation) pour répondre à une question qu'on nous a partagée — setJeuWrite(false)
 //   la retire (elle se fond), et c'est le jeu seul : des questions, sans réponse à donner
 // firstQ : la question tirée en premier (lien partagé, ou venue du jeu) ; noIntro : le paquet est déjà là (relais)
-export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true, jeu = false, jeuWrite = false, firstQ = null, noIntro = false, firstBack = null, sheetOnly = false } = {}) {
+export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true, jeu = false, jeuWrite = false, firstQ = null, noIntro = false, firstBack = null, sheetOnly = false, deckAt = 0.42 } = {}) {
   const card = await createCardRenderer(gl, base);
   const nameR = await createNameRelief(gl, card.paperTex);
   await loadTypeFont(base);
@@ -109,7 +109,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     lay.W = W; lay.H = H;
     lay.D = (CARD.w / cardWpx) * (H / 2) / Math.tan(FOV / 2);
     lay.Hw = 2 * lay.D * Math.tan(FOV / 2); lay.Ww = lay.Hw * W / H;
-    lay.yDeck = (0.5 - 0.42) * lay.Hw;               // paquet et question : place d'origine (42 %)
+    lay.yDeck = (0.5 - deckAt) * lay.Hw;               // paquet et question : place d'origine (42 %)
     lay.yAns = (0.5 - 0.76) * lay.Hw;                // carte réponse : dessous
   }
   const FACE_Z = STACK * PITCH + 2.8;                // la carte réponse glisse entre la question et le paquet

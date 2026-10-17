@@ -29,7 +29,8 @@ const PRICE = '9 €', PER = 'par mois';
 export function buildLettre(host, base = './') {
   const pg = buildStagePage(host, { id: 'lettre',
     base, steps: STEPS, fallback: () => 'simple/enveloppe-dos.jpg', aspectLabel: 'Une feuille, un poème tapé à la machine, glissée dans une enveloppe noire fermée par un cachet de cire argenté.',
-    sign: { label: 'REJOINDRE' }, behind: 'SINGULIES', price: () => `<b>${PRICE}</b> ${PER}`,
+    sign: { label: 'REJOINDRE' },   // (17/10, Maxence : « SINGULIES en fond, c'est too much avec les enveloppes qui défilent ») plus de nom derrière les lettres : SINGULIES est déjà en bas de page
+    price: () => `<b>${PRICE}</b> ${PER}`,
     make: gl => import('./env3d.js').then(m => m.createEnvelope(gl, base)),
   });
   const { main, sign, grab } = pg;

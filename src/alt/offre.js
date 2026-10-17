@@ -6,6 +6,7 @@ import './offre.css';
 import { acrostic } from '../basique/basique.js';
 import { mountExemples } from './exemples.js';
 import MACHINE from './machine.json';   // { loop, duration, rest[] } : voir tools/machine-cut.py
+import { NAV_TOP, safeTop } from '../app/stage.js';
 import { count } from '../app/count.js';
 import { stitch } from './stitch.js';
 import { PRIX, STRIPE, STRIPE_PK, PAIEMENT_URL, FEUILLE_PHOTO, SHEET_INSET, RESERVATION, EN_VRAI, DELAI_COURT } from './config.js';
@@ -682,13 +683,16 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     const inObj = (x, y, tg) => {
       if (busyMode() || root.classList.contains('past') || root.scrollTop > storyLen() + 30) return false;
       if (tg && tg.closest && tg.closest('a, button, input, .of-bar, .of-rest, .of-pay')) return false;
-      const capTop = root.querySelector('.of-cap')?.getBoundingClientRect().top ?? innerHeight * 0.7;
-      return y > 78 && y < capTop;
+      // (17/10, Maxence : « il faut pouvoir slide sur le texte descriptif partout ») la description compte comme l'objet : on y glisse
+      const cr = root.querySelector('.of-cap')?.getBoundingClientRect(), capBottom = cr ? cr.bottom + 6 : innerHeight * 0.8;
+      return y > 78 && y < capBottom;
     };
-    const s0 = (x, y, tg) => { if (!inObj(x, y, tg)) { sx = null; return; } sx = x; sy = y; st = performance.now(); };
+    let onCap = false;
+    const s0 = (x, y, tg) => { if (!inObj(x, y, tg)) { sx = null; return; } sx = x; sy = y; st = performance.now(); onCap = y >= (root.querySelector('.of-cap')?.getBoundingClientRect().top ?? 1e9); };
     const s1 = (x, y) => {
       if (sx == null) return; const dx = x - sx, dy = y - sy; sx = null;
       // (16/10, Maxence) toucher le prénom sur la feuille = revenir au champ pour le changer (une faute, un autre prénom)
+      if (onCap && Math.hypot(dx, dy) < 10) return;     // (un simple toucher sur la description : rien — seulement glisser)
       if (onName && Math.hypot(dx, dy) < 10 && performance.now() - st < 600 && root.scrollTop < 20) {
         const b = onName.box(); if (b && x > b[0] && x < b[2] && y > b[1] && y < b[3]) { onName.go(); return; }
       }
@@ -708,6 +712,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     root.addEventListener('touchstart', e => { if (e.touches.length === 1) { s0(e.touches[0].clientX, e.touches[0].clientY, e.target); lx = e.touches[0].clientX; ly = e.touches[0].clientY; } else sx = null; }, { passive: true });
     root.addEventListener('touchmove', e => {
       const t = e.touches[0]; if (!t || sx == null) return;
+      if (onCap && Math.abs(t.clientY - sy) > Math.abs(t.clientX - sx) + 4) { sx = null; return; }   // (sur la description : seulement de côté ; vers le haut / le bas, la page défile)
       if (e.cancelable) e.preventDefault();            // (sur l'objet, en haut de page : la page ne défile pas, l'histoire avance)
       lx = t.clientX; ly = t.clientY;
       const dx = lx - sx, dy = ly - sy;
@@ -743,10 +748,13 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // toujours la prochaine.
   const down = root.querySelector('.of-down');
   const secs = () => [...root.querySelectorAll('.of-sec')];
-  const secTop = el => el.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop - (el === secs()[0] ? 50 : 60);
+  // (17/10, Maxence : « la flèche nous amène pile à la section d'après, sans la couper en haut ») le haut de la section se pose juste sous
+  // la ligne du haut et le bandeau (NAV_TOP), pas dessous
+  const secOff = () => NAV_TOP + safeTop() + 8;
+  const secTop = el => el.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop - secOff();
   // (13/10, Maxence : « la flèche qui reste quand elle est inutile ») une section compte comme « à venir » tant que son
   // haut est encore dans le bas de l'écran ; déjà à l'écran, la flèche s'en va
-  const nextSec = () => secs().find(el => secTop(el) + 50 - root.scrollTop > innerHeight * 0.55) || null;
+  const nextSec = () => secs().find(el => el.getBoundingClientRect().top > innerHeight * 0.55) || null;
   const exTop = () => { const f = secs()[0]; return f ? secTop(f) : storyLen(); };
   // (12/10, Maxence) la flèche seule, sans le nom de la section (son nom reste pour la lecture d'écran)
   const syncDown = () => { const n = nextSec(); down.setAttribute('aria-label', n ? n.dataset.nom : 'Faire défiler'); down.classList.toggle('none', !n); };
@@ -781,7 +789,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     const n = secs()[0];
     if (seen || !n || touching || root.scrollTop > 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const bh = root.querySelector('.of-bar')?.getBoundingClientRect().height || 200;
-    const y = Math.max(60, Math.min(innerHeight * 0.42, secTop(n) + 60 - (innerHeight - bh - 70)));
+    const y = Math.max(60, Math.min(innerHeight * 0.42, secTop(n) + secOff() + 10 - (innerHeight - bh - 70)));
     driveTo(y, 520, () => setTimeout(() => { if (!touching && !drive && Math.abs(root.scrollTop - y) < 4) driveTo(0, 620); }, 1300));
   }
   // (13/10) le bandeau du bas est fixe : un doigt qui y glisse ne faisait pas défiler la page (rien ne bougeait, ou la

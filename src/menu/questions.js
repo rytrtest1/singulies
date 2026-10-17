@@ -22,7 +22,7 @@ export function openQuestions() {
   if (document.querySelector('.mn-au')) return;
   style();
   if (!document.getElementById('qs-style')) { const st = document.createElement('style'); st.id = 'qs-style'; st.textContent = CSS; document.head.appendChild(st); }
-  const root = document.createElement('div'); root.className = 'mn-au'; root.dataset.title = 'QUESTIONS';
+  const root = document.createElement('div'); root.className = 'mn-au'; root.dataset.title = 'QUESTIONS'; root.dataset.x = 'questions';
   root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'questions');
   root.innerHTML = `<button class="au-back" type="button" aria-label="Retour">${BACK}</button><div class="au">${questionsHtml()}</div>`;
   document.body.appendChild(root);

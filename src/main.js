@@ -1235,6 +1235,7 @@ if (ALT) {
     show: () => booted && (onNames() ? idleNames() : (S.navOn || !!document.querySelector('#offre.txt-on, #offre.bar-on'))) && !S.paid && !document.querySelector('.of.paying, .of.env'),
     foot: () => booted && (onNames() ? idleNames() : (S.navOn || !!document.querySelector('#offre.txt-on, #offre.bar-on'))) && !S.paid && !document.querySelector('.of.paying, .of.env'),
     // (17/10) aussi sur la page du poème une fois qu'on a défilé : les autres prénoms et les questions s'effacent sous ETERNEL et le bandeau
+    wideShade: () => onNames(),
     shade: () => booted && (idleNames() || !!document.querySelector('#offre.scrolled')),
     // (12/10) les aiguilles : sur la feuille, une fois l'offre posée (2,5 s après le bandeau du bas) ; la démonstration
     // seulement en haut de la page, sans paiement ni enveloppe

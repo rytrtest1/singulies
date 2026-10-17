@@ -18,6 +18,8 @@ const CSS = `
 .sg-deck { position: relative; width: min(100%, 340px); height: min(36svh, 250px); margin: 0 auto 26px; cursor: pointer; touch-action: pan-y pinch-zoom; -webkit-tap-highlight-color: transparent; outline: none; }
 .sg-deck .mc-deck-c { position: absolute; inset: 0; width: 100%; height: 100%; }
 .sg-deck.on ~ .sg-go { display: none; }
+.mn-au .au > * { transition: opacity .6s ease; }
+.mn-au.away .au > :not(.sg-deck) { opacity: 0; pointer-events: none; }
 `;
 const BACK = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -27,7 +29,7 @@ export function openSingulies(opts = {}) {
   const { base = './' } = opts;
   style();
   if (!document.getElementById('sg-style')) { const st = document.createElement('style'); st.id = 'sg-style'; st.textContent = CSS; document.head.appendChild(st); }
-  const root = document.createElement('div'); root.className = 'mn-au'; root.dataset.title = 'SINGULIES';
+  const root = document.createElement('div'); root.className = 'mn-au'; root.dataset.title = 'SINGULIES'; root.dataset.x = 'singulies';
   root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'singuliés');
   const jeu = new URL(base + 'jeu.html', document.baseURI).href;
   root.innerHTML = `<button class="au-back" type="button" aria-label="Retour">${BACK}</button>
@@ -35,19 +37,27 @@ export function openSingulies(opts = {}) {
     <a class="sg-go" href="${esc(jeu)}">LE JEU</a></div>`;
   document.body.appendChild(root);
   requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('on')));
-  // le paquet en direct : le toucher tire une carte, puis la page du jeu s'ouvre avec cette question (sans WebGL2 : le lien LE JEU)
+  // le paquet en direct. Au toucher : la page du jeu, préparée d'avance par-dessus (une couche transparente, game.js en relais), prend
+  // la carte du dessus là où elle est et la retourne sur une question, qui vient se poser au centre — une seule scène dessine la carte,
+  // aucun changement de page ; le retour (←) la ramène sur le paquet. Sans WebGL2 ou si le relais manque : le lien LE JEU.
   const box = root.querySelector('.sg-deck'), jeuUrl = id => { const u = new URL(jeu); if (id != null) u.searchParams.set('q', id); return u.href; };
-  let deck = null;
-  import('../jeu/deck3d.js').then(m => m.mountDeck(box, { base, reduced: opts.reduced, onDraw: id => { location.href = jeuUrl(id); } })).then(r => {
+  let deck = null, game = null, inGame = false;
+  import('../jeu/deck3d.js').then(m => m.mountDeck(box, { base, reduced: opts.reduced, onDraw: id => { if (!game) location.href = jeuUrl(id); } })).then(r => {
     if (!r) return; deck = r; box.classList.add('on');
+    setTimeout(() => { if (root.isConnected) import('../jeu/game.js').then(m => m.mountGame({ base, reduced: opts.reduced, relay: true, deck: () => deck,
+      onReturned: () => { inGame = false; root.classList.remove('away'); } })).then(g => { if (g && root.isConnected) game = g; else g?.root.remove(); }).catch(e => console.warn('jeu (relais)', e)); }, 1200);
   }).catch(() => { /* le lien suffit */ });
-  const play = () => { if (deck) deck.pull(); else location.href = jeu; };
+  const play = () => {
+    if (inGame) return;
+    if (deck && game) { inGame = true; root.classList.add('away'); game.takeOver(); return; }
+    if (deck) deck.pull(); else location.href = jeu;
+  };
   box.addEventListener('click', play);
   box.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play(); } });
   const close = () => {
     removeEventListener('keydown', onKey, true);
     root.classList.remove('on'); root.inert = true;
-    setTimeout(() => root.remove(), 380);
+    setTimeout(() => { root.remove(); game?.root.remove(); }, 380);
   };
   const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
   addEventListener('keydown', onKey, true);

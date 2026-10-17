@@ -88,7 +88,7 @@ export function buildStagePage(host, o) {
   // vers le haut = la suivante
   let sx = null, sy = 0, st0 = 0;
   // (17/10) seulement sur l'objet, en haut de la page : ailleurs (depuis le signe et dessous), la page défile
-  const onObj = (y, tg) => host.scrollTop < 5 && !tg.closest('.lt-more, .lt-bar') && y < cap.getBoundingClientRect().top + 6;
+  const onObj = (y, tg) => host.scrollTop < 5 && !tg.closest('.lt-more, .lt-bar') && y < cap.getBoundingClientRect().bottom + 6;   // (17/10, Maxence : « glisser aussi sur le texte descriptif ») la description compte comme l'objet
   const s0 = (x, y, tg) => { if (tg.closest('a, button, input, form, textarea') || !onObj(y, tg)) { sx = null; return; } sx = x; sy = y; st0 = performance.now(); };
   const s1 = (x, y) => {
     if (sx == null) return; const dx = x - sx, dy = y - sy; sx = null;

@@ -190,9 +190,11 @@ export async function createBook(gl, base = './', list = BOOKS) {
     // (17/10, Maxence : « comment on fait mieux pour le livre sur PC ? ») sur ordinateur, la page prend toute la hauteur entre le
     // bandeau et le signe du bas, et plus : la page déborde en haut et en bas (ses marges sont vides, le texte est au milieu) sous un
     // fondu (lettre.css, .book-open) — le texte se lit ; la légende s'efface le temps de la lecture. Sur téléphone, comme avant
-    const land = cw > ch * 0.95, ins = land ? 150 : v.ins;
+    // (17/10, Maxence : « prends exemple sur le visuel du PC, de plus près ») partout pareil : la page prend la hauteur, déborde un peu
+    // (sur téléphone aussi : les côtés — la marge — sortent de l'écran, le texte, au milieu, se lit), sous un fondu en haut et en bas
+    const land = cw > ch * 0.95, ins = 150;
     const Wv = v.Hw * cw / ch, Hf = (ch - ins - v.top) / ch * v.Hw;   // (la place libre)
-    const kz = Math.max(k, Math.min(0.94 * Wv / (b.w * MM), (land ? 1.75 : 0.9) * Hf / (b.h * MM)));
+    const kz = Math.max(k, Math.min((land ? 0.94 : 0.94 * 1.4) * Wv / (b.w * MM), 1.75 * Hf / (b.h * MM)));
     const lx = bk.zside < 0 ? -b.w : 0;
     return { x: -lx * MM * kz, y: -2 - (v.ins - ins) / 2 * v.Hw / ch, k: kz };
   }

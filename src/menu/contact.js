@@ -70,7 +70,7 @@ function build(host, opts, inline) {
   const { base = './', reduced = false } = opts;
   if (!document.getElementById('ct-style')) { const st = el('style', '', document.head); st.id = 'ct-style'; st.textContent = CSS; }
   const root = el('div', 'mn-ct' + (inline ? ' ct-in on' : ''), host);
-  root.setAttribute('role', inline ? 'group' : 'dialog'); root.setAttribute('aria-label', 'me contacter'); root.dataset.title = 'CONTACT';
+  root.setAttribute('role', inline ? 'group' : 'dialog'); root.setAttribute('aria-label', 'me contacter'); root.dataset.title = 'CONTACT'; if (!inline) root.dataset.x = 'contact';
   const back = inline ? null : el('button', 'ct-back', root, BACK);
   if (back) { back.type = 'button'; back.setAttribute('aria-label', 'Retour'); }
   const form = el('form', 'ct-stack', root); form.noValidate = true; form.setAttribute('autocomplete', 'on');
