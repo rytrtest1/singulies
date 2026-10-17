@@ -199,6 +199,7 @@ input.addEventListener('focus', () => input.classList.remove('rest'));
 // Android…) : un seul critère, quel que soit le navigateur — le prénom gagne ≥ 2 lettres d'un coup
 // (hors collage, hors aperçu de composition) → on ferme le clavier
 const TOUCH = matchMedia('(pointer: coarse)').matches;
+const ANDROID = TOUCH && /Android/i.test(navigator.userAgent);
 let lastLen = finalName(model.text).length;
 // (05/10 : le prénom proposé s'affiche d'un coup — la frappe lettre par lettre est réservée au visiteur qui revient)
 function detectSuggestion(info) {
@@ -548,7 +549,15 @@ document.addEventListener('click', (e) => {
   // seule la zone du prénom / du curseur répond (ailleurs, plus tard : toucher un prénom du champ pour lire son
   // acrostiche) : prénom écrit → aller à la suite ; vide → écrire (le clavier sort)
   const inZone = b && e.clientX > b[0] && e.clientX < b[2] && e.clientY > b[1] && e.clientY < b[3];
+  // (17/10, Maxence) téléphone : rien d'écrit, le premier toucher n'importe où ouvre le clavier (sauf le menu, ETERNEL
+  // en bas, et ce qui s'ouvre par-dessus)
+  if (!inZone && TOUCH && !wheel && !model.text && !S.confirmed && document.activeElement !== input
+      && !e.target.closest?.('.nv, .nv-foot, .mn-au, .mn-ct, a, button')) {
+    input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); return;
+  }
   if (!inZone) return;
+  // (17/10, Maxence) ordinateur : cliquer sur PRENOM en grisé le retire — le curseur seul invite à taper
+  if (!TOUCH && S.hintVis) S.hintOff = true;
   // le clavier vient de se fermer et la suite allait partir : retoucher le prénom = le corriger (le clavier revient)
   if (blurGo) { clearTimeout(blurGo); blurGo = 0; if (!wheel) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); } return; }
   // (16/10) on corrige : le premier toucher ouvre le clavier (le prénom est là, curseur au bout), pas la suite
@@ -879,9 +888,10 @@ function frame(ts) {
   // (alt : ETERNEL tapé puis effacé, le curseur seul, puis le menu ; PRENOM seulement après lui)
   // (alt : le curseur seul — ETERNEL tapé puis effacé —, puis HINT_AFTER_ALT s ; PRENOM se tape à la machine)
   const hintAt = ALT ? (S.hintT0 ?? Infinity) + 0.4 + INTRO.length * (I_TYPE + I_ERASE) + I_HOLD + HINT_AFTER_ALT : (S.hintT0 ?? Infinity) + HINT_AFTER;
-  const hintA = HINT && Number.isFinite(hintAt) && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
+  const hintA = HINT && !S.hintOff && Number.isFinite(hintAt) && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
     ? smooth(hintAt, hintAt + 1.6, S.t) : 0;
   let hintX = L.cursor.x;
+  S.hintVis = hintA > 0.05;
   if (hintA > 0) {
     const H = layoutName(displayCase(HINT_TEXT, CFG.caseMode), metrics, { w: S.w, h: S.h, cx, cy });
     H.glyphs.forEach((g, i) => {
@@ -1233,7 +1243,12 @@ if (ALT) {
     if (S.typed || document.activeElement === input) { S.navNo = true; return false; }
     if (!S.introOff || S.introEnd == null || S.trans != null) return false;
     const t0 = S.introEnd + NAV_IDLE, k = Math.ceil((t0 - OPEN_DARK) / BREATH - 0.5) + 0.5;
-    if (S.t >= OPEN_DARK + k * BREATH) { S.navOn = true; S.navOnAt = S.t; }
+    if (S.t >= OPEN_DARK + k * BREATH) {
+      S.navOn = true; S.navOnAt = S.t;
+      // (17/10, Maxence) Android : le clavier s'ouvre de lui-même quand le menu paraît (rien n'est écrit) — l'iPhone
+      // ne l'ouvre qu'au toucher (règle de WebKit) : là, le premier toucher n'importe où l'ouvre
+      if (ANDROID && !wheel && !model.text && S.phase === 'input' && !S.portal) { input.readOnly = false; input.classList.remove('rest'); input.focus({ preventScroll: true }); }
+    }
     return !!S.navOn;
   };
   let barAt = 0, navAt = 0;
