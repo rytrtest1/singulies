@@ -90,6 +90,8 @@ const CSS = `
 .nv-hd .nv-bk { left: max(4px, env(safe-area-inset-left)); }
 .nv-hd .nv-mn { right: max(4px, env(safe-area-inset-right)); }
 .nv-hd .nv-bk.off { opacity: 0; pointer-events: none; }
+.nv-hd .nv-bk::before, .nv-hd .nv-mn::before { content: ''; position: absolute; z-index: -1; left: 50%; top: 50%; width: 38px; height: 30px; transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, #060606 62%, rgba(6,6,6,0)); }
 .nv-hd .nv-br { left: 50%; transform: translateX(-50%); padding: 0 8px 0 calc(8px + .5em); font: 500 var(--nv-fe, 18px)/46px 'SG Garamond', Georgia, serif; letter-spacing: .5em; opacity: .86; white-space: nowrap; }
 .nv-hd > button:hover, .nv-hd > button:focus-visible { opacity: .95; outline: none; }
 .nv-hd svg { display: block; overflow: visible; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; }
@@ -352,12 +354,9 @@ export function installNav(opts) {
       x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, fw, 46);
       if (r.width) {
         const ls = parseFloat(getComputedStyle(hbr).letterSpacing) || 0, l = r.left + 8, rr = r.right - 8 - ls, fl = flowNow(), yt = px => waveTop(px, t);
-        // d'un bord à l'autre : le fil plonge dans un trou avant chaque signe (← s'il est là, ≡) et ressort après, comme avant un nom
-        const gl = el => { const q = el && el.getBoundingClientRect(); return q && q.width ? [q.left - 7, q.right + 7] : null; };
-        const bk = hd.querySelector('.nv-bk'), icB = bk.classList.contains('off') ? null : gl(bk.querySelector('svg')), icM = gl(hd.querySelector('.nv-mn i'));
+        // d'un bord à l'autre, sans dépendre des signes : le fil passe derrière ← et ≡, posés sur un petit noir qui l'efface autour d'eux
         hbr.style.translate = `0 ${waveTop((l + rr) / 2, t).toFixed(2)}px`;
-        const stops = [[-4, icB ? icB[0] : l, 0], ...(icB ? [[icB[1], l, 1]] : []), [rr, icM ? icM[0] : fw + 4, 2], ...(icM ? [[icM[1], fw + 4, 3]] : [])];
-        stops.forEach(([a0, b0, j]) => paintThread(x, a0, b0, y, 37 + j * 4, 1.2, { holes: [a0 > -4, b0 < fw + 4], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(3 + j, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 2 + j), g0: a0 - fl, yf: yt }));
+        [[-4, l, 0], [rr, fw + 4, 1]].forEach(([a0, b0, j]) => paintThread(x, a0, b0, y, 37 + j * 4, 1.2, { holes: [a0 > -4, b0 < fw + 4], sag: reduced ? 0.6 : 0.3 + 1.1 * breath(3 + j, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 2 + j), g0: a0 - fl, yf: yt }));
       }
     }
   }
