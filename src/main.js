@@ -304,12 +304,15 @@ function calliLines(fs) {
   const rnd = mulberry(91), names = NAMES.filter(n => n.length <= 8);
   const lines = [];
   for (let k = 0; k < 140; k++) {
+    // (17/10) les prénoms un à un : chacun a sa propre tolérance (la part de lui qui doit être dans la forme pour qu'il
+    // paraisse) — certains dépassent du bord de deux ou trois lettres, d'autres s'arrêtent avant : un bord irrégulier
     let txt = '';
-    while (txt.length < 360) txt += names[Math.floor(rnd() * names.length)].toUpperCase() + '   ';
+    const words = [];
+    while (txt.length < 360) { const nm = names[Math.floor(rnd() * names.length)].toUpperCase(); words.push({ s: txt.length, e: txt.length + nm.length, thr: 0.3 + 0.45 * rnd() }); txt += nm + '   '; }
     const ch = [...txt], xs = [], track = 0.16 * fs;
     let x = 0;
     for (const c of ch) { xs.push(x); x += (c === ' ' ? 0.32 : (atlas.glyphs[c]?.adv ?? 0.6)) * fs + track; }
-    lines.push({ ch, xs, P: x, v: (k % 2 ? -1 : 1) * (2.6 + 2.2 * rnd()), ph: rnd() * x });
+    lines.push({ ch, xs, words, P: x, v: (k % 2 ? -1 : 1) * (2.6 + 2.2 * rnd()), ph: rnd() * x });
   }
   return lines;
 }
@@ -959,28 +962,48 @@ function frame(ts) {
     const A = LOGO_K * 0.36 * smooth(OPEN_DARK + 1.2, OPEN_DARK + 7, S.t) * (T >= 0 ? 1 - smooth(0, 1.4, T) : 1) * br;
     // (17/10, Maxence) aucun rectangle : curseur seul, le signe entier ; en tapant, un halo doux autour de chaque lettre
     const nameL = text ? place.filter(g => g.ch !== ' ') : [];
+    // (17/10, Maxence : « les prénoms qui passent devant ne doivent pas le masquer, comme un prénom devant un autre ? »)
+    // la règle du champ : le plus lointain s'efface sous le plus proche (jusqu'à −92 %, bord doux dès 0,6 em) — le
+    // calligramme est le plus lointain de tous (les boîtes du champ sont dans son cadre virtuel : + offX)
+    const occ = [];
+    for (const w of field.words) {
+      if (!(w.alpha > 0.05) || !w.box) continue;
+      const b0 = w.box[0] + field.offX, b2 = w.box[2] + field.offX, m = 0.6 * (w.pxEm || 10);
+      if (b2 + m < x0 || b0 - m > x0 + side || w.box[3] + m < y0 || w.box[1] - m > y0 + side) continue;
+      occ.push([b0, w.box[1], b2, w.box[3], m, Math.min(1, w.alpha)]);
+    }
     if (A > 0.003) {
       const nL = Math.ceil(side / lh);
       for (let k = 0; k < nL; k++) {
         const L = calli.lines[k % calli.lines.length], yb = y0 + (k + 0.5) * lh + 0.5 * cap * fs, vv = (yb - y0 - 0.5 * cap * fs) / side;
         if (vv < 0 || vv > 1) continue;
+        const ym = yb - 0.5 * cap * fs;
         const sh = ((L.ph + L.v * S.t * mv) % L.P + L.P) % L.P;
-        for (let i = 0; i < L.ch.length * 2; i++) {
-          const j = i % L.ch.length, c = L.ch[j]; if (c === ' ') continue;
-          const gm = atlas.glyphs[c]; if (!gm) continue;
-          const x = x0 + L.xs[j] + (i >= L.ch.length ? L.P : 0) - sh;
-          if (x < x0 - fs || x > x0 + side) continue;
-          const xc = x + (gm.x0 + gm.x1) / 2 * fs, u = (xc - x0) / side;
-          if (u < 0 || u > 1) continue;
-          // le bord : fondu sur ≈ 0,8 mm, déplacé par deux ondes lentes (jamais une découpe nette)
-          const wob = 0.22 * Math.sin(u * 9.3 + vv * 4.1 + S.t * 0.21 * mv) * Math.sin(vv * 7.7 - u * 3.2 - S.t * 0.16 * mv);
-          const d = dAt(u, vv) + wob, m = Math.min(1, Math.max(0, (0.25 - d) / 0.8));
-          if (m <= 0.01) continue;
-          let z = 1;
-          for (const g of nameL) { const r = Math.hypot(xc - (g.x + 0.35 * g.fs), yb - 0.5 * cap * fs - (g.y - 0.35 * g.fs)) / g.fs; if (r < 1.3) z = Math.min(z, Math.max(0, (r - 0.45) / 0.85)); }
-          const a = A * m * m * z * grayOf(ZL) * 1.6;
-          if (a < 0.003) continue;
-          under.push({ box: [x + gm.x0 * fs, yb + gm.y0 * fs, x + gm.x1 * fs, yb + gm.y1 * fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: a, pxEm: fs });
+        for (let rep = 0; rep < 2; rep++) for (const W of L.words) {
+          const xw0 = x0 + L.xs[W.s] + rep * L.P - sh, xw1 = x0 + L.xs[W.e - 1] + rep * L.P - sh + fs;
+          if (xw1 < x0 - 4 * fs || xw0 > x0 + side + 4 * fs) continue;
+          // la part du prénom qui est dans la forme (bord à peine ondulé, qui respire) → il paraît, entier, en fondu
+          let inn = 0;
+          for (let j = W.s; j < W.e; j++) {
+            const u = (x0 + L.xs[j] + rep * L.P - sh + 0.3 * fs - x0) / side;
+            const wob = 0.18 * Math.sin(u * 9.3 + vv * 4.1 + S.t * 0.21 * mv) * Math.sin(vv * 7.7 - u * 3.2 - S.t * 0.16 * mv);
+            if (u >= 0 && u <= 1 && dAt(u, vv) + wob < 0) inn++;
+          }
+          const f = inn / (W.e - W.s), wa = smooth(W.thr - 0.12, W.thr + 0.12, f);
+          if (wa <= 0.01) continue;
+          for (let j = W.s; j < W.e; j++) {
+            const c = L.ch[j], gm = atlas.glyphs[c]; if (!gm) continue;
+            const x = x0 + L.xs[j] + rep * L.P - sh, xc = x + (gm.x0 + gm.x1) / 2 * fs;
+            let z = 1;
+            for (const g of nameL) { const r = Math.hypot(xc - (g.x + 0.35 * g.fs), ym - (g.y - 0.35 * g.fs)) / g.fs; if (r < 1.3) z = Math.min(z, Math.max(0, (r - 0.45) / 0.85)); }
+            for (const o of occ) {
+              const dx = Math.max(o[0] - xc, 0, xc - o[2]), dy = Math.max(o[1] - ym, 0, ym - o[3]);
+              if (dx < o[4] && dy < o[4]) { const q = 1 - Math.max(dx, dy) / o[4]; z = Math.min(z, 1 - 0.92 * o[5] * q * q * (3 - 2 * q)); }
+            }
+            const a = A * wa * z * grayOf(ZL) * 1.6;
+            if (a < 0.003) continue;
+            under.push({ box: [x + gm.x0 * fs, yb + gm.y0 * fs, x + gm.x1 * fs, yb + gm.y1 * fs], uv: [gm.u0, gm.v0, gm.u1, gm.v1], alpha: a, pxEm: fs });
+          }
         }
       }
     }
