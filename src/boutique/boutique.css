@@ -84,40 +84,43 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .btn.ghost { border-color: var(--line); color: rgba(255, 255, 255, .82); }
 .btn.ghost:hover { border-color: #ececec; }
 
-/* ——— accueil : la feuille où l'on écrit son prénom ——— */
-/* téléphone : le titre, la feuille, le champ juste dessous — quand le clavier s'ouvre, la feuille et le champ restent ensemble à l'écran */
-.hero { display: grid; grid-template-columns: 1fr; gap: 16px; padding: clamp(12px, 3vw, 40px) 0 0; }
-.hero-t { text-align: center; }
-.hero-s { display: flex; justify-content: center; }
-.hero-sheet { height: clamp(220px, 31svh, 480px); }
-.hero-sheet .paper { height: 100%; }
+/* ——— accueil : ETERNEL, UN PRENOM UN POEME, la feuille et les poèmes qui défilent, le champ, la description ——— */
+/* (18/10, Maxence) téléphone, dans l'ordre : le titre, la feuille vierge avec les poèmes déjà écrits qui défilent derrière (au premier
+   prénom ils se regroupent sous elle et s'effacent : le prénom s'écrit sur la feuille), le champ juste dessous (feuille et champ
+   restent ensemble quand le clavier s'ouvre), le prix et COMMANDER une fois le prénom écrit, puis la description */
+.hero { display: grid; grid-template-columns: 1fr; gap: 14px; padding: clamp(10px, 2.4vw, 36px) 0 0; }
+.hero-h { margin: 0; text-align: center; font: 500 clamp(22px, 6.2vw, 44px)/1.4 var(--gar); letter-spacing: .4em; padding-left: .4em; color: #f2f2f2; }
+.hero-s { position: relative; height: clamp(250px, 37svh, 460px); margin: 0 calc(var(--pad) * -1); overflow: hidden; }
+.df-poems { position: absolute; inset: 0; -webkit-mask-image: linear-gradient(90deg, transparent, #000 13%, #000 87%, transparent); mask-image: linear-gradient(90deg, transparent, #000 13%, #000 87%, transparent); }
+.df-p { position: absolute; left: 0; display: block; max-width: none; object-fit: cover; will-change: transform, opacity; cursor: zoom-in; border: 1px solid rgba(255, 255, 255, .06); box-shadow: 0 10px 28px rgba(0, 0, 0, .6); filter: brightness(.82); -webkit-user-drag: none; user-select: none; }
+.hero-sheet { position: absolute; z-index: 3; left: 50%; top: 3%; height: 94%; aspect-ratio: 752 / 1048; transform: translateX(-50%); }
+.hero-sheet .paper { height: 100%; width: 100%; box-shadow: 0 16px 44px rgba(0, 0, 0, .85), 0 0 0 1px rgba(255, 255, 255, .05); }
 .hero-sheet .inv { font-size: max(10.5px, 3.2cqw); }
-.hero-h { margin: 0 0 10px; font: 500 clamp(22px, 6.2vw, 44px)/1.4 var(--gar); letter-spacing: .4em; padding-left: .4em; color: #f2f2f2; }
-.hero-p { max-width: 29em; margin: 0 auto; color: rgb(200, 200, 200); font-size: 14px; line-height: 1.75; }
 .hero-f { width: 100%; max-width: 27em; margin: 4px auto 0; }
 .hero-in { display: block; width: 100%; min-height: 58px; padding: 6px 4px 8px; text-align: center; font: 500 clamp(19px, 5vw, 24px)/1.3 var(--gar); letter-spacing: .32em; text-transform: uppercase; color: var(--hi); background: transparent; border: 0; border-bottom: 1px solid rgba(255, 255, 255, .42); border-radius: 0; caret-color: #fff; -webkit-appearance: none; appearance: none; transition: border-color .25s; }
 .hero-in::placeholder { font: 15px/1.3 var(--mono); letter-spacing: .02em; text-transform: none; color: rgba(255, 255, 255, .5); }
 .hero-in:focus { outline: none; border-bottom-color: #fff; }
 .hero-in:focus::placeholder { color: rgba(255, 255, 255, .26); }
-.hero-f .hint { text-align: center; min-height: 2.2em; margin: 8px 0 4px; }
-/* le prix et COMMANDER : après le prénom (la place est réservée : rien ne bouge) */
-.hero-r { min-height: 132px; text-align: center; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .7s ease, transform .7s cubic-bezier(.2, .7, .25, 1); }
-.hero-r.on { opacity: 1; transform: none; pointer-events: auto; }
-.hero-pr { margin: 0 0 14px; font: 500 19px/1.4 var(--gar); letter-spacing: .04em; color: rgba(255, 255, 255, .88); }
+.hero-f .hint { text-align: center; min-height: 2.2em; margin: 8px 0 2px; }
+/* le prix et COMMANDER : après le prénom ; ils s'ouvrent en poussant doucement la description */
+.hero-r { display: grid; grid-template-rows: 0fr; opacity: 0; pointer-events: none; transition: grid-template-rows .8s cubic-bezier(.2, .7, .25, 1), opacity .7s ease; text-align: center; }
+.hero-r > div { overflow: hidden; min-height: 0; }
+.hero-r.on { grid-template-rows: 1fr; opacity: 1; pointer-events: auto; }
+.hero-pr { margin: 4px 0 14px; font: 500 19px/1.4 var(--gar); letter-spacing: .04em; color: rgba(255, 255, 255, .88); }
 .hero-pr b { font-weight: 500; }
 .hero-pr span { font: 13px var(--mono); letter-spacing: 0; color: var(--soft); }
-.hero-d { display: inline-block; margin: 12px 0 0; padding: 6px 4px; font-size: 13px; color: var(--soft); border-bottom: 1px solid rgba(255, 255, 255, .22); }
+.hero-d { display: inline-block; margin: 12px 0 4px; padding: 6px 4px; font-size: 13px; color: var(--soft); border-bottom: 1px solid rgba(255, 255, 255, .22); }
 .hero-d:hover { color: #fff; }
+.hero-p { max-width: 29em; margin: 4px auto 0; text-align: center; color: rgb(200, 200, 200); font-size: 14px; line-height: 1.8; }
 @media (min-width: 880px) {
-  .hero { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr auto; column-gap: clamp(40px, 6vw, 88px); row-gap: 8px; min-height: min(680px, calc(100svh - var(--hd) - 40px)); }
-  .hero-t { grid-column: 1; grid-row: 1; align-self: end; text-align: left; }
-  .hero-s { grid-column: 2; grid-row: 1 / 3; align-self: center; }
-  .hero-f { grid-column: 1; grid-row: 2; align-self: start; margin: 18px 0 0; max-width: 28em; }
-  .hero-sheet { height: min(600px, calc(100svh - var(--hd) - 80px)); }
-  .hero-h { padding-left: 0; font-size: clamp(32px, 3.5vw, 46px); margin-bottom: 16px; }
-  .hero-p { margin: 0; font-size: 14.5px; }
+  .hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); grid-template-rows: 1fr auto auto 1fr; column-gap: clamp(36px, 5vw, 72px); row-gap: 0; min-height: min(700px, calc(100svh - var(--hd) - 40px)); }
+  .hero-h { grid-column: 1; grid-row: 1; align-self: end; text-align: left; padding-left: 0; font-size: clamp(32px, 3.5vw, 46px); margin-bottom: 18px; }
+  .hero-p { grid-column: 1; grid-row: 2; margin: 0; text-align: left; font-size: 14.5px; max-width: 28em; }
+  .hero-f { grid-column: 1; grid-row: 3; align-self: start; margin: 22px 0 0; max-width: 28em; }
+  .hero-s { grid-column: 2; grid-row: 1 / 5; align-self: center; height: min(620px, calc(100svh - var(--hd) - 70px)); margin: 0 calc(-1 * var(--pad) - max(0px, (100vw - var(--w)) / 2)) 0 0; }
   .hero-in { text-align: left; padding-left: 0; }
   .hero-f .hint, .hero-r { text-align: left; }
+  .hero-r { grid-template-rows: 1fr; min-height: 150px; transition: opacity .7s ease; }   /* (ordinateur : la place est réservée, la colonne ne bouge pas) */
 }
 
 /* ——— la grille de produits ——— */

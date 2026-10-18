@@ -33,10 +33,14 @@ console.log('   en-tête', await txt('.hd-br'), await op('.hd-bk'), await page.e
 ok('en-tête : ETERNEL, ≡, pas de ←', (await txt('.hd-br')) === 'ETERNEL' && !!(await page.$('.hd-mn')) && (await op('.hd-bk')) < 0.1);
 ok('accueil : titre sans virgule', (await page.evaluate(() => document.querySelector('.hero-h').innerText)).replace(/\s+/g, ' ') === 'UN PRENOM UN POEME');
 ok('accueil : le prix est caché avant le prénom', (await op('#hr')) < 0.1);
+const ord = await page.evaluate(() => { const t = s => document.querySelector(s).getBoundingClientRect().top; return [t('.hero-h'), t('#stage'), t('#hp'), t('.hero-p')]; });
+ok('accueil : titre, feuille, champ, description (dans cet ordre sur téléphone)', pc || (ord[0] < ord[1] && ord[1] < ord[2] && ord[2] < ord[3]), JSON.stringify(ord.map(Math.round)));
+ok('accueil : les poèmes défilent derrière la feuille', (await page.$$('.df-p')).length === 8 && (await page.$$eval('.df-p', ims => ims.some(i => +i.style.opacity > 0.5))));
 await page.waitForTimeout(600);
 await page.fill('#hp', 'Léa');
 await page.waitForTimeout(1500);
 ok('accueil : LEA sur la feuille', (await page.$$eval('.col b', bs => bs.map(b => b.textContent).join(''))) === 'LEA');
+ok('accueil : les poèmes se regroupent et s’effacent', (await page.$$eval('.df-p', ims => ims.every(i => +i.style.opacity < 0.05))));
 ok('accueil : le prix et COMMANDER paraissent', (await op('#hr')) > 0.9 && /39/.test(await txt('.hero-pr')));
 await shot('accueil-lea');
 

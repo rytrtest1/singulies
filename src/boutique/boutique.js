@@ -21,6 +21,7 @@ import { PRODUITS, POEMES, produit, PRIX, DELAI_COURT } from './produits.js';
 import { mountFeuille } from './feuille.js';
 import { installEntete } from './entete.js';
 import { ouvrirVisionneuse } from './visionneuse.js';
+import { mountDefile } from './defile.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -224,21 +225,19 @@ const VIEWS = {
   accueil() {
     app.innerHTML = `<div class="wrap">
       <section class="hero" aria-label="un prénom un poème">
-        <div class="hero-t">
-          <h1 class="hero-h">UN PRENOM<br>UN POEME</h1>
-          <p class="hero-p">j’écris un poème avec un prénom, je le tape à la machine à écrire et je l’envoie par la poste.</p>
-        </div>
-        <div class="hero-s"><div class="hero-sheet" id="hs"></div></div>
+        <h1 class="hero-h">UN PRENOM<br>UN POEME</h1>
+        <div class="hero-s" id="stage"><div class="hero-sheet" id="hs"></div></div>
         <form class="hero-f" id="hf" novalidate autocomplete="on">
           <label class="sr" for="hp">un prénom</label>
           <input class="hero-in" id="hp" name="given-name" type="text" autocomplete="given-name" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="40" enterkeyhint="done" inputmode="text" placeholder="entre un prénom">
           <p class="hint" id="hh" role="status" aria-live="polite"></p>
-          <div class="hero-r" id="hr" aria-hidden="true">
+          <div class="hero-r" id="hr" aria-hidden="true"><div>
             <p class="hero-pr"><b>${esc(PRIX)}</b> tout compris <span>· ${esc(DELAI_COURT)}</span></p>
             <button class="btn full" type="submit" tabindex="-1">COMMANDER</button>
             <a class="hero-d" href="#/produit/poeme" tabindex="-1">voir le détail</a>
-          </div>
+          </div></div>
         </form>
+        <p class="hero-p">j’écris un poème avec un prénom, je le tape à la machine à écrire et je l’envoie par la poste.</p>
       </section>
       <section class="sec" aria-labelledby="t-b"><h2 class="h2 sew" id="t-b">LA BOUTIQUE</h2><div class="grid">${PRODUITS.map(carte).join('')}</div></section>
       <section class="sec" aria-labelledby="t-c"><h2 class="h2 sew" id="t-c">COMMENT CA SE PASSE</h2>
@@ -254,14 +253,16 @@ const VIEWS = {
     // la feuille où l'on écrit : le prénom s'y pose en colonne ; le prix et COMMANDER paraissent une fois écrit
     const input = $('#hp'), hint = $('#hh'), reveal = $('#hr');
     const f = mountFeuille($('#hs'), input, { invite: 'entre un prénom' });
+    const df = mountDefile($('#stage'), POEMES.map(n => ({ src: url(`boutique/poeme-${n}-s.jpg`), alt: n })), { onOpen: i => { count('boutique/zoom'); ouvrirVisionneuse(poemeItems(), i); } });
     const shown = a => {
       const on = !a.vide;
       reveal.classList.toggle('on', on); reveal.setAttribute('aria-hidden', String(!on));
+      df.gather(on);   // le premier prénom : les poèmes se regroupent sous la feuille ; effacé, ils repartent
       $$('button, a', reveal).forEach(x => { x.tabIndex = on ? 0 : -1; });
       if (on && !shown.once) { shown.once = true; count('boutique/prenom'); }
     };
     const b = brancherPrenom(input, hint, { onChange: shown });
-    const known = sessionName(); if (known) { input.value = known; f.refresh(); b.maj(); }
+    const known = sessionName(); if (known) { input.value = known; f.refresh(); b.maj(); df.gather(true, true); }
     // Entrée ne commande pas : elle ferme le clavier et montre le prix et COMMANDER (on voit l'objet, puis son prix, puis on choisit)
     input.addEventListener('keydown', e => {
       if (e.key !== 'Enter') return;
@@ -277,7 +278,7 @@ const VIEWS = {
       commander(a.nom);
     });
     if (!TOUCH) setTimeout(() => input.focus({ preventScroll: true }), 300);   // (ordinateur : on écrit tout de suite ; téléphone : le clavier ne sort qu'au toucher)
-    onLeave(() => f.destroy());
+    onLeave(() => { f.destroy(); df.destroy(); });
     $$('.ex button', app).forEach(bt => bt.addEventListener('click', () => { count('boutique/zoom'); ouvrirVisionneuse(poemeItems(), +bt.dataset.i); }));
     return { titre: 'ETERNEL — un prénom un poème', stat: 'accueil', id: null };
   },
