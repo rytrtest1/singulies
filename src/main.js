@@ -1028,7 +1028,7 @@ function frame(ts) {
     attn = attn || createAttention();
     const stuck = S.phase === 'input' && !!S.introOff && !S.typed && !S.confirmed && !text && T < 0 && !S.portal && !S.edit && S.t > 0;
     const cyc = (L.cursor.y0 + L.cursor.y1) / 2;
-    attn.update({ stuck, x: L.cursor.x, y: cyc, r: Math.max(90, Math.min(S.w, S.h) * 0.24), text: 'entre un prénom', delay: 10, below: L.cap * 1.2 + 34 });
+    attn.update({ stuck, x: L.cursor.x, y: cyc, r: Math.max(90, Math.min(S.w, S.h) * 0.24), text: 'entre un prénom ici', delay: 10, below: L.cap * 1.2 + 34 });
   }
   const voiceHidesCursor = voice && !S.voiceTyped && (voice.state === 'idle' || voice.state === 'asking' || voice.state === 'listening');
   // (16/10) on corrige le prénom : le curseur respire au bout, tant qu'on n'a rien tapé
