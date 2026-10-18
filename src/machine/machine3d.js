@@ -1,10 +1,16 @@
 // La machine à écrire en direct (18/10, essai — Maxence : « on peut pas voir avec un modèle existant ? ») : une Royal
 // (tools/machine-prep.mjs → public/machine/<modèle>.bin) dans la lumière du site — par défaut la 1939 Royal Quiet De Luxe
 // (theforfeiterofmaidens, CC BY 4.0 ; Maxence : « plutôt elle »), sinon la Royal des années 60 (freddy1231, ?modele=royal) :
-// la lampe des cartes à la mesure de l'objet (objLamp : rasante, de côté, elle tourne et respire), la même courbe
-// « photo » (exposition, pied, gamma, gain du boost, le noir du fond à 6), des ombres portées (carte d'ombre depuis la
-// lampe). Les matières du modèle sont refaites : carrosserie noire au fer martelé (relief procédural, il ne se lit qu'à
-// la lumière rasante), chromes sombres (ils ne brillent qu'au passage de la lampe), touches noires vernies, papier noir.
+// la même courbe « photo » que les cartes (exposition, pied, gamma, gain du boost, le noir du fond à 6), des ombres
+// portées (carte d'ombre depuis la lampe). (18/10, Maxence : « elle fait cheap, presque jouet, la lumière dessus fait
+// faux, elle change trop ») une prise de vue de studio, fixe : une grande lampe douce, loin, de côté et un peu en
+// arrière (jamais du côté du regard), qui ne tourne plus (elle respire à peine) ; une lumière de contour derrière, à
+// droite (la silhouette se détache du noir) ; un décor de studio pour les reflets (le noir, la boîte à lumière, une
+// bande) — les chromes et le vernis ne reflètent plus un dégradé gris, mais des sources ; l'ombre ambiante cuite par
+// sommet (tools/machine-ao.mjs : les creux, le pied sur la table) ; une table noire qui reçoit l'ombre et se fond dans
+// le fond. Matières : peinture noire au fer martelé (cuvettes lisses, peu profondes, lues dans le reflet de la lampe,
+// effacées quand elles deviennent plus petites qu'un pixel), chromes, touches en verre noir cerclées de chrome, leur
+// lettre blanche dessous.
 // Les touches fonctionnent : chacune (et son levier) pivote autour de l'arrière du levier ; le chariot avance d'un cran
 // (pica, 2,54 mm) à chaque frappe ; la lettre s'imprime en blanc sur la feuille noire. (18/10, Maxence : « on veut
 // écrire le prénom en colonne pour l'acrostiche, et visible ») une lettre par ligne : frappée, puis le chariot revient
@@ -41,11 +47,12 @@ layout(location=1) in vec3 aNor;
 layout(location=2) in uint aKind;
 layout(location=3) in uint aSlot;
 layout(location=4) in vec2 aPaper;
+layout(location=5) in float aAO;
 uniform mat4 uVP;
 uniform float uKeyA[64];
 uniform vec2 uKeyP[64];
 uniform float uCarX;
-out vec3 vWorld; out vec3 vN; out vec3 vObj; out vec2 vPaper; flat out uint vKind;
+out vec3 vWorld; out vec3 vN; out vec3 vObj; out vec3 vObjN; out vec2 vPaper; out float vAO; flat out uint vKind; flat out uint vSlot;
 void main() {
   vec3 p = aPos, n = aNor;
   if (aSlot > 0u && aSlot < 64u) {
@@ -55,48 +62,60 @@ void main() {
     vec2 q = p.yz - c; p.yz = c + vec2(ca * q.x + sa * q.y, -sa * q.x + ca * q.y);
     n.yz = vec2(ca * n.y + sa * n.z, -sa * n.y + ca * n.z);
   } else if (aSlot == 255u) p.x += uCarX;
-  vObj = aPos; vPaper = aPaper; vKind = aKind; vWorld = p; vN = n;
+  vObj = aPos; vObjN = aNor; vPaper = aPaper; vKind = aKind; vSlot = aSlot; vAO = aAO; vWorld = p; vN = n;
   gl_Position = uVP * vec4(p, 1.0);
 }`;
 
 const FS = `#version 300 es
 precision highp float;
 precision highp sampler2DShadow;
-in vec3 vWorld; in vec3 vN; in vec3 vObj; in vec2 vPaper; flat in uint vKind;
-uniform vec3 uLightPos, uEye;
-uniform float uLight, uLightR, uEnv, uExposure, uToe, uHammer, uFlat, uPaperK, uFeed;
+in vec3 vWorld; in vec3 vN; in vec3 vObj; in vec3 vObjN; in vec2 vPaper; in float vAO; flat in uint vKind; flat in uint vSlot;
+uniform vec3 uLightPos, uEye, uKeyDir, uRimDir;
+uniform float uLight, uLightR, uEnv, uExposure, uToe, uHammer, uFlat, uPaperK, uFeed, uRim;
 uniform mat4 uShadowVP;
 uniform sampler2DShadow uShadow;
-uniform sampler2D uInk;
+uniform sampler2D uInk, uGlyph;
 uniform vec4 uInkBox;     // x0, v0, 1/(x1−x0), 1/(v1−v0)
+uniform vec3 uKeyC[64];   // touche : centre (x, y), rayon du dessus (0 = pas ronde)
+uniform float uKeyG[64];  // sa lettre dans l'atlas (−1 : aucune)
+uniform vec4 uFoot;       // l'empreinte de la machine sur la table (x0, y0, x1, y1)
+uniform vec2 uGround;     // la table se fond dans le fond entre ces deux rayons (mm)
 out vec4 outColor;
 const float PI = 3.14159265;
 float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
-// bruit cellulaire : la distance au centre de cellule le plus proche — les cuvettes du martelé
-float cells(vec3 p) {
-  vec3 i = floor(p), f = fract(p); float d = 8.0;
+// le martelé : des cuvettes rondes et lisses (Voronoï adouci : pas d'arêtes vives entre deux coups, sinon c'est du cuir)
+float dimples(vec3 p) {
+  vec3 i = floor(p), f = fract(p); float r = 0.0;
   for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
     vec3 g = vec3(x, y, z), o = vec3(h3(i + g), h3(i + g + 11.7), h3(i + g + 23.1));
-    vec3 r = g + 0.15 + 0.7 * o - f; d = min(d, dot(r, r));
+    vec3 d = g + 0.1 + 0.8 * o - f; r += exp(-6.0 * sqrt(dot(d, d)));
   }
-  return sqrt(d);
+  float d = -log(r) / 6.0;
+  return d * d;
 }
-float hammer(vec3 p) { return 0.75 * smoothstep(0.0, 0.85, cells(p / 3.2)) + 0.25 * smoothstep(0.0, 0.85, cells(p / 1.3 + 5.0)); }
-float env(vec3 d, vec3 Ld) { return 0.06 + 0.5 * smoothstep(-0.2, 0.9, d.z) + 2.5 * pow(max(dot(d, Ld), 0.0), 8.0); }
+float hammer(vec3 p) { return dimples(p / 4.2) + 0.35 * dimples(p / 1.9 + 7.0); }
+// le studio : noir, une grande boîte à lumière (la lampe), une bande derrière à droite (le contour), un plafond à peine
+float studio(vec3 d) {
+  float k = smoothstep(0.86, 0.99, dot(d, uKeyDir));
+  float r = smoothstep(0.955, 0.985, dot(d, uRimDir)) * smoothstep(-0.1, 0.3, d.z);
+  return 0.01 + 0.025 * smoothstep(-0.2, 0.9, d.z) + 1.3 * k * k + 0.9 * r;
+}
+// la même, vue par une surface mate (tout l'hémisphère)
+float studioDiff(vec3 n) { return 0.07 + 0.04 * n.z + 0.22 * max(dot(n, uKeyDir), 0.0) + 0.08 * max(dot(n, uRimDir), 0.0); }
 float D_GGX(float NH, float a) { float a2 = a * a, d = NH * NH * (a2 - 1.0) + 1.0; return a2 / (PI * d * d); }
 float V_Smith(float NL, float NV, float a) { float k = a * 0.5; return 0.25 / ((NL * (1.0 - k) + k) * (NV * (1.0 - k) + k)); }
 float shadowAt(vec3 w, float NL) {
   vec4 s = uShadowVP * vec4(w, 1.0); s.xyz = s.xyz / s.w * 0.5 + 0.5;
   if (s.x < 0.0 || s.x > 1.0 || s.y < 0.0 || s.y > 1.0) return 1.0;
-  float b = 0.0007 + 0.0025 * (1.0 - NL);
+  float b = 0.0005 + 0.002 * (1.0 - NL);
   vec2 px = 1.0 / vec2(textureSize(uShadow, 0));
-  // pénombre douce (la lampe n'est pas un point) : 12 échantillons sur un disque
+  // pénombre douce (une grande lampe) : 16 échantillons sur un disque
   float acc = 0.0;
-  for (int k = 0; k < 12; k++) {
-    float a = float(k) * 2.39996, r = sqrt((float(k) + 0.5) / 12.0) * 2.6;
+  for (int k = 0; k < 16; k++) {
+    float a = float(k) * 2.39996, r = sqrt((float(k) + 0.5) / 16.0) * 3.2;
     acc += texture(uShadow, vec3(s.xy + vec2(cos(a), sin(a)) * r * px, s.z - b));
   }
-  return acc / 12.0;
+  return acc / 16.0;
 }
 void main() {
   uint k = vKind;
@@ -106,48 +125,83 @@ void main() {
   if (dot(n, V) < 0.0) n = -n;                  // faces vues de dos (le modèle n'est pas fermé partout)
   vec3 L = uLightPos - vWorld; float dist = length(L); L /= dist;
   float irr = uLight * 250000.0 / (dist * dist);
-  // matières : albédo, rugosité, F0 (métal), reflet du décor
-  float alb = 0.029, rough = 0.6, F0 = 0.04, ks = 3.1, envK = 0.0, ink = 0.0;
+  float ao = vAO;
+  // matières : albédo, rugosité, F0 (métal), force du reflet direct, du reflet du décor
+  float alb = 0.029, rough = 0.6, F0 = 0.04, ks = 1.0, envK = 1.0, ink = 0.0, legend = 0.0;
+  float fw = length(fwidth(vObj));              // mm par pixel
   if (k == 0u) {
-    // carrosserie : peinture noire au fer martelé — des cuvettes (bruit cellulaire en mm), la normale suit leur pente
-    if (uHammer > 0.0) {
-      float e = 0.25, h0 = hammer(vObj);
+    // carrosserie : peinture noire au fer martelé, satinée — le martelé se lit dans le reflet de la lampe
+    float hk = uHammer * (1.0 - smoothstep(0.35, 1.1, fw));
+    if (hk > 0.0) {
+      float e = 0.3, h0 = hammer(vObj);
       vec3 g = vec3(hammer(vObj + vec3(e, 0, 0)) - h0, hammer(vObj + vec3(0, e, 0)) - h0, hammer(vObj + vec3(0, 0, e)) - h0) / e;
       g -= n * dot(g, n);
-      n = normalize(n - uHammer * g);
+      n = normalize(n - hk * g);
     }
-    alb = 0.034; rough = 0.34; ks = 2.4; envK = 0.2;
-  } else if (k == 1u) { alb = 0.004; rough = 0.2; F0 = 0.5; ks = 1.0; envK = 0.45; }       // chromes sombres
-  else if (k == 2u) { alb = 0.03; rough = 0.38; ks = 2.0; envK = 0.12; }                   // métal noir (leviers, rails)
-  else if (k == 3u) { alb = 0.02; rough = 0.2; ks = 2.2; envK = 0.25; }                    // touches : noir verni
-  else if (k == 4u) { alb = 0.02; rough = 0.75; ks = 1.0; }                                // caoutchouc (cylindre)
-  else if (k == 5u) {                                                                      // la feuille : papier noir
-    // (la feuille est dressée face à nous, la lampe de côté : le papier des cartes, posé à plat, reçoit bien plus de
-    // lumière ; uPaperK la rend lisible, comme la feuille du poème)
-    alb = 0.029 * uPaperK; rough = 0.5; ks = 3.1; envK = 0.12;
-    // (uFeed : la feuille a monté — le cylindre tourne, l'encre monte avec elle)
+    alb = 0.05; rough = 0.3; ks = 1.0; envK = 1.0;
+  } else if (k == 1u) { alb = 0.0; rough = 0.12; F0 = 0.6; ks = 1.0; envK = 1.0; }          // chromes
+  else if (k == 2u) { alb = 0.04; rough = 0.42; F0 = 0.06; ks = 1.0; envK = 0.8; }          // métal noir (leviers, rails)
+  else if (k == 3u) {
+    // touches : verre noir cerclé de chrome, la lettre blanche sous le verre
+    alb = 0.012; rough = 0.08; F0 = 0.045; ks = 1.0; envK = 1.0;
+    vec3 c = uKeyC[vSlot];
+    vec2 q = (vObj.xy - c.xy) / max(c.z, 1e-3);
+    float r = length(q);
+    if (c.z > 0.0 && vObjN.z > 0.7 && r < 1.08) {
+      if (r > 0.8) { alb = 0.0; rough = 0.14; F0 = 0.6; }
+      else if (uKeyG[vSlot] >= 0.0) {
+        float gi = uKeyG[vSlot];
+        vec2 cell = vec2(mod(gi, 8.0), floor(gi / 8.0));
+        vec2 uv = (cell + 0.5 + vec2(q.x, -q.y) * 0.5) / vec2(8.0, 5.0);
+        legend = texture(uGlyph, uv).r;
+      }
+    } else if (c.z > 0.0 && vObjN.z <= 0.7) { alb = 0.0; rough = 0.16; F0 = 0.6; }       // le flanc du cercle
+  }
+  else if (k == 4u) { alb = 0.03; rough = 0.7; F0 = 0.035; ks = 0.6; envK = 0.4; }          // caoutchouc (cylindre, barre)
+  else if (k == 5u) {                                                                         // la feuille (Royal 60) : papier noir
+    alb = 0.029 * uPaperK; rough = 0.5; ks = 1.5; envK = 0.3;
     vec2 uv = vec2((vPaper.x - uInkBox.x) * uInkBox.z, 1.0 - (vPaper.y - uFeed - uInkBox.y) * uInkBox.w);
     if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) ink = texture(uInk, uv).r;
-  } else if (k == 7u) { alb = 0.026; rough = 0.3; ks = 2.0; envK = 0.15; }                 // boutons
-  else if (k == 6u) { alb = 0.02; rough = 0.25; ks = 2.0; envK = 0.3; }                   // la plaque de la marque (sans son nom)
-  else { alb = 0.02; rough = 0.5; ks = 1.5; }
-  if (uFlat > 0.0) { alb = 0.3; F0 = 0.04; envK = 0.0; }
+  } else if (k == 7u) { alb = 0.02; rough = 0.25; F0 = 0.5; ks = 1.0; envK = 0.8; }          // boutons, laiton noirci
+  else if (k == 6u) { alb = 0.015; rough = 0.18; F0 = 0.05; envK = 1.0; }                   // la plaque de la marque
+  else if (k == 10u) {
+    // la table : papier noir mat ; l'ombre ambiante au pied de la machine (distance à son empreinte)
+    alb = 0.016; rough = 0.8; F0 = 0.035; ks = 0.5; envK = 0.0;
+    vec2 dq = max(max(uFoot.xy - vWorld.xy, vWorld.xy - uFoot.zw), 0.0);
+    float dd = length(dq), inside = step(dd, 0.0);
+    ao = mix(smoothstep(0.0, 45.0, dd) * 0.75 + 0.25, 0.12, inside);
+  }
+  else { alb = 0.02; rough = 0.5; ks = 0.8; envK = 0.5; }
+  if (uFlat > 0.0) { alb = 0.3; F0 = 0.04; envK = 0.0; legend = 0.0; }
   alb = mix(alb, 0.85 * ${LUM.ink.toFixed(3)}, ink);
+  alb = mix(alb, 0.42, legend);
+  // le grain fin de la surface : la rugosité varie un peu (rien n'est parfaitement lisse)
+  rough = clamp(rough * (0.9 + 0.2 * h3(floor(vObj * 2.0))), 0.04, 1.0);
   float NL = max(dot(n, L), 0.0), NV = max(dot(n, V), 1e-3);
   vec3 H = normalize(L + V);
-  // la taille apparente de la lampe élargit le reflet (sinon les chromes ne montrent qu'un point)
+  // la taille apparente de la lampe élargit le reflet
   float a = clamp(rough * rough + 0.5 * uLightR / dist, 0.02, 1.0);
   float F = F0 + (1.0 - F0) * pow(1.0 - max(dot(V, H), 0.0), 5.0);
   float spec = ks * D_GGX(max(dot(n, H), 0.0), a) * V_Smith(NL, NV, a) * F * (1.0 - ink);
-  float sh = NL > 0.0 ? shadowAt(vWorld + n * 0.4, NL) : 0.0;
+  float sh = NL > 0.0 ? shadowAt(vWorld + n * 0.3, NL) : 0.0;
+  // le contour : sans ombre portée, retenu par l'occlusion (il n'entre pas sous le capot)
+  float NLr = max(dot(n, uRimDir), 0.0);
+  vec3 Hr = normalize(uRimDir + V);
+  float ar = clamp(rough * rough + 0.08, 0.02, 1.0);
+  float Fr = F0 + (1.0 - F0) * pow(1.0 - max(dot(V, Hr), 0.0), 5.0);
+  float rim = uRim * NLr * (alb + ks * D_GGX(max(dot(n, Hr), 0.0), ar) * V_Smith(NLr, NV, ar) * Fr) * ao * ao;
+  // le décor : diffus (tout l'hémisphère) et reflet (une direction), éteints dans les creux
   vec3 R = reflect(-V, n);
   float Fv = F0 + (1.0 - F0) * pow(1.0 - NV, 5.0);
-  float amb = uEnv * (alb * env(n, L) + envK * Fv * env(R, L) * (0.35 + 0.65 * sh));
-  vec3 col = vec3(irr * NL * sh * (alb + spec) + amb);
+  float gls = 1.0 - rough;                                   // une surface rugueuse voit un décor flou : moins de contraste
+  float envR = mix(studioDiff(R), studio(R), gls * gls);
+  float amb = uEnv * (alb * studioDiff(n) * ao + envK * Fv * envR * ao * (0.4 + 0.6 * sh));
+  vec3 col = vec3(irr * (NL * sh * (alb + spec) + rim) + amb);
   col *= uExposure;
   col = max(col - uToe, 0.0) / (1.0 - uToe);
   col = pow(max(col, 0.0), vec3(1.0 / 2.2));
   col = vec3(6.0 / 255.0) + max(col - 6.0 / 255.0, 0.0) * ${LUM.gain.toFixed(3)};
+  if (k == 10u) col = mix(col, vec3(6.0 / 255.0), smoothstep(uGround.x, uGround.y, length(vWorld.xy - 0.5 * (uFoot.xy + uFoot.zw))));
   outColor = vec4(col, 1.0);
 }`;
 
@@ -171,7 +225,7 @@ const SFS = `#version 300 es
 precision highp float;
 flat in uint vKind;
 out vec4 o;
-void main() { if (vKind == 9u) discard; o = vec4(1); }`;
+void main() { if (vKind == 9u || vKind == 10u) discard; o = vec4(1); }`;
 
 function compile(gl, vs, fs) {
   const p = gl.createProgram();
@@ -192,6 +246,8 @@ const ROWS = ['ZXCVBNM', 'ASDFGHJKL', 'QWERTYUIOP', '23456789'];
 export async function createMachine(gl, base = './', model = 'qdl39') {
   const meta = await fetch(base + `machine/${model}.json`).then(r => r.json());
   const buf = await fetch(base + `machine/${model}.bin`).then(r => r.arrayBuffer());
+  // l'ombre ambiante cuite (tools/machine-ao.mjs) ; absente : tout ouvert
+  const aoBuf = await fetch(base + `machine/${model}-ao.bin`).then(r => (r.ok ? r.arrayBuffer() : null)).catch(() => null);
   const { nv: nv0, ni: ni0, offs, kinds: KD } = meta;
   const pos0 = new Float32Array(buf, offs[0], nv0 * 3), nor0 = new Int16Array(buf, offs[1], nv0 * 3);
   const kind0 = new Uint8Array(buf, offs[2], nv0), isl = new Uint16Array(buf, offs[3], nv0), idx0 = new Uint32Array(buf, offs[4], ni0);
@@ -282,9 +338,18 @@ export async function createMachine(gl, base = './', model = 'qdl39') {
     sheetAt = v => [plane.o[1] + plane.u[1] * v, plane.o[2] + plane.u[2] * v];
   }
 
-  // les tampons : le modèle (+ la feuille ajoutée)
-  const nv = nv0 + (sheet ? sheet.n : 0), ni = ni0 + (sheet ? sheet.I.length : 0);
+  // la table : un carré de papier noir sous la machine (il se fond dans le fond bien avant ses bords)
+  const bodyI = I.filter(o => o.kind === KD.body);
+  const foot = [Math.min(...bodyI.map(o => o.lo[0])), Math.min(...bodyI.map(o => o.lo[1])), Math.max(...bodyI.map(o => o.hi[0])), Math.max(...bodyI.map(o => o.hi[1]))];
+  const GR = 900;
+  const ground = { P: new Float32Array([-GR, -GR, -0.1, GR, -GR, -0.1, GR, GR, -0.1, -GR, GR, -0.1]), I: [0, 1, 2, 0, 2, 3], n: 4 };
+
+  // les tampons : le modèle (+ la feuille ajoutée, + la table)
+  const nS = sheet ? sheet.n : 0, nvS = nv0 + nS;
+  const nv = nvS + ground.n, ni = ni0 + (sheet ? sheet.I.length : 0) + 6;
   const pos = new Float32Array(nv * 3), nor = new Int16Array(nv * 3), kind = new Uint8Array(nv), slotV = new Uint8Array(nv), paper = new Float32Array(nv * 2), idx = new Uint32Array(ni);
+  const aoV = new Uint8Array(nv).fill(255);
+  if (aoBuf && aoBuf.byteLength === nv0) aoV.set(new Uint8Array(aoBuf));
   pos.set(pos0); nor.set(nor0); kind.set(kind0); idx.set(idx0);
   for (let v = 0; v < nv0; v++) {
     const o = isl[v];
@@ -298,6 +363,9 @@ export async function createMachine(gl, base = './', model = 'qdl39') {
     kind.fill(KD.paper, nv0); slotV.fill(255, nv0);
     idx.set(sheet.I.map(i => i + nv0), ni0);
   }
+  pos.set(ground.P, nvS * 3); kind.fill(10, nvS);
+  for (let v = 0; v < 4; v++) nor[(nvS + v) * 3 + 2] = 32767;
+  idx.set(ground.I.map(i => i + nvS), ni - 6);
 
   const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
   const vb = (data, loc, size, type, norm, int) => {
@@ -306,7 +374,7 @@ export async function createMachine(gl, base = './', model = 'qdl39') {
     if (int) gl.vertexAttribIPointer(loc, size, type, 0, 0); else gl.vertexAttribPointer(loc, size, type, norm, 0, 0);
   };
   vb(pos, 0, 3, gl.FLOAT, false); vb(nor, 1, 3, gl.SHORT, true); vb(kind, 2, 1, gl.UNSIGNED_BYTE, false, true); vb(slotV, 3, 1, gl.UNSIGNED_BYTE, false, true);
-  vb(paper, 4, 2, gl.FLOAT, false);
+  vb(paper, 4, 2, gl.FLOAT, false); vb(aoV, 5, 1, gl.UNSIGNED_BYTE, true);
   const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
   gl.bindVertexArray(null);
 
@@ -328,6 +396,20 @@ export async function createMachine(gl, base = './', model = 'qdl39') {
     const W_COL = Math.max(...[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(c => nameR.adv(c))) * emT;
     CS = { LEAD, CAPU, emT, Y0: SHEET.h / 2 - 32 - CAPU, COL_C: SCOL_X + W_COL / 2 };
   }
+
+  // les lettres des touches (blanches sous le verre, linéales comme sur les vraies Royal) : un atlas 8 × 5
+  const ATL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ23456789';
+  const gC = document.createElement('canvas'); gC.width = 1024; gC.height = 640;
+  { const g = gC.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 1024, 640); g.fillStyle = '#fff';
+    g.font = '500 58px Futura, "Century Gothic", "Avenir Next", "Helvetica Neue", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    [...ATL].forEach((ch, i) => g.fillText(ch, (i % 8) * 128 + 64, Math.floor(i / 8) * 128 + 66)); }
+  const glyphTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, glyphTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, gC);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  const keyC = new Float32Array(64 * 3), keyG = new Float32Array(64).fill(-1);
+  for (const kk of keys) { keyC.set([kk.x, kk.y, kk.w < med * 1.15 ? kk.w / 2 : 0], kk.slot * 3); }
+  for (const [ch, kk] of Object.entries(letter)) keyG[kk.slot] = ATL.indexOf(ch);
 
   // la carte d'ombre
   const SM = 2048;
@@ -441,12 +523,19 @@ export async function createMachine(gl, base = './', model = 'qdl39') {
     const eye = [tg[0] + cam.dist * Math.cos(cam.el) * Math.cos(cam.az), tg[1] + cam.dist * Math.cos(cam.el) * Math.sin(cam.az), tg[2] + cam.dist * Math.sin(cam.el)];
     const fov = cam.fov || 26 * Math.PI / 180;
     const vp = M4.mul(M4.perspective(fov, W / H, cam.dist * 0.2, cam.dist * 4), M4.lookAt(eye, tg, [0, 0, 1]));
-    // la lampe des cartes, à la mesure de la machine
-    // (de côté, pas de dos : derrière la machine, son capot jetait le clavier dans l'ombre) — elle respire comme sur les cartes
-    const P = objLamp({ ...LOOK }, opt.lampSize || 300, t, tilt, opt.lampAz ?? 1.9);
-    const lp = [P.lightPos[0], P.lightPos[1], P.lightPos[2] + 60];
-    const D = Math.hypot(lp[0], lp[1], lp[2] - 80);
-    const svp = M4.mul(M4.perspective(2 * Math.atan(300 / D), 1, D * 0.4, D * 2.2), M4.lookAt(lp, [0, 0, 80], Math.abs(lp[2]) > 0.95 * D ? [0, 1, 0] : [0, 0, 1]));
+    // la lampe : celle des cartes pour l'exposition et la force (à la mesure de la machine, au repos), mais posée loin,
+    // fixe, à gauche (à peine en arrière), ≈ 43° de haut ; elle respire à peine (± 2°, jamais la souris) — sa force
+    // ramenée à la même lumière au centre de la machine
+    const P0 = objLamp({ ...LOOK }, opt.lampSize || 300, 0, { x: 0, y: 0 }, 1.9);
+    const D0 = Math.hypot(P0.lightPos[0], P0.lightPos[1], P0.lightPos[2] + 60 - 80);
+    const az = (opt.lampAz ?? 2.95) + 0.035 * Math.sin(t * 0.21) + 0.015 * Math.sin(t * 0.53), el = (opt.lampEl ?? 0.75) + 0.012 * Math.sin(t * 0.17);
+    const D = opt.lampD || 2400;
+    const kd = [Math.cos(az) * Math.cos(el), Math.sin(az) * Math.cos(el), Math.sin(el)];
+    const lp = [kd[0] * D, kd[1] * D, 80 + kd[2] * D];
+    const P = { ...P0, lightPos: lp, light: P0.light * (D * D) / (D0 * D0) * (opt.light ?? 1), lightR: D * 0.16 };
+    // le contour : derrière, à droite, haut
+    const ra = opt.rimAz ?? 0.75, re = 0.55, rd = [Math.cos(ra) * Math.cos(re), Math.sin(ra) * Math.cos(re), Math.sin(re)];
+    const svp = M4.mul(M4.perspective(2 * Math.atan(330 / D), 1, D * 0.7, D * 1.35), M4.lookAt(lp, [0, 0, 80], [0, 0, 1]));
 
     gl.bindVertexArray(vao);
     // l'ombre
@@ -464,12 +553,16 @@ export async function createMachine(gl, base = './', model = 'qdl39') {
     const u = prog.u; gl.useProgram(prog.p);
     gl.uniformMatrix4fv(u.uVP, false, vp); gl.uniform1fv(u.uKeyA, keyA); gl.uniform2fv(u.uKeyP, keyP); gl.uniform1f(u.uCarX, st.carV);
     gl.uniform3fv(u.uLightPos, lp); gl.uniform3fv(u.uEye, eye);
-    gl.uniform1f(u.uLight, P.light * (opt.light ?? 1)); gl.uniform1f(u.uLightR, P.lightR); gl.uniform1f(u.uEnv, P.env * (opt.env ?? 1.5));
+    gl.uniform1f(u.uLight, P.light); gl.uniform1f(u.uLightR, P.lightR); gl.uniform1f(u.uEnv, P.env * (opt.env ?? 1.0));
+    gl.uniform3fv(u.uKeyDir, kd); gl.uniform3fv(u.uRimDir, rd); gl.uniform1f(u.uRim, opt.rim ?? 0.6);
+    gl.uniform3fv(u.uKeyC, keyC); gl.uniform1fv(u.uKeyG, keyG);
+    gl.uniform4fv(u.uFoot, foot); gl.uniform2f(u.uGround, opt.groundR0 ?? 200, opt.groundR1 ?? 480);
     gl.uniform1f(u.uExposure, P.exposure); gl.uniform1f(u.uToe, P.toe);
-    gl.uniform1f(u.uHammer, opt.hammer ?? 0.55); gl.uniform1f(u.uPaperK, opt.paperK ?? 1.7); gl.uniform1f(u.uFeed, opt.feed ?? st.feed); gl.uniform1f(u.uFlat, opt.flat ? 1 : 0);
+    gl.uniform1f(u.uHammer, opt.hammer ?? 0.8); gl.uniform1f(u.uPaperK, opt.paperK ?? 1.7); gl.uniform1f(u.uFeed, opt.feed ?? st.feed); gl.uniform1f(u.uFlat, opt.flat ? 1 : 0);
     gl.uniformMatrix4fv(u.uShadowVP, false, svp);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, smTex); gl.uniform1i(u.uShadow, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, inkTex); gl.uniform1i(u.uInk, 1);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, glyphTex); gl.uniform1i(u.uGlyph, 2); gl.activeTexture(gl.TEXTURE0);
     gl.uniform4f(u.uInkBox, INK.x0, INK.v0, 1 / (INK.x1 - INK.x0), 1 / (INK.v1 - INK.v0));
     gl.drawElements(gl.TRIANGLES, ni, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);
@@ -480,7 +573,7 @@ export async function createMachine(gl, base = './', model = 'qdl39') {
       const tx = (st.carV - st.car0) - CS.COL_C * k;
       const A = new Float32Array([k, 0, 0, 0, U[0] * k, U[1] * k, U[2] * k, 0, N[0] * k, N[1] * k, N[2] * k, 0,
         o[0] + tx + U[0] * -yc * k + N[0] * 0.3, o[1] + U[1] * -yc * k + N[1] * 0.3, o[2] + U[2] * -yc * k + N[2] * 0.3, 1]);
-      const PC = { ...P, lightPos: lp };
+      const PC = P;
       // retournée d'un demi-tour dans son plan : la découpe du moteur (dos d'enveloppe en V, ici à plat) retire le haut
       // de son repère, donc le bas de la feuille — tout ce qui est sous la ligne de frappe
       gl.enable(gl.DEPTH_TEST);

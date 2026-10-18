@@ -27,7 +27,7 @@
   // Essai (18/10) : la machine à écrire en direct, dans la lumière du site. Taper (toucher l'écran sur téléphone) =
   // les touches s'enfoncent, le chariot avance, le prénom s'imprime sur la feuille noire. Glisser = tourner autour,
   // molette / pincer = s'approcher. ?vue=face|haut|feuille|cote, ?martele=0..1, ?plat=1 (matières grises, pour juger la
-  // forme), ?modele=royal (la Royal des années 60), ?papier=1.7 (clarté de la feuille), ?prenom=LEA (se tape seul), ?lampe=1.4 (côté de la lampe, rad), ?ambiance=1.5.
+  // forme), ?modele=royal (la Royal des années 60), ?papier=1.7 (clarté de la feuille), ?prenom=LEA (se tape seul), ?lampe=2.95 (côté de la lampe, rad), ?hauteur=0.75 (sa hauteur, rad), ?force=1, ?contour=0.6, ?ambiance=1.
   import { createMachine } from './src/machine/machine3d.js';
   import { siteFonts } from './src/app/fonts.js';
   // (pas d'await au premier niveau : la construction vise aussi les anciens Safari)
@@ -108,7 +108,8 @@
   addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; tilt.tx = e.clientX / innerWidth * 2 - 1; tilt.ty = e.clientY / innerHeight * 2 - 1; });
 
   const t0 = performance.now(); let raf = 0, last = t0;
-  const opt = { hammer: Q.has('martele') ? +Q.get('martele') : 0.55, flat: Q.has('plat'), ...(Q.has('lampe') ? { lampAz: +Q.get('lampe') } : {}), ...(Q.has('ambiance') ? { env: +Q.get('ambiance') } : {}), ...(Q.has('papier') ? { paperK: +Q.get('papier') } : {}) };
+  const opt = { ...(Q.has('martele') ? { hammer: +Q.get('martele') } : {}), flat: Q.has('plat'), ...(Q.has('lampe') ? { lampAz: +Q.get('lampe') } : {}), ...(Q.has('ambiance') ? { env: +Q.get('ambiance') } : {}), ...(Q.has('papier') ? { paperK: +Q.get('papier') } : {}),
+    ...(Q.has('hauteur') ? { lampEl: +Q.get('hauteur') } : {}), ...(Q.has('contour') ? { rim: +Q.get('contour') } : {}), ...(Q.has('force') ? { light: +Q.get('force') } : {}) };
   function draw(now) {
     raf = 0;
     const dpr = Math.min(devicePixelRatio || 1, 2), W = Math.round(innerWidth * dpr), H = Math.round(innerHeight * dpr);
