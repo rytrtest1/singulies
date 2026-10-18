@@ -1,5 +1,5 @@
 // SINGULIÉS — écran d'accueil. Amorçage, boucle, états (saisie → transition → scène des cartes).
-import { vk, EST_VERSION } from './core/version.js';
+import { vk, EST_VERSION, EST_V2 } from './core/version.js';
 import { analysePrenom, PHRASES } from './core/prenom.js';
 import { creerNote } from './core/note.js';
 import './app/lum.js';
@@ -94,7 +94,7 @@ const FONT_FAMILY = 'SG Garamond';
 const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
 const OPEN_FADE = 1.4;      // s de fondu d'entrée
 const LEAVE_FADE = 1.2;     // s de fondu au noir après validation (sans WebGL2)
-const HINT = P.get('indice') === '1' || (EST_VERSION && P.get('indice') !== '0');   // (18/10, V3) dans les versions : la consigne (PRENOM, tapé en grisé) paraît après quelques secondes sans frappe
+const HINT = P.get('indice') === '1' || (EST_VERSION && !EST_V2 && P.get('indice') !== '0');   // (18/10, V3) dans les versions : la consigne (PRENOM, tapé en grisé) paraît après quelques secondes sans frappe
 //   // (17/10, Maxence) plus de PRENOM grisé : le curseur seul ; ?indice=1 pour le revoir   // (10/10) PRENOM en grisé si rien n'est écrit
 const HINT_AFTER = 3.0, HINT_ALPHA = 0.2;   // s après l'apparition du champ ; clarté (fraction)
 // (10/10, version alternative) après ETERNEL : UN PRENOM / UN POEME en grisé (la grammaire de tout le site), qui
@@ -106,7 +106,9 @@ const HINT_AFTER_NAV = 3.2;   // (alt) s après l'apparition du menu (plus utili
 // machine après un certain temps ») alt : 5 s après que le curseur est resté seul (ETERNEL effacé), PRENOM se tape
 // lettre à lettre en grisé, le curseur devant ; il s'efface à la première lettre tapée
 const HINT_AFTER_ALT = 5.0, HINT_STRIKE = 0.13;   // (deux lignes comme un prénom : coupure aux espaces, la plus équilibrée)
-const IDLE_GO = EST_VERSION ? 7.5 : 3.5;   // (18/10, V3) pause plus longue avant la validation automatique ; et pas avant 2 lettres (IDLE_MIN)
+const IDLE_GO = EST_V2 ? Infinity : EST_VERSION ? 7.5 : 3.5;   // (18/10, V2) jamais de validation automatique : « continuer → »
+// (18/10, V3) pause plus longue avant la validation automatique ; et pas avant 2 lettres (IDLE_MIN)
+const AUTO_GO = !EST_V2;   // (V2) rien ne part sans « continuer → » (ni la pause, ni le clavier fermé, ni la lumière)
 const IDLE_MIN = EST_VERSION ? 2 : 1;
 // (18/10, V3) le visiteur qui revient saute l'intro (ETERNEL tapé puis effacé) : on retient qu'un prénom a déjà été validé
 const DEJA_VU = EST_VERSION && (() => { try { return localStorage.getItem(vk('singulies.vu')) === '1'; } catch { return false; } })();
@@ -114,7 +116,7 @@ const DEJA_VU = EST_VERSION && (() => { try { return localStorage.getItem(vk('si
 // (10/10, version alternative) à l'ouverture, ETERNEL — mon nom — se tape à la machine à la place du prénom, le champ
 // s'allume avec lui (on voit ce que fait une frappe), puis il s'efface lettre à lettre : reste le curseur seul, qui
 // invite à taper le sien. Toute frappe, tout toucher du champ l'arrête.
-const INTRO = 'ETERNEL', I_TYPE = 0.14, I_HOLD = 1.5, I_ERASE = 0.07;
+const INTRO = 'ETERNEL', I_TYPE = 0.14, I_HOLD = EST_V2 ? 0.8 : 1.5, I_ERASE = 0.07;   // (18/10, V2) une intro d'environ 3 s
 function introText() {
   if (!ALT || S.introOff || S.typed || S.phase !== 'input' || S.hintT0 == null || model.text) return '';
   if (DEJA_VU || (EST_VERSION && CFG.reduced)) { S.introOff = true; S.introEnd = S.t; return ''; }   // (V3) qui revient, ou mouvement réduit : pas d'intro
@@ -273,6 +275,7 @@ const spec = new Float32Array(24);   // spectre lissé (moitié ; dessiné en mi
 function submitName() {
   if (S.phase !== 'input' || S.trans != null || (!wheel && bridge.composing)) return;
   if (!finalName(model.text)) return;
+  if (EST_V2) { startTransition(); return; }   // (V2) Entrée = « continuer → »
   if (!S.confirmed) confirmName(); else startTransition();
 }
 function confirmName() {
@@ -653,7 +656,7 @@ window.visualViewport?.addEventListener('resize', () => {
   if (grew && TOUCH && document.activeElement === input && S.phase === 'input' && S.trans == null && !wheel && finalName(model.text) && !bridge.composing) input.blur();
 });
 input.addEventListener('blur', () => {
-  if (S.portal || S.phase !== 'input' || S.trans != null || wheel || !finalName(model.text) || performance.now() - backDown < 600) return;
+  if (!AUTO_GO || S.portal || S.phase !== 'input' || S.trans != null || wheel || !finalName(model.text) || performance.now() - backDown < 600) return;
   clearTimeout(blurGo);
   blurGo = setTimeout(() => {
     blurGo = 0;
@@ -943,7 +946,7 @@ function frame(ts) {
   if (canNext) { nextEl.style.left = (cx - 22) + 'px'; nextEl.style.top = (L.bottom + Math.max(12, 0.8 * L.cap)) + 'px'; }
   // (10/10) pendant que l'onde avance : le fond allumé, les lettres encore à venir partiront une fois allumées ;
   // jamais moins de 2 s après le dernier geste (toucher, souris, molette, touche)
-  if (canNext && S.t >= Math.max(light.flyAt(), S.confirmedAt + 0.5, S.actAt + 2)) startTransition();
+  if (AUTO_GO && canNext && S.t >= Math.max(light.flyAt(), S.confirmedAt + 0.5, S.actAt + 2)) startTransition();
   // (12/10, alt) la scène des cartes se prépare pendant qu'on écrit, à la première pause (le seul instant lourd tombe là,
   // pas pendant la dérive) : la feuille peut ainsi paraître sous les lettres qui y glissent
   if (ALT && !cards && !CFG.reduced && S.phase === 'input' && S.typed && T < 0 && S.t - S.keyAt > 0.8 && finalName(model.text)) loadCards(finalName(model.text).toUpperCase());
@@ -1273,6 +1276,7 @@ if (ALT) {
   const NAV_IDLE = 4.0, BREATH = 1.6;
   const idleNames = () => {
     if (!onNames()) return false;
+    if (EST_V2) return !!S.introOff;   // (V2) le menu est visible, atténué, dès la fin de l'intro
     if (S.navOn) return true;
     if (S.navNo) return false;
     if (S.typed || document.activeElement === input) { S.navNo = true; return false; }
@@ -1322,6 +1326,7 @@ if (ALT) {
     // (12/10, Maxence) sur la page des prénoms, si le menu paraît (rien n'est écrit), la démonstration part aussi
     // (1,4 s après lui) — une fois par visite : elle ne revient plus sur la feuille
     ready: () => {
+      if (EST_V2 && onNames()) return false;   // (V2) pas de démonstration du glissé sur l'accueil
       if (onNames()) { if (!idleNames() || S.typed) { navAt = 0; return false; } if (!navAt) navAt = performance.now(); return performance.now() - navAt > 1400; }
       const on = !!document.querySelector('#offre.on.bar-on'); if (!on) barAt = 0; else if (!barAt) barAt = performance.now(); return on && performance.now() - barAt > 1200;
     },
@@ -1348,4 +1353,5 @@ if (ALT) {
   setInterval(() => edges.classList.toggle('on', S.phase === 'input' && S.trans == null && !ofEl()), 150);
   window.__nav = nav;   // (essais)
 }
+if (EST_V2) import('./v2/couche.js').then(m => m.installerCouche()).catch(e => console.warn('V2', e));
 boot();

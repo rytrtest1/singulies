@@ -1,6 +1,6 @@
 // Version alternative (10/10) : après le champ de prénoms, la feuille qui attend — l'acrostiche tapé, les vraies
 // photos, le prix, COMMANDER (Stripe). La question vient après le paiement (merci.html), jamais avant.
-import { vk, EST_VERSION } from '../core/version.js';
+import { vk, EST_VERSION, EST_V2 } from '../core/version.js';
 import { LIGNE_PAIEMENT, etatPaiement } from '../core/paiement.js';
 import { knownEmail } from '../app/storage.js';
 import '../basique/basique.css';
@@ -482,7 +482,8 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
       <button class="of-go" type="button">RECEVOIR</button>
       <div class="of-price"><span class="p1"><b>${esc(PRIX)}</b> tout compris</span><span class="p2">${esc(DELAI_COURT)}</span></div>
       ${EST_VERSION ? `<!-- (18/10, V3) la ligne sur le paiement (variable commune, src/core/paiement.js) et ce qui rassure, près de l'action -->
-      <div class="of-trust"><p class="of-payline">${esc(LIGNE_PAIEMENT)}</p><p class="of-lost">si l’enveloppe se perd, je refais le poème · <a href="./conditions.html">conditions</a></p></div>` : ''}
+      <div class="of-trust"><p class="of-payline">${esc(LIGNE_PAIEMENT)}</p><p class="of-lost">${EST_V2 ? 'envoi par la poste · paiement sécurisé · si l’enveloppe se perd, je refais le poème' : 'si l’enveloppe se perd, je refais le poème'} · <a href="./conditions.html">conditions</a></p>${EST_V2 ? '<p class="of-human">écrit et tapé par moi, aucun programme</p>' : ''}</div>` : ''}
+      ${EST_V2 ? '<button class="of-gift" type="button" aria-haspopup="dialog">pour offrir ?</button>' : ''}
       <!-- (12/10, Maxence) l'invitation à descendre, APRÈS l'action : la fin de cette section, le nom de la suivante -->
       <button class="of-down" type="button"><svg class="arw" viewBox="0 0 18 11" aria-hidden="true"><path d="M1.5 1.5 L9 9 L16.5 1.5"/></svg></button>
     </div>`;
@@ -971,6 +972,18 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     if (st && (st.vt > 0 || st.target > 0)) { root.scrollTo({ top: 0 }); fadeJump(0, () => pay(name)); } else pay(name);
   });
   barWalletSetup(root, name);
+  // (18/10, V2 ; décision 4) « pour offrir ? » : les cartes « pour quand ? » et « de la part de qui ? un mot ? » ; ✕ pour fermer les exemples
+  if (EST_V2) {
+    const gift = root.querySelector('.of-gift');
+    import('../v2/offrir-ui.js').then(m => {
+      const maj = () => { gift.textContent = m.texteSigne(); };
+      maj();
+      gift.addEventListener('click', () => {
+        const base = new URL('./', document.baseURI).href;
+        m.ouvrirOffrir({ nom: name, contact: texte => import('../menu/contact.js').then(c => c.openContact({ base, name, prefill: texte })) }).then(maj);
+      });
+    });
+  }
   // (12/10, Maxence) pour moi / pour offrir : seulement au moment du paiement (le panneau)
   giftPref = !!readOrder()?.gift;
 

@@ -75,9 +75,10 @@ function orderHtml(o, email) {
   return '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;"><span style="color:#8a8a8a;">commande</span><br>' + esc(o.ref) + (o.simule ? ' · paiement simulé' : '') + (o.session ? '<br><span style="color:#8a8a8a;">stripe ' + esc(o.session) + '</span>' : '') + '<br><span style="color:#8a8a8a;">adresse et email : dans stripe</span></div>';
 }
 // (18/10, V3) « de la part de » : celui qui offre signe, dans le même bloc que le contact
-function delaHtml(n) {
-  if (!n) return '';
-  return '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;"><span style="color:#8a8a8a;">de la part de</span><br>' + esc(n) + '</div>';
+function delaHtml(n, mot, quand) {
+  if (!n && !mot && !quand) return '';
+  const ligne = (k, v) => '<div style="padding:0 0 10px;"><span style="color:#8a8a8a;">' + k + '</span><br>' + esc(v) + '</div>';
+  return '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;">' + (n ? ligne('de la part de', n) : '') + (quand ? ligne('pour arriver le', quand.split('-').reverse().join('/')) : '') + (mot ? ligne('un mot', mot) : '') + '</div>';
 }
 // mode test : les réponses des testeurs (prix de l'original, retours), dans le même bloc que le contact
 function betaHtml(b) {
@@ -108,7 +109,7 @@ export function params(d) {
     adresse_html: (d.address || []).map(l => quiet(esc(l))).join('<br>'),
     adresse: (d.address || []).join('\n'),
     contact: d.contact || '',
-    contact_html: orderHtml(d.order, d.email) + delaHtml(d.dela) + (d.contact ? '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;">' + contactLinks(d.contact) + '</div>' : '') + betaHtml(d.beta),
+    contact_html: orderHtml(d.order, d.email) + delaHtml(d.dela, d.mot, d.quand) + (d.contact ? '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;">' + contactLinks(d.contact) + '</div>' : '') + betaHtml(d.beta),
     date: new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }),
     // la demande, rendue par le site (feuille, carte, enveloppe) : tout est dans le lien, après « # »
     lien: new URL('./demande.html', document.baseURI).href + '#' + encodeDemande(d),
@@ -190,15 +191,15 @@ const K_CMD = vk('singulies.pendingCmd');
 const CMD_URL = LOCAL ? 'http://localhost:8787' : PAIEMENT_URL;
 const loadCmd = () => { try { return JSON.parse(localStorage.getItem(K_CMD) || '[]'); } catch { return []; } };
 const saveCmd = a => { try { a.length ? localStorage.setItem(K_CMD, JSON.stringify(a.slice(-10))) : localStorage.removeItem(K_CMD); } catch { /* */ } };
-function commande(d, p) {
+function commande(d, p) {   // (V2 : mot et quand, voir core/offrir.js)
   if (!CMD_URL) return;
   const o = d.order || null;
   const body = {
     ref: o?.ref || '', prenom: d.name || '', genre: d.kind || '', questionId: d.kind === 'reponse' ? String(d.id ?? '') : '',
     question: p.question, reponse: d.text || '', adresse: d.address || [], email: d.email || '', contact: d.contact || '',
     mode: o ? (o.reserve ? 'reservation' : o.simule ? 'simule' : 'paye') : d.test ? 'essai' : d.mode === 'direct' ? 'direct' : 'poste',
-    cadeau: !!(o && (o.gift || o.pour)), session: o?.session || '', lien: p.lien,
-    essai: !!(d.test || o?.simule || d.beta || import.meta.env.DEV), site: '', version: VERSION, dela: d.dela || '',
+    cadeau: !!(o && (o.gift || o.pour)) || !!(d.dela || d.mot || d.quand), session: o?.session || '', lien: p.lien,
+    essai: !!(d.test || o?.simule || d.beta || import.meta.env.DEV), site: '', version: VERSION, dela: d.dela || '', mot: d.mot || '', quand: d.quand || '',
   };
   saveCmd([...loadCmd(), body]);
   flushCmd();

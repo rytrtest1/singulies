@@ -3,7 +3,7 @@
 // poème, le paiement, la liste d'attente). ENVOYER dès qu'il y a un message et un email valable ; la carte part vers
 // le haut, « reçu. je te réponds. » se tape, puis on revient là où l'on était. Envoi : le modèle EmailJS des
 // demandes (sendNote). Contre les robots : un champ piège invisible, un envoi toutes les 30 s au plus.
-import { vk } from '../core/version.js';
+import { vk, EST_V2 } from '../core/version.js';
 import { sendNote } from '../app/send.js';
 import { knownEmail, EMAIL_RE } from '../app/storage.js';
 
@@ -75,6 +75,8 @@ function build(host, opts, inline) {
   const back = inline ? null : el('button', 'ct-back', root, BACK);
   if (back) { back.type = 'button'; back.setAttribute('aria-label', 'Retour'); }
   const form = el('form', 'ct-stack', root); form.noValidate = true; form.setAttribute('autocomplete', 'on');
+  // (18/10, V2 ; décision 10) des libellés visibles : le message, l'email
+  if (EST_V2) { const lab = el('label', 'ct-lab', form, 'ton message'); lab.id = 'ct-lab-m'; }
   const card = el('div', 'ct-card', form);
   const img = el('img', '', card); img.src = new URL(base + 'simple/vierge.jpg', document.baseURI).href; img.alt = '';
   const ta = el('textarea', '', card); ta.placeholder = 'écris-moi ici'; ta.maxLength = 2000;
@@ -90,6 +92,7 @@ function build(host, opts, inline) {
   }).catch(e => console.warn('carte 3D', e));
   ta.addEventListener('input', () => c3?.setText(ta.value));
   const trap = el('input', 'ct-trap', form); trap.name = 'site'; trap.tabIndex = -1; trap.autocomplete = 'off'; trap.setAttribute('aria-hidden', 'true');
+  if (EST_V2) el('div', 'ct-lab', form, 'ton email, pour te répondre');
   const mail = el('div', 'ct-mail', form);
   let email = knownEmail(), input = null;
   function askMail(v = '') {

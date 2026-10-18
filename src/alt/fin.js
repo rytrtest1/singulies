@@ -1,6 +1,7 @@
 // Les écrans de texte de la version alternative (10/10) : ce qui flotte au-dessus des objets (Garamond), sur le noir —
 // partagés par alt.html (payé dans la page), merci.html (retour de Stripe) et pour.html (la personne offerte).
-import { vk, EST_VERSION } from '../core/version.js';
+import { vk, EST_VERSION, EST_V2 } from '../core/version.js';
+import '../v2/v2.css';
 import { LIGNE_PAIEMENT } from '../core/paiement.js';
 import { DELAI } from './config.js';
 import './offre.css';
@@ -48,6 +49,7 @@ export function finalScreen(order, home) {
     ${order.ref ? `<div class="ref">réf. ${esc(order.ref)}</div>` : ''}
     <p class="mc-merci">merci</p>
     <p class="mc-line mc-type"></p>
+    ${EST_V2 ? '<ul class="mc-suite" aria-label="La suite"><li></li><li></li><li></li></ul>' : ''}
     ${EST_VERSION ? `<!-- (18/10, V3) une ligne de plus sur le paiement et le délai ; pour une date précise : CONTACT, la référence déjà remplie -->
     <div class="mc-more"><p class="mc-note">${esc(LIGNE_PAIEMENT)}. ${esc(DELAI)}.</p>
     <button class="mc-date" type="button">une date précise ? écris-moi</button></div>` : ''}
@@ -59,7 +61,12 @@ export function finalScreen(order, home) {
     </div>`);   // (17/10 : plus de RETOUR en bas — la flèche du haut, ETERNEL et le bandeau sont là)
   d.classList.add('fin');
   // (17/10, Maxence : « juste prénom, réf, MERCI et récapitulatif envoyé par email, avec le jeu en dessous ») rien d'autre
-  typeInto(d.querySelector('.mc-type'), 'le récapitulatif t’est envoyé par email.', { at: 900, step: 46 }).then(() => { d.querySelector('.mc-more')?.classList.add('on'); setTimeout(() => d.querySelector('.mc-home')?.classList.add('on'), 500); });
+  // (18/10, V2 ; décision 7) une confirmation tapée : la référence, puis trois lignes sur la suite
+  const tape = EST_V2
+    ? typeInto(d.querySelector('.mc-type'), order.ref ? 'ta commande est notée sous la réf. ' + order.ref + '.' : 'ta commande est notée.', { at: 900, step: 40 })
+      .then(() => [...d.querySelectorAll('.mc-suite li')].reduce((p, li, i) => p.then(() => typeInto(li, ['1. je tape ton poème à la machine, une seule fois.', '2. je le glisse dans l’enveloppe et je le poste.', '3. le récapitulatif t’est envoyé par email.'][i], { at: 250, step: 38 })), Promise.resolve()))
+    : typeInto(d.querySelector('.mc-type'), 'le récapitulatif t’est envoyé par email.', { at: 900, step: 46 });
+  tape.then(() => { d.querySelector('.mc-more')?.classList.add('on'); setTimeout(() => d.querySelector('.mc-home')?.classList.add('on'), 500); });
   // (17/10, Maxence : « à la fin de la commande, au récap, un bouton ACCUEIL est logique » — en haut à gauche, c'est toujours une flèche)
   d.querySelector('.mc-home').addEventListener('click', () => { location.href = new URL('./', document.baseURI).href; });
   const dateBtn = d.querySelector('.mc-date');

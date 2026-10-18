@@ -5,7 +5,8 @@ import { CARD } from '../cards/cardRenderer.js';
 import { TYPE } from '../cards/ink.js';
 import { createRng } from '../field/rng.js';
 import { typeLines } from './typewriter.js';
-import { EST_VERSION } from '../core/version.js';
+import { EST_VERSION, EST_V2, EST_V3 } from '../core/version.js';
+import { pourCommande } from '../core/offrir.js';
 
 // l'enveloppe (C5 noire, 229 × 162 mm, même papier) : poche ouverte en haut, rabat pointu. La carte se pose sur la
 // feuille, la feuille pivote et se glisse dans la poche avec elle, l'enveloppe se retourne, rabat encore ouvert ;
@@ -103,7 +104,7 @@ export const FIELDS = [
   { id: 'cp', hint: 'code postal', zone: 'addr', line: 4, chars: 10, req: true, ac: 'postal-code', im: 'numeric', cap: 'none', label: 'Code postal' },
   // (18/10, V3) pour offrir : une ligne facultative « de la part de » ; elle ne fait pas partie de l'adresse (le poème part toujours
   // chez le destinataire), elle voyage avec la commande
-  ...(EST_VERSION ? [{ id: 'dela', hint: 'de la part de (facultatif)', zone: 'addr', line: 5, chars: 34, ac: 'off', im: 'text', cap: 'words', label: 'De la part de (facultatif)' }] : []),
+  ...(EST_V3 ? [{ id: 'dela', hint: 'de la part de (facultatif)', zone: 'addr', line: 5, chars: 34, ac: 'off', im: 'text', cap: 'words', label: 'De la part de (facultatif)' }] : []),
 ];
 // (06/10 : l'email ou le téléphone ne sont plus sur l'enveloppe — demandés après, sur le noir, « pour te tenir au
 // courant » : mount.js)
@@ -113,7 +114,9 @@ export const fieldsReady = f => FIELDS.every(d => !d.req || (f[d.id] || '').trim
 // ce qui part (email, lien, PDF) : les lignes de l'adresse et le moyen de joindre
 export const fieldsOut = f => ({
   address: [[f.prenom, f.nom].map(x => (x || '').trim()).filter(Boolean).join(' '), f.rue, f.cplt, [f.cp, f.ville].filter(x => (x || '').trim()).join(' ')].map(x => (x || '').trim()).filter(Boolean),
-  dela: (f.dela || '').trim(),
+  dela: (f.dela || '').trim() || (EST_V2 ? pourCommande().dela : ''),
+  // (V2) le mot et la date souhaitée, donnés sur les cartes « pour offrir » (jamais dans l'adresse)
+  ...(EST_V2 ? (({ mot, quand }) => ({ mot, quand }))(pourCommande()) : {}),
   email: emailOk(f.email) ? f.email.trim() : '', tel: telOk(f.tel) ? f.tel.trim() : '',
   contact: [emailOk(f.email) ? f.email.trim() : '', telOk(f.tel) ? f.tel.trim() : ''].filter(Boolean).join(' · '),
 });

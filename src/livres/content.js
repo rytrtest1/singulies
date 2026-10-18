@@ -2,6 +2,7 @@
 // poème (pages.js). Les livres en direct (book3d.js), à l'échelle de la feuille du poème, sur son horizon ; dessous,
 // la description du livre tapée à la machine, des points (un par livre) ; LE LIRE mène au livre sur Amazon.
 import { count } from '../app/count.js';
+import { EST_V2 } from '../core/version.js';
 import { buildStagePage } from '../lettre/page.js';
 import { BOOKS } from './book3d.js';
 
@@ -15,7 +16,7 @@ const STEPS = [
 export function buildLivres(host, base = './') {
   const pg = buildStagePage(host, { id: 'livres',
     base, steps: STEPS, fallback: k => (k === 0 ? 'livres/livre.jpg' : ''), aspectLabel: 'Les livres d’Eternel : PENSEES POETIQUES, JOURNAL — couvertures noires, un cadre fin, le titre en capitales.',
-    sign: { label: 'LE LIRE', href: STEPS[0].href }, price: k => STEPS[k].price,
+    sign: { label: EST_V2 ? 'LE LIRE ↗' : 'LE LIRE', href: STEPS[0].href }, price: k => STEPS[k].price,
     make: gl => import('./book3d.js').then(m => m.createBook(gl, base, BOOKS)),
     onStep: (k, from) => { if (from !== 'debut') count('livres/' + STEPS[k].id); },
   });

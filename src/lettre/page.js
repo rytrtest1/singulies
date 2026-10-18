@@ -13,6 +13,7 @@
 import { stitch, paintThread } from '../alt/stitch.js';
 import { captionShift, insetBottom } from '../app/stage.js';
 import { mountStage } from '../livres/book3d.js';
+import { EST_V2 } from '../core/version.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // les petits mots restent avec le suivant (jamais « à » seul en fin de ligne)
@@ -29,7 +30,7 @@ export function buildStagePage(host, o) {
       ${o.extra || ''}
       <p class="lt-done" role="status" aria-live="polite"></p>
     </div>
-    <div class="lt-bar">${o.sign.href ? `<a class="lt-sign" href="${esc(o.sign.href)}" target="_blank" rel="noopener">${esc(o.sign.label)}</a>` : `<button class="lt-sign" type="button">${esc(o.sign.label)}</button>`}<div class="lt-pr"></div></div>
+    <div class="lt-bar">${o.sign.href ? `<a class="lt-sign" href="${esc(o.sign.href)}" target="_blank" rel="noopener"${EST_V2 ? ' aria-label="' + esc(o.sign.label.replace(' ↗', '')) + ' sur amazon (s’ouvre dans un nouvel onglet)"' : ''}>${esc(o.sign.label)}</a>` : `<button class="lt-sign" type="button">${esc(o.sign.label)}</button>`}<div class="lt-pr"></div></div>
   </main>`;
   const main = host.querySelector('.lt'), cap = main.querySelector('.lt-cap'), txt = main.querySelector('.lt-cap-t');
   const grab = main.querySelector('.lt-grab'), sign = main.querySelector('.lt-sign'), pr = main.querySelector('.lt-pr');

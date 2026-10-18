@@ -2,7 +2,7 @@
 // plus grand, les voisins plus petits, en fondu). La carte de la question est posée face cachée (on ne dit pas laquelle).
 import { ACROSTICHES } from './config.js';
 import { count } from '../app/count.js';
-import { EST_VERSION } from '../core/version.js';
+import { EST_VERSION, EST_V2 } from '../core/version.js';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // acrostiches réels d'Eternel (10/10), un prénom par exemple : ISABELLE, ANAIS, MARYSOL, JULIE. Chaque vers : la lettre
@@ -77,7 +77,13 @@ export function mountExemples(host, opt = {}) {
     im.onerror = () => { const i = +f.dataset.i; if (!ACROSTICHES.length && EXEMPLES[i]) { im.remove(); o.insertAdjacentHTML('afterbegin', sheetHtml(EXEMPLES[i])); } };
     const sh = document.createElement('i'); sh.className = 'ex-sheen';
     o.append(im, sh); f.appendChild(o); ringEl.appendChild(f);
-    if (EST_VERSION) { const tg = document.createElement('span'); tg.className = 'ex-tag'; tg.textContent = 'exemple'; f.appendChild(tg); }   // (18/10, V3)
+    if (EST_VERSION) { const tg = document.createElement('span'); tg.className = 'ex-tag'; tg.textContent = 'exemple'; f.appendChild(tg);   // (18/10, V3)
+      // (V2, décision 3) « exemples », fermables par un ✕ visible (à côté de l'étiquette)
+      if (EST_V2 && host.closest('.of-ex')) {
+        const x = document.createElement('button'); x.type = 'button'; x.className = 'ex-fermer'; x.setAttribute('aria-label', 'Fermer les exemples'); x.textContent = '✕';
+        x.addEventListener('click', () => { host.closest('.of-ex').classList.add('ferme'); count('exemples-fermes'); });
+        tg.appendChild(x);
+      } }
     return { f, im, o, sh, k };
   });
   const mod = i => ((i % N) + N) % N;

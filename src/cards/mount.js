@@ -1,7 +1,8 @@
 // Scène 2 montée dans une page : canvas WebGL2 propre, champ natif de la réponse, signes (donner, PASSER,
 // retour) et gestes (toucher, glisser, relire, inclinaison). Utilisée par l'accueil (après la transition) et par
 // la page d'essai scene-cartes.html. Rien n'est dessiné avant start().
-import { vk, EST_VERSION } from '../core/version.js';
+import { vk, EST_VERSION, EST_V2 } from '../core/version.js';
+import '../v2/v2.css';
 import { lierAdresse } from '../core/suggestions.js';
 import { validerCodePostal } from '../core/adresse.js';
 import { creerNote } from '../core/note.js';
@@ -170,9 +171,13 @@ export async function mountCards(opts) {
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');
   const giveEl = el('div', 'sc-sign', '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
   let passTop = null;
+  if (EST_V2) { giveEl.textContent = 'envoyer →'; giveEl.classList.add('sc-envoyer'); }   // (V2) un mot, pas une flèche
   if (EST_VERSION) { giveEl.setAttribute('role', 'button'); giveEl.setAttribute('aria-label', 'Envoyer ma réponse'); giveEl.tabIndex = 0; giveEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); giveEl.click(); } }); }
   const passEl = el('div', 'sc-pass', 'PASSER<span class="sc-sub"></span>'); passEl.setAttribute('role', 'button');
   const tireEl = el('div', 'sc-tire', ''); tireEl.setAttribute('aria-hidden', 'true');
+  // (V2, décision 5) « tirer une autre carte » : un mot, sans limite, en plus du paquet qu'on touche et de la question qu'on glisse
+  const autreEl = EST_V2 ? el('div', 'sc-autre', 'tirer une autre carte') : null;
+  if (autreEl) { autreEl.setAttribute('role', 'button'); autreEl.tabIndex = 0; autreEl.setAttribute('aria-label', 'Tirer une autre carte'); autreEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); autreEl.click(); } }); }
   // le texte entre parenthèses sous PASSER : il se fond (au noir) et laisse la place au suivant
   let subT = 0;
   const setSub = txt => { const sb = passEl.querySelector('.sc-sub'); if (sb.textContent === txt) return; clearTimeout(subT); if (!sb.textContent) { sb.textContent = txt; return; } sb.style.opacity = '0'; subT = setTimeout(() => { sb.textContent = txt; sb.style.opacity = ''; }, 580); };
@@ -203,6 +208,23 @@ export async function mountCards(opts) {
         // (18/10, décision 7) le paiement, à la fin : après la réponse, l'adresse et l'email, AVANT la cire. La page (main.js) donne
         // l'étape (api.payStep) quand il y a quelque chose à payer ; elle rend l'email donné (qui se tapera seul à la fin), ou
         // null si l'on referme le panneau (on reste sur l'enveloppe, rien n'est scellé)
+        // (V2, décision 7) d'abord le récapitulatif (la feuille, l'enveloppe, modifiables) et la carte « 39 € · payer »
+        if (EST_V2 && !recapDone) {
+          if (payBusy) return;
+          payBusy = true; answer.blur();
+          const d = chosen || {}, qq = d.kind === 'reponse' ? (QUESTIONS.find(x => x.id === d.id) || {}).q || '' : '';
+          import('../v2/recap.js').then(m => m.recap({ name, kind: d.kind, text: d.text, question: qq ? qq.toLowerCase() : '', fields: { ...es.fields }, payer: !!api.payStep })).then(async c => {
+            payBusy = false;
+            if (c === 'payer') { recapDone = true; postEl.click(); }
+            else if (c === 'reponse') {
+              // revenir à la réponse : la flèche ← autant de fois qu'il faut (la réponse reste sur la carte)
+              // (un retour déjà en cours refuse le suivant : on réessaie jusqu'à l'arrivée sur les cartes)
+              const t1 = performance.now();
+              while (api.level() > 3 && performance.now() - t1 < 90000) { stepBack(); await new Promise(r => setTimeout(r, 1500)); }
+            }
+          }, () => { payBusy = false; });
+          return;
+        }
         const etape = api.payStep;                       // une fonction ({ fields }) → promesse, posée par la page ; absente : rien à payer
         if (etape && !payDone) {
           if (payBusy) return;
@@ -237,7 +259,9 @@ export async function mountCards(opts) {
   const t0 = performance.now(), now = () => vclock ?? (performance.now() - t0) / 1000;
   const vv = window.visualViewport;
 
+  let chosen = null;   // (V2) ce qui a été donné : le récapitulatif le relit
   function finish(d) {
+    chosen = d;
     log(d.kind + (d.text ? ' : ' + d.text : ''));
     const detail = { name, ...d };
     try { if (typeof window.onCardChosen === 'function') window.onCardChosen(detail); } catch (e) { console.error(e); }
@@ -498,7 +522,7 @@ export async function mountCards(opts) {
   // (10/10, alt.html) payé dans la page : la suite se joue ici, sans changer de page. how : 'question' (la feuille se
   // défait, le paquet arrive et tire), 'blanche' (la carte blanche d'emblée : un thème), 'impro' (la feuille part
   // telle quelle dans l'enveloppe). L'adresse est chez Stripe : l'enveloppe se ferme et part seule.
-  let paid = false, resumeHow = null, paidAuto = null, payDone = false, payBusy = false, walletTried = false, walletOk = false;
+  let paid = false, resumeHow = null, paidAuto = null, payDone = false, recapDone = false, payBusy = false, walletTried = false, walletOk = false;
   // payé par le portefeuille : l'adresse et l'email viennent avec — l'enveloppe s'écrit seule, puis elle est scellée
   const onWallet = r => {
     payDone = true;
@@ -617,11 +641,17 @@ export async function mountCards(opts) {
       }
       scene.frame(t, dt, W, H);
       // signes : donner (sous la carte écrite, clavier fermé) ; passer (avec la carte blanche offerte)
-      const st = scene.state(), r = scene.activeRect();
+      const st = scene.state(), r = scene.activeRect(), mk0 = autreEl ? scene.marks() : null;
       // la petite flèche est retirée (06/10) : Entrée, glisser vers le haut. (18/10, V3) elle revient « en plus d'Entrée » : un signe
       // visible pour envoyer la réponse quand elle est écrite
       giveEl.classList.toggle('on', !!(EST_VERSION && !sheet && !st.ended && st.active && st.active.text && !st.shuffling && st.mode !== 'free'));   // (sur la carte blanche : CONTINUER suffit)
-      if (r) { giveEl.style.left = ((r.left + r.right) / 2 - 22) + 'px'; giveEl.style.top = (r.bottom + 10) + 'px'; }
+      if (r) { giveEl.style.left = ((r.left + r.right) / 2 - (EST_V2 ? 0 : 22)) + 'px'; giveEl.style.top = (r.bottom + 10) + 'px'; }
+      // (V2) « tirer une autre carte » : au-dessus de la question tirée, tant qu'on n'a pas répondu ailleurs
+      if (autreEl) {
+        const on = st.mode === 'q' && !!st.active && !st.ended && !st.shuffling && !st.kb;
+        autreEl.classList.toggle('on', on);
+        if (on && mk0 && mk0.qTop != null && r) { autreEl.style.left = ((r.left + r.right) / 2) + 'px'; autreEl.style.top = Math.max(60, mk0.qTop - 50) + 'px'; }
+      }
       // PASSER : sur la carte blanche seulement, après 3 s sans frappe, sous la carte ; retour : en haut à gauche
       // (carte blanche → paquet ; paquet → accueil quand la page le permet)
       // PASSER : 3 s après que la carte blanche a pris la place du paquet, toujours visible ; clavier ouvert : entre
@@ -652,6 +682,16 @@ export async function mountCards(opts) {
           passEl._ecrit = ecrit; passEl.firstChild.nodeValue = ecrit ? 'CONTINUER' : 'PASSER';
           if (ecrit) { setSub(''); passEl.setAttribute('aria-label', 'Continuer avec ton thème'); } else namePass();
         } }
+      // (V2, décision 5) des PASSER explicites : sous la question, « passer : choisir mon thème » ; sur la carte blanche, « passer : laisse-moi
+      // improviser » ; un thème écrit : CONTINUER
+      if (EST_V2) {
+        const lab = passEl._ecrit ? 'CONTINUER' : passEl._free ? 'PASSER : CHOISIR MON THEME' : 'PASSER : LAISSE-MOI IMPROVISER';
+        if (passEl.firstChild.nodeValue !== lab) {
+          passEl.firstChild.nodeValue = lab; passEl.classList.add('v2lab');
+          passEl.setAttribute('aria-label', passEl._ecrit ? 'Continuer avec ton thème' : passEl._free ? 'Passer : choisir mon thème' : 'Passer : laisse-moi improviser ton poème avec ' + name);
+        }
+        if (passEl._free && !passEl._v2cut) { passEl._v2cut = true; setSub(''); } else if (!passEl._free) passEl._v2cut = false;
+      }
       const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
       if (st.kb && r) passEl.style.top = Math.max(r.bottom + 2, (r.bottom + kbTop) / 2 - 22) + 'px';
       // (10/10) centré entre la question (et sa bande de réponse) et la carte blanche
@@ -871,6 +911,9 @@ export async function mountCards(opts) {
     if (sheet) { if (sheet.post(now())) { answer.blur(); log('postée'); } return; }
     if (scene.give(now())) { answer.blur(); log('donné'); }
   });
+  // (V2) tirer une autre carte, sans limite
+  api.autre = () => { if (!scene.redraw || sheet) return false; if (scene.redraw(now())) { answer.blur(); log('autre carte'); import('../core/stats.js').then(m => m.count('question-retiree')); return true; } return false; };
+  if (autreEl) autreEl.addEventListener('click', () => { api.autre(); });
   passEl.addEventListener('click', () => {
     if (passEl._ecrit) { give('continuer'); return; }      // (C6) un thème écrit n'est jamais effacé
     const st = scene.state();

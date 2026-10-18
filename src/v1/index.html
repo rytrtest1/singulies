@@ -6,17 +6,31 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#060606">
 <title>ETERNEL — un prénom, un poème (version 1)</title>
+<meta name="description" content="Écris ton prénom : Eternel en fait un acrostiche, tapé à la machine, et te l’envoie par la poste.">
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
-<style>
-  html, body { margin: 0; height: 100%; background: #060606; color: #bdbdbd; }
-  body { display: grid; place-items: center; font: 16px/1.7 'Courier New', monospace; text-align: center; padding: 16px; }
-</style>
+<link rel="stylesheet" href="./v1.css">
 </head>
 <body>
-<main>
-  <h1 style="font-size:16px;font-weight:400;letter-spacing:.4em;margin:0 0 16px">ETERNEL</h1>
-  <p>un prénom, un poème, par la poste.<br>cette version est en construction.</p>
-</main>
+<!-- Version 1 (directe) : un site de vente conventionnel, tout est dit. Application en DOM, sans WebGL (src/v1/) ; le noyau
+     (prénom, adresse, paiement, envoi, statistiques) vient de src/core/ et src/app/. -->
+<a class="saut" href="#principal">aller au contenu</a>
+<header class="en-tete" id="haut">
+  <a class="logo" href="#/" aria-label="ETERNEL, accueil">ETERNEL</a>
+  <button class="menu-bouton" type="button" aria-expanded="false" aria-controls="menu" aria-label="Menu"><span aria-hidden="true"></span></button>
+  <nav class="menu" id="menu" aria-label="Pages"></nav>
+</header>
+<div class="barre" id="barre" hidden>
+  <button class="retour" type="button" id="retour" aria-label="Retour">← retour</button>
+  <ol class="etapes" id="etapes" aria-label="Étapes de la commande"></ol>
+</div>
+<div class="reprise" id="reprise" hidden></div>
+<main id="principal" tabindex="-1"></main>
+<footer class="pied">
+  <p class="pied-liens"><a href="./mentions.html">mentions légales</a> · <a href="./conditions.html">conditions de vente</a> · <a href="./confidentialite.html">confidentialité</a></p>
+  <p class="pied-ig">ETERNEL · <a href="https://www.instagram.com/e.t.ernel/" target="_blank" rel="noopener" aria-label="Instagram @e.t.ernel (s’ouvre dans un nouvel onglet)">@e.t.ernel ↗</a></p>
+</footer>
+<div class="annonce" id="annonce" role="status" aria-live="polite"></div>
+<noscript><p style="padding:24px;color:#ddd">ce site a besoin de JavaScript pour fonctionner. écris-moi sur Instagram, @e.t.ernel.</p></noscript>
 <script type="module" src="./main.js"></script>
 </body>
 </html>

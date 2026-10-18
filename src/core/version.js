@@ -5,6 +5,9 @@
 
 export const VERSION = typeof __VERSION__ === 'string' ? __VERSION__ : '';
 export const EST_VERSION = VERSION !== '';
+// (18/10) V2 (équilibrée) : le moteur de V3 + une couche explicite (src/v2/) ; V3 : le moteur avec ses seules corrections
+export const EST_V2 = VERSION === '2';
+export const EST_V3 = VERSION === '3';
 
 // Préfixe d'une clé du stockage du navigateur : le site principal garde ses clés d'origine (« singulies.name »), une
 // version écrit « v2.singulies.name ». Les trois versions partagent la même origine (singulies.com) : sans ce préfixe,

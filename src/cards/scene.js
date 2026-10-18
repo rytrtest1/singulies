@@ -825,7 +825,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const z = { jx: 0, jy: 0, jr: 0 };
     // (deckTop : le haut du paquet — étalé en colonne sur téléphone pendant le mélange)
     const dp = deckPose(STACK - 1, z); if (shuf && !shuf.done && lay.W < lay.H) dp.y += CARD.h * 1.15 * 0.5;
-    return { deckTop: rectOf(screenQuad(dp)).top, peekBottom: rectOf(screenQuad(peekPose(z))).bottom, blankTop: rectOf(screenQuad(blankRest(z))).top, deckBottom: rectOf(screenQuad(centerPose(z))).bottom, qBottom: lowestBottom() };
+    return { deckTop: rectOf(screenQuad(dp)).top, peekBottom: rectOf(screenQuad(peekPose(z))).bottom, blankTop: rectOf(screenQuad(blankRest(z))).top, deckBottom: rectOf(screenQuad(centerPose(z))).bottom, qBottom: lowestBottom(), qTop: question ? rectOf(screenQuad(poseOf(question, lastT))).top : null };
   }
   function lowestBottom() {
     if (!vp) return null;
@@ -987,6 +987,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function setJeuWrite(on) { jw = jeu && !!on; if (!jw) writing = false; }
   function setBreath(x, y) { breath.x = x; breath.y = y; }
   return {
+    redraw: t => (mode === 'q' && !(shuf && !shuf.done) && question && !ended ? discard(t, -1) : false),
     frame, tap, drag, release, give, pass, back, start, prepare, reopen, resume, pioche: t => drawFromShuffle(t), snapshot, hideName, setNameFy: v => { nameFy = v; }, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer, setJeuWrite, drawAt, relayIn, relayOut, relaying: () => !!relay && !relay.fin,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
