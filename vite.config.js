@@ -18,6 +18,8 @@ const SITE = {
   commandes: 'commandes.html',
   // scènes seules (essais, liens directs)
   cartes: 'scene-cartes.html', cachet: 'cachet.html',
+  // la machine à écrire en direct (essai du 18/10)
+  machine: 'machine.html',
   // versions basiques (essai du 09/10)
   bBoutique: 'basique-boutique.html', bArtiste: 'basique-artiste.html', bFormulaire: 'basique-formulaire.html', bFeuille: 'basique-feuille.html',
   // version épurée (17/10) : une boutique d'une page

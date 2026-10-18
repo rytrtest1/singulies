@@ -6,6 +6,7 @@ Disallow: /v1/
 Disallow: /v2/
 Disallow: /v3/
 Disallow: /basique-
+Disallow: /machine
 Disallow: /epure
 Disallow: /scene-
 Disallow: /cachet

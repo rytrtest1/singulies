@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#060606">
+<title>Machine à écrire</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #060606; overflow: hidden; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #in { position: fixed; left: 50%; top: 40%; width: 1px; height: 1px; opacity: 0; font-size: 16px; border: 0; padding: 0; }
+  #vues { position: fixed; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom)); display: flex; gap: 22px; justify-content: center;
+    font: 500 11px/1 'SG Garamond', Georgia, serif; letter-spacing: .3em; }
+  #vues button { all: unset; cursor: pointer; color: rgba(255,255,255,.4); padding: 10px 2px; }
+  #vues button.on { color: rgba(255,255,255,.8); }
+  #src { position: fixed; right: 10px; top: 8px; font: 10px/1.3 Georgia, serif; color: rgba(255,255,255,.22); text-align: right; }
+  #src a { color: inherit; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<input id="in" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="prénom">
+<div id="vues"><button data-v="feuille">FEUILLE</button><button data-v="face">FACE</button><button data-v="haut">HAUT</button><button data-v="cote">COTE</button></div>
+<div id="src"></div>
+<script type="module">
+  // Essai (18/10) : la machine à écrire en direct, dans la lumière du site. Taper (toucher l'écran sur téléphone) =
+  // les touches s'enfoncent, le chariot avance, le prénom s'imprime sur la feuille noire. Glisser = tourner autour,
+  // molette / pincer = s'approcher. ?vue=face|haut|feuille|cote, ?martele=0..1, ?plat=1 (matières grises, pour juger la
+  // forme), ?modele=royal (la Royal des années 60), ?papier=1.7 (clarté de la feuille), ?prenom=LEA (se tape seul), ?lampe=1.4 (côté de la lampe, rad), ?ambiance=1.5.
+  import { createMachine } from './src/machine/machine3d.js';
+  import { siteFonts } from './src/app/fonts.js';
+  // (pas d'await au premier niveau : la construction vise aussi les anciens Safari)
+  (async () => {
+  const Q = new URLSearchParams(location.search);
+  const canvas = document.getElementById('c'), input = document.getElementById('in');
+  const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: Q.has('shot') });
+  try { await siteFonts?.('./'); } catch {}
+  try { await document.fonts.load('40px "SG Machine"'); } catch {}
+  // ?modele=royal : la Royal des années 60 ; par défaut la 1939 Royal Quiet De Luxe
+  const MODELE = Q.get('modele') === 'royal' ? 'royal' : 'qdl39';
+  const m = await createMachine(gl, './', MODELE);
+  { const [titre, auteur, lic, url] = m.source.split(', '); document.getElementById('src').innerHTML = `${titre} — <a href="${url}" target="_blank" rel="noopener">${auteur}</a>, ${lic}`; }
+  const pl = m.platen;
+  const portrait = () => innerWidth < innerHeight;
+  const VUES = {
+    face: () => ({ az: -Math.PI / 2, el: 0.42, dist: portrait() ? 1700 : 1000, target: [0, -10, 85] }),
+    haut: () => ({ az: -Math.PI / 2, el: 1.15, dist: portrait() ? 1600 : 1050, target: [0, 0, 90] }),
+    // la colonne de l'acrostiche, face à nous (la feuille penche en arrière de ≈ 26° : on la regarde d'≈ 29°) ; la vue
+    // suit la colonne qui grandit (colFrame), de la ligne de frappe à la première lettre
+    feuille: () => ({ az: -Math.PI / 2, el: 0.5, ...colFrame() }),
+    cote: () => ({ az: -Math.PI / 2 - 0.75, el: 0.38, dist: portrait() ? 1700 : 1050, target: [0, 0, 85] }),
+  };
+  const colFrame = () => {
+    const c = m.column(), lo = -12, hi = Math.max(45, c.top + 10), [y, z] = m.sheetAt((lo + hi) / 2);
+    const fit = (hi - lo) * 1.3 / (2 * Math.tan(13 * Math.PI / 180)) / (portrait() ? 0.62 : 1);
+    return { dist: Math.max(portrait() ? 400 : 330, fit), target: [0, y, z - (portrait() ? 16 : 6)] };
+  };
+  // par défaut : la colonne (Maxence 18/10 : « le prénom en colonne, visible »)
+  let vue = VUES[Q.get('vue')] ? Q.get('vue') : 'feuille', free = false;
+  let cam = VUES[vue](), want = { ...cam };
+  const setVue = v => { vue = v; free = false; want = VUES[v](); document.querySelectorAll('#vues button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); };
+  setVue(vue); cam = { ...want };
+  document.querySelectorAll('#vues button').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); setVue(b.dataset.v); }));
+  m.reset();
+
+  // la saisie : A–Z et espace, sans accent, 22 caractères (règles du site)
+  let text = '';
+  const clean = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/-/g, ' ').replace(/[^A-Z ]/g, '');
+  function setText(next) {
+    next = clean(next).replace(/^ +/, '').replace(/ {2,}/g, ' ').slice(0, 22);
+    let i = 0; while (i < text.length && i < next.length && text[i] === next[i]) i++;
+    for (let k = text.length; k > i; k--) m.erase();
+    const add = next.slice(i);
+    // (une lettre par ligne : la frappe, le retour du chariot — un collage ou le prénom proposé se tapent à ce rythme)
+    [...add].forEach((ch, j) => setTimeout(() => m.type(ch), j * 300));
+    text = next; go();
+  }
+  input.addEventListener('input', () => { if (!input.isComposing) setText(input.value); });
+  input.addEventListener('compositionend', () => setText(input.value));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
+  addEventListener('keydown', e => { if (document.activeElement !== input && e.key.length === 1 && !e.metaKey && !e.ctrlKey) { input.focus(); } });
+
+  // tourner autour, s'approcher
+  const ptr = new Map(); let moved = 0, pinch0 = 0;
+  canvas.addEventListener('pointerdown', e => { ptr.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0; canvas.setPointerCapture(e.pointerId); if (e.pointerType === 'touch') e.preventDefault(); });
+  canvas.addEventListener('pointermove', e => {
+    const p = ptr.get(e.pointerId); if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+    if (ptr.size === 2) {
+      const [a, b] = [...ptr.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch0) { want.dist *= pinch0 / d; free = true; } pinch0 = d; moved += 10;
+    } else {
+      moved += Math.abs(dx) + Math.abs(dy);
+      free = true; want.az -= dx * 0.006; want.el = Math.max(0.05, Math.min(1.45, want.el + dy * 0.005));
+    }
+    go();
+  });
+  const up = e => {
+    ptr.delete(e.pointerId); if (ptr.size < 2) pinch0 = 0;
+    // un toucher (sans glisser) : le clavier
+    if (moved < 6 && ptr.size === 0) { input.value = text; input.focus(); }
+  };
+  canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', e => { ptr.delete(e.pointerId); pinch0 = 0; });
+  canvas.addEventListener('wheel', e => { e.preventDefault(); want.dist *= Math.exp(e.deltaY * 0.0012); free = true; go(); }, { passive: false });
+
+  const tilt = { x: 0, y: 0, tx: 0, ty: 0 };
+  addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; tilt.tx = e.clientX / innerWidth * 2 - 1; tilt.ty = e.clientY / innerHeight * 2 - 1; });
+
+  const t0 = performance.now(); let raf = 0, last = t0;
+  const opt = { hammer: Q.has('martele') ? +Q.get('martele') : 0.55, flat: Q.has('plat'), ...(Q.has('lampe') ? { lampAz: +Q.get('lampe') } : {}), ...(Q.has('ambiance') ? { env: +Q.get('ambiance') } : {}), ...(Q.has('papier') ? { paperK: +Q.get('papier') } : {}) };
+  function draw(now) {
+    raf = 0;
+    const dpr = Math.min(devicePixelRatio || 1, 2), W = Math.round(innerWidth * dpr), H = Math.round(innerHeight * dpr);
+    if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (vue === 'feuille' && !free) Object.assign(want, colFrame());
+    const k = Math.min(1, dt * 5);
+    for (const f of ['az', 'el', 'dist']) cam[f] += (want[f] - cam[f]) * k;
+    cam.target = cam.target.map((v, i) => v + (want.target[i] - v) * k);
+    tilt.x += (tilt.tx - tilt.x) * Math.min(1, dt * 1.6); tilt.y += (tilt.ty - tilt.y) * Math.min(1, dt * 1.6);
+    m.frame(W, H, cam, (now - t0) / 1000, tilt, opt);
+    if (!document.hidden && !Q.has('shot')) raf = requestAnimationFrame(draw);
+  }
+  const go = () => { if (!raf) raf = requestAnimationFrame(draw); };
+  document.addEventListener('visibilitychange', go);
+  go();
+  if (Q.get('prenom')) setTimeout(() => setText(Q.get('prenom')), 600);
+  // pour les captures (tools) : figer le temps, rendre une image
+  window.__machine = { m, setText, setVue, cam: () => cam, render(t = 0) { if (vue === 'feuille' && !free) Object.assign(want, colFrame()); cam = { ...want }; m.frame(canvas.width, canvas.height, cam, t, { x: 0, y: 0 }, opt); } };
+  })();
+</script>
+</body>
+</html>
