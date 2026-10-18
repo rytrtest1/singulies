@@ -231,7 +231,7 @@ const VIEWS = {
         <div class="hero-s"><div class="hero-sheet" id="hs"></div></div>
         <form class="hero-f" id="hf" novalidate autocomplete="on">
           <label class="sr" for="hp">ton prénom</label>
-          <input class="hero-in" id="hp" name="given-name" type="text" autocomplete="given-name" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="40" enterkeyhint="go" inputmode="text" placeholder="écris ton prénom">
+          <input class="hero-in" id="hp" name="given-name" type="text" autocomplete="given-name" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="40" enterkeyhint="done" inputmode="text" placeholder="écris ton prénom">
           <p class="hint" id="hh" role="status" aria-live="polite"></p>
           <div class="hero-r" id="hr" aria-hidden="true">
             <p class="hero-pr"><b>${esc(PRIX)}</b> tout compris <span>· ${esc(DELAI_COURT)}</span></p>
@@ -253,7 +253,7 @@ const VIEWS = {
       </section></div>`;
     // la feuille où l'on écrit : le prénom s'y pose en colonne ; le prix et COMMANDER paraissent une fois écrit
     const input = $('#hp'), hint = $('#hh'), reveal = $('#hr');
-    const f = mountFeuille($('#hs'), input, { invite: 'écris ton prénom' });
+    const f = mountFeuille($('#hs'), input, { invite: 'ton prénom' });
     const shown = a => {
       const on = !a.vide;
       reveal.classList.toggle('on', on); reveal.setAttribute('aria-hidden', String(!on));
@@ -262,6 +262,14 @@ const VIEWS = {
     };
     const b = brancherPrenom(input, hint, { onChange: shown });
     const known = sessionName(); if (known) { input.value = known; f.refresh(); b.maj(); }
+    // Entrée ne commande pas : elle ferme le clavier et montre le prix et COMMANDER (on voit l'objet, puis son prix, puis on choisit)
+    input.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      if (analysePrenom(input.value).vide) return;
+      input.blur();
+      setTimeout(() => reveal.scrollIntoView({ block: 'center', behavior: REDUCED ? 'auto' : 'smooth' }), 120);
+    });
     $('#hf').addEventListener('submit', e => {
       e.preventDefault();
       const a = analysePrenom(input.value);
