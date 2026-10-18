@@ -8,6 +8,8 @@ import '../app/pay.css';
 import './offre.css';
 import { acrostic } from '../basique/basique.js';
 import { mountExemples } from './exemples.js';
+// (18/10, Maxence : « on enlève mes mains pour l'instant ») false : le film saute les mains (il commence au mécanisme) ; true : les mains reviennent
+const HANDS = false;
 import MACHINE from './machine.json';   // { loop, duration, rest[] } : voir tools/machine-cut.py
 import { NAV_TOP, safeTop } from '../app/stage.js';
 import { count } from '../app/count.js';
@@ -466,7 +468,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   root.innerHTML = `
     <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
     <main>
-      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"><div class="of-mvw"><video class="of-mv" muted playsinline disablepictureinpicture preload="auto" tabindex="-1" poster="${esc(new URL('vrai/machine-7.jpg', document.baseURI).href)}" src="${esc(new URL('vrai/machine-7.mp4', document.baseURI).href)}"></video></div></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
+      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"><div class="of-mvw"><video class="of-mv" muted playsinline disablepictureinpicture preload="auto" tabindex="-1" poster="${esc(new URL(HANDS ? 'vrai/machine-7.jpg' : 'vrai/machine-7b.jpg', document.baseURI).href)}" src="${esc(new URL('vrai/machine-7.mp4', document.baseURI).href)}"></video></div></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
       <div class="of-rest">
       <!-- (12/10) chaque section de la suite porte son nom (data-nom) : le signe du bas l'annonce et y mène -->
       <!-- (17/10, Maxence) plus de section « d'autres prénoms » ni « en vrai » : VOIR EN VRAI, sur l'objet (openVrai) -->
@@ -564,7 +566,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     // (17/10, Maxence : « ne remets pas la vidéo des mains si déjà jouée, sur la même page : du dernier au premier point, juste le
     // mécanisme, qui recommence à taper à "tapé à la machine" ») la première fois : les mains pendant que la première ligne paraît,
     // puis le mécanisme avec la frappe de la seconde ; ensuite : la première ligne paraît, le mécanisme repart avec la seconde
-    const again = intro && nl > 0 && vidStarted && !!vid;
+    const again = intro && nl > 0 && (vidStarted || !HANDS) && !!vid;   // (sans les mains : toujours « le mécanisme avec la seconde ligne »)
     if (again) { try { vid.currentTime = VID_LOOP; } catch { /* */ } }
     else vidPlay(true);
     const strike = () => {
@@ -578,7 +580,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     typeT = setTimeout(strike, again ? 900 : intro && nl > 0 ? Math.round(MACHINE.loop * 1000) + 60 : 140);
   };
   // (le temps de l'entrée de l'étape 0 : fondu + frappe)
-  const introMs = s => Math.round(MACHINE.loop * 1000) + 60 + Math.max(0, s.length - s.indexOf('\n')) * 56 + 200;
+  const introMs = s => (HANDS ? Math.round(MACHINE.loop * 1000) + 60 : 900) + Math.max(0, s.length - s.indexOf('\n')) * 56 + 200;
   const clearTxt = () => { clearTimeout(typeT); vidPlay(false); for (const old of txt.querySelectorAll('i:not(.out)')) { old.classList.add('out'); old.style.opacity = '0'; setTimeout(() => old.remove(), 400); } };
   // les petits mots restent avec le suivant (jamais « à » seul en fin de ligne)
   const nbsp = s => { const r = /(^|[\s\u00a0])(à|a|de|du|la|le|un|et|y|me|ton|pour|au) /gi, f = x => x.replace(r, (m, a, w) => a + w + '\u00a0'); return f(f(s)); };
@@ -666,7 +668,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     if (on) {
       vidPlace();
       vidW.classList.add('on');
-      if (!vidStarted && !matchMedia('(prefers-reduced-motion: reduce)').matches) { vidStarted = true; try { vid.currentTime = 0; } catch { /* */ } vidPlay(true); }
+      if (!vidStarted && !matchMedia('(prefers-reduced-motion: reduce)').matches) { vidStarted = true; try { vid.currentTime = HANDS ? 0 : VID_LOOP; } catch { /* */ } if (HANDS) vidPlay(true); }
     } else {
       vidW.classList.remove('on');
       setTimeout(() => { if (!vidW.classList.contains('on')) { vidStop = false; vid.pause(); } }, 1500);
@@ -1004,6 +1006,13 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   if (col) setTimeout(() => acrostic(col, name), 700);
   const letters = name.replace(/ /g, '').length;
   setTimeout(() => root.classList.add('bar-on'), over ? BAR_AT : Math.max(BAR_AT, 900 + letters * 90 + 600));
+  // (18/10, boutique) venu de la boutique, COMMANDER y a déjà été touché : RECEVOIR part tout seul, une fois la feuille posée
+  try {
+    if (sessionStorage.getItem('sg.depuis') === 'boutique') {
+      sessionStorage.removeItem('sg.depuis');
+      setTimeout(() => { if (root.isConnected) go.click(); }, (over ? BAR_AT : Math.max(BAR_AT, 900 + letters * 90 + 600)) + 1300);
+    }
+  } catch { /* */ }
   // payé : l'offre s'efface, la feuille reste seule (la suite se joue dessous)
   const hide = () => {
     root.classList.remove('bar-on');
