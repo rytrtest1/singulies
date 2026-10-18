@@ -52,7 +52,11 @@ function layoutCore(text, m, vp, maxWFrac) {
   const maxW = maxWFrac * vp.w;
 
   let lines = [t], tr = TRACK, fs = baseFs;
-  if (t.length) {
+  if (t.includes('\n')) {
+    // (18/10) coupure imposée (l'intro : UN PRENOM / UN POEME) : les lignes sont données, pas choisies
+    lines = t.split('\n');
+    fs = Math.min(baseFs, maxW / Math.max(0.01, ...lines.map((l) => lineWidth(l, m.adv, tr))));
+  } else if (t.length) {
     const w1 = lineWidth(t, m.adv, tr);
     const fs1 = Math.min(baseFs, maxW / w1);
     const two = bestTwoLines(t, m.adv, tr, false);
@@ -71,6 +75,9 @@ function layoutCore(text, m, vp, maxWFrac) {
     }
   }
 
+  // (18/10) taille et interlettrage figés, nombre de lignes minimal : une phrase tapée lettre à lettre ne change ni de taille ni de
+  // hauteur en route (vp.lock : { fs, track, n }, tiré de la phrase entière)
+  if (vp.lock) { fs = vp.lock.fs; tr = vp.lock.track; while (lines.length < vp.lock.n) lines.push(''); }
   const cap = capH * fs;
   const gap = cap * 2.4;
   const n = lines.length;
@@ -85,12 +92,15 @@ function layoutCore(text, m, vp, maxWFrac) {
     }
     out.lines.push({ text: l, x0: vp.cx - w / 2, x1: vp.cx + w / 2, base });
   });
-  const last = out.lines[out.lines.length - 1];
+  // (le curseur suit la dernière ligne écrite, pas une ligne encore vide)
+  let li = out.lines.length - 1;
+  if (t.length) while (li > 0 && !out.lines[li].text) li--;
+  const last = out.lines[li];
   // curseur : au milieu de l'interlettrage qui suit la dernière lettre, de la ligne de base
   // à un peu au-dessus des capitales (légers débords effilés)
   const endX = t.length ? last.x1 + tr * fs * 0.5 : vp.cx;
   out.cursor = { x: endX, y0: last.base - 1.32 * cap, y1: last.base + 0.22 * cap, w: Math.max(1, 0.028 * fs) };
   out.top = out.lines[0].base - cap;
-  out.bottom = last.base + cap * 0.35;
+  out.bottom = out.lines[out.lines.length - 1].base + cap * 0.35;
   return out;
 }

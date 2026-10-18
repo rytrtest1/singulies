@@ -91,8 +91,11 @@ const CFG = {
   portal: P.get('portail') !== '0' && !['poeme', 'alt'].includes(document.documentElement.dataset.page),
 };
 const FONT_FAMILY = 'SG Garamond';
-const OPEN_DARK = 1.0;      // s de noir à l'ouverture (chargement police + atlas)
-const OPEN_FADE = 1.4;      // s de fondu d'entrée
+// (18/10, Maxence : « afficher au plus vite ») site principal : la police et l'atlas sont déjà prêts quand la première image
+// est dessinée (boot les attend) — la seconde de noir n'attendait plus rien ; les versions gardent l'ancien rythme
+const FAST_OPEN = ALT && !EST_VERSION;
+const OPEN_DARK = FAST_OPEN ? 0.12 : 1.0;      // s de noir à l'ouverture
+const OPEN_FADE = FAST_OPEN ? 0.7 : 1.4;       // s de fondu d'entrée
 const LEAVE_FADE = 1.2;     // s de fondu au noir après validation (sans WebGL2)
 const HINT = P.get('indice') === '1' || (EST_VERSION && !EST_V2 && P.get('indice') !== '0');   // (18/10, V3) dans les versions : la consigne (PRENOM, tapé en grisé) paraît après quelques secondes sans frappe
 //   // (17/10, Maxence) plus de PRENOM grisé : le curseur seul ; ?indice=1 pour le revoir   // (10/10) PRENOM en grisé si rien n'est écrit
@@ -116,11 +119,25 @@ const DEJA_VU = EST_VERSION && (() => { try { return localStorage.getItem(vk('si
 // (10/10, version alternative) à l'ouverture, ETERNEL — mon nom — se tape à la machine à la place du prénom, le champ
 // s'allume avec lui (on voit ce que fait une frappe), puis il s'efface lettre à lettre : reste le curseur seul, qui
 // invite à taper le sien. Toute frappe, tout toucher du champ l'arrête.
-const INTRO = 'ETERNEL', I_TYPE = 0.14, I_HOLD = EST_V2 ? 0.8 : 1.5, I_ERASE = 0.07;   // (18/10, V2) une intro d'environ 3 s
+// (18/10, Maxence : « afficher au plus vite UN PRENOM / UN POEME au milieu, qui s'efface pour laisser seulement le curseur ») site
+// principal : la phrase du site, tapée vite, tenue un instant, effacée vite ; les versions gardent ETERNEL
+const INTRO = EST_VERSION ? 'ETERNEL' : 'UN PRENOM UN POEME';
+const I_TYPE = EST_VERSION ? 0.14 : 0.04, I_HOLD = EST_V2 ? 0.8 : EST_VERSION ? 1.5 : 1.0, I_ERASE = EST_VERSION ? 0.07 : 0.028;   // (18/10, V2) une intro d'environ 3 s
+// la coupure : après le deuxième mot (UN PRENOM / UN POEME) ; les versions (ETERNEL) : aucune
+const INTRO_BREAK = EST_VERSION ? -1 : INTRO.indexOf(' ', INTRO.indexOf(' ') + 1);
+const introLines = t => (t.length > INTRO_BREAK ? t.slice(0, INTRO_BREAK) + '\n' + t.slice(INTRO_BREAK + 1) : t);
+let introLockK = '', introLockV = null;
+function introLock(vp) {
+  const k = vp.w + 'x' + vp.h;
+  if (k !== introLockK && metrics) { const F = layoutName(introLines(displayCase(INTRO, CFG.caseMode)), metrics, vp); introLockV = { fs: F.fs, track: F.track, n: 2 }; introLockK = k; }
+  return introLockV;
+}
+const I_LEAD = EST_VERSION ? 0.4 : 0.05;   // s entre l'apparition du champ et la première lettre
+const INTRO_LEN = I_LEAD + INTRO.length * (I_TYPE + I_ERASE) + I_HOLD;   // s entre l'apparition du champ et le curseur seul
 function introText() {
   if (!ALT || S.introOff || S.typed || S.phase !== 'input' || S.hintT0 == null || model.text) return '';
   if (DEJA_VU || (EST_VERSION && CFG.reduced)) { S.introOff = true; S.introEnd = S.t; return ''; }   // (V3) qui revient, ou mouvement réduit : pas d'intro
-  const u = S.t - S.hintT0 - 0.4, n = INTRO.length, a = n * I_TYPE, b = a + I_HOLD, c = b + n * I_ERASE;
+  const u = S.t - S.hintT0 - I_LEAD, n = INTRO.length, a = n * I_TYPE, b = a + I_HOLD, c = b + n * I_ERASE;
   if (u < 0) return '';
   if (u < a) return INTRO.slice(0, Math.floor(u / I_TYPE) + 1);
   if (u < b) return INTRO;
@@ -533,6 +550,21 @@ const histo = (() => {
     back() { if (!active() || pushed < 1) return false; history.back(); return true; },
   };
 })();
+// (18/10, Maxence) ← pendant la cérémonie (la carte, l'enveloppe…) : on quitte la commande, et on le dit. Avant, la page se rechargeait
+// vers « ./ » et le site, qui reprend une commande ouverte rechargée (merci.html), renvoyait aussitôt à la cérémonie : le retour
+// semblait ne rien faire. Maintenant : un message sur le noir, tapé à la machine, puis l'accueil — sans reprise automatique pour
+// une simple réservation (rien n'est parti) ; un vrai paiement, lui, reste repris en revenant.
+let leavingCeremony = false;
+async function leaveCeremony() {
+  if (leavingCeremony) return; leavingCeremony = true;
+  const fin = await import('./alt/fin.js'), o = S.paid || {};
+  const vrai = !!(o.session && !o.simule && !o.reserve);
+  if (!vrai) { const k = fin.readOrder(); if (k) { k.resumed = true; fin.saveOrder(k); } }   // (une réservation : pas de reprise automatique)
+  histo.stop();
+  await fin.exitScreen(o);
+  const home = new URL('./', document.baseURI); home.search = location.search;
+  location.href = home.href;
+}
 // la fin d'une commande payée ici : c'est noté (rechargée : merci.html, sans seconde demande)
 async function finishPaid() {
   const fin = await import('./alt/fin.js'), o = S.paid;
@@ -772,7 +804,10 @@ function frame(ts) {
   const intro = introText();
   const shownRev = intro || revealText(wheel ? wheel.displayText : bridge.shownText);
   const text = displayCase(shownRev, CFG.caseMode);
-  const L0 = atlas ? layoutName(text, metrics, { w: S.w, h: S.h, cx, cy: cy0 }) : null;
+  // (18/10) l'intro : UN PRENOM / UN POEME sur deux lignes, de la taille de la phrase entière dès la première lettre
+  const lvp = { w: S.w, h: S.h, cx, cy: cy0 }, ltext = intro && INTRO_BREAK > 0 ? introLines(text) : text;
+  if (intro && INTRO_BREAK > 0) lvp.lock = introLock(lvp);
+  const L0 = atlas ? layoutName(ltext, metrics, lvp) : null;
   if (vv && L0 && document.activeElement === input) {
     const visBottom = vv.offsetTop + vv.height;
     if (visBottom < S.h - 40) target = Math.min(0, visBottom - 28 - L0.bottom);
@@ -787,12 +822,12 @@ function frame(ts) {
 
   // fondus : ouverture, départ (sans WebGL2), retour
   const open = smooth(OPEN_DARK, OPEN_DARK + OPEN_FADE, S.t);
-  let sceneFade = open, nameFade = smooth(OPEN_DARK + 0.2, OPEN_DARK + 1.2, S.t);
+  let sceneFade = open, nameFade = FAST_OPEN ? smooth(OPEN_DARK, OPEN_DARK + 0.5, S.t) : smooth(OPEN_DARK + 0.2, OPEN_DARK + 1.2, S.t);
   if (S.phase === 'leaving') { const k = 1 - smooth(0, LEAVE_FADE, S.t - S.phaseAt); sceneFade *= k; nameFade *= k; }
   else if (S.phase === 'black') { sceneFade = 0; nameFade = 0; }
   else if (S.phaseAt > 0) { const k = smooth(0, 1.0, S.t - S.phaseAt); sceneFade *= k; nameFade *= k; }
 
-  const L = layoutName(text, metrics, { w: S.w, h: S.h, cx, cy });
+  const L = layoutName(ltext, metrics, lvp.lock ? { w: S.w, h: S.h, cx, cy, lock: lvp.lock } : { w: S.w, h: S.h, cx, cy });
   const kx = 1 - Math.exp(-dt / 0.07);
   L.glyphs.forEach((g, i) => {
     if (glyphAnim[i] == null || !S.typed) glyphAnim[i] = g.x; else glyphAnim[i] += (g.x - glyphAnim[i]) * kx;   // toujours vers le centre
@@ -964,7 +999,7 @@ function frame(ts) {
   if (S.hintT0 == null && S.phase === 'input' && !S.portal && nameFade > 0.99) S.hintT0 = S.t;
   // (alt : ETERNEL tapé puis effacé, le curseur seul, puis le menu ; PRENOM seulement après lui)
   // (alt : le curseur seul — ETERNEL tapé puis effacé —, puis HINT_AFTER_ALT s ; PRENOM se tape à la machine)
-  const hintAt = ALT ? (S.hintT0 ?? Infinity) + 0.4 + INTRO.length * (I_TYPE + I_ERASE) + I_HOLD + HINT_AFTER_ALT : (S.hintT0 ?? Infinity) + HINT_AFTER;
+  const hintAt = ALT ? (S.hintT0 ?? Infinity) + INTRO_LEN + HINT_AFTER_ALT : (S.hintT0 ?? Infinity) + HINT_AFTER;
   const hintA = HINT && !S.hintOff && Number.isFinite(hintAt) && S.hintT0 != null && S.phase === 'input' && T < 0 && !S.typed && !S.confirmed && !text && !wheel && !voice
     ? smooth(hintAt, hintAt + 1.6, S.t) : 0;
   let hintX = L.cursor.x;
@@ -1281,8 +1316,10 @@ if (ALT) {
     if (S.navNo) return false;
     if (S.typed || document.activeElement === input) { S.navNo = true; return false; }
     if (!S.introOff || S.introEnd == null || S.trans != null) return false;
-    const t0 = S.introEnd + NAV_IDLE, k = Math.ceil((t0 - OPEN_DARK) / BREATH - 0.5) + 0.5;
-    if (S.t >= OPEN_DARK + k * BREATH) {
+    // (18/10, Maxence : « quand le curseur apparaît, on fait apparaître UN PRENOM UN POEME avec le menu sous ETERNEL ») site principal :
+    // dès que l'intro s'efface et laisse le curseur seul ; les versions gardent l'attente et le creux de respiration
+    const t0 = S.introEnd + (EST_VERSION ? NAV_IDLE : 0.1), k = Math.ceil((t0 - OPEN_DARK) / BREATH - 0.5) + 0.5;
+    if (EST_VERSION ? S.t >= OPEN_DARK + k * BREATH : S.t >= t0) {
       S.navOn = true; S.navOnAt = S.t;
       // (17/10, Maxence) Android : le clavier s'ouvre de lui-même quand le menu paraît (rien n'est écrit) — l'iPhone
       // ne l'ouvre qu'au toucher (règle de WebKit) : là, le premier toucher n'importe où l'ouvre
@@ -1313,14 +1350,18 @@ if (ALT) {
     // (17/10, Maxence : « pourquoi pas de flèche retour ni de bandeau sur l'écran d'après la réservation ? c'est important pour la
     // cohérence et le bon placement ») le haut (ETERNEL, ←, ≡), le bandeau et SINGULIES restent aussi une fois payé / réservé
     show: () => booted && (onNames() ? idleNames() : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt2-on, #offre.bar-on'))),
-    hdShow: () => booted && (onNames() ? idleNames() : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt-on, #offre.bar-on'))),
-    foot: () => booted && (onNames() ? idleNames() : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt-on, #offre.bar-on'))),
+    // (18/10, Maxence : « les bandeaux ETERNEL et SINGULIES d'abord, avec le champ de prénoms, et enfin le menu ») site principal :
+    // ETERNEL (haut) et SINGULIES (bas) sont là dès que le champ paraît ; le menu (≡) et les pages sous ETERNEL, quand le curseur paraît
+    hdShow: () => booted && (onNames() ? (EST_VERSION ? idleNames() : true) : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt-on, #offre.bar-on'))),
+    foot: () => booted && (onNames() ? (EST_VERSION ? idleNames() : true) : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt-on, #offre.bar-on'))),
+    // le menu ≡ n'arrive qu'avec les pages (le dernier)
+    menuShow: () => !EST_VERSION && (onNames() ? !!S.navOn : true),
     hush: () => !!S.paid || !!document.querySelector('.of.paying, .of.env'),
     // la flèche retour, une fois commandé : l'accueil (la commande est partie ; la cérémonie se reprend en rechargeant, merci.html)
     canBack: () => !!S.paid || !!document.querySelector('.of.paying, .of.env'),
     // (17/10) aussi sur la page du poème une fois qu'on a défilé : les autres prénoms et les questions s'effacent sous ETERNEL et le bandeau
     wideShade: () => onNames(),
-    shade: () => booted && (idleNames() || !!document.querySelector('#offre.scrolled')) && !document.querySelector('.mc.fin'),
+    shade: () => booted && ((onNames() && !EST_VERSION) || idleNames() || !!document.querySelector('#offre.scrolled')) && !document.querySelector('.mc.fin'),
     // (12/10) les aiguilles : sur la feuille, une fois l'offre posée (2,5 s après le bandeau du bas) ; la démonstration
     // seulement en haut de la page, sans paiement ni enveloppe
     // (12/10, Maxence) sur la page des prénoms, si le menu paraît (rien n'est écrit), la démonstration part aussi
@@ -1335,7 +1376,7 @@ if (ALT) {
     redo: () => !onNames() && !S.paid && !document.querySelector('.of.paying, .of.env'),
     onCurrent: () => { if (!onNames() && !S.paid && !document.querySelector('.of.paying, .of.env')) editName(); },
     // (17/10) la flèche retour du haut : d'abord ce qui est ouvert sur la feuille (la vue rapprochée, la suite de la page)
-    onBack: () => { if (S.paid) { if (histo.back()) return true; location.href = './'; return true; } return !!(offerObj && offerObj.back && offerObj.back()); },
+    onBack: () => { if (S.paid) { if (histo.back()) return true; leaveCeremony(); return true; } return !!(offerObj && offerObj.back && offerObj.back()); },
     // (17/10, Maxence : « c'était bien de charger avant ») de nouveau tôt, aussi sur le portail : la préparation ne
     // bloque plus (shaders compilés en parallèle, gl.js programAsync)
     calm: () => !document.querySelector('.of.paying, .of.env') && S.trans == null,

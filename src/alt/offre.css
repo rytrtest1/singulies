@@ -471,3 +471,8 @@
 .ex-slot:not(.mid) .ex-tag { display: none; }
 .ex-tag { position: absolute; left: 50%; bottom: -30px; transform: translateX(-50%); white-space: nowrap; pointer-events: none;
   font: 500 12px/1 'SG Garamond', Georgia, serif; letter-spacing: .32em; padding-left: .32em; color: #b8b3a9; text-transform: uppercase; }
+
+/* (18/10, Maxence) quitter la commande : un message sur le noir, tapé à la machine (SG Machine = ce qui est imprimé sur un objet) */
+.mc.exit { gap: 0; }
+.mc-exit { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.mc-exit p { font: 15px/1.6 'SG Machine', 'Courier New', monospace; color: #c4bfb5; max-width: 320px; margin: 0; letter-spacing: .02em; }

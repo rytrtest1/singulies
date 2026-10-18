@@ -102,6 +102,23 @@ export function finalScreen(order, home) {
   return d;
 }
 
+// (18/10, Maxence : « le retour ne fonctionne pas après RECEVOIR, au moment de la carte : si c'est voulu, un message — fondu au
+// noir et texte à la machine ») ← pendant la cérémonie quitte la commande : on le dit, sur le noir, tapé à la machine, avant de partir.
+// Rend une promesse : le message est tapé et tenu, la page peut partir. Réservation / essai : rien n'est parti ; vrai paiement : la
+// commande reste ouverte (en revenant, la cérémonie reprend).
+export function exitScreen(order) {
+  const vrai = !!(order && order.session && !order.simule && !order.reserve);
+  const lines = vrai
+    ? ['tu quittes ta commande.', 'ton paiement est bien noté.', 'en revenant, je te ramène ici.']
+    : ['tu quittes ta commande.', 'rien n’est parti,', 'rien n’est débité.', 'je te remets devant ta feuille.'];
+  const d = screen('<div class="mc-exit">' + lines.map(() => '<p class="mc-type"></p>').join('') + '</div>');
+  d.classList.add('exit');
+  const ps = [...d.querySelectorAll('p')];
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return lines.reduce((p, l, i) => p.then(() => typeInto(ps[i], l, { at: i ? 350 : 900, step: 46 })), Promise.resolve())
+    .then(() => new Promise(r => setTimeout(r, reduced ? 900 : 1500)));
+}
+
 // (16/10, Maxence) dès RECEVOIR (réservation) : pour moi, ou pour offrir ? → true si offert, null si l'on revient
 export function askFor() {
   return new Promise(res => {

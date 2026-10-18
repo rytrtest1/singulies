@@ -181,7 +181,7 @@ export async function mountCards(opts) {
   // le texte entre parenthèses sous PASSER : il se fond (au noir) et laisse la place au suivant
   let subT = 0;
   const setSub = txt => { const sb = passEl.querySelector('.sc-sub'); if (sb.textContent === txt) return; clearTimeout(subT); if (!sb.textContent) { sb.textContent = txt; return; } sb.style.opacity = '0'; subT = setTimeout(() => { sb.textContent = txt; sb.style.opacity = ''; }, 580); };
-  const namePass = () => { if (passEl._free) return; passEl.setAttribute('aria-label', 'Passer : j’improvise ton poème avec ' + name); setSub('(j’improvise ton poème avec ' + name + ')'); };
+  const namePass = () => { if (passEl._free) return; passEl.setAttribute('aria-label', 'Passer : j’improvise ton poème avec ' + name); setSub(EST_VERSION ? '(j’improvise ton poème avec ' + name + ')' : '(j’improvise avec ' + name + ')'); };
   namePass();
   // l'enveloppe : POSTER (même signe que PASSER), dès que l'adresse a deux lignes, même clavier ouvert
   const postEl = el('div', 'sc-pass', 'POSTER'); postEl.setAttribute('role', 'button'); postEl.tabIndex = 0;
@@ -662,16 +662,19 @@ export async function mountCards(opts) {
       { const on = !!st.shuffling;
         if (on !== tireEl._on) {
           tireEl._on = on; clearTimeout(tireEl._t);
-          if (on) { const msg = 'tire une carte'; let k = 0; tireEl.textContent = ''; tireEl.classList.add('on'); const step = () => { if (!tireEl._on) return; tireEl.textContent = msg.slice(0, ++k); if (k < msg.length) tireEl._t = setTimeout(step, 70 + Math.random() * 80); }; tireEl._t = setTimeout(step, 600); }
+          // (18/10, carte vierge d'abord) « ou tire une carte » : sous le paquet, la carte vierge est au-dessus
+          if (on) { const msg = st.bf ? 'ou tire une carte' : 'tire une carte'; let k = 0; tireEl.textContent = ''; tireEl.classList.add('on'); const step = () => { if (!tireEl._on) return; tireEl.textContent = msg.slice(0, ++k); if (k < msg.length) tireEl._t = setTimeout(step, 70 + Math.random() * 80); }; tireEl._t = setTimeout(step, 600); }
           else tireEl.classList.remove('on');
         }
-        if (on && mk && mk.deckTop != null) tireEl.style.top = Math.max(100, mk.deckTop - 46) + 'px'; }
+        if (on && mk && mk.deckTop != null) tireEl.style.top = (st.bf && mk.deckBot != null ? mk.deckBot + 16 : Math.max(100, mk.deckTop - 46)) + 'px'; }
       // (10/10) aussi quelques secondes après l'apparition de la carte blanche, même pas touchée (réponse vide)
       const blankIn = st.mode === 'q' && st.blankFor > 3.5 && !(st.active && st.active.text);
       // (12/10, Maxence) après le paiement : PASSER seul, sous la question posée (il mène à la carte vierge, « dis-moi ce
       // que tu veux », sous laquelle PASSER revient : j'improvise)
       const paidQ = st.paidMode && st.mode === 'q' && !st.shuffling && st.active && !st.active.text && st.idle > 1.2;
-      passEl.classList.toggle('on', !st.ended && ((st.mode === 'free' && (st.paidMode ? passTop != null : st.freeFor > 3)) || (st.paidMode ? paidQ : blankIn)));   // (après le paiement : il reste, à la même place, pendant que la carte se retourne)
+      // (18/10, Maxence : « au milieu PASSER apparaît après quelques secondes et (j'improvise avec PRENOM) ») entre la carte vierge et le paquet
+      const bfOn = st.bf && st.freeFor > 3.5 && !(st.active && st.active.text);
+      passEl.classList.toggle('on', !st.ended && (st.bf ? bfOn : ((st.mode === 'free' && (st.paidMode ? passTop != null : st.freeFor > 3)) || (st.paidMode ? paidQ : blankIn))));   // (après le paiement : il reste, à la même place, pendant que la carte se retourne)
       // (16/10, Maxence : « PASSER pouvait faire penser à passer la carte en cours ») sous la question : on dit où il mène
       { const free = !!st.paidMode && st.mode === 'q', sub = passEl.querySelector('.sc-sub');
         if (free !== passEl._free) { passEl._free = free; if (free) { setSub('(si tu veux t’exprimer librement)'); passEl.setAttribute('aria-label', 'Passer : écrire librement'); } else namePass(); } }
@@ -695,6 +698,7 @@ export async function mountCards(opts) {
       const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
       if (st.kb && r) passEl.style.top = Math.max(r.bottom + 2, (r.bottom + kbTop) / 2 - 22) + 'px';
       // (10/10) centré entre la question (et sa bande de réponse) et la carte blanche
+      else if (st.bf && mk && mk.blankUpBottom != null) { passTop = (mk.blankUpBottom + mk.deckTop) / 2 - (passEl.offsetHeight || 56) / 2; passEl.style.top = passTop + 'px'; }
       else if (st.mode === 'q' && mk && st.paidMode) { passTop = ((mk.qBottom || mk.deckBottom) + 34); passEl.style.top = passTop + 'px'; }
       else if (st.mode === 'free' && st.paidMode && passTop != null) passEl.style.top = passTop + 'px';
       else if (st.mode === 'q' && mk) passEl.style.top = (((mk.qBottom || mk.deckBottom) + mk.blankTop) / 2 - (passEl.offsetHeight || 60) / 2) + 'px';
@@ -704,7 +708,7 @@ export async function mountCards(opts) {
       // celle en attente (Maxence 05/10)
       const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
       scene.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
-      backEl.classList.toggle('on', !st.ended && (st.mode === 'free' || (!!onExit && !paid && t > 3 && !st.kb)));
+      backEl.classList.toggle('on', !st.ended && ((st.mode === 'free' && !st.bf) || (!!onExit && !paid && t > 3 && !st.kb)));
       // le champ natif est posé, invisible, sur la carte réponse : la toucher ouvre le clavier (iPhone : seul un
       // toucher direct sur le champ l'ouvre)
       if (r && !st.ended) {
@@ -895,7 +899,11 @@ export async function mountCards(opts) {
   }
   // glisser vers le haut = envoyer : la réponse (scène des cartes), l'enveloppe ou la carte « en direct » (si prêtes)
   function flickUp() {
-    if (!sheet && scene.state().shuffling) { if (scene.pioche(now())) log('pioche (glissé)'); return; }
+    if (!sheet && scene.state().shuffling) {
+      const st = scene.state();
+      if (st.bf && st.active && st.active.text) { give('glissé'); return; }   // (carte vierge d'abord : ce qu'on a écrit part)
+      if (scene.pioche(now())) log('pioche (glissé)'); return;
+    }
     if (sheet) { const es = sheet.state().env; if (es && es.canPost && !es.posted) postEl.click(); return; }
     give('glissé');
   }

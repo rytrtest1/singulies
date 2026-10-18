@@ -142,10 +142,12 @@ body:has(.nv-hd.on) .sc-back, body:has(.nv-hd.on) #back { display: none !importa
 .nv-hd.open { opacity: 1; }
 /* la cérémonie : seulement la flèche retour */
 .nv-hd.bare .nv-br, .nv-hd.bare .nv-mn, .nv-hd.bare canvas { opacity: 0 !important; pointer-events: none !important; }
+/* (18/10) l'ouverture : ETERNEL d'abord, le menu ≡ ensuite (avec les pages) */
+.nv-hd.nomenu .nv-mn { opacity: 0 !important; pointer-events: none !important; }
 .nv-hd canvas { transition: opacity .7s ease; }
 .nv-hd.open > * { pointer-events: auto; }
 /* le menu, par-dessus la page : les pages, qui t'écrit, écris-moi ; les pages légales, discrètes */
-.nv-pan { position: fixed; inset: 0; z-index: 47; background: #060606; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+.nv-pan { position: fixed; inset: 0; z-index: 47; background: #060606; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
   opacity: 0; pointer-events: none; transition: opacity .35s ease; }
 .nv-pan.on { opacity: 1; pointer-events: auto; }
 .nv-pan a, .nv-pan button { display: block; margin: 0; padding: 12px 8px 12px calc(8px + .45em); border: 0; background: none; cursor: pointer; text-decoration: none; color: #ece8e0;
@@ -154,7 +156,10 @@ body:has(.nv-hd.on) .sc-back, body:has(.nv-hd.on) #back { display: none !importa
 .nv-pan.on a, .nv-pan.on button { transform: none; }
 .nv-pan .cur { opacity: .95; }
 .nv-pan a:hover, .nv-pan button:hover, .nv-pan a:focus-visible, .nv-pan button:focus-visible { opacity: .95; outline: none; }
-.nv-pan hr { width: 28px; height: 0; border: 0; border-top: 1px solid rgba(236,232,224,.18); margin: 14px 0; }
+/* (18/10, Maxence : « toutes les pages liées par un fil ») un seul fil vertical traverse le menu : il plonge dans un trou au-dessus de
+   chaque nom et ressort dessous (nav.js, panPaint) ; le filet qui séparait les deux groupes n'a plus lieu d'être */
+.nv-pan hr { width: 28px; height: 0; border: 0; margin: 14px 0; }
+.nv-pan .nv-pt { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
 .nv-pan .lg { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 6px; margin-top: 18px; padding: 0 12px; }
 .nv-pan .lg a { font-size: 9.5px; letter-spacing: .22em; padding: 8px 4px 8px calc(4px + .22em); opacity: .35; }
 `;
@@ -201,6 +206,7 @@ export function installNav(opts) {
   hd.innerHTML = `<canvas aria-hidden="true"></canvas><button class="nv-bk" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19"/></svg></button>
     <button class="nv-br" type="button" aria-label="ETERNEL, l’accueil">ETERNEL</button>
     <button class="nv-mn" type="button" aria-label="Menu" aria-expanded="false"><i></i></button>`;
+  hd.querySelector('.nv-bk').classList.add('off'); if (opts.menuShow) hd.classList.add('nomenu');   // (18/10) ni ← ni ≡ avant le premier calcul : rien ne clignote à l'ouverture
   const hcv = hd.querySelector('canvas'), hbr = hd.querySelector('.nv-br');
   const pan = document.createElement('nav'); pan.className = 'nv-pan'; pan.setAttribute('aria-label', 'Menu'); pan.inert = true;
   const legal = [['MENTIONS', 'mentions.html'], ['CONDITIONS', 'conditions.html'], ['CONFIDENTIALITE', 'confidentialite.html']];
@@ -212,8 +218,39 @@ export function installNav(opts) {
     panOn = on; pan.classList.toggle('on', on); pan.inert = !on; hd.classList.toggle('open', on); foot.classList.toggle('up', on);
     hd.querySelector('.nv-mn').setAttribute('aria-expanded', String(on));
     pan.querySelectorAll('[data-p]').forEach(a => a.classList.toggle('cur', !opts.headerOnly && a.dataset.p === ring(cur).id));
+    if (on) panWake();
   };
   hd.querySelector('.nv-mn').addEventListener('click', () => setPan(!panOn));
+  // ---- (18/10) le fil du menu : vertical, d'un nom à l'autre (les pages, puis la section) ----
+  const pcv = document.createElement('canvas'); pcv.className = 'nv-pt'; pcv.setAttribute('aria-hidden', 'true'); pan.prepend(pcv);
+  let panRaf = 0, panT = 0;
+  function panPaint(now) {
+    panRaf = 0;
+    if (!panOn) return;
+    if (now - panT >= 40) {
+      panT = now;
+      const d = Math.min(3, window.devicePixelRatio || 1), W = pan.clientWidth, H = pan.clientHeight, x = pcv.getContext('2d');
+      if (pcv.width !== Math.round(W * d) || pcv.height !== Math.round(H * d)) { pcv.width = Math.round(W * d); pcv.height = Math.round(H * d); }
+      // le fil est tracé « couché » (horizontal) puis tourné d'un quart de tour : le long du fil = vers le bas, au milieu de l'écran
+      x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, pcv.width, pcv.height);
+      x.setTransform(0, d, -d, 0, (W / 2) * d, 0);
+      const els = [...pan.querySelectorAll('a[data-p], button[data-x]')], lg = pan.querySelector('.lg');
+      if (els.length) {
+        // (positions de mise en page : sans la translation d'entrée des noms)
+        const mid = el => el.offsetTop + el.offsetHeight / 2, half = 8.4 + 6;               // demi-hauteur du texte + l'écart du trou
+        const top0 = hd.getBoundingClientRect().bottom + 12, f = flowNow();   // (sous la ligne du haut : le fil sort d'un trou juste dessous)
+        const segs = [{ a: top0, b: mid(els[0]) - half, holes: [true, true] }];
+        for (let i = 0; i < els.length - 1; i++) segs.push({ a: mid(els[i]) + half, b: mid(els[i + 1]) - half, holes: [true, true] });
+        if (lg && lg.offsetHeight) segs.push({ a: mid(els[els.length - 1]) + half, b: lg.offsetTop - 12, holes: [true, true] });
+        const t = now / 1000;
+        segs.forEach((g, j) => { if (g.b - g.a > 8) paintThread(x, g.a, g.b, 0, 23 + j * 7, 1.2, { holes: g.holes, sag: reduced ? 0.5 : 0.3 + 0.7 * Math.sin(t * 0.4 + j) ** 2, g0: g.a - f }); });
+      }
+    }
+    if (!reduced) panRaf = requestAnimationFrame(panPaint);
+  }
+  const panWake = () => { if (!panRaf) { panT = 0; panRaf = requestAnimationFrame(panPaint); } };
+  addEventListener('resize', () => { if (panOn) panWake(); });
+  document.fonts && document.fonts.ready.then(() => { if (panOn) panWake(); });
   pan.addEventListener('click', e => {
     const a = e.target.closest('[data-p], [data-x]');
     if (!a) { if (e.target === pan) setPan(false); return; }
@@ -593,7 +630,7 @@ export function installNav(opts) {
         hbr.style.translate = `0 ${waveTop((l + rr) / 2, t).toFixed(2)}px`;
         const vis = el => el && parseFloat(getComputedStyle(el).opacity) > 0.15;
         const bk = hd.querySelector('.nv-bk'), mn = hd.querySelector('.nv-mn i'), sv = bk.querySelector('svg');
-        const q = vis(bk) && sv.getBoundingClientRect(), m = mn.getBoundingClientRect();
+        const q = vis(bk) && sv.getBoundingClientRect(), m = vis(hd.querySelector('.nv-mn')) ? mn.getBoundingClientRect() : { width: 0 };
         const a0 = q && q.width ? q.left + 0.625 * q.width + 10 : -4, b1 = m.width ? m.left - 10 : fw + 4;   // (le même écart de 10 px des deux côtés : la pointe de ← finit aux 15/24 de son dessin)
         const sg = j => ({ sag: reduced ? 0.6 : 0.3 + 1.1 * breath(3 + j, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 2 + j), yf: yt, g0: (j ? rr : a0) - (j ? -fl : fl) });
         paintThread(x, a0, l, y, 37, 1.2, { holes: [a0 > -4, true], ...sg(0) });
@@ -652,6 +689,7 @@ export function installNav(opts) {
     const hdOk = atHome() ? (opts.hdShow ? !!opts.hdShow() && !hush : on) : true;   // (ETERNEL et SINGULIES peuvent paraître avant le bandeau des pages)
     hd.classList.toggle('on', opts.headerOnly ? true : hdOk || (bare && canBack())); hd.classList.toggle('bare', bare);
     hd.querySelector('.nv-bk').classList.toggle('off', !canBack());
+    hd.classList.toggle('nomenu', atHome() && !!opts.menuShow && !opts.menuShow());
     // (17/10, Maxence : « garde plutôt le nom de la page ») le titre du haut : ETERNEL, ou le nom de la page du menu ouverte
     { const ov = !!ovTop() || switching; sub.classList.toggle('on', ov); secBg.classList.toggle('on', ov); secTop.classList.toggle('on', ov); if (!ov) sub.classList.remove('seen'); root.classList.toggle('under', ov); if (ovTop()) subLayout(); }
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
