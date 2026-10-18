@@ -83,7 +83,7 @@ await page.evaluate(() => sessionStorage.clear());
 await page.goto(base + '#/produit/poeme');
 await page.waitForSelector('#prenom');
 await page.click('#cta');
-ok('COMMANDER sans prénom : reste sur la fiche, message', /écrire d/.test(await txt('#hint')) && page.url().includes('boutique.html'));
+ok('COMMANDER sans prénom : reste sur la fiche, message', /entrer d/.test(await txt('#hint')) && page.url().includes('boutique.html'));
 await page.fill('#prenom', 'Léa');
 await page.waitForTimeout(900);
 const letters = await page.$$eval('.gal-sheet .col b', bs => bs.map(b => b.textContent).join(''));

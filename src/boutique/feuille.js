@@ -9,7 +9,7 @@ const G = { top: 24.5, x0: 28.7, x1: 86.2, lhMax: 7, room: 104, gap: 0.6 };
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // host : l'élément où poser la feuille ; input : le champ de prénom (un vrai <input>, ailleurs dans la fiche)
-export function mountFeuille(host, input, { onChange = () => {}, invite = 'écris le prénom' } = {}) {
+export function mountFeuille(host, input, { onChange = () => {}, invite = 'entre un prénom' } = {}) {
   host.innerHTML = `<div class="paper"><div class="sheet"><canvas class="rules" aria-hidden="true"></canvas><div class="col" aria-hidden="true"></div>
     <span class="cur" aria-hidden="true"></span><span class="inv" aria-hidden="true"></span></div></div>`;
   const sheet = host.querySelector('.sheet'), col = host.querySelector('.col'), cur = host.querySelector('.cur'), inv = host.querySelector('.inv'), rules = host.querySelector('.rules');

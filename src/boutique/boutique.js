@@ -230,8 +230,8 @@ const VIEWS = {
         </div>
         <div class="hero-s"><div class="hero-sheet" id="hs"></div></div>
         <form class="hero-f" id="hf" novalidate autocomplete="on">
-          <label class="sr" for="hp">ton prénom</label>
-          <input class="hero-in" id="hp" name="given-name" type="text" autocomplete="given-name" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="40" enterkeyhint="done" inputmode="text" placeholder="écris ton prénom">
+          <label class="sr" for="hp">un prénom</label>
+          <input class="hero-in" id="hp" name="given-name" type="text" autocomplete="given-name" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="40" enterkeyhint="done" inputmode="text" placeholder="entre un prénom">
           <p class="hint" id="hh" role="status" aria-live="polite"></p>
           <div class="hero-r" id="hr" aria-hidden="true">
             <p class="hero-pr"><b>${esc(PRIX)}</b> tout compris <span>· ${esc(DELAI_COURT)}</span></p>
@@ -253,7 +253,7 @@ const VIEWS = {
       </section></div>`;
     // la feuille où l'on écrit : le prénom s'y pose en colonne ; le prix et COMMANDER paraissent une fois écrit
     const input = $('#hp'), hint = $('#hh'), reveal = $('#hr');
-    const f = mountFeuille($('#hs'), input, { invite: 'ton prénom' });
+    const f = mountFeuille($('#hs'), input, { invite: 'entre un prénom' });
     const shown = a => {
       const on = !a.vide;
       reveal.classList.toggle('on', on); reveal.setAttribute('aria-hidden', String(!on));
@@ -373,7 +373,7 @@ const VIEWS = {
       gal = galerie($('#gal'), media, { start, onSlide: (i, m) => {
         if (m.variant != null && m.variant !== vi && vi >= 0) { vi = m.variant; history.replaceState(history.state, '', '#/produit/livres?v=' + V().id); document.title = `${titre().toLowerCase()} — ETERNEL`; renderInfo(); wireBuy(); }
       } });
-      if (p.id === 'poeme' && gal.sheetHost && input) { feuille?.destroy(); feuille = mountFeuille(gal.sheetHost, input, { invite: 'écris le prénom' }); }
+      if (p.id === 'poeme' && gal.sheetHost && input) { feuille?.destroy(); feuille = mountFeuille(gal.sheetHost, input, { invite: 'entre un prénom' }); }
     }
 
     function wire() {
@@ -388,7 +388,7 @@ const VIEWS = {
         $('#perso', info).addEventListener('submit', e => {
           e.preventDefault();
           const a = analysePrenom(input.value);
-          if (a.vide) { hint.className = 'hint'; hint.textContent = 'écrire d’abord le prénom : il se posera sur la feuille.'; input.focus(); gal?.go(gal.sheetIndex); return; }
+          if (a.vide) { hint.className = 'hint'; hint.textContent = 'entrer d’abord un prénom : il se posera sur la feuille.'; input.focus(); gal?.go(gal.sheetIndex); return; }
           commander(a.nom);
         });
         onLeave(() => feuille?.destroy());
