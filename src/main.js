@@ -12,7 +12,7 @@ import { getGL } from './gl/gl.js';
 import { buildAtlas } from './gl/atlas.js';
 import { createRenderer } from './render/renderer.js';
 import { layoutName } from './name/layout.js';
-import { loadState, saveValidated, clearStored, clearValidated, sessionName, saveSessionName } from './app/storage.js';
+import { loadState, saveValidated, clearStored, clearValidated, sessionName, saveSessionName, homeUrl } from './app/storage.js';
 import { installSend, settled, setOrder, send } from './app/send.js';
 import { installCount, count } from './app/count.js';
 import { createField, MODES, grayOf } from './field/field.js';
@@ -401,7 +401,7 @@ function backToStart() {
   if (cardsReady && cardsReady !== 'failed') { cardsReady.canvas.style.transition = 'opacity 1.1s ease'; cardsReady.canvas.style.opacity = '0'; }
   clearValidated();
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  Promise.all([wait(1200), Promise.race([settled().catch(() => {}), wait(2500)])]).finally(() => { const u = new URL('./', document.baseURI), k = new URLSearchParams(location.search); k.delete('q'); u.search = k.toString(); location.replace(u); });   // (une demande pas partie est gardée : elle repart à la visite suivante)
+  Promise.all([wait(1200), Promise.race([settled().catch(() => {}), wait(2500)])]).finally(() => { const u = homeUrl(), k = new URLSearchParams(location.search); k.delete('q'); u.search = k.toString(); location.replace(u); });   // (une demande pas partie est gardée : elle repart à la visite suivante)
 }
 // retour depuis le paquet : l'accueil, prénom confirmé (comme un visiteur qui revient)
 function exitCards() { clearValidated(); location.reload(); }
@@ -547,7 +547,7 @@ const histo = (() => {
     if (landed >= want) return;
     const c = cards();
     if (L > 2 && c && c.stepBack()) { waiting = { L, until: performance.now() + 7000 }; return; }
-    if (L <= 2) { location.replace(new URL('./', document.baseURI).href + location.search); return; }   // la première étape : l'accueil
+    if (L <= 2) { location.replace(homeUrl(location.search).href); return; }   // la première étape : l'accueil
     history.pushState({ sgStep: want }, ''); pushed = want;                                                // la scène est occupée : on remet l'étape
   });
   return {
@@ -568,7 +568,7 @@ async function leaveCeremony() {
   if (!vrai) { const k = fin.readOrder(); if (k) { k.resumed = true; fin.saveOrder(k); } }   // (une réservation : pas de reprise automatique)
   histo.stop();
   await fin.exitScreen(o);
-  const home = new URL('./', document.baseURI); home.search = location.search;
+  const home = homeUrl(location.search);
   location.href = home.href;
 }
 // la fin d'une commande payée ici : c'est noté (rechargée : merci.html, sans seconde demande)
@@ -578,7 +578,7 @@ async function finishPaid() {
   o.done = true; fin.saveOrder(o); count('alt/fini');
   await Promise.race([settled().catch(() => {}), sleep(2500)]);
   if (cardsReady && cardsReady !== 'failed') { cardsReady.canvas.style.transition = 'opacity 1.1s ease'; cardsReady.canvas.style.opacity = '0'; }
-  const home = new URL('./', document.baseURI); home.search = location.search;
+  const home = homeUrl(location.search);
   setTimeout(() => fin.finalScreen(o, home.href), 1100);
 }
 
@@ -1363,7 +1363,9 @@ if (ALT) {
     // avaient déjà paru sur le portail
     // (17/10, Maxence : « pourquoi pas de flèche retour ni de bandeau sur l'écran d'après la réservation ? c'est important pour la
     // cohérence et le bon placement ») le haut (ETERNEL, ←, ≡), le bandeau et SINGULIES restent aussi une fois payé / réservé
-    show: () => booted && (onNames() ? idleNames() : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt2-on, #offre.bar-on'))),
+    // (18/10, Maxence : « je réinterroge la nécessité du menu : juste l'icône ») site principal : plus de bandeau des pages sur l'accueil (le
+    // menu ≡ suffit, il paraît quand le curseur est seul) ; le bandeau est là dès qu'on arrive sur la feuille. idleNames() décide quand le ≡ paraît.
+    show: () => booted && (onNames() ? (EST_VERSION ? idleNames() : (idleNames(), false)) : ((EST_VERSION && S.navOn) || !!S.paid || !!document.querySelector('#offre.txt2-on, #offre.bar-on'))),
     // (18/10, Maxence : « les bandeaux ETERNEL et SINGULIES d'abord, avec le champ de prénoms, et enfin le menu ») site principal :
     // ETERNEL (haut) et SINGULIES (bas) sont là dès que le champ paraît ; le menu (≡) et les pages sous ETERNEL, quand le curseur paraît
     hdShow: () => booted && (onNames() ? (EST_VERSION ? idleNames() : true) : (S.navOn || !!S.paid || !!document.querySelector('#offre.txt-on, #offre.bar-on'))),

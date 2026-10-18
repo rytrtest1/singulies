@@ -118,7 +118,9 @@ body:has(.nv-hd.on) .sc-back, body:has(.nv-hd.on) #back { display: none !importa
    page des prénoms : opaque derrière ETERNEL et le bandeau, puis un fondu long et doux (≈ lissé : −92 % au bord, jusqu'à rien) */
 .nv-shade.t.wide { height: calc(230px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 42%, rgba(6,6,6,.9) 50%, rgba(6,6,6,.7) 59%, rgba(6,6,6,.45) 69%, rgba(6,6,6,.22) 80%, rgba(6,6,6,.07) 91%, rgba(6,6,6,0)); }
 /* (18/10, Maxence : « sur téléphone, le bandeau sous ETERNEL efface les prénoms qui défilent ») téléphone : le noir plein s'arrête juste sous le bandeau des pages, le fondu est plus court — les prénoms reviennent plus haut */
-@media (max-width: 759px) { .nv-shade.t.wide { height: calc(190px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 calc(88px + env(safe-area-inset-top)), rgba(6,6,6,.8) calc(100px + env(safe-area-inset-top)), rgba(6,6,6,.5) calc(122px + env(safe-area-inset-top)), rgba(6,6,6,.22) calc(148px + env(safe-area-inset-top)), rgba(6,6,6,.06) calc(172px + env(safe-area-inset-top)), rgba(6,6,6,0)); } }
+/* (18/10) accueil sans bandeau des pages : le noir ne couvre qu'ETERNEL, le fondu est court — les prénoms montent presque jusqu'à lui */
+.nv-shade.t.wide.nb, .nv-shade.t.wide.nb { height: calc(150px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 calc(50px + env(safe-area-inset-top)), rgba(6,6,6,.75) calc(64px + env(safe-area-inset-top)), rgba(6,6,6,.4) calc(88px + env(safe-area-inset-top)), rgba(6,6,6,.15) calc(115px + env(safe-area-inset-top)), rgba(6,6,6,0)); }
+@media (max-width: 759px) { .nv-shade.t.wide:not(.nb) { height: calc(190px + env(safe-area-inset-top)); background: linear-gradient(#060606 0, #060606 calc(88px + env(safe-area-inset-top)), rgba(6,6,6,.8) calc(100px + env(safe-area-inset-top)), rgba(6,6,6,.5) calc(122px + env(safe-area-inset-top)), rgba(6,6,6,.22) calc(148px + env(safe-area-inset-top)), rgba(6,6,6,.06) calc(172px + env(safe-area-inset-top)), rgba(6,6,6,0)); } }
 .nv-shade.b.wide { height: calc(150px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #060606 0, #060606 24%, rgba(6,6,6,.9) 33%, rgba(6,6,6,.68) 44%, rgba(6,6,6,.42) 57%, rgba(6,6,6,.2) 71%, rgba(6,6,6,.06) 86%, rgba(6,6,6,0)); }   /* (12/10) seulement sous SINGULIES : le prix au-dessus reste lisible */
 .nv-shade.on { opacity: 1; }
 /* (17/10, Maxence : « revoir l'allure : SINGULIES tout en haut, qui ramène à l'accueil ; à gauche une flèche retour
@@ -705,6 +707,7 @@ export function installNav(opts) {
     }
     shadeT.classList.toggle('on', sh && (on || (atHome() && hdOk))); shadeB.classList.toggle('on', sh && f);   // (18/10) le noir du haut dès qu'ETERNEL est là, pas seulement avec le bandeau des pages : au début, les prénoms dépassaient
     { const w = atHome() && !!opts.wideShade?.(); shadeT.classList.toggle('wide', w); shadeB.classList.toggle('wide', w); }
+    shadeT.classList.toggle('nb', atHome() && !!opts.wideShade?.() && !on);   // (18/10) sans bandeau des pages : un noir plus court, seulement sous ETERNEL
     if (shown || footOn || opts.headerOnly) wake();
   }
   setInterval(tick, 200); tick();
