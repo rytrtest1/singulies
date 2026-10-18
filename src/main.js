@@ -40,6 +40,7 @@ const offerModule = () => import('./alt/offre.js');
 import { SHEET_INSET } from './alt/config.js';
 import { columnTargets } from './sheet/sheet.js';
 import { installNav } from './nav/nav.js';
+import { createAttention } from './app/attention.js';
 // la marge du bas de l'écran (barre de l'iPhone), en px
 let safeB = null;
 const safeBottom = () => { if (safeB == null) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;bottom:0;width:1px;height:env(safe-area-inset-bottom);visibility:hidden'; document.body.appendChild(d); safeB = d.offsetHeight || 0; d.remove(); } return safeB; };
@@ -1021,6 +1022,14 @@ function frame(ts) {
     const hx0 = Math.min(...H.lines.map(l => l.x0)), hx1 = Math.max(...H.lines.map(l => l.x1));
     S.nameBox = [Math.min(S.nameBox[0], hx0 - 30), Math.min(S.nameBox[1], H.top - 20), Math.max(S.nameBox[2], hx1 + 30), Math.max(S.nameBox[3], H.bottom + 20)];
   }
+  // (18/10, Maxence : « si l'utilisateur n'écrit pas ou ne touche pas le curseur, on met l'attention dessus et on écrit une indication ») site
+  // principal : le curseur seul, rien tapé, rien touché depuis 5 s → tout s'assombrit autour de lui, « entre un prénom » se tape dessous
+  if (FAST_OPEN) {
+    attn = attn || createAttention();
+    const stuck = S.phase === 'input' && !!S.introOff && !S.typed && !S.confirmed && !text && T < 0 && !S.portal && !S.edit && S.t > 0;
+    const cyc = (L.cursor.y0 + L.cursor.y1) / 2;
+    attn.update({ stuck, x: L.cursor.x, y: cyc, r: Math.max(90, Math.min(S.w, S.h) * 0.24), text: 'entre un prénom', delay: 5, below: L.cap * 1.2 + 34 });
+  }
   const voiceHidesCursor = voice && !S.voiceTyped && (voice.state === 'idle' || voice.state === 'asking' || voice.state === 'listening');
   // (16/10) on corrige le prénom : le curseur respire au bout, tant qu'on n'a rien tapé
   const editCur = S.edit && !S.rev && S.keyAt <= (S.editAt ?? 0) && T < 0 && !!text;
@@ -1190,7 +1199,7 @@ function drawVoice(L, glyphs, fade, dt, text) {
 function smooth(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 
 // ---------- portail : la première page (avant le champ) ----------
-let portal = null, portalGo = null, booted = false;
+let portal = null, portalGo = null, booted = false, attn = null;
 // toucher « ton prénom ton poème, par la poste » : dans le même geste, le champ prend le focus (iPhone : le clavier s'ouvre)
 // et le champ apparaît sous le portail qui s'efface
 function enterFromPortal() {
