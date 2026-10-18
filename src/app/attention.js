@@ -16,6 +16,9 @@ const CSS = `
 .sg-attn.off { transition-duration: .5s; }
 /* (18/10, Maxence : « plus léger, cohérent avec le descriptif des objets ») la même écriture que les descriptions sous la feuille : Courier, petit, gris clair */
 .sg-attn p { position: absolute; left: 0; right: 0; margin: 0; text-align: center; font: min(13px, 3.45vw)/1.55 'SG Machine', 'Courier New', monospace; letter-spacing: .01em; color: #cfcac1; }
+/* (18/10, Maxence : « isoler le texte : un noir derrière lui ») un halo noir, doux, derrière la phrase : les prénoms du champ ne la traversent plus */
+.sg-attn p::before { content: ''; position: absolute; left: 50%; top: 50%; width: min(96vw, 460px); height: 5.2em; transform: translate(-50%, -50%); z-index: -1; pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(6,6,6,.92) 0, rgba(6,6,6,.82) 38%, rgba(6,6,6,.5) 62%, rgba(6,6,6,0) 100%); }
 .sg-attn p b { font-weight: inherit; opacity: 0; }
 .sg-attn p b.on { opacity: .85; }
 @media (min-width: 760px) { .sg-attn p { font-size: 15px; } }
