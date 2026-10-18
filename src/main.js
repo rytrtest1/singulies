@@ -94,8 +94,11 @@ const FONT_FAMILY = 'SG Garamond';
 // (18/10, Maxence : « afficher au plus vite ») site principal : la police et l'atlas sont déjà prêts quand la première image
 // est dessinée (boot les attend) — la seconde de noir n'attendait plus rien ; les versions gardent l'ancien rythme
 const FAST_OPEN = ALT && !EST_VERSION;
-const OPEN_DARK = FAST_OPEN ? 0.12 : 1.0;      // s de noir à l'ouverture
-const OPEN_FADE = FAST_OPEN ? 0.7 : 1.4;       // s de fondu d'entrée
+const OPEN_DARK = FAST_OPEN ? 0.05 : 1.0;      // s de noir à l'ouverture
+const OPEN_FADE = FAST_OPEN ? 0.3 : 1.4;       // s de fondu d'entrée
+// (18/10, Maxence : « d'abord seulement UN PRENOM UN POEME avec ETERNEL et SINGULIES, le champ de prénoms qui apparaît en 1 s selon la
+// profondeur, d'organique ») site principal : le champ naît du fond vers l'avant-plan en ≈ 1,2 s (shader : u_rev)
+const REVEAL_T = 1.2;
 const LEAVE_FADE = 1.2;     // s de fondu au noir après validation (sans WebGL2)
 const HINT = P.get('indice') === '1' || (EST_VERSION && !EST_V2 && P.get('indice') !== '0');   // (18/10, V3) dans les versions : la consigne (PRENOM, tapé en grisé) paraît après quelques secondes sans frappe
 //   // (17/10, Maxence) plus de PRENOM grisé : le curseur seul ; ?indice=1 pour le revoir   // (10/10) PRENOM en grisé si rien n'est écrit
@@ -822,7 +825,7 @@ function frame(ts) {
 
   // fondus : ouverture, départ (sans WebGL2), retour
   const open = smooth(OPEN_DARK, OPEN_DARK + OPEN_FADE, S.t);
-  let sceneFade = open, nameFade = FAST_OPEN ? smooth(OPEN_DARK, OPEN_DARK + 0.5, S.t) : smooth(OPEN_DARK + 0.2, OPEN_DARK + 1.2, S.t);
+  let sceneFade = open, nameFade = FAST_OPEN ? smooth(OPEN_DARK, OPEN_DARK + 0.3, S.t) : smooth(OPEN_DARK + 0.2, OPEN_DARK + 1.2, S.t);
   if (S.phase === 'leaving') { const k = 1 - smooth(0, LEAVE_FADE, S.t - S.phaseAt); sceneFade *= k; nameFade *= k; }
   else if (S.phase === 'black') { sceneFade = 0; nameFade = 0; }
   else if (S.phaseAt > 0) { const k = smooth(0, 1.0, S.t - S.phaseAt); sceneFade *= k; nameFade *= k; }
@@ -1113,7 +1116,7 @@ function frame(ts) {
     }
   }
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig, energy: R?.energy, under,
-    field: fl, cam: field.cam, focal, vx, vy, dim: S.dim, time: S.t });
+    field: fl, cam: field.cam, focal, vx, vy, dim: S.dim, time: S.t, reveal: FAST_OPEN ? smooth(OPEN_DARK, OPEN_DARK + REVEAL_T, S.t) : 1 });
   stats.letters = fl.count;
   stats.gpuMB = +((atlas.width * atlas.height * 2 + canvas.width * canvas.height * 4 * 2) / 1048576).toFixed(1);
 }

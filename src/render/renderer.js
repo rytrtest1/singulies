@@ -142,7 +142,7 @@ void main() {
 const FIELD_FS = /* glsl */`#version 300 es
 precision highp float;
 uniform sampler2D u_atlas, u_blur;
-uniform float u_fade, u_dim, u_time;
+uniform float u_fade, u_dim, u_time, u_rev;
 in vec2 v_uv;
 flat in float v_sig, v_aa, v_alpha, v_gray, v_L, v_seed, v_m, v_nb, v_z;
 flat in vec2 v_uv0, v_uvEm;
@@ -157,6 +157,9 @@ void main() {
   float sharp = gaussCdf(dEm / sqrt(min(v_sig, S_SHARP) * min(v_sig, S_SHARP) + v_aa * v_aa));
   float c = mix(sharp, texture(u_blur, v_uv).r, clamp((v_sig - S_SHARP) / (S_MAX - S_SHARP), 0.0, 1.0));
   float a = c * v_alpha * u_fade;
+  // apparition à l'ouverture (u_rev 0 → 1) : selon la profondeur — le fond d'abord, l'avant-plan en dernier — avec un léger retard propre à chaque lettre
+  float thr = clamp((34.0 - v_z) / 31.0, 0.0, 1.0) * 0.55 + fract(v_seed * 0.7131) * 0.25;
+  a *= smoothstep(thr, thr + 0.2, u_rev);
   // lumière intérieure : une clarté lente circule dans la lettre allumée (bruit en coordonnées du glyphe)
   float Lc = v_L;
   if (v_L > 0.0) {
@@ -311,6 +314,7 @@ export function createRenderer(canvas, gl, atlas) {
       gl.uniform1f(fp.u.u_dpr, f.dpr);
       gl.uniform1f(fp.u.u_fade, f.fade * (f.fieldFade ?? 1));
       gl.uniform1f(fp.u.u_dim, f.dim ?? 1);
+      gl.uniform1f(fp.u.u_rev, f.reveal ?? 1);
       gl.uniform1f(fp.u.u_time, (f.time ?? 0) % 1000);
       gl.uniform1i(fp.u.u_atlas, 0);
       gl.activeTexture(gl.TEXTURE1);
