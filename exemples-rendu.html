@@ -33,18 +33,19 @@
   await loadTypeFont('./');
   card.addShape('sheet', { ...SHEET, fine: [10, 10, 0.25, 0, LOGO_Y] });
   const L = { ...LOOK };
-  const FOV = 26 * Math.PI / 180, TILT = 0.2, TF = Math.tan(FOV / 2);
+  const FOV = 26 * Math.PI / 180, TF = Math.tan(FOV / 2);
   const T = (x, y, z) => M4.model(0, 0, 0, x, y, z);
   const S = k => new Float32Array([k, 0, 0, 0, 0, k, 0, 0, 0, 0, k, 0, 0, 0, 0, 1]);
   const PX = 12;                                             // px par mm de l'encre de la feuille (fin : les petits vers restent nets)
 
-  function render(ex, qid, seed) {
-    const W = canvas.width, H = canvas.height;
+  // solo (18/10, boutique) : la feuille seule, sans carte, le poème centré ; vue presque de face
+  function render(ex, qid, seed, solo = false) {
+    const W = canvas.width, H = canvas.height, TILT = solo ? 0.09 : 0.2;
     const vers = ex.vers.filter(v => v !== '');
     const chars = vers.map(v => v[0].toUpperCase());
     nameR.letters(chars);
     // la carte posée SUR la feuille, sous le nom, centrée ; le poème centré entre le logo et la carte
-    const CY = -SHEET.h / 2 + CARD.h / 2 + 10, colTop = SHEET.h / 2 - 32, colBot = CY + CARD.h / 2 + 10;
+    const CY = -SHEET.h / 2 + CARD.h / 2 + 10, colTop = solo ? SHEET.h / 2 - 30 : SHEET.h / 2 - 32, colBot = solo ? -SHEET.h / 2 + 34 : CY + CARD.h / 2 + 10;
     const n = chars.length, lead = n > 1 ? Math.min(10.5, (colTop - colBot - 14) / (n - 1)) : 10.5;
     const cap = Math.min(6.4, lead * 0.6), emT = cap / nameR.capHeight, yc = (colTop + colBot) / 2 + cap / 2 + 4;
     const baseOf = k => yc + ((n - 1) / 2 - k) * lead - cap / 2;
@@ -64,8 +65,8 @@
     const sheetInk = card.makeInk(full, true);
 
     // la carte : une question au hasard, côté question, posée en bas de la feuille comme dans le parcours
-    const q = QUESTIONS.find(x => x.id === qid).q.toLowerCase();
-    const cardInk = card.makeInk(makeInkMap(q, seed * 13 + 5).canvas);
+    const q = solo ? '' : QUESTIONS.find(x => x.id === qid).q.toLowerCase();
+    const cardInk = solo ? null : card.makeInk(makeInkMap(q, seed * 13 + 5).canvas);
 
     // cadrage : la feuille entière (et la carte qui dépasse un peu en bas), vue presque de face, lampe rasante
     const y0 = -SHEET.h / 2 - 4, y1 = SHEET.h / 2 + 4, x0f = -SHEET.w / 2, x1f = SHEET.w / 2;
@@ -83,12 +84,12 @@
     card.draw(vp, eye, P, { model: Ms, lod: 'sheet', seed: 40 + seed, paperXf: [1.2, -0.6, 0, 0], warp: [0.4, -0.22, 0.05],
       logoOff: [0, LOGO_Y], logoScale: [LOGO_K, LOGO_K], paperTile: 0.6 * CARD.w / 0.7, paperLo: 0.35, inkBack: sheetInk, inkRG: true });
     const Mc = M4.mul(M4.mul(Ms, M4.model(0, 0, -0.03, 0, CY, 2.2)), M4.model(0, Math.PI, 0));
-    card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink: cardInk, seed: (seed * 7) % 97, paperXf: [0.6, -0.4, 0, 0], warp: [0.18, -0.08, 0.04], logoOff: [0, 0] });
+    if (!solo) card.draw(vp, eye, P, { model: Mc, lod: 'fine', ink: cardInk, seed: (seed * 7) % 97, paperXf: [0.6, -0.4, 0, 0], warp: [0.18, -0.08, 0.04], logoOff: [0, 0] });
     const list = chars.map((ch, i) => ({ i, model: M4.mul(Ms, M4.mul(T(colX + (lw - nameR.adv(ch) * emT) / 2, baseOf(i), SHEET.t / 2 + 1), S(emT))), glow: 0.16, alpha: 1 }));
     nameR.drawLetters(vp, eye, P, L, list, 2);
     gl.finish();
     const url = canvas.toDataURL('image/jpeg', 0.9);
-    card.freeInk(sheetInk); card.freeInk(cardInk);
+    card.freeInk(sheetInk); if (cardInk) card.freeInk(cardInk);
     return url;
   }
 
@@ -97,6 +98,7 @@
   const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
   window.__exemples = {
     ready: true,
+    solo: () => EXEMPLES.map((ex, i) => ({ name: ex.vers.filter(Boolean).map(v => v[0]).join('').toLowerCase(), url: render(ex, 0, i + 1, true) })),
     all: () => EXEMPLES.map((ex, i) => {
       const id = QUESTIONS[Math.floor(rnd() * QUESTIONS.length)].id;
       const name = ex.vers.filter(Boolean).map(v => v[0]).join('').toLowerCase();

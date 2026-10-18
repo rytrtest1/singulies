@@ -28,7 +28,7 @@ export function stageView(W, H) {
   const ins = Math.min(H * 0.45, insetBottom()), top = Math.min(H * 0.2, insetTop()), z = stageZoom(W, H);
   const He = H - ins - top, y0 = -SH.h / 2 - 8, y1 = SH.h / 2 + 4;
   const Hwf = Math.max((y1 - y0) * 1.1, Math.max(SH.w * 1.1, SH.w * 1.08) * He / W), Hw = Hwf / z * H / He;
-  const cx = 0, cy = (y0 + y1) / 2 + (top + He / 2 - H / 2) * Hw / H, D = Hw / (2 * TF);
+  const cx = 0, cy = (y0 + y1) / 2 + (top + He / 2 - H / 2) * Hw / H - (ov && ov.lift ? ov.lift * Hw : 0), D = Hw / (2 * TF);   // (lift : la boîte d'une galerie remonte l'objet, ancré par le bas)
   const eye = [cx, cy - D * Math.sin(TILT), D * Math.cos(TILT)];
   const vp = M4.mul(M4.perspective(FOV, W / H, D * 0.25, D * 3), M4.lookAt(eye, [cx, cy, 0], [0, 1, 0]));
   const project = (x, y, z = 0) => {

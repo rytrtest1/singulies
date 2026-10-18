@@ -7,8 +7,8 @@ import { stageOverride } from '../app/stage.js';
 
 // make(gl) → scène { frame(W, H, cw, ch, t, tilt, spin, p, pT), … }
 // → { canvas, scene, setP(p), go(), destroy() } ou null (pas de WebGL2, scène en échec)
-export async function mountLive(box, make, { reduced = false, p = 0, zoom = 0.9 } = {}) {
-  stageOverride({ top: 0, bottom: 0, zoom });   // (une seule scène par page : le cadrage est celui de cet objet)
+export async function mountLive(box, make, { reduced = false, p = 0, zoom = 0.9, lift = 0 } = {}) {
+  stageOverride({ top: 0, bottom: 0, zoom, lift });   // (une seule scène par page : le cadrage est celui de cet objet)
   const canvas = document.createElement('canvas');
   canvas.className = 'gal-live';
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: true, depth: true, premultipliedAlpha: false });
@@ -59,6 +59,6 @@ export async function mountLive(box, make, { reduced = false, p = 0, zoom = 0.9 
 
 // les scènes (chargées à la demande : la page n'embarque le moteur que pour une fiche qui en a besoin)
 export const SCENES = {
-  livre: { zoom: 1.15, make: base => gl => import('../livres/book3d.js').then(m => m.createBook(gl, base, m.BOOKS)) },
+  livre: { zoom: 1.0, lift: 0.075, make: base => gl => import('../livres/book3d.js').then(m => m.createBook(gl, base, m.BOOKS)) },
   enveloppe: { zoom: 1.0, make: base => gl => import('../lettre/env3d.js').then(m => m.createEnvelope(gl, base)) },
 };

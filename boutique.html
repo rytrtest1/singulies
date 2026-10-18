@@ -6,28 +6,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#060606">
-<title>ETERNEL — un prénom, un poème</title>
-<meta name="description" content="Eternel écrit un poème avec ton prénom, le tape à la machine à écrire et te l’envoie par la poste. Aussi : un poème par mois, mes livres, le jeu SINGULIES.">
+<title>ETERNEL — un prénom un poème</title>
+<meta name="description" content="Eternel écrit un poème avec un prénom, le tape à la machine à écrire et l’envoie par la poste. Aussi : un poème par mois, mes livres, le jeu SINGULIES.">
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
 </head>
 <body>
-<!-- Version boutique (18/10) : la forme d'une boutique en ligne classique (en-tête et menu toujours visibles, accueil,
-     catalogue, une fiche par produit, un seul bouton COMMANDER, pied de page), avec les matières et les rendus du site.
-     Rien n'est caché : pas de geste à deviner, pas de défilement qui pilote une animation. Script : src/boutique/boutique.js -->
+<!-- Version boutique (18/10) : la forme d'une boutique en ligne (accueil, une fiche par produit, un seul bouton, pied de
+     page) avec l'en-tête, le fil, les matières et les rendus du site. Rien n'est caché : pas de geste à deviner, pas de
+     défilement qui pilote une animation. Scripts : src/boutique/ (boutique.js, entete.js, visionneuse.js, feuille.js) -->
 <a class="skip" href="#app">aller au contenu</a>
-<div id="shell">
-  <p class="bar" id="bar"></p>
-  <header class="hd" id="hd">
-    <a class="logo" href="#/" aria-label="ETERNEL, accueil">ETERNEL</a>
-    <nav class="nav" id="nav" aria-label="principal"></nav>
-    <button class="burger" id="burger" type="button" aria-label="menu" aria-expanded="false" aria-controls="drawer"><i></i><i></i></button>
-  </header>
-  <div class="drawer" id="drawer" hidden role="dialog" aria-label="menu"><div class="drawer-in"><button class="drawer-x" type="button" aria-label="fermer">×</button><nav id="drawerNav" aria-label="menu"></nav></div></div>
-  <main id="app" tabindex="-1"></main>
-  <footer class="ft" id="ft"></footer>
-</div>
-<noscript><p style="margin:0;padding:40px 20px;text-align:center;color:#aeaeae;font:15px/1.9 'Courier New',monospace">un prénom, un poème, par la poste.<br>(il faut javascript pour commander.)</p></noscript>
+<header class="hd" id="hd">
+  <canvas aria-hidden="true"></canvas>
+  <button class="hd-bk off" type="button" aria-label="retour" tabindex="-1"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5 L8 12 L15 19"/></svg></button>
+  <a class="hd-br" href="#/" aria-label="ETERNEL, accueil">ETERNEL</a>
+  <button class="hd-mn" type="button" aria-label="menu" aria-expanded="false" aria-controls="pn"><i></i></button>
+</header>
+<nav class="bd" id="bd" aria-label="la boutique"><canvas aria-hidden="true"></canvas></nav>
+<div class="hd-shade" aria-hidden="true"></div>
+<nav class="pn" id="pn" aria-label="menu" inert><canvas class="pn-t" aria-hidden="true"></canvas></nav>
+<main id="app" tabindex="-1"></main>
+<footer class="ft" id="ft"></footer>
+<noscript><p style="position:fixed;inset:0;margin:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#aeaeae;font:15px/1.9 'Courier New',monospace;background:#060606">un prénom un poème<br>par la poste<br><br>(il faut javascript pour commander.)</p></noscript>
 <script type="module" src="./src/boutique/boutique.js"></script>
 </body>
 </html>
