@@ -5,7 +5,7 @@ import '../v2/v2.css';
 import { LIGNE_PAIEMENT } from '../core/paiement.js';
 import { DELAI } from './config.js';
 import './offre.css';
-import { knownEmail } from '../app/storage.js';
+import { knownEmail, homeUrl } from '../app/storage.js';
 
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const K_ORDER = vk('singulies.order');
@@ -68,7 +68,7 @@ export function finalScreen(order, home) {
     : typeInto(d.querySelector('.mc-type'), 'le récapitulatif t’est envoyé par email.', { at: 900, step: 46 });
   tape.then(() => { d.querySelector('.mc-more')?.classList.add('on'); setTimeout(() => d.querySelector('.mc-home')?.classList.add('on'), 500); });
   // (17/10, Maxence : « à la fin de la commande, au récap, un bouton ACCUEIL est logique » — en haut à gauche, c'est toujours une flèche)
-  d.querySelector('.mc-home').addEventListener('click', () => { location.href = new URL('./', document.baseURI).href; });
+  d.querySelector('.mc-home').addEventListener('click', () => { location.href = homeUrl(location.search).href; });
   const dateBtn = d.querySelector('.mc-date');
   if (dateBtn) {
     dateBtn.addEventListener('click', () => import('../menu/contact.js').then(m => m.openContact({ base: new URL('./', document.baseURI).href, name: order.name,

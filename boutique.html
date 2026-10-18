@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#060606">
+<title>ETERNEL — un prénom, un poème</title>
+<meta name="description" content="Eternel écrit un poème avec ton prénom, le tape à la machine à écrire et te l’envoie par la poste. Aussi : un poème par mois, mes livres, le jeu SINGULIES.">
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+</head>
+<body>
+<!-- Version boutique (18/10) : la forme d'une boutique en ligne classique (en-tête et menu toujours visibles, accueil,
+     catalogue, une fiche par produit, un seul bouton COMMANDER, pied de page), avec les matières et les rendus du site.
+     Rien n'est caché : pas de geste à deviner, pas de défilement qui pilote une animation. Script : src/boutique/boutique.js -->
+<a class="skip" href="#app">aller au contenu</a>
+<div id="shell">
+  <p class="bar" id="bar"></p>
+  <header class="hd" id="hd">
+    <a class="logo" href="#/" aria-label="ETERNEL, accueil">ETERNEL</a>
+    <nav class="nav" id="nav" aria-label="principal"></nav>
+    <button class="burger" id="burger" type="button" aria-label="menu" aria-expanded="false" aria-controls="drawer"><i></i><i></i></button>
+  </header>
+  <div class="drawer" id="drawer" hidden role="dialog" aria-label="menu"><div class="drawer-in"><button class="drawer-x" type="button" aria-label="fermer">×</button><nav id="drawerNav" aria-label="menu"></nav></div></div>
+  <main id="app" tabindex="-1"></main>
+  <footer class="ft" id="ft"></footer>
+</div>
+<noscript><p style="margin:0;padding:40px 20px;text-align:center;color:#aeaeae;font:15px/1.9 'Courier New',monospace">un prénom, un poème, par la poste.<br>(il faut javascript pour commander.)</p></noscript>
+<script type="module" src="./src/boutique/boutique.js"></script>
+</body>
+</html>

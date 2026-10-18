@@ -10,14 +10,18 @@ export const FOV = 26 * Math.PI / 180, TILT = 0.22, TF = Math.tan(FOV / 2);
 export const SH = { w: 148, h: 210 };                 // la feuille (A4), en unités
 export const MM = Math.SQRT1_2;                       // unités par millimètre réel
 export const NAV_TOP = 92;   // (17/10) la ligne du haut (← SINGULIES menu) et le bandeau des pages
-export const stageZoom = (W, H) => (W < H ? 0.8 : 0.92);
+// (18/10, boutique) un objet en direct dans une boîte (galerie d'une fiche) au lieu de l'écran entier : pas de réserve en
+// haut ni en bas, l'objet cadré dans la boîte. Posé une seule fois par la page ; sans lui, rien ne change.
+let ov = null;
+export const stageOverride = o => { ov = o; };
+export const stageZoom = (W, H) => (ov && ov.zoom != null ? ov.zoom : W < H ? 0.8 : 0.92);
 
 let sb = null, st = null;
 const probe = side => { const d = document.createElement('div'); d.style.cssText = `position:fixed;${side}:0;width:1px;height:env(safe-area-inset-${side});visibility:hidden`; document.body.appendChild(d); const v = d.offsetHeight || 0; d.remove(); return v; };
 export const safeBottom = () => (sb ??= probe('bottom'));
 export const safeTop = () => (st ??= probe('top'));
-export const insetTop = () => NAV_TOP + safeTop();
-export const insetBottom = () => SHEET_INSET + safeBottom();
+export const insetTop = () => (ov ? ov.top : NAV_TOP + safeTop());
+export const insetBottom = () => (ov ? ov.bottom : SHEET_INSET + safeBottom());
 
 // la vue (W, H : px CSS) — identique à frameAbove de la feuille, la feuille centrée sur (0, 0)
 export function stageView(W, H) {

@@ -1008,8 +1008,8 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   setTimeout(() => root.classList.add('bar-on'), over ? BAR_AT : Math.max(BAR_AT, 900 + letters * 90 + 600));
   // (18/10, boutique) venu de la boutique, COMMANDER y a déjà été touché : RECEVOIR part tout seul, une fois la feuille posée
   try {
-    if (sessionStorage.getItem('sg.depuis') === 'boutique') {
-      sessionStorage.removeItem('sg.depuis');
+    if (sessionStorage.getItem(vk('sg.depuis')) === 'boutique') {
+      sessionStorage.removeItem(vk('sg.depuis'));
       setTimeout(() => { if (root.isConnected) go.click(); }, (over ? BAR_AT : Math.max(BAR_AT, 900 + letters * 90 + 600)) + 1300);
     }
   } catch { /* */ }

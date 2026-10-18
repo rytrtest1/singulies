@@ -24,6 +24,14 @@ const K_SESSION = vk('singulies.prenom');
 export function sessionName() { return get(SS, K_SESSION); }
 export function saveSessionName(n) { set(SS, K_SESSION, n || null); }
 // retour depuis les cartes : le prénom reste mémorisé (confirmé), seule la suite est oubliée
+// (18/10, boutique) venu de la boutique (boutique.html), on y revient : la flèche ←, ACCUEIL et la fin de la commande ramènent
+// à la fiche d'où l'on est parti, pas à l'ancien accueil. La boutique pose l'adresse de retour dans l'onglet (sg.retour).
+export function homeUrl(search = '') {
+  let r = null; try { r = sessionStorage.getItem(vk('sg.retour')); } catch { /* */ }
+  const u = new URL(r || './', document.baseURI);
+  if (search) u.search = search;
+  return u;
+}
 export function clearValidated() { set(SS, K_VALID, null); }
 export function clearStored() { set(LS, K_NAME, null); set(SS, K_VALID, null); }
 

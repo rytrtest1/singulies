@@ -24,6 +24,8 @@ const SITE = {
   bBoutique: 'basique-boutique.html', bArtiste: 'basique-artiste.html', bFormulaire: 'basique-formulaire.html', bFeuille: 'basique-feuille.html',
   // version épurée (17/10) : une boutique d'une page
   epure: 'epure.html',
+  // version boutique (18/10) : la navigation d'une boutique classique, avec les rendus du site
+  boutique: 'boutique.html',
 };
 // V2 et V3 : le moteur actuel, seulement les pages du parcours (ni suivi des commandes, ni essais, ni anciennes versions)
 const MOTEUR = ['main', 'poeme', 'jeuPage', 'lettre', 'livres', 'merci', 'pour', 'confidentialite', 'mentions', 'conditions', 'demande'];
