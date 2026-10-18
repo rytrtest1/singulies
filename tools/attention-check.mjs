@@ -14,4 +14,5 @@ await page.waitForTimeout(8000); console.log('8 s', JSON.stringify(await st()));
 await page.waitForTimeout(4500); await page.screenshot({ path: 'captures/attn/1-debut.png' }); console.log('12,5 s', JSON.stringify(await st()));
 await page.waitForTimeout(3000); await page.screenshot({ path: 'captures/attn/2-texte.png' }); console.log('15,5 s', JSON.stringify(await st()));
 await page.waitForTimeout(4500); console.log('20 s (disparue d’elle-même)', JSON.stringify(await st()));
+await page.waitForTimeout(32000); console.log('52 s (ne revient pas)', JSON.stringify(await st()));
 await browser.close();

@@ -7,7 +7,7 @@
 //
 // stuck : la page dit que la personne est bloquée (elle attend quelque chose et ne fait rien). Au bout de `delay` s de blocage SANS geste,
 // tout s'assombrit autour du point (x, y) (px écran, rayon r de lumière) et le texte se tape à la machine dessous. Puis tout s'éteint de
-// lui-même (HOLD). Le moindre geste (toucher, clic, touche, molette) l'éteint aussi ; elle se ré-arme plus tard, de plus en plus patiente, et jamais plus de MAX fois.
+// lui-même (HOLD). Le moindre geste (toucher, clic, touche, molette) l'éteint aussi ; elle ne revient pas tant que la personne reste sur la page (une fois par visite : MAX = 1) ; si elle s'en va (page quittée, prénom écrit) puis revient, elle peut reparaître.
 // Mouvement réduit : pas de frappe, un simple fondu. Ne bloque jamais un geste (pointer-events: none).
 const CSS = `
 .sg-attn { position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: 0; transition: opacity 1.4s ease;
@@ -24,7 +24,7 @@ const CSS = `
 @media (min-width: 760px) { .sg-attn p { font-size: 15px; } }
 @media (prefers-reduced-motion: reduce) { .sg-attn { transition-duration: .6s; } }
 `;
-const MAX = 3, HOLD = 3200;   // (18/10) elle apparaît, se tape, reste HOLD ms, puis disparaît d'elle-même
+const MAX = 1, HOLD = 3200;   // (18/10) elle apparaît, se tape, reste HOLD ms, puis disparaît d'elle-même
 
 export function createAttention({ max = MAX } = {}) {
   if (!document.getElementById('sg-attn-style')) { const st = document.createElement('style'); st.id = 'sg-attn-style'; st.textContent = CSS; document.head.appendChild(st); }
@@ -58,13 +58,13 @@ export function createAttention({ max = MAX } = {}) {
     // x, y, r : le point où l'attention se pose (px écran) et le rayon de lumière ; below : écart du texte sous y (px, négatif : au-dessus)
     update({ stuck, x, y, r = 120, text: txt, delay = 5, below = 70 }) {
       const now = performance.now();
-      if (!stuck) { if (shown) hide(); lastGest = Math.max(lastGest, now); return; }    // (l'attente ne commence qu'une fois bloqué)
+      if (!stuck) { if (shown) hide(); lastGest = Math.max(lastGest, now); count = 0; return; }   // (la personne est partie ou a écrit : en revenant, l'indication peut reparaître — une fois par visite)    // (l'attente ne commence qu'une fois bloqué)
       if (x !== px || y !== py || r !== pr) {
         px = x; py = y; pr = r;
         el.style.setProperty('--ax', x.toFixed(1) + 'px'); el.style.setProperty('--ay', y.toFixed(1) + 'px'); el.style.setProperty('--ar', r.toFixed(1) + 'px');
         p.style.top = Math.max(8, y + below).toFixed(1) + 'px';
       }
-      // de plus en plus patient : delay, puis 2 × delay, puis 3 × delay… ; jamais plus de `max` fois
+      // une fois par visite (max = 1) : elle ne revient pas tant que la personne reste là ; en revenant sur la page, oui
       if (!shown && count < max && now - lastGest > delay * 1000 * (count + 1)) show(txt);
       else if (shown && txt !== text) type(txt);
     },
