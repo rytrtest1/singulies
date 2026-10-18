@@ -1023,12 +1023,12 @@ function frame(ts) {
     S.nameBox = [Math.min(S.nameBox[0], hx0 - 30), Math.min(S.nameBox[1], H.top - 20), Math.max(S.nameBox[2], hx1 + 30), Math.max(S.nameBox[3], H.bottom + 20)];
   }
   // (18/10, Maxence : « si l'utilisateur n'écrit pas ou ne touche pas le curseur, on met l'attention dessus et on écrit une indication ») site
-  // principal : le curseur seul, rien tapé, rien touché depuis 5 s → tout s'assombrit autour de lui, « entre un prénom » se tape dessous
+  // principal : le curseur seul, rien tapé, rien touché depuis 10 s (écrire son prénom, on le comprend : c'est pour qui peine) → tout s'assombrit autour de lui, « entre un prénom » se tape dessous
   if (FAST_OPEN) {
     attn = attn || createAttention();
     const stuck = S.phase === 'input' && !!S.introOff && !S.typed && !S.confirmed && !text && T < 0 && !S.portal && !S.edit && S.t > 0;
     const cyc = (L.cursor.y0 + L.cursor.y1) / 2;
-    attn.update({ stuck, x: L.cursor.x, y: cyc, r: Math.max(90, Math.min(S.w, S.h) * 0.24), text: 'entre un prénom', delay: 5, below: L.cap * 1.2 + 34 });
+    attn.update({ stuck, x: L.cursor.x, y: cyc, r: Math.max(90, Math.min(S.w, S.h) * 0.24), text: 'entre un prénom', delay: 10, below: L.cap * 1.2 + 34 });
   }
   const voiceHidesCursor = voice && !S.voiceTyped && (voice.state === 'idle' || voice.state === 'asking' || voice.state === 'listening');
   // (16/10) on corrige le prénom : le curseur respire au bout, tant qu'on n'a rien tapé
