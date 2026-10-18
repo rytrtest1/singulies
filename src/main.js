@@ -98,7 +98,8 @@ const OPEN_DARK = FAST_OPEN ? 0.05 : 1.0;      // s de noir à l'ouverture
 const OPEN_FADE = FAST_OPEN ? 0.3 : 1.4;       // s de fondu d'entrée
 // (18/10, Maxence : « d'abord seulement UN PRENOM UN POEME avec ETERNEL et SINGULIES, le champ de prénoms qui apparaît en 1 s selon la
 // profondeur, d'organique ») site principal : le champ naît du fond vers l'avant-plan en ≈ 1,2 s (shader : u_rev)
-const REVEAL_T = 1.2;
+// (Maxence : « trop rapide ; il doit avoir fini d'apparaître quand le curseur est seul ») : il s'étale sur toute l'intro, et finit avec elle
+const revealT = () => OPEN_DARK + 0.3 + INTRO_LEN;   // (instant où le curseur reste seul)
 const LEAVE_FADE = 1.2;     // s de fondu au noir après validation (sans WebGL2)
 const HINT = P.get('indice') === '1' || (EST_VERSION && !EST_V2 && P.get('indice') !== '0');   // (18/10, V3) dans les versions : la consigne (PRENOM, tapé en grisé) paraît après quelques secondes sans frappe
 //   // (17/10, Maxence) plus de PRENOM grisé : le curseur seul ; ?indice=1 pour le revoir   // (10/10) PRENOM en grisé si rien n'est écrit
@@ -1116,7 +1117,7 @@ function frame(ts) {
     }
   }
   stats.drawCalls = renderer.draw({ w: S.w, h: S.h, dpr: S.dpr, cx, cy, grain: CFG.grain, fade: sceneFade, glyphs, vig, energy: R?.energy, under,
-    field: fl, cam: field.cam, focal, vx, vy, dim: S.dim, time: S.t, reveal: FAST_OPEN ? smooth(OPEN_DARK, OPEN_DARK + REVEAL_T, S.t) : 1 });
+    field: fl, cam: field.cam, focal, vx, vy, dim: S.dim, time: S.t, reveal: FAST_OPEN ? smooth(OPEN_DARK, revealT(), S.t) : 1 });
   stats.letters = fl.count;
   stats.gpuMB = +((atlas.width * atlas.height * 2 + canvas.width * canvas.height * 4 * 2) / 1048576).toFixed(1);
 }

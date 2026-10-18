@@ -6,7 +6,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, devi
 page.on('pageerror', e => console.log('ERR', String(e)));
 await page.goto(`http://localhost:${PORT}/?envoi=0&seed=3`);
 await page.waitForFunction(() => window.__sg && window.__sg.S.t > 0.01);
-for (const t of [0.25, 0.5, 0.8, 1.1, 1.6, 2.6, 3.6]) {
+for (const t of [0.4, 0.9, 1.4, 1.9, 2.4, 2.9, 3.6]) {
   await page.waitForFunction(x => window.__sg.S.t >= x, t, { timeout: 30000 });
   await page.screenshot({ path: `captures/ouv/${String(t).replace('.', '_')}.png` });
   console.log(t, await page.evaluate(() => ({ t: +window.__sg.S.t.toFixed(2), navOn: !!window.__sg.S.navOn })));
