@@ -125,8 +125,9 @@ const DEJA_VU = EST_VERSION && (() => { try { return localStorage.getItem(vk('si
 // invite à taper le sien. Toute frappe, tout toucher du champ l'arrête.
 // (18/10, Maxence : « afficher au plus vite UN PRENOM / UN POEME au milieu, qui s'efface pour laisser seulement le curseur ») site
 // principal : la phrase du site, tapée vite, tenue un instant, effacée vite ; les versions gardent ETERNEL
-const INTRO = EST_VERSION ? 'ETERNEL' : 'UN PRENOM UN POEME';
-const I_TYPE = EST_VERSION ? 0.14 : 0.04, I_HOLD = EST_V2 ? 0.8 : EST_VERSION ? 1.5 : 1.0, I_ERASE = EST_VERSION ? 0.07 : 0.028;   // (18/10, V2) une intro d'environ 3 s
+// (18/10, Maxence : « gardons ETERNEL au début, au centre ») ETERNEL, mon nom, tapé puis effacé ; la phrase UN PRENOM / UN POEME reste dans le bandeau des pages
+const INTRO = 'ETERNEL';
+const I_TYPE = EST_VERSION ? 0.14 : 0.1, I_HOLD = EST_V2 ? 0.8 : EST_VERSION ? 1.5 : 1.0, I_ERASE = EST_VERSION ? 0.07 : 0.05;   // (18/10, V2) une intro d'environ 3 s
 // la coupure : après le deuxième mot (UN PRENOM / UN POEME) ; les versions (ETERNEL) : aucune
 const INTRO_BREAK = EST_VERSION ? -1 : INTRO.indexOf(' ', INTRO.indexOf(' ') + 1);
 const introLines = t => (t.length > INTRO_BREAK ? t.slice(0, INTRO_BREAK) + '\n' + t.slice(INTRO_BREAK + 1) : t);
