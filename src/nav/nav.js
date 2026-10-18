@@ -701,7 +701,7 @@ export function installNav(opts) {
       const ready = atHome() && opts.ready ? opts.ready() : performance.now() - shownAt > 2500;
       if (ready) { let done = false; try { done = !!sessionStorage.getItem(K_REVEAL); } catch { /* */ } if (done || reduced || (atHome() && opts.quiet && !opts.quiet())) revealDone = true; else reveal(); }
     }
-    shadeT.classList.toggle('on', sh && on); shadeB.classList.toggle('on', sh && f);
+    shadeT.classList.toggle('on', sh && (on || (atHome() && hdOk))); shadeB.classList.toggle('on', sh && f);   // (18/10) le noir du haut dès qu'ETERNEL est là, pas seulement avec le bandeau des pages : au début, les prénoms dépassaient
     { const w = atHome() && !!opts.wideShade?.(); shadeT.classList.toggle('wide', w); shadeB.classList.toggle('wide', w); }
     if (shown || footOn || opts.headerOnly) wake();
   }
