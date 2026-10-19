@@ -138,7 +138,7 @@ function galerie(host, media, { onSlide = () => {}, start = 0 } = {}) {
   host.innerHTML = `<div class="gal-main">
       <div class="gal-stage" tabindex="0" role="region" aria-roledescription="carrousel" aria-label="images du produit">${media.map((m, i) => `<figure class="gal-s ${m.t}${zoomable.includes(i) ? ' z' : ''}" data-i="${i}" aria-label="${i + 1} sur ${media.length}">${
         m.t === 'img' ? `<img src="${url(m.src)}" alt="${esc(m.alt)}" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} decoding="async" draggable="false">`
-        : m.t === 'video' ? `<video muted loop playsinline preload="metadata" disablepictureinpicture poster="${url(m.poster)}" src="${url(m.src)}" aria-label="${esc(m.alt)}"></video>`
+        : m.t === 'video' ? `<video muted loop playsinline preload="metadata" disablepictureinpicture poster="${url(m.poster)}" src="${url(m.src)}" data-from="${m.from || 0}" aria-label="${esc(m.alt)}"></video>`
         : m.t === 'feuille' ? '<div class="gal-sheet" data-sheet></div>'
         : `<img class="gal-ph" src="${url(m.ph)}" alt="${esc(m.alt)}" decoding="async"><div class="gal-deck" data-deck></div>`}</figure>`).join('')}</div>
       <button class="gal-nav prev" type="button" aria-label="image précédente"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></button>
@@ -149,6 +149,12 @@ function galerie(host, media, { onSlide = () => {}, start = 0 } = {}) {
     <div class="gal-th">${media.map((m, i) => `<button class="gal-t" type="button" data-i="${i}" aria-label="voir l’image ${i + 1}"><img src="${url(m.thumb || m.src || m.ph)}" alt="" loading="lazy"></button>`).join('')}</div>`;
   const stage = $('.gal-stage', host), slides = $$('.gal-s', host), dots = $$('.gal-dot', host), ths = $$('.gal-t', host), prev = $('.prev', host), next = $('.next', host), cap = $('.gal-cap', host);
   let cur = -1, liveBox = null, deck = null, dead = false;
+  // (19/10, Maxence : « enlève la vidéo des mains, garde juste le mécanisme ») le film commence (et reboucle) à `from` : après les mains
+  for (const v of $$('video[data-from]', host)) {
+    const from = +v.dataset.from || 0; if (!from) continue;
+    const seek = () => { try { if (v.currentTime < from) v.currentTime = from; } catch { /* */ } };
+    v.addEventListener('loadedmetadata', seek); v.addEventListener('play', seek); v.addEventListener('timeupdate', seek);
+  }
 
   // l'objet en direct : un canvas pour tout le stage ; chaque état est une étape (p)
   function mountObject() {

@@ -139,9 +139,13 @@ function introLock(vp) {
   return introLockV;
 }
 const I_LEAD = EST_VERSION ? 0.4 : 0.05;   // s entre l'apparition du champ et la première lettre
-const INTRO_LEN = I_LEAD + INTRO.length * (I_TYPE + I_ERASE) + I_HOLD;   // s entre l'apparition du champ et le curseur seul
+// (19/10, Maxence : « on enlève le ETERNEL qui s'écrit : le champ de prénoms, puis l'indication au moment du curseur ») site principal :
+// plus d'intro tapée ; le champ apparaît (INTRO_OPEN s), puis le curseur seul, puis l'indication
+const INTRO_OPEN = 1.4;
+const INTRO_LEN = FAST_OPEN ? INTRO_OPEN : I_LEAD + INTRO.length * (I_TYPE + I_ERASE) + I_HOLD;   // s entre l'apparition du champ et le curseur seul
 function introText() {
   if (!ALT || S.introOff || S.typed || S.phase !== 'input' || S.hintT0 == null || model.text) return '';
+  if (FAST_OPEN) { if (S.t - S.hintT0 >= INTRO_OPEN) { S.introOff = true; S.introEnd = S.t; } return ''; }
   if (DEJA_VU || (EST_VERSION && CFG.reduced)) { S.introOff = true; S.introEnd = S.t; return ''; }   // (V3) qui revient, ou mouvement réduit : pas d'intro
   const u = S.t - S.hintT0 - I_LEAD, n = INTRO.length, a = n * I_TYPE, b = a + I_HOLD, c = b + n * I_ERASE;
   if (u < 0) return '';
@@ -1034,7 +1038,7 @@ function frame(ts) {
   // (16/10) on corrige le prénom : le curseur respire au bout, tant qu'on n'a rien tapé
   const editCur = S.edit && !S.rev && S.keyAt <= (S.editAt ?? 0) && T < 0 && !!text;
   // (17/10, Maxence) le curseur reste visible s'il n'y a plus de prénom écrit (tout effacé)
-  if (!wheel && !voiceHidesCursor && ((!S.typed && !S.confirmed) || editCur || (!text && T < 0)) && S.phase === 'input') {
+  if (!wheel && !voiceHidesCursor && (!FAST_OPEN || S.introOff || S.typed || text) && ((!S.typed && !S.confirmed) || editCur || (!text && T < 0)) && S.phase === 'input') {
     // respiration douce (pas de clignotement sec) : 0,2 → 0,9, période 1,6 s
     const ph = (S.t - OPEN_DARK) / 1.6 * Math.PI * 2;
     // (alt) le curseur s'efface sous UN PRENOM / UN POEME et revient seul quand il s'en va
