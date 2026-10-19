@@ -826,7 +826,8 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   // (12/10, Maxence) l'entrée, dans l'ordre : la feuille et le prénom en colonne (déjà là) ; « l'exemplaire unique de ton
   // poème » en fondu ; « tapé à la machine à écrire » à la machine ; puis les bandeaux et RECEVOIR ; puis la
   // démonstration du bandeau des pages (nav.js) ; puis la flèche vers le bas
-  const INTRO_AT = over ? 600 : 900, BAR_AT = INTRO_AT + introMs(OBJETS[0].txt);
+  const INTRO_AT = over ? 120 : 900,   // (19/10, Maxence : le texte descriptif dès que le poème en colonne est stable sur la feuille : 600 → 120 ms)
+     BAR_AT = INTRO_AT + introMs(OBJETS[0].txt);
   setTimeout(() => show(0), INTRO_AT);
   setTimeout(() => { vidArmed = true; if (!busyMode()) vidSet(true); }, INTRO_AT + 60);   // (17/10) les mains dès que « l'exemplaire unique de ton poème » paraît
   setTimeout(() => root.classList.add('txt-on'), INTRO_AT);

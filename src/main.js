@@ -1294,6 +1294,7 @@ async function boot() {
   if (S.phase === 'black') { S.phaseAt = 0; enterBlack(true); }
   // pas de focus automatique à l'ouverture (ordinateur : une touche de lettre donne le focus au champ)
   booted = true;
+  if (ALT) setTimeout(() => { offerModule().catch(() => {}); }, 800);   // (19/10) le module de l'offre déjà chargé quand la feuille se pose : le texte paraît aussitôt
   if (PAGE === 'poeme' && S.phase === 'input') setTimeout(() => backEl.classList.add('on'), 1500);
   if (gate) await gate.go;
   if (!rafId) rafId = requestAnimationFrame(frame);

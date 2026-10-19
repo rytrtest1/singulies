@@ -23,7 +23,7 @@ export const PRODUITS = [
       { t: 'img', src: P('marysol'), alt: 'Un poème pour MARYSOL, tapé à la machine.' },
       { t: 'img', src: P('julie'), alt: 'Un poème pour JULIE, tapé à la machine.' },
       { t: 'img', src: 'simple/enveloppe-dos.jpg', alt: 'L’enveloppe noire, fermée par un cachet de cire argenté.', zoom: false },
-      { t: 'video', src: 'vrai/machine-7.mp4', from: 1.75, poster: 'vrai/machine-7b.jpg', alt: 'Le mécanisme de la machine à écrire : les marteaux frappent le papier.', thumb: 'vrai/machine-7b.jpg' },
+      { t: 'video', src: 'vrai/machine-meca.mp4', poster: 'vrai/machine-7b.jpg', alt: 'Le mécanisme de la machine à écrire : les marteaux frappent le papier.', thumb: 'vrai/machine-7b.jpg' },
     ],
     recoit: [
       'le poème, tapé une fois à la machine, sur une feuille noire',
