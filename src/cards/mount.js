@@ -171,7 +171,7 @@ export async function mountCards(opts) {
   });
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');
   const giveEl = el('div', 'sc-sign', '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
-  let passTop = null, impAt = 0, ucAt = 0, syncK = '';
+  let passTop = null, impAt = 0, ucAt = 0, syncK = '', ouVisAt = 0;
   if (EST_V2) { giveEl.textContent = 'envoyer →'; giveEl.classList.add('sc-envoyer'); }   // (V2) un mot, pas une flèche
   if (EST_VERSION) { giveEl.setAttribute('role', 'button'); giveEl.setAttribute('aria-label', 'Envoyer ma réponse'); giveEl.tabIndex = 0; giveEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); giveEl.click(); } }); }
   const passEl = el('div', 'sc-pass', 'PASSER<span class="sc-sub"></span>'); passEl.setAttribute('role', 'button');
@@ -673,24 +673,36 @@ export async function mountCards(opts) {
         if (choosing) ucAt = 0; else if (!ucAt && st.freeFor > 1.2) ucAt = nowMs;
         const el_ = ucAt ? (nowMs - ucAt) / 1000 : -1;
         ouOn = !st.ended && el_ >= 0 && el_ < 10; passerOn = !st.ended && el_ >= 11.4;
-        // tire une question du jeu : tapé la première fois, sous le paquet
+        // (20/10, Maxence : « tire une question du jeu s'écrit d'abord, puis OU s'affiche en fondu, puis exprime-toi librement ») la première fois :
+        // la première ligne se tape, OU paraît en fondu, la seconde ligne se tape ; ensuite (un choix annulé) tout revient d'un coup
+        const typeIn = (e, msg, step) => {
+          if (e._typed === 2) { e.textContent = msg; e.classList.add('on'); e._doneAt = e._doneAt || nowMs; return; }
+          e._typed = 1; let k = 0; e.textContent = ''; e.classList.add('on');
+          const go = () => { if (!e._on) { e._typed = 0; return; } e.textContent = msg.slice(0, ++k); if (k < msg.length) e._t = setTimeout(go, step + Math.random() * step * 1.1); else { e._typed = 2; e._doneAt = performance.now(); } };
+          e._t = setTimeout(go, 300);
+        };
         if (ouOn !== tireEl._on) {
           tireEl._on = ouOn; clearTimeout(tireEl._t);
-          if (ouOn) {
-            const msg = 'tire une question du jeu';
-            if (tireEl._typed) { tireEl.textContent = msg; tireEl.classList.add('on'); }
-            else { tireEl._typed = true; let k = 0; tireEl.textContent = ''; tireEl.classList.add('on'); const step = () => { if (!tireEl._on) return; tireEl.textContent = msg.slice(0, ++k); if (k < msg.length) tireEl._t = setTimeout(step, 50 + Math.random() * 60); }; tireEl._t = setTimeout(step, 300); }
-          } else tireEl.classList.remove('on');
+          if (ouOn) { if (tireEl._typed === 2) { tireEl.textContent = 'tire une question du jeu'; tireEl.classList.add('on'); } else typeIn(tireEl, 'tire une question du jeu', 50); }
+          else { tireEl.classList.remove('on'); if (tireEl._typed === 1) tireEl._typed = 0; }
         }
-        if (ouOn !== libreEl._on) { libreEl._on = ouOn; if (ouOn) libreEl.textContent = 'exprime-toi librement'; libreEl.classList.toggle('on', ouOn); }
+        // OU : une fois la première ligne posée (+ 0,25 s) ; la seconde ligne : 0,9 s après lui
+        const ouVis = ouOn && tireEl._typed === 2 && nowMs - (tireEl._doneAt || nowMs) > 250;
+        if (ouVis && !ouVisAt) ouVisAt = nowMs; else if (!ouOn) ouVisAt = 0;
+        const libVis = ouVis && nowMs - ouVisAt > (libreEl._typed === 2 ? 0 : 900);
+        if (libVis !== libreEl._on) {
+          libreEl._on = libVis; clearTimeout(libreEl._t);
+          if (libVis) { if (libreEl._typed === 2) { libreEl.textContent = 'exprime-toi librement'; libreEl.classList.add('on'); } else typeIn(libreEl, 'exprime-toi librement', 50); }
+          else { libreEl.classList.remove('on'); if (libreEl._typed === 1) libreEl._typed = 0; }
+        }
         if (mk && mk.deckBot != null && mk.blankBfTop != null) {
           tireEl.style.top = (mk.deckBot + 12) + 'px'; libreEl.style.top = (mk.blankBfTop - 33) + 'px';
           passTop = ((mk.deckBot + 33) + (mk.blankBfTop - 33)) / 2 - 22; passEl.style.top = passTop + 'px';
         }
         const want = passerOn ? 'PASSER' : 'OU';
-        let showNow = ouOn || passerOn;
+        let showNow = ouVis || passerOn;
         if (showNow && passEl.firstChild.nodeValue !== want) { if (passEl.classList.contains('on')) showNow = false; else passEl.firstChild.nodeValue = want; }   // (le texte ne change jamais pendant qu'il se voit)
-        passEl.classList.toggle('ou', ouOn); passEl.classList.toggle('on', showNow);
+        passEl.classList.toggle('ou', ouVis); passEl.classList.toggle('on', showNow);
         if (passerOn) { passEl.setAttribute('aria-label', 'Passer : j’improvise ton poème avec ' + name); setSub('(j’improvise avec ' + name + ')'); } else { passEl.setAttribute('aria-label', 'ou'); setSub(''); }
       } else { libreEl._on = false; libreEl.classList.remove('on'); passEl.classList.remove('ou'); ucAt = 0; }
       // (17/10) « tire une carte », tapé à la machine au-dessus du paquet qui se mélange ; il s'efface quand on tire

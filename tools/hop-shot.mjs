@@ -1,4 +1,4 @@
-// (20/10) le saut de la carte du dessus sur le paquet (carte vierge d'abord) : images rapprochées sur les coins.   node tools/hop-shot.mjs [port]
+// (20/10) le saut de la carte du dessus sur le paquet (carte vierge d'abord) : images rapprochées, une toutes les 60 ms.   node tools/hop-shot.mjs [port]
 import { chromium } from 'playwright';
 import { mkdirSync, rmSync } from 'fs';
 const PORT = +(process.argv.find(a => /^\d{4}$/.test(a)) || 5195), dir = 'captures/hop';

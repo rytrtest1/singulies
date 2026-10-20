@@ -732,6 +732,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     // (croix d'ombre). Il est donc d'abord un cran plus bas, et remonte pendant que la carte est en l'air.
     const drawU = question && question.anim === 'draw' ? clamp01((t - question.t0) / question.dur) : 1;
     const drop = 1 - sstep(0.2, 0.5, drawU);
+    // (20/10, Maxence : « quand la carte du haut saute, une zone plus sombre sur ses contours ») le saut : la carte du dessous, que la carte du
+    // dessus découvre, était en maillage léger (sans biseau ni relief, plus plate et plus sombre au bord) : pendant le saut elle passe en fin
+    const hopHs = shuf && !shuf.done && shuf.hop >= 0 && !reduced ? (ph => sstep(0, 0.16, ph) * (1 - sstep(0.16, 0.45, ph)) + 0.34 * sstep(0.45, 0.57, ph) * (1 - sstep(0.57, 0.85, ph)))(shuf.hop % 4.5) : 0;
     for (let i = 0; i < n; i++) {
       const v = stack[STACK - n + i], p = deckPose(i, v);
       p.z -= drop * PITCH;
@@ -779,13 +782,13 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
         // (20/10, Maxence : « il y a une collision dans les coins ») chaque carte du paquet a son propre décalage et sa propre inclinaison : en
         // se soulevant, la carte du dessus croisait les coins de celle d'en dessous. Pendant le saut elle s'aligne donc sur la carte dessous
         // (position et inclinaison) — les coins ne se croisent plus —, puis reprend les siens en retombant ; le saut est un peu moins haut
-        const hs = sstep(0, 0.16, ph) * (1 - sstep(0.16, 0.45, ph)) + 0.34 * sstep(0.45, 0.57, ph) * (1 - sstep(0.57, 0.85, ph));
+        const hs = hopHs;
         const vb = n > 1 ? stack[STACK - n + i - 1] : null;
         if (vb) { const kk = Math.min(1, hs * 1.6); p.x = lerp(p.x, vb.jx, kk); p.y = lerp(p.y, lay.yDeck + deckDY + vb.jy, kk); p.rz = lerp(p.rz, vb.jr, kk); }
         p.z += 2.4 * hs;
       }
       const ei = Math.max(0, Math.min(n - 1, (p.z + drop * PITCH) / PITCH));   // (sa hauteur réelle, en cartes)
-      card.draw(vp, eye, P, { model: model(Gq, p), lod: ei > n - 1.5 && drop < 0.5 ? 'fine' : 'coarse', shade: (0.55 + 0.45 * (ei + 1) / n) * dimQ, fade: fadeD, occ: ended ? null : occQ, ...v });
+      card.draw(vp, eye, P, { model: model(Gq, p), lod: (ei > n - 1.5 || (hopHs > 0.03 && i === n - 2)) && drop < 0.5 ? 'fine' : 'coarse', shade: (0.55 + 0.45 * (ei + 1) / n) * dimQ, fade: fadeD, occ: ended ? null : occQ, ...v });
     }
     for (const c of leaving) card.draw(vp, eye, P, { model: model(Gq, poseOf(c, t)), lod: 'fine', ink: c.ink, shade: dimQ, fade: fadeQ, ...c.v });
     // l'esquisse « revenir » : un bout de la carte précédente se montre au bord gauche
