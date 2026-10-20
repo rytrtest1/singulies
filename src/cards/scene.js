@@ -334,7 +334,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     a.cursorMM = pre ? pre.cursorMM : makeStripInk('', Math.floor(v.seed * 1000) + 7, question.margin).cursor;
     return a;
   }
-  const HINT_ANSWER = 'réponds ici', HINT_BLANK = 'tes mots sont le thème du poème';   // (18/10, Maxence : « d'abord la carte vierge avec tes mots sont le thème du poème »)
+  const HINT_ANSWER = 'réponds ici', HINT_BLANK = 'écris ce que tu veux ici';   // (20/10, Maxence : « écris ce que tu veux ici, c'est plus clair » ; avant : tes mots sont le thème du poème) (18/10, Maxence : « d'abord la carte vierge avec tes mots sont le thème du poème »)
      // (12/10, Maxence)   // (10/10 : était « ta réponse est le thème »)
   function renderAnswer(c = act()) {
     if (!c) return;
