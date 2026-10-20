@@ -36,7 +36,7 @@ const CSS = `
   font: 15px/1.4 'SG Machine', 'Courier New', monospace; letter-spacing: .02em; color: rgb(226, 222, 214); }
 .sc-tire.on { opacity: .78; }
 .sc-pass .sc-sub { transition: opacity .55s ease; }
-.sc-pass .sc-sub { display: block; margin-top: 4px; font-size: 13px; line-height: 1.2; letter-spacing: .04em; padding-left: 0; opacity: .55; }
+.sc-pass .sc-sub { display: block; margin-top: -11px;   /* (20/10, Maxence : « rapproche la parenthèse de PASSER ») */ font-size: 13px; line-height: 1.2; letter-spacing: .04em; padding-left: 0; opacity: .55; }
 .sc-back { left: max(6px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); }
 /* (17/10, Maxence) au-dessus de l'adresse : « a qui je l'envoie ? » — on comprend qu'on peut l'offrir */
 .sc-who { position: fixed; z-index: 13; transform: translateY(-100%); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .8s;
@@ -170,7 +170,7 @@ export async function mountCards(opts) {
   });
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');
   const giveEl = el('div', 'sc-sign', '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
-  let passTop = null;
+  let passTop = null, impAt = 0;
   if (EST_V2) { giveEl.textContent = 'envoyer →'; giveEl.classList.add('sc-envoyer'); }   // (V2) un mot, pas une flèche
   if (EST_VERSION) { giveEl.setAttribute('role', 'button'); giveEl.setAttribute('aria-label', 'Envoyer ma réponse'); giveEl.tabIndex = 0; giveEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); giveEl.click(); } }); }
   const passEl = el('div', 'sc-pass', 'PASSER<span class="sc-sub"></span>'); passEl.setAttribute('role', 'button');
@@ -180,8 +180,8 @@ export async function mountCards(opts) {
   if (autreEl) { autreEl.setAttribute('role', 'button'); autreEl.tabIndex = 0; autreEl.setAttribute('aria-label', 'Tirer une autre carte'); autreEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); autreEl.click(); } }); }
   // le texte entre parenthèses sous PASSER : il se fond (au noir) et laisse la place au suivant
   let subT = 0;
-  const setSub = txt => { const sb = passEl.querySelector('.sc-sub'); if (sb.textContent === txt) return; clearTimeout(subT); if (!sb.textContent) { sb.textContent = txt; return; } sb.style.opacity = '0'; subT = setTimeout(() => { sb.textContent = txt; sb.style.opacity = ''; }, 580); };
-  const namePass = () => { if (passEl._free) return; passEl.setAttribute('aria-label', 'Passer : j’improvise ton poème avec ' + name); setSub(EST_VERSION ? '(j’improvise ton poème avec ' + name + ')' : '(j’improvise avec ' + name + ')'); };
+  const setSub = txt => { const sb = passEl.querySelector('.sc-sub'); if (sb.textContent === txt) return; clearTimeout(subT); if (!sb.textContent) { sb.style.opacity = '0'; sb.textContent = txt; requestAnimationFrame(() => requestAnimationFrame(() => { sb.style.opacity = ''; })); return; } sb.style.opacity = '0'; subT = setTimeout(() => { sb.textContent = txt; sb.style.opacity = ''; }, 580); };
+  const namePass = () => { if (passEl._free) return; passEl.setAttribute('aria-label', 'Passer : j’improvise ton poème avec ' + name); if (EST_VERSION) setSub('(j’improvise ton poème avec ' + name + ')'); else { passEl._imp = true; setSub(''); } };
   namePass();
   // l'enveloppe : POSTER (même signe que PASSER), dès que l'adresse a deux lignes, même clavier ouvert
   const postEl = el('div', 'sc-pass', 'POSTER'); postEl.setAttribute('role', 'button'); postEl.tabIndex = 0;
@@ -659,25 +659,32 @@ export async function mountCards(opts) {
       const mk = scene.marks();
       scene.setNameFy(document.querySelector('.nv-hd.on') ? 0.13 : 0.11);   // (le prénom sous le bandeau des pages quand il est là)
       // (17/10) « tire une carte », tapé à la machine au-dessus du paquet qui se mélange ; il s'efface quand on tire
-      { const on = !!st.shuffling;
+      { const on = !!st.shuffling && !st.ended && !st.userWrite && !(st.bf && st.active && st.active.text);   // (20/10) un choix fait (la carte vierge touchée, un thème écrit, la fin) : plus de « tire une carte »
         if (on !== tireEl._on) {
           tireEl._on = on; clearTimeout(tireEl._t);
           // (18/10, carte vierge d'abord) « ou tire une carte » : sous le paquet, la carte vierge est au-dessus
-          if (on) { const msg = st.bf ? 'ou tire une carte' : 'tire une carte'; let k = 0; tireEl.textContent = ''; tireEl.classList.add('on'); const step = () => { if (!tireEl._on) return; tireEl.textContent = msg.slice(0, ++k); if (k < msg.length) tireEl._t = setTimeout(step, 70 + Math.random() * 80); }; tireEl._t = setTimeout(step, 600); }
+          if (on) { const msg = 'tire une carte'; let k = 0; tireEl.textContent = ''; tireEl.classList.add('on'); const step = () => { if (!tireEl._on) return; tireEl.textContent = msg.slice(0, ++k); if (k < msg.length) tireEl._t = setTimeout(step, 70 + Math.random() * 80); }; tireEl._t = setTimeout(step, 600); }
           else tireEl.classList.remove('on');
         }
-        if (on && mk && mk.deckTop != null) tireEl.style.top = (st.bf && mk.deckBot != null ? mk.deckBot + 16 : Math.max(100, mk.deckTop - 46)) + 'px'; }
+        if (on && mk && mk.deckTop != null) tireEl.style.top = Math.max(100, mk.deckTop - 46) + 'px'; }
       // (10/10) aussi quelques secondes après l'apparition de la carte blanche, même pas touchée (réponse vide)
       const blankIn = st.mode === 'q' && st.blankFor > 3.5 && !(st.active && st.active.text);
       // (12/10, Maxence) après le paiement : PASSER seul, sous la question posée (il mène à la carte vierge, « dis-moi ce
       // que tu veux », sous laquelle PASSER revient : j'improvise)
       const paidQ = st.paidMode && st.mode === 'q' && !st.shuffling && st.active && !st.active.text && st.idle > 1.2;
       // (18/10, Maxence : « au milieu PASSER apparaît après quelques secondes et (j'improvise avec PRENOM) ») entre la carte vierge et le paquet
-      const bfOn = st.bf && st.freeFor > 3.5 && !(st.active && st.active.text);
-      passEl.classList.toggle('on', !st.ended && (st.bf ? bfOn : ((st.mode === 'free' && (st.paidMode ? passTop != null : st.freeFor > 3)) || (st.paidMode ? paidQ : blankIn))));   // (après le paiement : il reste, à la même place, pendant que la carte se retourne)
+      const bfOn = st.bf && st.freeFor > 3.5 && !(st.active && st.active.text) && !st.userWrite;   // (20/10) la carte vierge touchée = un choix : PASSER s'efface, il revient clavier fermé
+      passEl.classList.toggle('on', !st.ended && (st.bf ? bfOn : ((st.mode === 'free' && (st.paidMode ? passTop != null : st.freeFor > 3) && (EST_VERSION || !st.userWrite)) || (st.paidMode ? paidQ : blankIn))));   // (après le paiement : il reste, à la même place, pendant que la carte se retourne)
       // (16/10, Maxence : « PASSER pouvait faire penser à passer la carte en cours ») sous la question : on dit où il mène
       { const free = !!st.paidMode && st.mode === 'q', sub = passEl.querySelector('.sc-sub');
-        if (free !== passEl._free) { passEl._free = free; if (free) { setSub('(si tu veux t’exprimer librement)'); passEl.setAttribute('aria-label', 'Passer : écrire librement'); } else namePass(); } }
+        if (free !== passEl._free) { passEl._free = free; if (free) { passEl._imp = false; setSub('(si tu veux t’exprimer librement)'); passEl.setAttribute('aria-label', 'Passer : écrire librement'); } else namePass(); } }
+      // (20/10, Maxence : « affiche (j’improvise avec PRENOM) seulement si 10 secondes sans choix ») site principal : la parenthèse paraît après 10 s
+      // sans que la carte vierge soit touchée ni rien écrit ; un choix la remet à zéro
+      if (!EST_VERSION && passEl._imp) {
+        const choisi = !!st.userWrite || !!(st.active && st.active.text) || !passEl.classList.contains('on');
+        if (choisi || !impAt) impAt = choisi ? 0 : performance.now();
+        setSub(impAt && performance.now() - impAt > 10000 ? '(j’improvise avec ' + name + ')' : '');
+      }
       // (18/10, correctif C6) un thème est écrit sur la carte blanche : PASSER devient CONTINUER (il mène à la suite AVEC ce
       // thème ; avant, PASSER l'effaçait et la demande partait en « improvisation »)
       { const ecrit = EST_VERSION && st.mode === 'free' && !!(st.active && st.active.text);
@@ -698,7 +705,7 @@ export async function mountCards(opts) {
       const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
       if (st.kb && r) passEl.style.top = Math.max(r.bottom + 2, (r.bottom + kbTop) / 2 - 22) + 'px';
       // (10/10) centré entre la question (et sa bande de réponse) et la carte blanche
-      else if (st.bf && mk && mk.blankUpBottom != null) { passTop = (mk.blankUpBottom + mk.deckTop) / 2 - (passEl.offsetHeight || 56) / 2; passEl.style.top = passTop + 'px'; }
+      else if (st.bf && mk && mk.blankUpBottom != null) { passTop = (mk.deckBot + mk.blankBfTop) / 2 - (passEl.offsetHeight || 56) / 2; passEl.style.top = passTop + 'px'; }
       else if (st.mode === 'q' && mk && st.paidMode) { passTop = ((mk.qBottom || mk.deckBottom) + 34); passEl.style.top = passTop + 'px'; }
       else if (st.mode === 'free' && st.paidMode && passTop != null) passEl.style.top = passTop + 'px';
       else if (st.mode === 'q' && mk) passEl.style.top = (((mk.qBottom || mk.deckBottom) + mk.blankTop) / 2 - (passEl.offsetHeight || 60) / 2) + 'px';
@@ -784,6 +791,8 @@ export async function mountCards(opts) {
     if (st.writing && st.active && st.active.text && !st.ended && performance.now() - lastPD > 400 && give('clavier fermé')) return;
     scene.stopWriting();
   });
+  // (20/10) toucher la carte vierge, c'est le champ natif posé dessus qui le reçoit : c'est un choix (PASSER s'efface jusqu'à la fermeture du clavier)
+  answer.addEventListener('pointerdown', () => { if (!sheet) scene.markWrite(); });
   both('focus', () => {
     if (sheet) { const es = sheet.state().env; if (es && es.write && !es.writing) sheet.startWriting(); return; }
     if (started && !scene.state().writing) scene.startWriting();
@@ -889,7 +898,7 @@ export async function mountCards(opts) {
   api.stepBack = stepBack;
   api.level = () => {
     if (sheet) { if (mail) return 6; const es = sheet.state().env; return es && !es.back ? (es.posted ? 6 : 5) : 4; }
-    const st = scene.state(); return st.mode === 'free' && !st.ended ? 3 : 2;
+    const st = scene.state(); return st.mode === 'free' && !st.ended && !st.bf ? 3 : 2;   // (la carte vierge d'abord est la première étape)
   };
   // la suite : réponse (ou carte blanche) donnée
   function give(how) {

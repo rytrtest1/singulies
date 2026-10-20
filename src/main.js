@@ -571,7 +571,7 @@ async function leaveCeremony() {
   const vrai = !!(o.session && !o.simule && !o.reserve);
   if (!vrai) { const k = fin.readOrder(); if (k) { k.resumed = true; fin.saveOrder(k); } }   // (une réservation : pas de reprise automatique)
   histo.stop();
-  await fin.exitScreen(o);
+  // (20/10, Maxence : « enlève le message super long qui dit qu'on quitte la commande ») plus d'écran d'adieu : l'accueil, directement
   const home = homeUrl(location.search);
   location.href = home.href;
 }
@@ -1397,7 +1397,16 @@ if (ALT) {
     redo: () => !onNames() && !S.paid && !document.querySelector('.of.paying, .of.env'),
     onCurrent: () => { if (!onNames() && !S.paid && !document.querySelector('.of.paying, .of.env')) editName(); },
     // (17/10) la flèche retour du haut : d'abord ce qui est ouvert sur la feuille (la vue rapprochée, la suite de la page)
-    onBack: () => { if (S.paid) { if (histo.back()) return true; leaveCeremony(); return true; } return !!(offerObj && offerObj.back && offerObj.back()); },
+    // (20/10, Maxence : « cliquer sur la flèche revient juste à l'étape précédente, ça ne quitte pas jusqu'à l'accueil ») pendant la cérémonie, ← rembobine
+    // d'un cran (la réponse, la feuille, l'enveloppe, l'email) ; seule la première étape (ou la page de fin) mène à l'accueil
+    onBack: () => {
+      if (S.paid) {
+        if (histo.back()) return true;
+        const c = cardsReady && cardsReady !== 'failed' && cardsReady.level && !document.querySelector('.mc.fin') ? cardsReady : null;
+        if (c && c.level() > 2) { c.stepBack(); return true; }   // (la scène occupée : le toucher est ignoré, on ne quitte pas)
+        leaveCeremony(); return true;
+      }
+      return !!(offerObj && offerObj.back && offerObj.back()); },
     // (17/10, Maxence : « c'était bien de charger avant ») de nouveau tôt, aussi sur le portail : la préparation ne
     // bloque plus (shaders compilés en parallèle, gl.js programAsync)
     calm: () => !document.querySelector('.of.paying, .of.env') && S.trans == null,

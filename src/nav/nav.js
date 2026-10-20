@@ -683,7 +683,8 @@ export function installNav(opts) {
     // (17/10, Maxence : « après RECEVOIR, enlève les bandeaux, on garde juste la flèche retour » ; « dans tous les cas, après x secondes
     // sans interaction, le menu et les bandeaux réapparaissent ») pendant la cérémonie (commande, enveloppe, paiement) : seulement ←,
     // jusqu'à ce que plus rien ne bouge depuis HUSH_IDLE ; un geste les range de nouveau
-    const hush = atHome() && !!opts.hush?.() && performance.now() - actAt < HUSH_IDLE;
+    // (20/10, Maxence : « jamais de bandeau à partir du paiement réalisé jusqu'au retour à l'accueil ») plus de retour des bandeaux après un silence
+    const hush = atHome() && !!opts.hush?.();
     const bare = atHome() && !!opts.hush?.() && hush;
     const on = atHome() ? !!opts.show?.() && !hush : true;
     const solo = on && atHome() && !drag && !!opts.solo?.();   // (en glissant, les voisins paraissent)

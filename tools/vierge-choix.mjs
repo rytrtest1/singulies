@@ -1,0 +1,23 @@
+// (20/10) carte vierge d'abord : toucher la carte vierge (sans écrire) = PASSER et « tire une carte » s'effacent ; clavier fermé = PASSER revient ;
+// la parenthèse (j'improvise avec …) ne paraît qu'après 10 s sans choix.   node tools/vierge-choix.mjs [port]
+import { chromium } from 'playwright';
+const PORT = +(process.argv[2] || 5195);
+const browser = await chromium.launch({ headless: true, channel: 'msedge', args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
+const vp = { width: 390, height: 844 };
+const page = await browser.newPage({ viewport: vp });
+page.on('pageerror', e => console.log('ERR', String(e)));
+const st = () => page.evaluate(() => { const p = document.querySelector('.sc-pass'), t = document.querySelector('.sc-tire'); const s = window.__sg.cardsApi.scene.state();
+  return { pass: p.classList.contains('on'), sub: p.querySelector('.sc-sub').textContent, tire: t.classList.contains('on'), userWrite: s.userWrite, writing: s.writing }; });
+await page.goto(`http://localhost:${PORT}/?envoi=0&seed=3`); await page.waitForTimeout(5000);
+await page.mouse.click(vp.width / 2, vp.height / 2); await page.keyboard.type('LEA', { delay: 90 }); await page.keyboard.press('Enter');
+await page.waitForFunction(() => document.querySelector('#offre.on.bar-on'), null, { timeout: 120000 }); await page.waitForTimeout(800);
+await page.click('.of-bar .of-go'); await page.waitForTimeout(900);
+if (await page.$('.mc [data-for]')) await page.click('.mc [data-for="moi"]');
+await page.waitForFunction(() => window.__sg.cardsApi?.scene?.state().bf, null, { timeout: 90000 });
+await page.waitForTimeout(5000); console.log('5 s', JSON.stringify(await st()));
+await page.waitForTimeout(6500); console.log('11,5 s', JSON.stringify(await st()));
+const y = await page.evaluate(() => { const m = window.__sg.cardsApi.scene.marks(); return m.blankBfTop + 60; });
+await page.mouse.click(vp.width / 2, y); await page.waitForTimeout(1500); console.log('carte vierge touchée', JSON.stringify(await st()));
+await page.evaluate(() => document.activeElement && document.activeElement.blur()); await page.waitForTimeout(1500); console.log('clavier fermé', JSON.stringify(await st()));
+await page.waitForTimeout(11500); console.log('+11 s', JSON.stringify(await st()));
+await browser.close();

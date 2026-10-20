@@ -288,6 +288,11 @@
 .mc-sign:hover, .mc-sign:focus-visible { color: #fff; outline: none; }
 .mc-home { border: 0; background: none; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 1.1s ease; margin-top: 34px; }
 .mc-home.on { opacity: 1; pointer-events: auto; }
+/* (20/10, Maxence : « ACCUEIL tirait une carte du jeu ») le paquet (absolu, plus bas dans la page) recouvrait ACCUEIL sur les
+   écrans courts : ACCUEIL passe au-dessus, et le bloc du jeu ne reçoit le toucher que sur le paquet et le partage */
+.mc.fin .mc-home { z-index: 5; }
+.mc.fin .mc-jeu { pointer-events: none; }
+.mc.fin .mc-deck, .mc.fin .mc-share { pointer-events: auto; }
 .mc-jeu { position: absolute; left: 0; right: 0; bottom: calc(8px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; }
 .mc-deck { position: relative; width: 100%; height: min(24svh, 200px); cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent; outline: none; }
 .mc-deck-c { position: absolute; inset: 0; width: 100%; height: 100%; }

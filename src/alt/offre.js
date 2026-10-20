@@ -468,7 +468,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   root.innerHTML = `
     <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
     <main>
-      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"><div class="of-mvw"><video class="of-mv" muted playsinline disablepictureinpicture preload="auto" tabindex="-1" poster="${esc(new URL(HANDS ? 'vrai/machine-7.jpg' : 'vrai/machine-7b.jpg', document.baseURI).href)}" src="${esc(new URL('vrai/machine-7.mp4', document.baseURI).href)}"></video></div></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
+      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"><div class="of-mvw"><video class="of-mv" muted playsinline disablepictureinpicture preload="auto" tabindex="-1" poster="${esc(new URL(HANDS ? 'vrai/machine-7.jpg' : 'vrai/machine-7b.jpg', document.baseURI).href)}" src="${esc(new URL('vrai/machine-8.mp4', document.baseURI).href)}"></video></div></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
       <div class="of-rest">
       <!-- (12/10) chaque section de la suite porte son nom (data-nom) : le signe du bas l'annonce et y mène -->
       <!-- (17/10, Maxence) plus de section « d'autres prénoms » ni « en vrai » : VOIR EN VRAI, sur l'objet (openVrai) -->
@@ -883,7 +883,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   setInterval(() => {
     if (!root.isConnected) return;
     const idle = down.dataset.shown === '1' && performance.now() - lastAct > 5000 && !detail && !busyMode() && root.scrollTop < 8 && !drive;
-    if (idle && !down.classList.contains('on')) { down.classList.add('on'); if (!peeked) { peeked = true; setTimeout(() => { if (down.classList.contains('on') && performance.now() - lastAct > 5000) peek(); else peeked = false; }, 6000); } }   // (17/10, Maxence : « laisse du temps avant le scroll d'exemple : 6 s après la dernière apparition ») la page ne descend un peu qu'après 6 s de plus, si rien n'a bougé
+    if (idle && !down.classList.contains('on')) { down.classList.add('on'); /* (20/10, Maxence : « enlève le scroll automatique vers le bas ») la page ne descend plus d'elle-même (peek() reste prêt) */ }   // (17/10, Maxence : « laisse du temps avant le scroll d'exemple : 6 s après la dernière apparition ») la page ne descend un peu qu'après 6 s de plus, si rien n'a bougé
     else if (!idle && down.classList.contains('on') && (detail || busyMode() || root.scrollTop >= 8)) down.classList.remove('on');
   }, 300);
   // (17/10, Maxence) quand la flèche paraît, la page descend un peu, le temps de montrer ce qui suit (ETERNEL, qui
