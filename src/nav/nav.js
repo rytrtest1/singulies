@@ -636,7 +636,7 @@ export function installNav(opts) {
         const bk = hd.querySelector('.nv-bk'), mn = hd.querySelector('.nv-mn i'), sv = bk.querySelector('svg');
         const q = vis(bk) && sv.getBoundingClientRect(), m = vis(hd.querySelector('.nv-mn')) ? mn.getBoundingClientRect() : { width: 0 };
         const a0 = q && q.width ? q.left + 0.625 * q.width + 10 : -4, b1 = m.width ? m.left - 10 : fw + 4;   // (le même écart de 10 px des deux côtés : la pointe de ← finit aux 15/24 de son dessin)
-        const sg = j => ({ sag: reduced ? 0.6 : 0.3 + 1.1 * breath(3 + j, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 2 + j), yf: yt, g0: (j ? rr : a0) - (j ? -fl : fl) });
+        const sg = j => ({ sag: reduced ? 0.6 : 0.3 + 1.1 * breath(3 + j, t), sag2: reduced ? 0 : 0.35 * Math.sin(t * 0.43 + 2 + j), yf: yt, g0: (j ? rr : a0) - fl });   // (20/10, Maxence : « le fil à droite d'ETERNEL va vers la gauche, il doit aller vers la droite ») le même sens des deux côtés : de gauche à droite
         paintThread(x, a0, l, y, 37, 1.2, { holes: [a0 > -4, true], ...sg(0) });
         paintThread(x, rr, b1, y, 41, 1.2, { holes: [true, b1 < fw + 4], ...sg(1) });
       }

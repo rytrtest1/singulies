@@ -10,7 +10,10 @@ import { acrostic } from '../basique/basique.js';
 import { mountExemples } from './exemples.js';
 // (18/10, Maxence : « on enlève mes mains pour l'instant ») false : le film saute les mains (il commence au mécanisme) ; true : les mains reviennent
 const HANDS = false;
-import MACHINE from './machine.json';   // { loop, duration, rest[] } : voir tools/machine-cut.py
+import MACHINE_FULL from './machine.json';   // { loop, duration, rest[] } : voir tools/machine-cut.py
+// (20/10, Maxence : « la vidéo ne se déclenche pas quand « tapé à la machine » s'écrit, mais juste après ») le film ne contient plus que le mécanisme
+// (machine-9.mp4 : machine-7 coupé à la fin des mains, plus aucun saut dans le fichier avant de jouer) ; ses repères sont ceux de machine.json, décalés
+const MACHINE = { loop: 0, duration: MACHINE_FULL.duration - MACHINE_FULL.loop, rest: MACHINE_FULL.rest.map(([a, b]) => [a - MACHINE_FULL.loop, b - MACHINE_FULL.loop]) };
 import { NAV_TOP, safeTop } from '../app/stage.js';
 import { count } from '../app/count.js';
 import { stitch } from './stitch.js';
@@ -468,7 +471,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   root.innerHTML = `
     <!-- (11/10) ni flèche retour ni menu : le bandeau des pages, en haut (src/nav/nav.js) -->
     <main>
-      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"><div class="of-mvw"><video class="of-mv" muted playsinline disablepictureinpicture preload="auto" tabindex="-1" poster="${esc(new URL(HANDS ? 'vrai/machine-7.jpg' : 'vrai/machine-7b.jpg', document.baseURI).href)}" src="${esc(new URL('vrai/machine-8.mp4', document.baseURI).href)}"></video></div></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
+      ${over ? `<div class="of-stage"><div class="of-hole" aria-hidden="true"><div class="of-mvw"><video class="of-mv" muted playsinline disablepictureinpicture preload="auto" tabindex="-1" poster="${esc(new URL(HANDS ? 'vrai/machine-7.jpg' : 'vrai/machine-7b.jpg', document.baseURI).href)}" src="${esc(new URL('vrai/machine-9.mp4', document.baseURI).href)}"></video></div></div>${CAP}<div class="of-story" aria-hidden="true"></div></div><div class="of-edges" aria-hidden="true"></div>` : `<div class="sheet of-sheet"><div class="ac empty" aria-hidden="true"></div></div>${CAP}`}
       <div class="of-rest">
       <!-- (12/10) chaque section de la suite porte son nom (data-nom) : le signe du bas l'annonce et y mène -->
       <!-- (17/10, Maxence) plus de section « d'autres prénoms » ni « en vrai » : VOIR EN VRAI, sur l'objet (openVrai) -->
@@ -568,19 +571,30 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
     // puis le mécanisme avec la frappe de la seconde ; ensuite : la première ligne paraît, le mécanisme repart avec la seconde
     const again = intro && nl > 0 && (vidStarted || !HANDS) && !!vid;   // (sans les mains : toujours « le mécanisme avec la seconde ligne »)
     if (again) { try { vid.currentTime = VID_LOOP; } catch { /* */ } }
-    else vidPlay(true);
+    const live = () => box.isConnected && !box.classList.contains('out');   // (une description remplacée ne tape plus, et n'arrête plus le film)
     const strike = () => {
-      if (!box.isConnected) return;
-      if (again && n === 0) vidPlay(true);              // (le mécanisme repart avec la frappe de la seconde ligne)
+      if (!live()) return;
       if (n >= ks.length) { vidPlay(false); return; }   // (la description est posée : la machine s'arrête, image figée)
       ks[n++].classList.add('on');
       const ch = ks[n - 1].textContent;
       typeT = setTimeout(strike, (ch === ' ' ? 70 : 32) + Math.random() * 46);
     };
-    typeT = setTimeout(strike, again ? 900 : intro && nl > 0 ? Math.round(MACHINE.loop * 1000) + 60 : 140);
+    // (20/10, Maxence : « troubleshoot ça, ça doit être nickel ») la frappe et le film partent ENSEMBLE : on lance le film, et la première lettre
+    // ne vient qu'au moment où il tourne vraiment (événement « playing ») — un film qui démarre (décodage, mémoire tampon, téléphone lent) ne
+    // prend plus de retard sur le texte ; repli : au plus 1 s d'attente
+    const together = () => {
+      if (!vid || !vidW || !vidW.classList.contains('on') || matchMedia('(prefers-reduced-motion: reduce)').matches) { strike(); return; }
+      let fired = false;
+      const go = () => { if (fired) return; fired = true; vid.removeEventListener('playing', go); if (live()) strike(); };
+      if (!vid.paused && vid.readyState >= 3) { vidPlay(true); go(); return; }      // (déjà en train de tourner : rien à attendre)
+      vid.addEventListener('playing', go);
+      vidPlay(true);
+      typeT = setTimeout(go, vid.readyState >= 3 ? 350 : 1000);
+    };
+    typeT = setTimeout(together, again ? 700 : intro && nl > 0 ? Math.round(MACHINE.loop * 1000) + 60 : 120);
   };
   // (le temps de l'entrée de l'étape 0 : fondu + frappe)
-  const introMs = s => (HANDS ? Math.round(MACHINE.loop * 1000) + 60 : 900) + Math.max(0, s.length - s.indexOf('\n')) * 56 + 200;
+  const introMs = s => (HANDS ? Math.round(MACHINE.loop * 1000) + 60 : 1000) + Math.max(0, s.length - s.indexOf('\n')) * 56 + 200;
   const clearTxt = () => { clearTimeout(typeT); vidPlay(false); for (const old of txt.querySelectorAll('i:not(.out)')) { old.classList.add('out'); old.style.opacity = '0'; setTimeout(() => old.remove(), 400); } };
   // les petits mots restent avec le suivant (jamais « à » seul en fin de ligne)
   const nbsp = s => { const r = /(^|[\s\u00a0])(à|a|de|du|la|le|un|et|y|me|ton|pour|au) /gi, f = x => x.replace(r, (m, a, w) => a + w + '\u00a0'); return f(f(s)); };
@@ -833,7 +847,7 @@ export function mountOffer({ name, over = false, onPaid = null, scene = null, na
   setTimeout(() => root.classList.add('txt-on'), INTRO_AT);
   // (17/10, Maxence : « feuille ; « l'exemplaire unique… », les mains, ETERNEL et SINGULIES ; puis « tapé à la machine à écrire » et le reste ») le bandeau des pages
   // paraît avec la frappe de la seconde ligne (txt2-on), pas avec la première
-  setTimeout(() => root.classList.add('txt2-on'), INTRO_AT + Math.round(MACHINE.loop * 1000) + 60);                          // (17/10, Maxence) le menu paraît avec le premier texte
+  setTimeout(() => root.classList.add('txt2-on'), INTRO_AT + Math.round(MACHINE_FULL.loop * 1000) + 60);                          // (17/10, Maxence) le menu paraît avec le premier texte
   // (12/10, Maxence : « l'invitation à descendre n'est pas assez claire ») comme sur la plupart des sites : le signe du bas
   // dit où il mène — le nom de la section suivante (« d'autres prénoms »), sous une flèche vers le bas — et y va
   // directement (la scène s'efface le temps du saut, l'histoire est posée à sa fin). Les étapes de l'objet : les points,

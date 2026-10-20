@@ -61,7 +61,7 @@ export function installEntete(o) {
     // le fil va d'une icône à l'autre : il sort d'un trou juste après ← (s'il y a un retour), plonge dans un trou juste avant ≡
     const sv = $('svg', bk).getBoundingClientRect(), m = $('i', mn).getBoundingClientRect();
     const a0 = vis(bk) && sv.width ? sv.left + 0.625 * sv.width + 10 : -4, b1 = m.width ? m.left - 10 : W + 4;
-    const sg = j => ({ sag: REDUCED ? 0.6 : 0.3 + 1.1 * breath(3 + j, t), sag2: REDUCED ? 0 : 0.35 * Math.sin(t * 0.43 + 2 + j), yf: yt, g0: (j ? rr : a0) - (j ? -fl : fl) });
+    const sg = j => ({ sag: REDUCED ? 0.6 : 0.3 + 1.1 * breath(3 + j, t), sag2: REDUCED ? 0 : 0.35 * Math.sin(t * 0.43 + 2 + j), yf: yt, g0: (j ? rr : a0) - fl });
     paintThread(x, a0, l, y, 37, 1.2, { holes: [a0 > -4, true], ...sg(0) });
     paintThread(x, rr, b1, y, 41, 1.2, { holes: [true, b1 < W + 4], ...sg(1) });
   }

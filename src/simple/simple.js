@@ -434,22 +434,22 @@ export function mountSimpleFlow(opts) {
     curl.classList.remove('on');
   }
   function leave(o, dir) {
-    if (dir > 0 && stageName === 'cards') window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id: o.id, action: 'passee' } }));
+    if (dir < 0 && stageName === 'cards') window.dispatchEvent(new CustomEvent('singulies:question', { detail: { id: o.id, action: 'passee' } }));
     move(o.c, { ...o.c.pose, x: o.c.pose.x + dir * size.W * 1.1, y: o.c.pose.y - 10, r: dir * 14 }, { dur: 650, easing: 'cubic-bezier(.5,0,.7,.4)' }).then(() => o.c.remove());
   }
   function nextQ() {
     if (mode !== 'q' || (q && q.anim)) return;
     if (q) answers[q.id] = ta.value;
     discards++; backHintDone = backHintDone || false;
-    if (cur < seq.length - 1) { cur++; draw(seq[cur], 'side', 1); }
+    if (cur < seq.length - 1) { cur++; draw(seq[cur], 'side', -1); }
     else { if (next >= order.length) next = 0; const id = order[next++]; seq.length = cur + 1; seq.push(id); cur = seq.length - 1; leaveAndDraw(id); }
     placeBlank(); touched();
   }
-  function leaveAndDraw(id) { const old = q; q = null; if (old) leave(old, 1); R.later(() => { draw(id, 'deck'); }, REDUCED ? 0 : 280); }
+  function leaveAndDraw(id) { const old = q; q = null; if (old) leave(old, -1); R.later(() => { draw(id, 'deck'); }, REDUCED ? 0 : 280); }
   function prevQ() {
     if (mode !== 'q' || cur <= 0 || (q && q.anim)) return;
     if (q) answers[q.id] = ta.value;
-    cur--; draw(seq[cur], 'side', -1); touched();
+    cur--; draw(seq[cur], 'side', 1); touched();
   }
   function takeBlank() {
     if (mode !== 'q' || discards < 1) return;
@@ -481,7 +481,7 @@ export function mountSimpleFlow(opts) {
     onMove: (dx) => { if (q && !q.anim && mode === 'q') q.c.style.transform = tf({ ...q.c.pose, x: q.c.pose.x + dx, r: q.r + dx * 0.02 }); },
     onEnd: ({ dx, dy }) => {
       if (!q || mode !== 'q') return;
-      if (dx > 50) nextQ(); else if (dx < -50 && cur > 0) prevQ();   // (12/10 : à droite = la suivante)
+      if (dx < -50) nextQ(); else if (dx > 50 && cur > 0) prevQ();   // (20/10, Maxence : on inverse — à gauche = la suivante, à droite = la précédente)
       else if (Math.abs(dx) < 8 && Math.abs(dy) < 8) nextQ();
       else setPose(q.c, q.c.pose);
     },
@@ -497,11 +497,11 @@ export function mountSimpleFlow(opts) {
     const idle = (performance.now() - Math.max(q.at, lastGesture)) / 1000;
     const nudge = d => { q.c.animate?.([{ transform: tf(q.c.pose) }, { transform: tf({ ...q.c.pose, x: q.c.pose.x + d * L.cw * 0.07, r: q.r + d * 0.8 }) }, { transform: tf(q.c.pose) }], { duration: 1700, easing: 'ease-in-out' }); };
     if (discards === 0) {
-      if (q.nudges < 2 && idle > 5 + q.nudges * 7) { q.nudges++; if (!REDUCED) nudge(1); }
+      if (q.nudges < 2 && idle > 5 + q.nudges * 7) { q.nudges++; if (!REDUCED) nudge(-1); }
       if (q.nudges >= 2 && idle > 5 + 9.2) curl.classList.add('on');
     } else {
       if (idle > 0.6) curl.classList.add('on');
-      if (!backHintDone && cur > 0 && idle > 4) { backHintDone = true; if (!REDUCED) nudge(-1); }
+      if (!backHintDone && cur > 0 && idle > 4) { backHintDone = true; if (!REDUCED) nudge(1); }
     }
   }, 250);
   // écrire : les lettres du prénom tapées s'éclairent ; Entrée (ou « OK », clavier fermé avec une réponse) = la suite
@@ -905,7 +905,7 @@ export function mountSimpleJeu(opts = {}) {
       setPose(c, { ...home, x: home.x - dir * size.W, r: -dir * 12 });
       move(c, home, { dur: 700 }).then(done);
     }
-    const out = dir || 1;   // (12/10 : la question passée part à droite)
+    const out = dir || -1;   // (20/10 : la question passée part à gauche)
     if (old) move(old.c, { ...old.c.pose, x: old.c.pose.x + out * size.W * 1.1, r: out * 14 }, { dur: 650 }).then(() => old.c.remove());
     const text = QUESTIONS.find(x => x.id === id)?.q || '';
     R.say(text); if (ta) ta.setAttribute('aria-label', text);
@@ -915,11 +915,11 @@ export function mountSimpleJeu(opts = {}) {
   function another() {
     if (busy) return;
     if (q) { if (answering) stopAnswering(); ev(q.id, 'passee'); }
-    if (cur < seq.length - 1) { cur++; draw(seq[cur], 1); return; }
+    if (cur < seq.length - 1) { cur++; draw(seq[cur], -1); return; }
     seq.length = cur + 1; seq.push(order[k++ % order.length]); cur = seq.length - 1;
     draw(seq[cur], 0);
   }
-  function prev() { if (busy || cur <= 0) return; if (answering) stopAnswering(); cur--; draw(seq[cur], -1); }
+  function prev() { if (busy || cur <= 0) return; if (answering) stopAnswering(); cur--; draw(seq[cur], 1); }
   // une fois partagée (ou la question passée), la carte réponse se fond : le jeu seul
   function stopAnswering() {
     answering = false; ta.blur(); ta.disabled = true;
@@ -930,7 +930,7 @@ export function mountSimpleJeu(opts = {}) {
   gesture(deckBtn, {
     onMove: (dx) => { if (q && !q.anim) q.c.style.transform = tf({ ...q.c.pose, x: q.c.pose.x + dx, r: q.r + dx * 0.02 }); },
     onEnd: ({ dx, dy }) => {
-      if (dx > 50) another(); else if (dx < -50 && cur > 0) prev();   // (12/10 : à droite = une autre)
+      if (dx < -50) another(); else if (dx > 50 && cur > 0) prev();   // (20/10 : à gauche = une autre)
       else if (Math.abs(dx) < 8 && Math.abs(dy) < 8) another();
       else if (q) setPose(q.c, q.c.pose);
     },

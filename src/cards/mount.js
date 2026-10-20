@@ -29,6 +29,7 @@ const CSS = `
   font: 500 14px/44px 'SG Garamond', serif; letter-spacing: 0.45em; padding-left: 0.45em; color: #fff; }   /* (12/10 : le même interlettrage que tous les signes) */
 .sc-pass.on { opacity: .62; pointer-events: auto; }
 .sc-pass.nosub .sc-sub { display: none; }
+.sc-pass.ou { pointer-events: none !important; cursor: default; }   /* (20/10) « OU » : un mot, pas un bouton */
 /* (17/10, Maxence) plus d'air entre PASSER et la parenthèse ; ailleurs (une autre page du bandeau) : rien des cartes */
 .sg-away .sc-pass, .sg-away .sc-sign { display: none; }
 /* (17/10, Maxence : « tire une carte, en police typewriter, au-dessus du jeu ») après la réservation, tapé à la machine au-dessus du paquet */
@@ -170,11 +171,12 @@ export async function mountCards(opts) {
   });
   answer.setAttribute('autocapitalize', 'none'); answer.setAttribute('enterkeyhint', 'done'); answer.setAttribute('aria-label', 'Réponse');
   const giveEl = el('div', 'sc-sign', '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19 V6 M6.5 11 L12 5.5 L17.5 11" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>');
-  let passTop = null, impAt = 0;
+  let passTop = null, impAt = 0, ucAt = 0, syncK = '';
   if (EST_V2) { giveEl.textContent = 'envoyer →'; giveEl.classList.add('sc-envoyer'); }   // (V2) un mot, pas une flèche
   if (EST_VERSION) { giveEl.setAttribute('role', 'button'); giveEl.setAttribute('aria-label', 'Envoyer ma réponse'); giveEl.tabIndex = 0; giveEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); giveEl.click(); } }); }
   const passEl = el('div', 'sc-pass', 'PASSER<span class="sc-sub"></span>'); passEl.setAttribute('role', 'button');
   const tireEl = el('div', 'sc-tire', ''); tireEl.setAttribute('aria-hidden', 'true');
+  const libreEl = el('div', 'sc-tire', ''); libreEl.setAttribute('aria-hidden', 'true');   // (20/10) « exprime-toi librement », au-dessus de la carte vierge
   // (V2, décision 5) « tirer une autre carte » : un mot, sans limite, en plus du paquet qu'on touche et de la question qu'on glisse
   const autreEl = EST_V2 ? el('div', 'sc-autre', 'tirer une autre carte') : null;
   if (autreEl) { autreEl.setAttribute('role', 'button'); autreEl.tabIndex = 0; autreEl.setAttribute('aria-label', 'Tirer une autre carte'); autreEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); autreEl.click(); } }); }
@@ -657,9 +659,42 @@ export async function mountCards(opts) {
       // PASSER : 3 s après que la carte blanche a pris la place du paquet, toujours visible ; clavier ouvert : entre
       // le bas de la carte et le haut du clavier
       const mk = scene.marks();
+      // (20/10) deux cartes à écrire côte à côte (question / carte vierge) : le champ natif suit la carte qui a la main
+      if (st.bfp) { const k = st.mode + ':' + (st.active && st.active.id); if (k !== syncK) { syncK = k; const tx = (st.active && st.active.text) || ''; if (answer.value !== tx) setValue(tx); } } else syncK = '';
       scene.setNameFy(document.querySelector('.nv-hd.on') ? 0.13 : 0.11);   // (le prénom sous le bandeau des pages quand il est là)
+      // (20/10, Maxence) site principal, après RECEVOIR : le paquet en haut (« tire une question du jeu » dessous), « OU » au centre, « exprime-toi
+      // librement » au-dessus de la carte vierge, en bas. Rien de choisi au bout de 10 s : les deux intitulés s'effacent, OU devient PASSER (toujours :
+      // j'improvise) avec (j'improvise avec PRENOM) dessous. Un choix (toucher la carte vierge, écrire) efface tout ; clavier fermé : ça recommence.
+      const NEWC = !EST_VERSION && !!st.paidMode && !!st.bfp;
+      let ouOn = false, passerOn = false;
+      if (NEWC) {
+        const choosing = !st.bf || !!st.userWrite || !!(st.active && st.active.text);
+        const nowMs = performance.now();
+        if (choosing) ucAt = 0; else if (!ucAt && st.freeFor > 1.2) ucAt = nowMs;
+        const el_ = ucAt ? (nowMs - ucAt) / 1000 : -1;
+        ouOn = !st.ended && el_ >= 0 && el_ < 10; passerOn = !st.ended && el_ >= 11.4;
+        // tire une question du jeu : tapé la première fois, sous le paquet
+        if (ouOn !== tireEl._on) {
+          tireEl._on = ouOn; clearTimeout(tireEl._t);
+          if (ouOn) {
+            const msg = 'tire une question du jeu';
+            if (tireEl._typed) { tireEl.textContent = msg; tireEl.classList.add('on'); }
+            else { tireEl._typed = true; let k = 0; tireEl.textContent = ''; tireEl.classList.add('on'); const step = () => { if (!tireEl._on) return; tireEl.textContent = msg.slice(0, ++k); if (k < msg.length) tireEl._t = setTimeout(step, 50 + Math.random() * 60); }; tireEl._t = setTimeout(step, 300); }
+          } else tireEl.classList.remove('on');
+        }
+        if (ouOn !== libreEl._on) { libreEl._on = ouOn; if (ouOn) libreEl.textContent = 'exprime-toi librement'; libreEl.classList.toggle('on', ouOn); }
+        if (mk && mk.deckBot != null && mk.blankBfTop != null) {
+          tireEl.style.top = (mk.deckBot + 12) + 'px'; libreEl.style.top = (mk.blankBfTop - 33) + 'px';
+          passTop = ((mk.deckBot + 33) + (mk.blankBfTop - 33)) / 2 - 22; passEl.style.top = passTop + 'px';
+        }
+        const want = passerOn ? 'PASSER' : 'OU';
+        let showNow = ouOn || passerOn;
+        if (showNow && passEl.firstChild.nodeValue !== want) { if (passEl.classList.contains('on')) showNow = false; else passEl.firstChild.nodeValue = want; }   // (le texte ne change jamais pendant qu'il se voit)
+        passEl.classList.toggle('ou', ouOn); passEl.classList.toggle('on', showNow);
+        if (passerOn) { passEl.setAttribute('aria-label', 'Passer : j’improvise ton poème avec ' + name); setSub('(j’improvise avec ' + name + ')'); } else { passEl.setAttribute('aria-label', 'ou'); setSub(''); }
+      } else { libreEl._on = false; libreEl.classList.remove('on'); passEl.classList.remove('ou'); ucAt = 0; }
       // (17/10) « tire une carte », tapé à la machine au-dessus du paquet qui se mélange ; il s'efface quand on tire
-      { const on = !!st.shuffling && !st.ended && !st.userWrite && !(st.bf && st.active && st.active.text);   // (20/10) un choix fait (la carte vierge touchée, un thème écrit, la fin) : plus de « tire une carte »
+      if (!NEWC) { const on = !!st.shuffling && !st.ended && !st.userWrite && !(st.bf && st.active && st.active.text);   // (20/10) un choix fait (la carte vierge touchée, un thème écrit, la fin) : plus de « tire une carte »
         if (on !== tireEl._on) {
           tireEl._on = on; clearTimeout(tireEl._t);
           // (18/10, carte vierge d'abord) « ou tire une carte » : sous le paquet, la carte vierge est au-dessus
@@ -674,13 +709,13 @@ export async function mountCards(opts) {
       const paidQ = st.paidMode && st.mode === 'q' && !st.shuffling && st.active && !st.active.text && st.idle > 1.2;
       // (18/10, Maxence : « au milieu PASSER apparaît après quelques secondes et (j'improvise avec PRENOM) ») entre la carte vierge et le paquet
       const bfOn = st.bf && st.freeFor > 3.5 && !(st.active && st.active.text) && !st.userWrite;   // (20/10) la carte vierge touchée = un choix : PASSER s'efface, il revient clavier fermé
-      passEl.classList.toggle('on', !st.ended && (st.bf ? bfOn : ((st.mode === 'free' && (st.paidMode ? passTop != null : st.freeFor > 3) && (EST_VERSION || !st.userWrite)) || (st.paidMode ? paidQ : blankIn))));   // (après le paiement : il reste, à la même place, pendant que la carte se retourne)
+      if (!NEWC) passEl.classList.toggle('on', !st.ended && (st.bf ? bfOn : ((st.mode === 'free' && (st.paidMode ? passTop != null : st.freeFor > 3) && (EST_VERSION || !st.userWrite)) || (st.paidMode ? paidQ : blankIn))));   // (après le paiement : il reste, à la même place, pendant que la carte se retourne)
       // (16/10, Maxence : « PASSER pouvait faire penser à passer la carte en cours ») sous la question : on dit où il mène
-      { const free = !!st.paidMode && st.mode === 'q', sub = passEl.querySelector('.sc-sub');
+      { const free = !NEWC && !!st.paidMode && st.mode === 'q', sub = passEl.querySelector('.sc-sub');
         if (free !== passEl._free) { passEl._free = free; if (free) { passEl._imp = false; setSub('(si tu veux t’exprimer librement)'); passEl.setAttribute('aria-label', 'Passer : écrire librement'); } else namePass(); } }
       // (20/10, Maxence : « affiche (j’improvise avec PRENOM) seulement si 10 secondes sans choix ») site principal : la parenthèse paraît après 10 s
       // sans que la carte vierge soit touchée ni rien écrit ; un choix la remet à zéro
-      if (!EST_VERSION && passEl._imp) {
+      if (!EST_VERSION && !NEWC && passEl._imp) {
         const choisi = !!st.userWrite || !!(st.active && st.active.text) || !passEl.classList.contains('on');
         if (choisi || !impAt) impAt = choisi ? 0 : performance.now();
         setSub(impAt && performance.now() - impAt > 10000 ? '(j’improvise avec ' + name + ')' : '');
@@ -703,7 +738,7 @@ export async function mountCards(opts) {
         if (passEl._free && !passEl._v2cut) { passEl._v2cut = true; setSub(''); } else if (!passEl._free) passEl._v2cut = false;
       }
       const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
-      if (st.kb && r) passEl.style.top = Math.max(r.bottom + 2, (r.bottom + kbTop) / 2 - 22) + 'px';
+      if (NEWC) { /* placé plus haut */ } else if (st.kb && r) passEl.style.top = Math.max(r.bottom + 2, (r.bottom + kbTop) / 2 - 22) + 'px';
       // (10/10) centré entre la question (et sa bande de réponse) et la carte blanche
       else if (st.bf && mk && mk.blankUpBottom != null) { passTop = (mk.deckBot + mk.blankBfTop) / 2 - (passEl.offsetHeight || 56) / 2; passEl.style.top = passTop + 'px'; }
       else if (st.mode === 'q' && mk && st.paidMode) { passTop = ((mk.qBottom || mk.deckBottom) + 34); passEl.style.top = passTop + 'px'; }
@@ -715,7 +750,7 @@ export async function mountCards(opts) {
       // celle en attente (Maxence 05/10)
       const br = { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
       scene.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
-      backEl.classList.toggle('on', !st.ended && ((st.mode === 'free' && !st.bf) || (!!onExit && !paid && t > 3 && !st.kb)));
+      backEl.classList.toggle('on', !st.ended && ((st.mode === 'free' && !st.bf && !st.bfp) || (!!onExit && !paid && t > 3 && !st.kb)));
       // le champ natif est posé, invisible, sur la carte réponse : la toucher ouvre le clavier (iPhone : seul un
       // toucher direct sur le champ l'ouvre)
       if (r && !st.ended) {
@@ -867,7 +902,7 @@ export async function mountCards(opts) {
     if (down.sheet) { const mv = down.moved, f = down; down = null;
       if (isFlick(e.clientX - f.x, e.clientY - f.y, performance.now() - f.t)) flickUp(); sheet?.release(); if (!mv && sheet) { const r = sheet.tap(e.clientX, e.clientY, now()); if (r.type) log(r.type); } return; }
     const dx = e.clientX - down.x, dtm = Math.max(1, performance.now() - down.t);
-    if (down.moved) { const r = scene.release(dx, dx / dtm, now()); if (r.type) log(r.type); if (coarse && (r.type === 'discard' || r.type === 'previous')) closeKb(); down = null; return; }
+    if (down.moved) { const r = scene.release(dx, dx / dtm, now(), down.on); if (r.type) log(r.type); if (coarse && (r.type === 'discard' || r.type === 'previous')) closeKb(); down = null; return; }
     if (down.took) { down = null; setValue(''); focusAnswer(); log('carte blanche'); return; }   // iPhone : le clavier s'ouvre au lâcher
     if (down.v) { const f = down; down = null; if (f.on !== 'blank' && isFlick(e.clientX - f.x, e.clientY - f.y, dtm)) flickUp(); return; }
     down = null;
@@ -884,6 +919,8 @@ export async function mountCards(opts) {
   const stepBack = () => {
     if (sheet && mail) { if (mail.sending) return false; unMail(); sheet.back(now()); log('retour (email)'); return true; }
     if (sheet) { if (sheet.back(now())) { backEl.classList.remove('on'); log('retour'); return true; } return false; }
+    // (20/10, Maxence : « la flèche revient à l'action d'avant ») site principal, après RECEVOIR : la carte vierge écrite → la question ; la question → la précédente, ou le paquet
+    if (!EST_VERSION && scene.state().bfp) { if (scene.back(now())) { answer.blur(); log('retour'); return true; } return false; }
     if (scene.state().mode !== 'free') { if (onExit && !paid) { answer.blur(); onExit(); return true; } return false; }
     if (scene.back(now())) {
       answer.value = scene.state().active?.text || ''; focusAnswer(); log('retour');
@@ -898,7 +935,8 @@ export async function mountCards(opts) {
   api.stepBack = stepBack;
   api.level = () => {
     if (sheet) { if (mail) return 6; const es = sheet.state().env; return es && !es.back ? (es.posted ? 6 : 5) : 4; }
-    const st = scene.state(); return st.mode === 'free' && !st.ended && !st.bf ? 3 : 2;   // (la carte vierge d'abord est la première étape)
+    const st = scene.state(); if (!EST_VERSION && st.bfp && st.paidMode) return st.bf ? 2 : 3;   // (20/10) le paquet et la carte vierge ensemble : la première étape ; une question tirée ou la carte vierge écrite : la suivante
+    return st.mode === 'free' && !st.ended && !st.bf ? 3 : 2;   // (la carte vierge d'abord est la première étape)
   };
   // la suite : réponse (ou carte blanche) donnée
   function give(how) {
@@ -932,6 +970,7 @@ export async function mountCards(opts) {
   api.autre = () => { if (!scene.redraw || sheet) return false; if (scene.redraw(now())) { answer.blur(); log('autre carte'); import('../core/stats.js').then(m => m.count('question-retiree')); return true; } return false; };
   if (autreEl) autreEl.addEventListener('click', () => { api.autre(); });
   passEl.addEventListener('click', () => {
+    if (passEl.classList.contains('ou')) return;      // (20/10) « OU » n'est pas un bouton ; PASSER = toujours : j'improvise
     if (passEl._ecrit) { give('continuer'); return; }      // (C6) un thème écrit n'est jamais effacé
     const st = scene.state();
     // (12/10) après le paiement, le premier PASSER : la carte vierge (le thème libre) ; le second : j'improvise
