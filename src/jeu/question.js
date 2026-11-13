@@ -6,6 +6,7 @@
 import { siteFonts } from '../app/fonts.js';
 import { installCount, count } from '../app/count.js';
 import { dpr3d } from '../app/perf.js';
+import { installNav } from '../nav/nav.js';
 import { sendReponseJeu } from '../app/send.js';
 import { createCardScene } from '../cards/scene.js';
 import QUESTIONS from '../cards/questions.json';
@@ -34,6 +35,8 @@ body { position: fixed; inset: 0; width: 100%; }
 `;
 
 installCount('question');
+// la ligne du haut (ETERNEL, ←, menu ≡) et SINGULIES en bas, comme sur la page du jeu — rien d'autre (ni PARTAGER, ni COMMANDER)
+installNav({ current: 'jeu', headerOnly: true, base: BASE, show: () => false, foot: () => true, shade: () => true, canBack: () => true, onBack: () => { location.href = BASE; return true; } });
 const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
 
 (async () => {
