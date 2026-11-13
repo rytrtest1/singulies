@@ -113,7 +113,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     lay.D = (CARD.w / cardWpx) * (H / 2) / Math.tan(FOV / 2);
     lay.Hw = 2 * lay.D * Math.tan(FOV / 2); lay.Ww = lay.Hw * W / H;
     lay.yDeck = (0.5 - deckAt) * lay.Hw;               // paquet et question : place d'origine (42 %)
-    lay.yAns = (0.5 - 0.76) * lay.Hw;                // carte réponse : dessous
+    lay.yAns = jeu && jw ? lay.yDeck + CARD.h * 1.1 : (0.5 - 0.76) * lay.Hw;   // carte réponse : dessous (question.html : AU-DESSUS de la question, sans la toucher)
   }
   const FACE_Z = STACK * PITCH + 2.8;                // la carte réponse glisse entre la question et le paquet
   const UNDER_Z = FACE_Z - 1.4;
@@ -342,9 +342,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const mg = c === answer && question ? question.margin : undefined;    // aligné sur la question
     // invitation en grisé tant que rien n'est écrit : la réponse fait le thème du poème ; la carte blanche : son thème
     const hint = jeu ? hintAnswer : c === blank ? HINT_BLANK : HINT_ANSWER;
-    // (question.html) jeu : la question recouvre le haut de la carte réponse posée dessous — le texte se centre dans la partie visible
-    const ov = jeu && jw ? Math.max(0, lay.yAns - lay.yDeck + CARD.h) : 0, vc = jeu && jw ? (ov + CARD.h) / 2 : null;
-    const m = c.place === 'peek' ? makeStripInk(c.text, sd, mg, hint) : makeAnswerInk(c.text, sd, LINES, writing ? null : c.first, mg, hint, vc);
+    const m = c.place === 'peek' ? makeStripInk(c.text, sd, mg, hint) : makeAnswerInk(c.text, sd, LINES, writing ? null : c.first, mg, hint, jeu && jw ? CARD.h / 2 : null);   // (question.html : le bloc centré sur la carte, comme les questions)
     if (c.ink) card.freeInk(c.ink);
     c.ink = card.makeInk(m.canvas, !!m.hinted); releaseCanvas(m.canvas); c.inkRG = !!m.hinted; c.cursorMM = m.cursor; c.count = m.count;
   }
@@ -606,7 +604,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const vis = 1 - kbPx / H, scale = 1, Hs = lay.Hw, Ds = lay.D;
     const yA = mode === 'free' ? lay.yDeck + (blank && blank.bf ? bfDY() : 0) : lay.yDeck - STRIP / 2;   // la question et la bande (ou la carte blanche montée)
     const cyK = yA - (0.5 - (vis / 2 + 0.05)) * Hs;
-    const cy = lerp((lay.yDeck + lay.yAns) / 2, cyK, kb);
+    const cy = lerp((lay.yDeck + lay.yAns) / 2 - (jeu && jw ? 0.08 * Hs : 0), cyK, kb);   // (jeu + réponse : la paire remonte, le contact tient dessous)
     eye = [0, cy - Ds * Math.sin(TILT), Ds * Math.cos(TILT)];
     vp = M4.mul(M4.perspective(FOV, W / H, Ds * 0.3, Ds * 3), M4.lookAt(eye, [0, cy, 0], [0, 1, 0]));
 

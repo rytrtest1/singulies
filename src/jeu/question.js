@@ -47,7 +47,7 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
   const el = (tag, cls, parent = document.body) => { const e = document.createElement(tag); e.className = cls; parent.appendChild(e); return e; };
   const ta = el('textarea', 'qz-in'); Object.assign(ta, { autocomplete: 'off', spellcheck: false }); ta.setAttribute('autocapitalize', 'none'); ta.setAttribute('autocorrect', 'off'); ta.setAttribute('enterkeyhint', 'send'); ta.setAttribute('aria-label', 'Ta réponse');
   const ct = el('div', 'qz-ct');
-  const inv = el('p', '', ct); inv.innerHTML = 'ton email ou ton @,<br>pour un poème inspiré de ta réponse';
+  const inv = el('p', '', ct); inv.innerHTML = 'ton email ou ton @<br>pour un poème inspiré de ta réponse';
   const ci = el('input', '', ct); Object.assign(ci, { type: 'text', spellcheck: false, name: 'contact', placeholder: 'email · @' });
   ci.setAttribute('autocomplete', 'email'); ci.setAttribute('autocapitalize', 'none'); ci.setAttribute('autocorrect', 'off'); ci.setAttribute('enterkeyhint', 'send'); ci.setAttribute('aria-label', 'Ton email ou ton @');
   const ok = el('p', 'qz-ok');
