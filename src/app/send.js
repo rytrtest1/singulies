@@ -238,6 +238,33 @@ export function sendNote(d) {
   return true;
 }
 
+// (question.html) la réponse à une question du jeu, puis le contact (email, insta, numéro) pour un poème inspiré d'elle.
+// Deux envois, même référence : la réponse seule dès Entrée, puis la réponse avec le contact (email autonome).
+function contactLien(c) {
+  const t = c.trim();
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) return { href: 'mailto:' + t, html: '<a href="mailto:' + esc(t) + '" style="' + LINK + '">' + esc(t) + '</a>' };
+  const digits = t.replace(/[^\d+]/g, '');
+  if (/^[+\d][\d\s.+-]{7,}$/.test(t) && digits.replace(/\D/g, '').length >= 8) return { href: 'tel:' + digits, html: '<a href="tel:' + esc(digits) + '" style="' + LINK + '">' + esc(t) + '</a>' };
+  const h = t.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/[/?].*$/, '');
+  if (/^[A-Za-z0-9._]{2,30}$/.test(h)) return { href: 'https://instagram.com/' + h, html: '<a href="https://instagram.com/' + esc(h) + '" style="' + LINK + '">@' + esc(h) + '</a> <span style="color:#8a8a8a;">(insta ?)</span>' };
+  return { href: '', html: esc(t) };
+}
+export function sendReponseJeu(d) {      // { id, text, contact?, ref }
+  if (OFF || LOCAL) return false;
+  const p = params({ name: '', kind: 'reponse', id: d.id, text: d.text });
+  const lab = d.contact ? 'réponse du jeu + contact (lien question)' : 'réponse du jeu (lien question), pas encore de contact';
+  const c = d.contact ? contactLien(d.contact) : null;
+  Object.assign(p, {
+    genre: lab, mode: lab + ' · réf. ' + d.ref, prenom: '', prenom_html: '', colonne_html: '', contact: d.contact || '',
+    contact_html: '<div style="padding:0 0 18px;font-size:14px;color:#d8d8d8;letter-spacing:1px;"><span style="color:#8a8a8a;">' + (c ? 'pour un poème inspiré de sa réponse' : 'réf. ' + esc(d.ref)) + '</span>' + (c ? '<br>' + c.html + '<br><span style="color:#8a8a8a;">réf. ' + esc(d.ref) + '</span>' : '') + '</div>',
+    lien: c && c.href ? c.href : '', to_email: '',
+  });
+  save([...load(), { tpl: EMAILJS.template, p }]);
+  flush();
+  if (d.contact) { const m = d.contact.trim(); if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m)) rememberEmail(m); }
+  return true;
+}
+
 // la page : les demandes partent quand l'enveloppe est postée, ou quand on choisit « en direct »
 export function installSend() {
   // une enveloppe postée puis la page fermée avant l'écran du contact : la demande part quand même (sans contact)

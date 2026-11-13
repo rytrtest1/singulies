@@ -13,6 +13,7 @@ const VERSION = (process.env.SG_VERSION || '').replace(/[^123]/g, '').slice(0, 1
 const SITE = {
   // le site
   alt: 'alt.html', main: 'index.html', poeme: 'poeme.html', jeuPage: 'jeu.html', lettre: 'lettre.html', livres: 'livres.html',
+  question: 'question.html',   // (tournage) le paquet face cachée → une question → la réponse sur la carte → Eternel la reçoit
   merci: 'merci.html', pour: 'pour.html', confidentialite: 'confidentialite.html', mentions: 'mentions.html', conditions: 'conditions.html', demande: 'demande.html',
   // le suivi des commandes (Eternel seul, mot de passe)
   commandes: 'commandes.html',

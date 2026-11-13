@@ -70,7 +70,7 @@ const bare = ch => ch.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 //   carte réponse (curseur seul, sans invitation) pour répondre à une question qu'on nous a partagée — setJeuWrite(false)
 //   la retire (elle se fond), et c'est le jeu seul : des questions, sans réponse à donner
 // firstQ : la question tirée en premier (lien partagé, ou venue du jeu) ; noIntro : le paquet est déjà là (relais)
-export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true, jeu = false, jeuWrite = false, firstQ = null, noIntro = false, firstBack = null, sheetOnly = false, deckAt = 0.42 } = {}) {
+export async function createCardScene(gl, { base = './', seed = (Math.random() * 1e9) >>> 0, look = {}, on = {}, toSheet = false, autoWrite = true, jeu = false, jeuWrite = false, firstQ = null, noIntro = false, firstBack = null, sheetOnly = false, deckAt = 0.42, hintAnswer = null } = {}) {   // hintAnswer : invitation sur la carte réponse du jeu (question.html)
   const card = await createCardRenderer(gl, base);
   const nameR = await createNameRelief(gl, card.paperTex);
   await loadTypeFont(base);
@@ -341,7 +341,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const sd = Math.floor(c.v.seed * 1000) + 7;
     const mg = c === answer && question ? question.margin : undefined;    // aligné sur la question
     // invitation en grisé tant que rien n'est écrit : la réponse fait le thème du poème ; la carte blanche : son thème
-    const hint = jeu ? null : c === blank ? HINT_BLANK : HINT_ANSWER;
+    const hint = jeu ? hintAnswer : c === blank ? HINT_BLANK : HINT_ANSWER;
     const m = c.place === 'peek' ? makeStripInk(c.text, sd, mg, hint) : makeAnswerInk(c.text, sd, LINES, writing ? null : c.first, mg, hint);
     if (c.ink) card.freeInk(c.ink);
     c.ink = card.makeInk(m.canvas, !!m.hinted); releaseCanvas(m.canvas); c.inkRG = !!m.hinted; c.cursorMM = m.cursor; c.count = m.count;
