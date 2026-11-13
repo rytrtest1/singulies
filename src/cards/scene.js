@@ -113,7 +113,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     lay.D = (CARD.w / cardWpx) * (H / 2) / Math.tan(FOV / 2);
     lay.Hw = 2 * lay.D * Math.tan(FOV / 2); lay.Ww = lay.Hw * W / H;
     lay.yDeck = (0.5 - deckAt) * lay.Hw;               // paquet et question : place d'origine (42 %)
-    lay.yAns = jeu && jw ? lay.yDeck + CARD.h * 1.1 : (0.5 - 0.76) * lay.Hw;   // carte réponse : dessous (question.html : AU-DESSUS de la question, sans la toucher)
+    lay.yAns = (0.5 - 0.76) * lay.Hw;                // carte réponse : dessous
   }
   const FACE_Z = STACK * PITCH + 2.8;                // la carte réponse glisse entre la question et le paquet
   const UNDER_Z = FACE_Z - 1.4;
@@ -121,7 +121,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   let deckDY = 0;
   const deckPose = (i, v) => ({ x: v.jx, y: lay.yDeck + deckDY + v.jy, z: i * PITCH, rx: 0, ry: 0, rz: v.jr });
   const centerPose = (v, dx = 0) => ({ x: v.jx * 3 + 1.2 + dx, y: lay.yDeck + v.jy * 2 - 0.8, z: FACE_Z, rx: 0, ry: Math.PI, rz: v.jr * 1.5 + dx * 0.0015 });
-  const answerPose = v => ({ x: v.jx, y: lay.yAns + v.jy, z: -0.8, rx: 0, ry: Math.PI, rz: v.jr });
+  // (question.html) jeu : la réponse validée se pose PAR-DESSUS la question, à sa place, un peu décalée, et la recouvre
+  const coverPose = v => ({ x: v.jx + 1.2, y: lay.yDeck + v.jy - 1.6, z: FACE_Z + 2.4, rx: 0, ry: Math.PI, rz: v.jr * 0.5 + 0.012 });
+  const answerPose = v => jeu && jw ? coverPose(v) : ({ x: v.jx, y: lay.yAns + v.jy, z: -0.8, rx: 0, ry: Math.PI, rz: v.jr });
   // carte blanche au repos : en bas de l'écran, son haut vers 82 % (le bas sort de l'écran, le texte au centre
   // reste visible) ; out = rangée sous l'écran ; bob = petit saut « touche-moi » toutes les 4,5 s
   const bob = c => {
@@ -176,6 +178,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function moveAnswer(t, place) {
     if (!answer || answer.place === place) return;
     answer.from = poseOf(answer, t); answer.place = place; answer.anim = 'move'; answer.t0 = t; answer.dur = MOVE_T;
+    if (jeu && jw && place === 'below') { const c = coverPose(answer.v); answer.from = { ...c, y: c.y + lay.Hw * 0.62, z: c.z + 5, rz: c.rz - 0.07 }; answer.dur = MOVE_T * 1.5; }   // (par le haut, par-dessus)
   }
   function poseOf(c, t) {
     const u = clamp01((t - c.t0) / c.dur);
@@ -604,7 +607,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const vis = 1 - kbPx / H, scale = 1, Hs = lay.Hw, Ds = lay.D;
     const yA = mode === 'free' ? lay.yDeck + (blank && blank.bf ? bfDY() : 0) : lay.yDeck - STRIP / 2;   // la question et la bande (ou la carte blanche montée)
     const cyK = yA - (0.5 - (vis / 2 + 0.05)) * Hs;
-    const cy = lerp((lay.yDeck + lay.yAns) / 2 - (jeu && jw ? 0.08 * Hs : 0), cyK, kb);   // (jeu + réponse : la paire remonte, le contact tient dessous)
+    const cy = lerp((lay.yDeck + lay.yAns) / 2, cyK, kb);
     eye = [0, cy - Ds * Math.sin(TILT), Ds * Math.cos(TILT)];
     vp = M4.mul(M4.perspective(FOV, W / H, Ds * 0.3, Ds * 3), M4.lookAt(eye, [0, cy, 0], [0, 1, 0]));
 
