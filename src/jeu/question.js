@@ -23,7 +23,7 @@ body { position: fixed; inset: 0; width: 100%; }
 .qz-sr { position: fixed; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .qz-ct { position: fixed; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; opacity: 0; pointer-events: none; transition: opacity 1.2s ease; z-index: 13; }
 .qz-ct.on { opacity: 1; pointer-events: auto; }
-.qz-ct p { margin: 0 0 16px; padding: 0 24px; text-align: center; font: 13px/1.9 'SG Machine', 'Courier New', monospace; color: #aeaeae; letter-spacing: .02em; }
+.qz-ct p { margin: 16px 0 0; padding: 0 24px; text-align: center; font: 13px/1.9 'SG Machine', 'Courier New', monospace; color: #aeaeae; letter-spacing: .02em; }
 .qz-ct input { width: min(78vw, 320px); box-sizing: border-box; padding: 6px 0 8px; margin: 0; background: transparent; border: 0; border-bottom: 1px solid rgba(255,255,255,.28);
   border-radius: 0; outline: none; text-align: center; font: 16px/1.5 'SG Machine', 'Courier New', monospace; color: #e6e6e6; caret-color: #fff; }
 .qz-ct input::placeholder { color: rgba(255,255,255,.28); }
@@ -47,9 +47,9 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
   const el = (tag, cls, parent = document.body) => { const e = document.createElement(tag); e.className = cls; parent.appendChild(e); return e; };
   const ta = el('textarea', 'qz-in'); Object.assign(ta, { autocomplete: 'off', spellcheck: false }); ta.setAttribute('autocapitalize', 'none'); ta.setAttribute('autocorrect', 'off'); ta.setAttribute('enterkeyhint', 'send'); ta.setAttribute('aria-label', 'Ta réponse');
   const ct = el('div', 'qz-ct');
-  const inv = el('p', '', ct); inv.innerHTML = 'ton email ou ton @<br>pour un poème inspiré de ta réponse';
   const ci = el('input', '', ct); Object.assign(ci, { type: 'text', spellcheck: false, name: 'contact', placeholder: 'email · @' });
   ci.setAttribute('autocomplete', 'email'); ci.setAttribute('autocapitalize', 'none'); ci.setAttribute('autocorrect', 'off'); ci.setAttribute('enterkeyhint', 'send'); ci.setAttribute('aria-label', 'Ton email ou ton @');
+  const inv = el('p', '', ct); inv.textContent = 'pour un poème inspiré de ta réponse';
   const ok = el('p', 'qz-ok');
   // « reçu / je t'écris » : deux lignes, sans point, tapé à la machine (frappe un peu irrégulière)
   const typeOk = () => {
@@ -96,7 +96,7 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
     if (!text || sent || current == null) return false;
     sent = { id: current, text, ref };
     sendReponseJeu(sent); count('question/reponse');
-    scene.stopWriting();
+    scene.stopWriting(); scene.freeze(true);          // une fois répondu : les cartes ne bougent plus, seule la lumière respire
     ci.focus({ preventScroll: true });               // dans le même geste : le clavier de l'iPhone ne se ferme pas
     sentAt = performance.now();                       // le bloc du contact ne paraît qu'une fois la carte réponse immobile (voir la boucle)
     return true;

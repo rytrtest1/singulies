@@ -516,7 +516,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     lp.x = Math.cos(lamp.a); lp.y = Math.sin(lamp.a);
   }
 
-  let vp = null, eye = null, lastT = 0, focusAns = 0;
+  let vp = null, eye = null, lastT = 0, focusAns = 0, frozen = false, fk = 0;   // frozen : les cartes ne s'inclinent ni ne respirent plus (la lampe, si)
   // dernier état dessiné (matrices des cartes, prénom, caméra, lampe) : la feuille reprend la main depuis là
   const snap = { q: null, a: null, b: null, name: null, glow: [], cam: null, lamp: null, ap: null };
   let sheetHidesName = false;
@@ -601,6 +601,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       const tgt = mode === 'free' ? (question || userWrite || (blank.text && blank.text.length) ? 1 : 0) : -1;
       bfS += (tgt - bfS) * Math.min(1, dt * 2.2);
     } else bfS += (0 - bfS) * Math.min(1, dt * 3);
+    fk += ((frozen ? 1 : 0) - fk) * Math.min(1, dt * 2.5);
     focusAns += (((bfp() && mode === 'free' ? bfS > 0.35 : (mode === 'free' || (answer && (writing || (answer.place === 'below' && answer.text))))) ? 1 : 0) - focusAns) * Math.min(1, dt * 2.2);
     // lettres du prénom tapées : attaque douce, descente lente, chacune à son rythme (comme l'onde de l'accueil)
     for (let i = 0; i < glowT.length; i++) {
@@ -664,12 +665,12 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       spotCosOut: Math.cos(Math.atan(0.62 * CARD.w / sl)), spotCosIn: Math.cos(Math.atan(0.4 * CARD.w / sl)) };
 
     // la carte en focus s'incline (souris / téléphone), l'autre respire et est baissée
-    let crx = -ts.y * L.cardTilt, cry = ts.x * L.cardTilt;
+    let crx = -ts.y * L.cardTilt * (1 - fk), cry = ts.x * L.cardTilt * (1 - fk);
     // relais : l'inclinaison et la lumière du portail au départ, les nôtres à l'arrivée (glissement continu)
     const pl = relay && relay.light ? relay.light() : null, rkL = relayK(t);
     if (pl) { crx = lerp(crx, pl.rx, rkL); cry = lerp(cry, pl.ry, rkL); }
     const group = (px, py, pz, ph, wt) => {
-      const sw = L.sway * 0.5 * (1 - wt);
+      const sw = L.sway * 0.5 * (1 - wt) * (1 - fk);
       const rx = crx * wt + sw * (0.6 * Math.sin(t * 0.61 + ph) + 0.4 * Math.sin(t * 1.37 + 2.1 * ph));
       const ry = cry * wt + sw * 1.2 * (0.6 * Math.sin(t * 0.47 + 1.7 * ph) + 0.4 * Math.sin(t * 1.13 + 0.6 * ph));
       const dz = sw * 12 * Math.sin(t * 0.29 + ph);
@@ -1114,7 +1115,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function setBreath(x, y) { breath.x = x; breath.y = y; }
   return {
     redraw: t => (mode === 'q' && !(shuf && !shuf.done) && question && !ended ? discard(t, -1) : false),
-    markWrite: () => { if (mode === 'free') userWrite = true; }, frame, tap, drag, release, give, pass, back, start, prepare, reopen, resume, pioche: t => drawFromShuffle(t), snapshot, hideName, setNameFy: v => { nameFy = v; }, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, setKeyboard, setText, startWriting, stopWriting, scrollAnswer, setJeuWrite, drawAt, relayIn, relayOut, relaying: () => !!relay && !relay.fin,
+    markWrite: () => { if (mode === 'free') userWrite = true; }, frame, tap, drag, release, give, pass, back, start, prepare, reopen, resume, pioche: t => drawFromShuffle(t), snapshot, hideName, setNameFy: v => { nameFy = v; }, renderer: card, nameR, setName, hitAt: (x, y) => hit(x, y), setHover: id => { hovId = id || null; }, setPress: id => { prId = id || null; }, setTilt, setBreath, freeze: on => { frozen = !!on; }, setKeyboard, setText, startWriting, stopWriting, scrollAnswer, setJeuWrite, drawAt, relayIn, relayOut, relaying: () => !!relay && !relay.fin,
     activeRect, cardRect, lowestBottom, restBottom, marks, chooseBlank, nameTargets,
     // idle : secondes sans frappe depuis que la question est posée (« passer » n'apparaît qu'après un moment)
     state: () => ({ userWrite, bf: !!(shuf && shuf.bf && !shuf.done && mode === 'free'), paidMode: !!shuf, freeFor: mode === 'free' ? lastT - freeT : 0, blankFor: blank && blank.appearT != null ? lastT - blank.appearT + 2.2 : 0, hasPrev: hasPrev(), bfp: bfp(), idle: mode === 'free' ? lastT - Math.max(freeT + FLIP_T, lastKeyT) : question && !question.anim ? lastT - Math.max(question.landedAt, lastKeyT) : 0, writing, mode, kb: kb > 0.3, choices: choicesOn() && !!answer && !answer.anim, active: act() ? { kind: mode === 'free' ? 'blank' : 'question', id: question?.id, text: act().text } : null, ended: !!ended, discards, offered: false, shuffling: !!shuf && !shuf.done }),
