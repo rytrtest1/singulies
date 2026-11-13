@@ -171,15 +171,21 @@ import { answerLines } from './lines.js';
 export const ANSWER_MARGIN = (CARD.w - CTYPE.maxChars * CTYPE.pitch) / 2;
 // first : première ligne visible (par défaut : les dernières, pour écrire ; 0 = le début, pour relire)
 // margin : marge gauche (mm) — celle de la question pour s'aligner sur elle ; la ligne ne touche jamais le bord droit
-export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null, margin = ANSWER_MARGIN, hint = null) {
+// vcenter : (mm, depuis le haut de la carte) milieu de la partie VISIBLE de la carte (jeu : la question en recouvre le haut) — le bloc de lignes
+// s'y centre ; une réponse d'une seule ligne y est aussi centrée en largeur. null : le bloc de 3 lignes d'origine
+export function makeAnswerInk(text, seed = 1, maxLines = 3, first = null, margin = ANSWER_MARGIN, hint = null, vcenter = null) {
   const PX = INK_PXMM, W = Math.round(CARD.w * PX), H = Math.round(CARD.h * PX);
   const cv = new OffscreenCanvas(W, H), cx = cv.getContext('2d');
   cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
   // bloc de 3 lignes centré, au même endroit sur toutes les cartes (marge d'une ligne pleine centrée)
-  const lead = CTYPE.lead, y0 = CARD.h / 2 - lead + 1.2;
+  const lead = CTYPE.lead; let y0 = CARD.h / 2 - lead + 1.2;
   const lines = answerLines(text, answerMax(margin));
   first = first == null ? Math.max(0, lines.length - maxLines) : Math.max(0, Math.min(first, lines.length - 1));
   const shown = Math.min(lines.length, first + maxLines);
+  if (vcenter != null && shown > first) {
+    y0 = vcenter + 1.2 - (shown - first - 1) * lead / 2;
+    if (shown - first === 1) margin = Math.max(margin, (CARD.w - lines[first].length * CTYPE.pitch) / 2);
+  }
   const fontPx = CTYPE.size * PX;
   const glyph = new OffscreenCanvas(Math.ceil(fontPx * 1.6), Math.ceil(fontPx * 1.8)), gx = glyph.getContext('2d');
   const ox = glyph.width * 0.25, oyB = glyph.height * 0.72;

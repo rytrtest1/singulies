@@ -30,8 +30,7 @@ body { position: fixed; inset: 0; width: 100%; }
 .qz-go { margin: 18px 0 0; padding: 10px 0 10px .45em; border: 0; background: transparent; cursor: pointer; font: 500 14px/24px 'SG Garamond', Georgia, serif; letter-spacing: .45em;
   color: #fff; opacity: 0; transition: opacity .8s; pointer-events: none; -webkit-tap-highlight-color: transparent; }
 .qz-go.on { opacity: .62; pointer-events: auto; } .qz-go.on:hover { opacity: .85; }
-.qz-ok { position: fixed; left: 0; right: 0; text-align: center; margin: 0; padding: 0 0 0 .45em; font: 500 14px/24px 'SG Garamond', Georgia, serif; letter-spacing: .45em; color: #fff; opacity: 0; transition: opacity 1.4s; pointer-events: none; z-index: 13; }
-.qz-ok.on { opacity: .62; }
+.qz-ok { position: fixed; left: 0; right: 0; text-align: center; margin: 0; padding: 0 24px; white-space: pre; font: 13px/1.9 'SG Machine', 'Courier New', monospace; color: #aeaeae; letter-spacing: .02em; pointer-events: none; z-index: 13; }
 `;
 
 installCount('question');
@@ -51,13 +50,18 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
   const inv = el('p', '', ct); inv.innerHTML = 'ton email ou ton @,<br>pour un poème inspiré de ta réponse';
   const ci = el('input', '', ct); Object.assign(ci, { type: 'text', spellcheck: false, name: 'contact', placeholder: 'email · @' });
   ci.setAttribute('autocomplete', 'email'); ci.setAttribute('autocapitalize', 'none'); ci.setAttribute('autocorrect', 'off'); ci.setAttribute('enterkeyhint', 'send'); ci.setAttribute('aria-label', 'Ton email ou ton @');
-  const go = el('button', 'qz-go', ct); go.type = 'button'; go.textContent = 'ENVOYER';
-  const ok = el('p', 'qz-ok'); ok.textContent = 'reçu. je t’écris.';
+  const ok = el('p', 'qz-ok');
+  // « reçu / je t'écris » : deux lignes, sans point, tapé à la machine (frappe un peu irrégulière)
+  const typeOk = () => {
+    const txt = 'reçu\nje t’écris'; let i = 0;
+    const step = () => { ok.textContent = txt.slice(0, ++i); if (i < txt.length) setTimeout(step, txt[i - 1] === '\n' ? 420 : 70 + Math.random() * 70); };
+    setTimeout(step, 250);
+  };
   const sr = el('div', 'qz-sr'); sr.setAttribute('aria-live', 'polite');
   const say = t => { sr.textContent = ''; setTimeout(() => { sr.textContent = t; }, 60); };
 
   const t0 = performance.now(), now = () => (performance.now() - t0) / 1000;
-  let current = null, sent = null, done = false, drew = false;      // sent : { id, text, ref } une fois la réponse partie
+  let current = null, sent = null, done = false, drew = false, sentAt = 0, ctShown = false, lowPrev = -1, still = 0, lockLow = 0;      // sent : { id, text, ref } une fois la réponse partie
   const ref = 'Q' + Date.now().toString(36).toUpperCase().slice(-6) + Math.floor(Math.random() * 36).toString(36).toUpperCase();
 
   // ?q=<id> : la première question tirée est celle-là (le paquet reste face cachée, au toucher) ; ensuite, comme toujours, une autre au hasard
@@ -94,7 +98,7 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
     sendReponseJeu(sent); count('question/reponse');
     scene.stopWriting();
     ci.focus({ preventScroll: true });               // dans le même geste : le clavier de l'iPhone ne se ferme pas
-    ct.classList.add('on');
+    sentAt = performance.now();                       // le bloc du contact ne paraît qu'une fois la carte réponse immobile (voir la boucle)
     return true;
   }
   ta.addEventListener('input', () => {
@@ -116,12 +120,10 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
     const c = ci.value.trim();
     if (c.length < 3 || done || !sent) return;
     done = true; sendReponseJeu({ ...sent, contact: c }); count('question/contact');
-    ci.blur(); ci.readOnly = true; go.classList.remove('on'); ct.style.opacity = '0.0'; ct.style.pointerEvents = 'none';
-    ok.classList.add('on');
+    ci.blur(); ci.readOnly = true; ct.style.opacity = '0.0'; ct.style.pointerEvents = 'none';
+    typeOk();
   }
   ci.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); sendContact(); } });
-  ci.addEventListener('input', () => go.classList.toggle('on', ci.value.trim().length >= 3));
-  go.addEventListener('click', sendContact);
 
   // ---- clavier mobile ----
   const vv = window.visualViewport;
@@ -145,8 +147,13 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
     // le contact : juste sous la carte réponse (au-dessus du clavier s'il est là)
     const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;
     const low = scene.lowestBottom ? scene.lowestBottom() : (r ? r.bottom : innerHeight * 0.7);
-    ct.style.top = Math.max(8, Math.min(low + 22, kbTop - ct.offsetHeight - 14)) + 'px';
-    ok.style.top = Math.min(low + 40, kbTop - 60) + 'px';
+    // (la carte réponse glisse vers le bas pendant ≈ 0,7 s après Entrée) : le contact attend qu'elle soit immobile, puis paraît à sa place définitive, qui ne bouge plus
+    if (sent && !ctShown) {
+      still = Math.abs(low - lowPrev) < 0.4 ? still + 1 : 0; lowPrev = low;
+      if (still >= 10 && performance.now() - sentAt > 600) { ctShown = true; lockLow = low; ct.classList.add('on'); }
+    }
+    ct.style.top = Math.max(8, Math.min((ctShown ? lockLow : low) + 22, kbTop - ct.offsetHeight - 14)) + 'px';
+    ok.style.top = Math.min((ctShown ? lockLow : low) + 40, kbTop - 60) + 'px';
     shareEl.classList.toggle('on', P.get('partage') === '1' && current != null && !sent);
     shareEl.style.cssText = 'position:fixed;left:0;right:0;bottom:' + (Math.max(94, H * 0.105) + 16) + 'px;margin:0;z-index:13;';
     const br = reduced ? { x: 0, y: 0 } : { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };

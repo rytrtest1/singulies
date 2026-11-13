@@ -342,7 +342,9 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const mg = c === answer && question ? question.margin : undefined;    // aligné sur la question
     // invitation en grisé tant que rien n'est écrit : la réponse fait le thème du poème ; la carte blanche : son thème
     const hint = jeu ? hintAnswer : c === blank ? HINT_BLANK : HINT_ANSWER;
-    const m = c.place === 'peek' ? makeStripInk(c.text, sd, mg, hint) : makeAnswerInk(c.text, sd, LINES, writing ? null : c.first, mg, hint);
+    // (question.html) jeu : la question recouvre le haut de la carte réponse posée dessous — le texte se centre dans la partie visible
+    const ov = jeu && jw ? Math.max(0, lay.yAns - lay.yDeck + CARD.h) : 0, vc = jeu && jw ? (ov + CARD.h) / 2 : null;
+    const m = c.place === 'peek' ? makeStripInk(c.text, sd, mg, hint) : makeAnswerInk(c.text, sd, LINES, writing ? null : c.first, mg, hint, vc);
     if (c.ink) card.freeInk(c.ink);
     c.ink = card.makeInk(m.canvas, !!m.hinted); releaseCanvas(m.canvas); c.inkRG = !!m.hinted; c.cursorMM = m.cursor; c.count = m.count;
   }
