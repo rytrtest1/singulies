@@ -121,8 +121,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   let deckDY = 0;
   const deckPose = (i, v) => ({ x: v.jx, y: lay.yDeck + deckDY + v.jy, z: i * PITCH, rx: 0, ry: 0, rz: v.jr });
   const centerPose = (v, dx = 0) => ({ x: v.jx * 3 + 1.2 + dx, y: lay.yDeck + v.jy * 2 - 0.8, z: FACE_Z, rx: 0, ry: Math.PI, rz: v.jr * 1.5 + dx * 0.0015 });
-  // (question.html) jeu : la réponse validée se pose PAR-DESSUS la question, à sa place, un peu décalée, et la recouvre
-  const coverPose = v => ({ x: v.jx + 1.2, y: lay.yDeck + v.jy - 1.6, z: FACE_Z + 2.4, rx: 0, ry: Math.PI, rz: v.jr * 0.5 + 0.012 });
+  // (question.html) jeu : la réponse validée ressort de dessous le paquet et se pose PAR-DESSUS la question, plus bas : on lit toujours la question
+  const coverPose = v => ({ x: v.jx + 1.2, y: lay.yDeck + v.jy - CARD.h * 0.78, z: FACE_Z + 2.4, rx: 0, ry: Math.PI, rz: v.jr * 0.5 + 0.012 });   // un peu plus bas que la question : on la lit toujours
   const answerPose = v => jeu && jw ? coverPose(v) : ({ x: v.jx, y: lay.yAns + v.jy, z: -0.8, rx: 0, ry: Math.PI, rz: v.jr });
   // carte blanche au repos : en bas de l'écran, son haut vers 82 % (le bas sort de l'écran, le texte au centre
   // reste visible) ; out = rangée sous l'écran ; bob = petit saut « touche-moi » toutes les 4,5 s
@@ -178,7 +178,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
   function moveAnswer(t, place) {
     if (!answer || answer.place === place) return;
     answer.from = poseOf(answer, t); answer.place = place; answer.anim = 'move'; answer.t0 = t; answer.dur = MOVE_T;
-    if (jeu && jw && place === 'below') { const c = coverPose(answer.v); answer.from = { ...c, y: c.y + lay.Hw * 0.62, z: c.z + 5, rz: c.rz - 0.07 }; answer.dur = MOVE_T * 1.5; }   // (par le haut, par-dessus)
+    if (jeu && jw && place === 'below') answer.dur = MOVE_T * 1.7;   // (trois temps, voir poseOf)
   }
   function poseOf(c, t) {
     const u = clamp01((t - c.t0) / c.dur);
@@ -214,6 +214,14 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       return p;
     }
     if (c.anim === 'move') {                          // déplacement de la carte réponse (dessous ↔ bande, centre)
+      if (jeu && jw && c.place === 'below') {          // sort de dessous le paquet (derrière tout), se dégage de la question, passe devant, puis remonte se poser dessus
+        const a = c.from, b = restPose(c), yLow = lay.yDeck + c.v.jy - CARD.h * 1.06, e = ease(u);
+        const d1 = ease(sstep(0, 0.38, u)), d2 = sstep(0.38, 0.58, u), d3 = ease(sstep(0.58, 1, u));
+        const p = lerpPose(a, b, e);
+        p.y = u < 0.58 ? lerp(a.y, Math.min(a.y, yLow), d1) : lerp(Math.min(a.y, yLow), b.y, d3);
+        p.z = lerp(a.z, b.z, d2);
+        return p;
+      }
       const a = c.from, b = restPose(c), e = ease(u), p = lerpPose(a, b, e);
       // ne quitte (ou ne rejoint) la hauteur « sous la question » qu'une fois dégagée
       p.z = b.z < a.z ? lerp(a.z, b.z, sstep(0.6, 1, u)) : lerp(a.z, b.z, sstep(0, 0.4, u));

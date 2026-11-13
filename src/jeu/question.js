@@ -77,7 +77,7 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
     try { await navigator.clipboard.writeText(link); shareEl.textContent = 'LIEN COPIE'; } catch { shareEl.textContent = link; }
     setTimeout(() => { shareEl.textContent = 'PARTAGER'; }, 1800);
   });
-  const scene = await createCardScene(gl, { base: BASE, jeu: true, jeuWrite: true, autoWrite: false, deckAt: 0.6, hintAnswer: 'écris ta réponse ici', firstQ: qParam,
+  const scene = await createCardScene(gl, { base: BASE, jeu: true, jeuWrite: true, autoWrite: false, deckAt: 0.5, hintAnswer: 'écris ta réponse ici', firstQ: qParam,
     on: {
       draw: d => {
         current = d.id; const q = QUESTIONS.find(x => x.id === d.id)?.q; if (q) { ta.setAttribute('aria-label', 'Ta réponse à : ' + q); say(q); }
@@ -149,8 +149,8 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
     const low = scene.lowestBottom ? scene.lowestBottom() : (r ? r.bottom : innerHeight * 0.7);
     // (la carte réponse glisse vers le bas pendant ≈ 0,7 s après Entrée) : le contact attend qu'elle soit immobile, puis paraît à sa place définitive, qui ne bouge plus
     if (sent && !ctShown) {
-      still = Math.abs(low - lowPrev) < 0.4 ? still + 1 : 0; lowPrev = low;
-      if (still >= 10 && performance.now() - sentAt > 600) { ctShown = true; lockLow = low; ct.classList.add('on'); }
+      still = low > 100 && Math.abs(low - lowPrev) < 0.4 ? still + 1 : 0; lowPrev = low;   // (low : jamais pris tant que la scène n'a pas de mesure valable)
+      if (still >= 10 && performance.now() - sentAt > 1750) { ctShown = true; lockLow = low; ct.classList.add('on'); }
     }
     ct.style.top = Math.max(8, Math.min((ctShown ? lockLow : low) + 22, kbTop - ct.offsetHeight - 14)) + 'px';
     ok.style.top = Math.min((ctShown ? lockLow : low) + 40, kbTop - 60) + 'px';
