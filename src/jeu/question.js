@@ -47,8 +47,8 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
   const el = (tag, cls, parent = document.body) => { const e = document.createElement(tag); e.className = cls; parent.appendChild(e); return e; };
   const ta = el('textarea', 'qz-in'); Object.assign(ta, { autocomplete: 'off', spellcheck: false }); ta.setAttribute('autocapitalize', 'none'); ta.setAttribute('autocorrect', 'off'); ta.setAttribute('enterkeyhint', 'send'); ta.setAttribute('aria-label', 'Ta réponse');
   const ct = el('div', 'qz-ct');
-  const ci = el('input', '', ct); Object.assign(ci, { type: 'text', spellcheck: false, name: 'contact', placeholder: 'email · @' });
-  ci.setAttribute('autocomplete', 'email'); ci.setAttribute('autocapitalize', 'none'); ci.setAttribute('autocorrect', 'off'); ci.setAttribute('enterkeyhint', 'send'); ci.setAttribute('aria-label', 'Ton email ou ton @');
+  const ci = el('input', '', ct); Object.assign(ci, { type: 'text', spellcheck: false, name: 'contact', placeholder: 'email' });
+  ci.setAttribute('autocomplete', 'email'); ci.setAttribute('inputmode', 'email'); ci.setAttribute('autocapitalize', 'none'); ci.setAttribute('autocorrect', 'off'); ci.setAttribute('enterkeyhint', 'send'); ci.setAttribute('aria-label', 'Ton email');
   const inv = el('p', '', ct); inv.textContent = 'pour un poème inspiré de ta réponse';
   const ok = el('p', 'qz-ok');
   // « reçu / je t'écris » : deux lignes, sans point, tapé à la machine (frappe un peu irrégulière)
@@ -61,7 +61,8 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
   const say = t => { sr.textContent = ''; setTimeout(() => { sr.textContent = t; }, 60); };
 
   const t0 = performance.now(), now = () => (performance.now() - t0) / 1000;
-  let current = null, sent = null, done = false, drew = false, sentAt = 0, ctShown = false, lowPrev = -1, still = 0, lockLow = 0;      // sent : { id, text, ref } une fois la réponse partie
+  let current = null, sent = null, done = false, drew = false, editing = false, contactVal = '', sentAt = 0, ctShown = false, lowPrev = -1, still = 0, lockLow = 0;      // sent : { id, text, ref } une fois la réponse partie
+  const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   const ref = 'Q' + Date.now().toString(36).toUpperCase().slice(-6) + Math.floor(Math.random() * 36).toString(36).toUpperCase();
 
   // ?q=<id> : la première question tirée est celle-là (le paquet reste face cachée, au toucher) ; ensuite, comme toujours, une autre au hasard
@@ -83,7 +84,7 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
         current = d.id; const q = QUESTIONS.find(x => x.id === d.id)?.q; if (q) { ta.setAttribute('aria-label', 'Ta réponse à : ' + q); say(q); }
         try { history.replaceState(history.state, '', linkOf(d.id) + (P.get('envoi') ? '&envoi=' + encodeURIComponent(P.get('envoi')) : '') + (P.get('partage') ? '&partage=' + encodeURIComponent(P.get('partage')) : '')); } catch { /* */ }   // l'adresse suit la question : on peut la copier
       },
-      write: () => { if (document.activeElement !== ta && !sent) ta.focus({ preventScroll: true }); },
+      write: () => { if (document.activeElement !== ta && (!sent || editing)) ta.focus({ preventScroll: true }); },
       text: d => { if (ta.value !== d.text) { ta.value = d.text; try { ta.setSelectionRange(d.text.length, d.text.length); } catch { /* */ } } },
     } });
   scene.setName('');
@@ -93,33 +94,36 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
   // ---- l'envoi : Entrée / « OK » = la réponse part ; la même touche ouvre le contact (le clavier reste) ----
   function submit() {
     const text = ta.value.replace(/[\r\n]+/g, ' ').trim();
-    if (!text || sent || current == null) return false;
-    sent = { id: current, text, ref };
-    sendReponseJeu(sent); count('question/reponse');
+    if (!text || current == null || (sent && !editing)) return false;
+    const again = !!sent;                                  // une correction : la réponse repart (même référence), avec l'email s'il est donné
+    sent = { id: current, text, ref }; editing = false;
+    sendReponseJeu({ ...sent, corrige: again, contact: done ? contactVal : undefined }); count(again ? 'question/correction' : 'question/reponse');
     scene.stopWriting(); scene.freeze(true);          // une fois répondu : les cartes ne bougent plus, seule la lumière respire
+    if (again) { if (done) ta.blur(); else ci.focus({ preventScroll: true }); return true; }
     ci.focus({ preventScroll: true });               // dans le même geste : le clavier de l'iPhone ne se ferme pas
     sentAt = performance.now();                       // le bloc du contact ne paraît qu'une fois la carte réponse immobile (voir la boucle)
     return true;
   }
   ta.addEventListener('input', () => {
-    if (sent) { ta.value = sent.text; return; }
+    if (sent && !editing) { ta.value = sent.text; return; }
     if (/[\r\n]/.test(ta.value)) { ta.value = ta.value.replace(/[\r\n]+/g, ' ').replace(/ +$/, ''); scene.setText(ta.value); submit(); return; }
     scene.setText(ta.value);
   });
   ta.addEventListener('keydown', e => { if (e.key !== 'Enter' || e.isComposing) return; e.preventDefault(); submit(); });
-  ta.addEventListener('focus', () => { if (!sent && !scene.state().writing) scene.startWriting(); });
+  ta.addEventListener('focus', () => { if (sent && !editing) editing = true; if ((!sent || editing) && !scene.state().writing) scene.startWriting(); });   // toucher la réponse envoyée = la corriger sur place
   let lastPD = -1e9; addEventListener('pointerdown', () => { lastPD = performance.now(); }, true);
   // « OK » de l'iPhone : clavier fermé avec une réponse écrite = envoyée (sauf si la fermeture vient d'un toucher ailleurs)
   ta.addEventListener('blur', e => {
     if (e.relatedTarget === ci) return;
-    if (!sent && ta.value.trim() && performance.now() - lastPD > 400) { submit(); return; }
+    if ((!sent || editing) && ta.value.trim() && performance.now() - lastPD > 400) { submit(); return; }
+    if (editing) editing = false;
     scene.stopWriting();
   });
 
   function sendContact() {
     const c = ci.value.trim();
-    if (c.length < 3 || done || !sent) return;
-    done = true; sendReponseJeu({ ...sent, contact: c }); count('question/contact');
+    if (!EMAIL.test(c) || done || !sent) return;          // un email valable seulement
+    done = true; contactVal = c; sendReponseJeu({ ...sent, contact: c }); count('question/contact');
     ci.blur(); ci.readOnly = true; ct.style.opacity = '0.0'; ct.style.pointerEvents = 'none';
     typeOk();
   }
@@ -142,7 +146,7 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
     scene.frame(t, dt, W, H);
     // le champ natif posé, invisible, sur la carte réponse : le toucher ouvre le clavier (iPhone : seul un toucher direct l'ouvre)
     const r = scene.activeRect();
-    if (r && !sent) { Object.assign(ta.style, { left: r.left + 'px', top: r.top + 'px', width: (r.right - r.left) + 'px', height: (r.bottom - r.top) + 'px' }); }
+    if (r) { Object.assign(ta.style, { left: r.left + 'px', top: r.top + 'px', width: (r.right - r.left) + 'px', height: (r.bottom - r.top) + 'px' }); }
     else { ta.style.width = '1px'; ta.style.height = '1px'; }
     // le contact : juste sous la carte réponse (au-dessus du clavier s'il est là)
     const kbTop = vv ? vv.offsetTop + vv.height : innerHeight;

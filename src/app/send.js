@@ -252,7 +252,7 @@ function contactLien(c) {
 export function sendReponseJeu(d) {      // { id, text, contact?, ref }
   if (OFF || LOCAL) return false;
   const p = params({ name: '', kind: 'reponse', id: d.id, text: d.text });
-  const lab = d.contact ? 'réponse du jeu + contact (lien question)' : 'réponse du jeu (lien question), pas encore de contact';
+  const lab = (d.corrige ? 'réponse CORRIGEE, ' : '') + (d.contact ? 'réponse du jeu + contact (lien question)' : 'réponse du jeu (lien question), pas encore de contact');
   const c = d.contact ? contactLien(d.contact) : null;
   Object.assign(p, {
     genre: lab, mode: lab + ' · réf. ' + d.ref, prenom: '', prenom_html: '', colonne_html: '', contact: d.contact || '',

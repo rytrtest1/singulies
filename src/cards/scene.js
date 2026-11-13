@@ -382,7 +382,7 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
     const answer = act();
     if (!answer || ended || (jeu && !jw)) return false;
     writing = true;
-    if (question && answer.place === 'below') moveAnswer(lastT, 'peek');     // retour dans la bande sous la question
+    if (question && answer.place === 'below' && !(jeu && jw)) moveAnswer(lastT, 'peek');     // retour dans la bande sous la question (question.html : on corrige sur place)
     renderAnswer(); emit('write', {}); return true;
   }
   // Entrée / « terminé » : la carte réponse sort dessous et montre ses trois premières lignes
