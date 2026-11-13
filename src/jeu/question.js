@@ -60,9 +60,25 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
   let current = null, sent = null, done = false, drew = false;      // sent : { id, text, ref } une fois la réponse partie
   const ref = 'Q' + Date.now().toString(36).toUpperCase().slice(-6) + Math.floor(Math.random() * 36).toString(36).toUpperCase();
 
-  const scene = await createCardScene(gl, { base: BASE, jeu: true, jeuWrite: true, autoWrite: false, deckAt: 0.6, hintAnswer: 'écris ta réponse ici',
+  // ?q=<id> : la première question tirée est celle-là (le paquet reste face cachée, au toucher) ; ensuite, comme toujours, une autre au hasard
+  const P = new URLSearchParams(location.search);
+  const qParam = /^\d+$/.test(P.get('q') || '') && QUESTIONS.some(x => x.id === +P.get('q')) ? +P.get('q') : null;
+  // ?partage=1 (pour toi) : un signe PARTAGER sous les cartes, qui partage / copie le lien de la question en cours
+  const shareEl = el('button', 'qz-go qz-share'); shareEl.type = 'button'; shareEl.textContent = 'PARTAGER';
+  const linkOf = id => { const u = new URL(location.href); u.search = ''; u.hash = ''; u.searchParams.set('q', id); return u.href; };
+  shareEl.addEventListener('click', async () => {
+    if (current == null) return;
+    const link = linkOf(current), q = (QUESTIONS.find(x => x.id === current)?.q || '').toLowerCase();
+    try { if (navigator.share) { await navigator.share({ title: 'SINGULIES', text: '« ' + q + ' »', url: link }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(link); shareEl.textContent = 'LIEN COPIE'; } catch { shareEl.textContent = link; }
+    setTimeout(() => { shareEl.textContent = 'PARTAGER'; }, 1800);
+  });
+  const scene = await createCardScene(gl, { base: BASE, jeu: true, jeuWrite: true, autoWrite: false, deckAt: 0.6, hintAnswer: 'écris ta réponse ici', firstQ: qParam,
     on: {
-      draw: d => { current = d.id; const q = QUESTIONS.find(x => x.id === d.id)?.q; if (q) { ta.setAttribute('aria-label', 'Ta réponse à : ' + q); say(q); } },
+      draw: d => {
+        current = d.id; const q = QUESTIONS.find(x => x.id === d.id)?.q; if (q) { ta.setAttribute('aria-label', 'Ta réponse à : ' + q); say(q); }
+        try { history.replaceState(history.state, '', linkOf(d.id) + (P.get('envoi') ? '&envoi=' + encodeURIComponent(P.get('envoi')) : '') + (P.get('partage') ? '&partage=' + encodeURIComponent(P.get('partage')) : '')); } catch { /* */ }   // l'adresse suit la question : on peut la copier
+      },
       write: () => { if (document.activeElement !== ta && !sent) ta.focus({ preventScroll: true }); },
       text: d => { if (ta.value !== d.text) { ta.value = d.text; try { ta.setSelectionRange(d.text.length, d.text.length); } catch { /* */ } } },
     } });
@@ -131,6 +147,8 @@ const st = document.createElement('style'); st.textContent = CSS; document.head.
     const low = scene.lowestBottom ? scene.lowestBottom() : (r ? r.bottom : innerHeight * 0.7);
     ct.style.top = Math.max(8, Math.min(low + 22, kbTop - ct.offsetHeight - 14)) + 'px';
     ok.style.top = Math.min(low + 40, kbTop - 60) + 'px';
+    shareEl.classList.toggle('on', P.get('partage') === '1' && current != null && !sent);
+    shareEl.style.cssText = 'position:fixed;left:0;right:0;bottom:' + (Math.max(94, H * 0.105) + 16) + 'px;margin:0;z-index:13;';
     const br = reduced ? { x: 0, y: 0 } : { x: 0.42 * Math.sin(t * 0.52) + 0.16 * Math.sin(t * 0.97 + 1), y: 0.32 * Math.sin(t * 0.41 + 2) + 0.12 * Math.sin(t * 0.83) };
     scene.setTilt(ptr.x + 0.4 * br.x, ptr.y + 0.4 * br.y);
     requestAnimationFrame(frame);
