@@ -712,7 +712,8 @@ export async function createCardScene(gl, { base = './', seed = (Math.random() *
       // sinon, pendant les images qui suivent, il revenait à notre place (une carte droite au niveau de la première)
       if (t - relay.t0 >= relay.dur && !relay.fin) { const d = relay.done; if (relay.dir === 'out') relay.fin = true; else relay = null; d && d(); }
     }
-    const Ga = !ended && answer && answer.place === 'below' && !answer.anim ? group(0, lay.yAns, 0, 2.3, wA) : Gq;
+    // (question.html) jeu : la question recouvre le haut de la carte réponse — un seul bloc, jamais deux respirations indépendantes (les bords se traversaient, et saut à Entrée)
+    const Ga = !ended && answer && answer.place === 'below' && !answer.anim && !(jeu && jw) ? group(0, lay.yAns, 0, 2.3, wA) : Gq;
     const Gb = !ended && blank && blank.place === 'up' && !blank.anim ? group(0, lay.yDeck + (blank.bf ? bfDY() : 0), 0, 2.3, wA) : group(0, bp ? bp.y : 0, 0, 4.1, 0);
     const endFade = ended && !(toSheet && ended.kind !== 'improvisation') ? 1 - sstep(0.15, 1, ease(clamp01((te - 0.9) / 1.6))) : 1;   // la carte se fond en descendant
     const deckFade = ended ? 1 - sstep(0.3, 1.6, te) : 1;           // le paquet s'efface pendant que la paire part
