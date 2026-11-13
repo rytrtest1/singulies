@@ -289,6 +289,8 @@ export function installNav(opts) {
   const slideEl = (el, from, to, ms) => { try { el.animate([{ translate: `${from}px 0` }, { translate: `${to}px 0` }], { duration: ms, easing: 'cubic-bezier(.45,.05,.25,1)', fill: 'both' }); } catch { /* */ } };
   function openSection(x) {
     const cur = ovTop();
+    // (question.html) opts.subHome : la page elle-même tient lieu de cet onglet — le choisir referme la page ouverte, rien d'autre
+    if (opts.subHome && x === opts.subHome) { if (cur) closeAll(); return; }
     if (cur && cur.dataset.x === x) return;
     const n = SECTION.length, i = SECTION.findIndex(a => a[0] === cur?.dataset.x), j = SECTION.findIndex(a => a[0] === x);
     const dir = cur && i >= 0 && !reduced ? Math.sign(((j - i + n + Math.floor(n / 2)) % n) - Math.floor(n / 2)) || 1 : 0;
@@ -386,7 +388,7 @@ export function installNav(opts) {
     void str.offsetWidth; str.classList.remove('nt'); subEl = m;
   };
   function subLayout(anim) {
-    const x = ovTop()?.dataset.x || null;
+    const x = ovTop()?.dataset.x || opts.subHome || null;
     if (x === subCur) return;
     subCur = x;
     if (!x) return;
@@ -696,7 +698,7 @@ export function installNav(opts) {
     hd.querySelector('.nv-bk').classList.toggle('off', !canBack());
     hd.classList.toggle('nomenu', atHome() && !!opts.menuShow && !opts.menuShow());
     // (17/10, Maxence : « garde plutôt le nom de la page ») le titre du haut : ETERNEL, ou le nom de la page du menu ouverte
-    { const ov = !!ovTop() || switching; sub.classList.toggle('on', ov); secBg.classList.toggle('on', ov); secTop.classList.toggle('on', ov); if (!ov) sub.classList.remove('seen'); root.classList.toggle('under', ov); if (ovTop()) subLayout(); }
+    { const ov = !!ovTop() || switching, subOn = ov || !!opts.subHome; sub.classList.toggle('on', subOn); secBg.classList.toggle('on', ov); secTop.classList.toggle('on', ov); if (!subOn) sub.classList.remove('seen'); root.classList.toggle('under', ov); if (ovTop() || opts.subHome) subLayout(); }
     if (f !== footOn) { footOn = f; foot.classList.toggle('on', f); if (f) layout(); }
     root.classList.toggle('solo', solo);
     root.classList.toggle('redo', atHome() && !!opts.redo?.());
